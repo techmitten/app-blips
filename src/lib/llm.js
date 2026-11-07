@@ -15,8 +15,7 @@ import { getAuthToken, hasAuthSession } from './authToken';
 import { reviewGeneratedCode, formatReviewReport } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
-  MAX_RESEARCH_SEARCHES, WEB_RESEARCH_SYSTEM_PROMPT, WEB_SEARCH_GUIDANCE, WEB_SEARCH_TOOL,
-  createWebSearchBudget, executeWebSearch, formatWebResearch, isWebSearchCall, isWebSearchEnabled,
+  MAX_RESEARCH_SEARCHES, formatWebResearch, isWebFetchCall, isWebToolCall, researchPage, startWebSearch,
 } from './webSearch';
 import {
   SANDBOX_COMPUTER_GUIDANCE, SANDBOX_EXEC_TOOL, createSandboxBudget,
@@ -721,49 +720,57 @@ export const MAX_REFINEMENT_TURNS = 8;
 export const MAX_WEBSITE_REFINEMENT_TURNS = 14;
 // Before a new project's first build (one streamed reply with no tools), let
 // the model search the web for facts the request depends on, when the Tavily
-// connector is on. Returns a WEB RESEARCH block for the build request, or ''
-// when nothing was searched. Failures leave the build to go ahead without it.
+// connector is on or the user switched on plan web search for this prompt
+// (`web`, webSearch.js startWebSearch). Returns a WEB RESEARCH block for the
+// build request, or '' when nothing was found. Failures leave the build to go
+// ahead without it.
 const MAX_RESEARCH_TURNS = 2;
-const researchForBuild = async ({ requestText, signal, onChunk }) => {
-  const budget = createWebSearchBudget(MAX_RESEARCH_SEARCHES);
+// Plan web search can also read pages: search, then read, then finish.
+const MAX_PLAN_RESEARCH_TURNS = 3;
+const researchForBuild = async ({ requestText, signal, onChunk, web }) => {
   const messages = [
-    { role: 'system', content: WEB_RESEARCH_SYSTEM_PROMPT },
+    { role: 'system', content: web.researchPrompt },
     { role: 'user', content: `Request:\n${requestText}` },
   ];
   const found = [];
-  for (let turn = 1; turn <= MAX_RESEARCH_TURNS && budget.left > 0; turn++) {
+  const maxTurns = web.kind === 'plan' ? MAX_PLAN_RESEARCH_TURNS : MAX_RESEARCH_TURNS;
+  for (let turn = 1; turn <= maxTurns && web.canCall(); turn++) {
     const message = await requestModelText({
       messages,
-      tools: [WEB_SEARCH_TOOL],
+      tools: web.tools(),
       tool_choice: 'auto',
       reasoningEffort: CHAT_REASONING_EFFORT,
       signal,
     });
-    const calls = (message.tool_calls || []).filter(isWebSearchCall);
+    const calls = (message.tool_calls || []).filter(web.isCall);
     if (!calls.length) break;
     messages.push(assistantTurn(message));
     for (const toolCall of message.tool_calls) {
-      if (!isWebSearchCall(toolCall)) {
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: false, error: 'Only web_search is available.' }) });
+      if (!web.isCall(toolCall)) {
+        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: false, error: 'Only the web tools are available.' }) });
         continue;
       }
-      if (onChunk) onChunk('Searching the web…', 'status');
-      const result = await executeWebSearch(toolCall, budget);
-      if (result.success) found.push({ query: result.query, results: result.results });
+      if (onChunk) onChunk(describeToolCall(toolCall), 'status');
+      const result = await web.execute(toolCall);
+      if (result.success && isWebFetchCall(toolCall)) found.push(researchPage(result));
+      else if (result.success) found.push({ query: result.query, results: result.results });
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
   }
-  return formatWebResearch(found);
+  return formatWebResearch(found, web.researchChars);
 };
 
 export const MAX_LINK_REPAIR_ATTEMPTS = 2;
 const MAX_WEB_SEARCH_TURNS = 3;
+// Plan web search allows more calls (searches plus page reads) per prompt.
+const MAX_PLAN_WEB_TURNS = 6;
 export const MAX_SYNTAX_REPAIR_ATTEMPTS = 2;
 export const MAX_EMPTY_GENERATION_RETRIES = 2;
 
 export const describeToolCall = (toolCall) => {
   const name = toolCall.function?.name;
   if (name === 'web_search') return 'Searching the web…';
+  if (name === 'web_fetch') return 'Reading a web page…';
   if (name === 'run_sandbox_command') return 'Running command on your computer…';
   if (['list_sections', 'view_code', 'list_pages'].includes(name)) return 'Reviewing your build…';
   if (name === 'apply_surgical_edits') return 'Applying your changes…';
@@ -883,9 +890,16 @@ const generateAppCodeCore = async (
   // (click-to-edit's "Apply with AI" / right-click "Ask AI"): only these are
   // checked against My images. The quoted element names the picture already
   // on the page, which is not a request to use one.
-  galleryCheckPrompt = null
+  galleryCheckPrompt = null,
+  // Plan web search switched on by the user for this prompt only: the
+  // allowance from /api/billing/me (planWeb.js) or null. The AI then gets
+  // web_search and web_fetch through AppBlips, each call charged to the plan.
+  planWebSearch = null
 ) => {
   if (isAutoFix) markAutomaticRepair(signal);
+  // One session for the whole prompt, so its search and page-read limits
+  // hold across the research step, Ask answers and the edit loop.
+  const planWeb = planWebSearch && !isAutoFix ? startWebSearch({ plan: planWebSearch, signal }) : null;
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
   // Every code-writing call (build, edits, syntax/link/auto-fix repairs)
@@ -922,6 +936,7 @@ const generateAppCodeCore = async (
           + buildAskConnectorNote(getActiveConnectors(), studioMode, routedFromBuild)
           + (getActiveGallery().length ? `\n\n${buildImageGalleryNote(getActiveGallery(), studioMode)}` : '')
           + (askSandboxBudget ? `\n\n${SANDBOX_COMPUTER_GUIDANCE}` : '')
+          + (planWeb ? `\n\n${planWeb.guidance}` : '')
       },
       ...chatHistory,
       {
@@ -934,11 +949,18 @@ const generateAppCodeCore = async (
     ];
     const forward = routedFromBuild ? asRoutedAnswerChunks(onChunk) : onChunk;
     let rawText = '';
-    for (let turn = 1; turn <= 4; turn++) {
-      const last = turn === 4 || !askSandboxBudget || askSandboxBudget.left <= 0;
+    // Plan web search (switched on for this prompt) can take a few more turns:
+    // searches, then page reads, then the answer.
+    const askTurns = planWeb ? 4 + MAX_PLAN_WEB_TURNS : 4;
+    for (let turn = 1; turn <= askTurns; turn++) {
+      const askTools = [
+        ...(askSandboxBudget && askSandboxBudget.left > 0 ? [SANDBOX_EXEC_TOOL] : []),
+        ...(planWeb ? planWeb.tools() : []),
+      ];
+      const last = turn === askTurns || !askTools.length;
       const message = await requestModelText({
         messages,
-        tools: last ? undefined : [SANDBOX_EXEC_TOOL],
+        tools: last ? undefined : askTools,
         onChunk: forward,
         signal,
         reasoningEffort: CHAT_REASONING_EFFORT,
@@ -951,9 +973,11 @@ const generateAppCodeCore = async (
       messages.push(assistantTurn(message));
       for (const toolCall of message.tool_calls) {
         if (onChunk) onChunk(describeToolCall(toolCall), 'status');
-        const outcome = isSandboxToolCall(toolCall) && askSandboxBudget
-          ? await executeSandboxToolCall({ files: currentCode ? startFiles : {} }, toolCall, askSandboxBudget, { onChunk, signal })
-          : { result: { success: false, error: 'Tool not available in Ask mode.' } };
+        const outcome = planWeb?.isCall(toolCall)
+          ? { result: await planWeb.execute(toolCall) }
+          : isSandboxToolCall(toolCall) && askSandboxBudget
+            ? await executeSandboxToolCall({ files: currentCode ? startFiles : {} }, toolCall, askSandboxBudget, { onChunk, signal })
+            : { result: { success: false, error: 'Tool not available in Ask mode.' } };
         messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(outcome.result) });
       }
     }
@@ -1066,12 +1090,14 @@ const generateAppCodeCore = async (
 
   if (!currentCode) {
     let research = '';
-    if (!isAutoFix && isWebSearchEnabled()) {
+    const researchWeb = isAutoFix ? null : planWeb || startWebSearch({ searches: MAX_RESEARCH_SEARCHES });
+    if (researchWeb) {
       try {
         research = await researchForBuild({
           requestText: [...chatHistory.filter((m) => m.role === 'user' && typeof m.content === 'string').map((m) => m.content), prompt].join('\n'),
           signal,
           onChunk,
+          web: researchWeb,
         });
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
@@ -1218,13 +1244,14 @@ const generateAppCodeCore = async (
     return msg;
   });
 
-  // With the Tavily connector on, the model can also search the web.
-  const webSearch = isWebSearchEnabled() ? createWebSearchBudget() : null;
+  // With the Tavily connector on, or plan web search switched on for this
+  // prompt, the model can also search the web.
+  const webSearch = planWeb || startWebSearch();
   const sandboxBudget = isSandboxComputerEnabled() ? createSandboxBudget() : null;
   const systemPrompt = buildHtmlSystemPrompt(studioMode, getActiveConnectors());
   const fullSystemPrompt = [
     systemPrompt,
-    webSearch && WEB_SEARCH_GUIDANCE,
+    webSearch?.guidance,
     sandboxBudget && SANDBOX_COMPUTER_GUIDANCE,
   ].filter(Boolean).join('\n\n');
   const messages = [
@@ -1271,7 +1298,7 @@ const generateAppCodeCore = async (
 
     const currentTools = [
       ...getRefinementTools(studioMode),
-      ...(webSearch && webSearch.left > 0 ? [WEB_SEARCH_TOOL] : []),
+      ...(webSearch ? webSearch.tools() : []),
       ...(sandboxBudget && sandboxBudget.left > 0 ? [SANDBOX_EXEC_TOOL] : []),
     ];
 
@@ -1349,9 +1376,9 @@ const generateAppCodeCore = async (
       }
 
       if (onChunk) onChunk(describeToolCall(toolCall), 'status');
-      if (isWebSearchCall(toolCall)) {
-        const result = webSearch
-          ? await executeWebSearch(toolCall, webSearch)
+      if (isWebToolCall(toolCall)) {
+        const result = webSearch?.isCall(toolCall)
+          ? await webSearch.execute(toolCall)
           : { success: false, error: 'Web search is not available.' };
         messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
         continue;
@@ -1373,7 +1400,8 @@ const generateAppCodeCore = async (
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
     reportChangedPages(onChunk, turnStartFiles, workingFiles);
-    if (message.tool_calls.every(isWebSearchCall) && turnLimit < maxTurns + MAX_WEB_SEARCH_TURNS) turnLimit++;
+    const webTurns = webSearch?.kind === 'plan' ? MAX_PLAN_WEB_TURNS : MAX_WEB_SEARCH_TURNS;
+    if (message.tool_calls.every(isWebToolCall) && turnLimit < maxTurns + webTurns) turnLimit++;
 
     // After every edit-applying turn, parse the working code; if it no longer
     // parses, inject the errors as corrective context and let the model fix

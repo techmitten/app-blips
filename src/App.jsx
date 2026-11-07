@@ -68,6 +68,7 @@ import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_C
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
 import useChatFont from './hooks/useChatFont';
+import { usePlanWebSearch } from './hooks/usePlanWebSearch';
 import useProjects from './hooks/useProjects';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
@@ -300,6 +301,12 @@ export default function App({ coldStart = false }) {
     setActivePage(LANDING_PAGE);
   }, []);
   const [chatMode, setChatMode] = useState(loadChatMode); // 'build' or 'ask'
+  // Plan web search for the next prompt only (the prompt box's globe
+  // button): offered while the signed-in plan allows it, and switched off
+  // again as soon as a prompt takes it (handleGenerate).
+  const planWebSearch = usePlanWebSearch();
+  const [webSearchOn, setWebSearchOn] = useState(false);
+  const webSearchActive = webSearchOn && Boolean(planWebSearch);
   const [error, setError] = useState(null);
   const [generationStatus, setGenerationStatus] = useState(null);
   // Date.now() when the model started reasoning, until its first output
@@ -1679,6 +1686,10 @@ export default function App({ coldStart = false }) {
     // attachment is ephemeral (never persisted onto the version/chat history).
     const attachmentForRequest = attachment;
     setAttachment(null);
+    // Web search is for the prompt the user sent with it switched on, never
+    // for automatic repairs or review fixes, and it's off again afterwards.
+    const webSearchForRequest = !isAutoFix && !isReviewFix && webSearchActive ? planWebSearch : null;
+    if (webSearchForRequest) setWebSearchOn(false);
     setAttachmentError(null);
     setPendingAttachment(attachmentForRequest);
 
@@ -1851,8 +1862,12 @@ export default function App({ coldStart = false }) {
             }),
             maxReadOnlyTurns: isAutoFix && codebaseMeta?.environmentResolution === 'ai' ? 3 : 0,
             reasoningEffort: effectiveReasoningEffort,
+            planWebSearch: webSearchForRequest,
           })
-        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: effectiveReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt);
+        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: effectiveReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt, webSearchForRequest);
+      // The AI asked a clarifying question instead of building: the answer
+      // finishes this request, so it keeps web search switched on.
+      if (webSearchForRequest && generationResult?.editMode === 'clarify') setWebSearchOn(true);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1960,6 +1975,8 @@ export default function App({ coldStart = false }) {
       logError(isAutoFix ? 'Auto-fix failed' : 'Generation failed', err);
       setError(isAutoFix ? AUTO_FIX_FAILURE : err.message);
       if (!isAutoFix) setPrompt(currentPrompt); // Restore the user's request, never internal diagnostics
+      // ...with web search still switched on, if it was, for the retry.
+      if (webSearchForRequest) setWebSearchOn(true);
       // Clear the pending job on a hard error — user can see the error message
       // and re-submit themselves; stale job records would be confusing.
       clearPendingJob();
@@ -3127,6 +3144,9 @@ export default function App({ coldStart = false }) {
           onAttachScreenshot={handleAttachScreenshot}
           onAttachFile={handleAttachFile}
           onRemoveAttachment={handleRemoveAttachment}
+          planWebSearch={planWebSearch}
+          webSearch={webSearchActive}
+          onWebSearchChange={setWebSearchOn}
           starterIdeas={
             chatMode === 'ask'
               ? ASK_STARTER_PRESETS
@@ -3218,6 +3238,9 @@ export default function App({ coldStart = false }) {
               onAttachScreenshot={handleAttachScreenshot}
               onAttachFile={handleAttachFile}
               onRemoveAttachment={handleRemoveAttachment}
+              planWebSearch={planWebSearch}
+              webSearch={webSearchActive}
+              onWebSearchChange={setWebSearchOn}
               onNewChat={handleStartNewChat}
               isHistoryOpen={isHistoryOpen}
               onToggleHistory={() => setIsHistoryOpen((open) => !open)}

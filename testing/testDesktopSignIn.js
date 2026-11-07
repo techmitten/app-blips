@@ -70,10 +70,10 @@ const CLERK_KEY = 'pk_live_Y2xlcmsuYXBwYmxpcHMuY29tJA'; // clerk.appblips.com
   const req = (headers = {}) => new Request('appblips://app/api/chat', { method: 'POST', headers });
   assert.equal(isHostedRequest(req(), '/api/chat'), false, 'own-key chat is answered locally');
   assert.equal(isHostedRequest(req({ authorization: 'Bearer t' }), '/api/chat'), true, 'signed-in chat goes to the Worker');
-  for (const path of ['/api/billing', '/api/billing/status', '/api/sandbox', '/api/sandbox/start']) {
+  for (const path of ['/api/billing', '/api/billing/status', '/api/sandbox', '/api/sandbox/start', '/api/web/search', '/api/web/fetch']) {
     assert.equal(isHostedRequest(req(), path), true, path);
   }
-  for (const path of ['/api/billingx', '/api/provider', '/api/sandboxes', '/api/chat/x', '/api/surge']) {
+  for (const path of ['/api/billingx', '/api/provider', '/api/sandboxes', '/api/chat/x', '/api/surge', '/api/webx']) {
     assert.equal(isHostedRequest(req({ authorization: 'Bearer t' }), path), false, path);
   }
 }

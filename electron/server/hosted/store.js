@@ -7,7 +7,10 @@
 // still needs no node_modules at runtime.
 
 import { DatabaseSync } from 'node:sqlite';
-import { BUILD_WINDOW_COLUMNS, RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, takeBuildParams, windowResult } from './buildWindow.js';
+import {
+  BUILD_WINDOW_COLUMNS, CHARGE_USES_SQL, REFUND_USES_SQL, RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL,
+  chargeUsesParams, takeBuildParams, windowResult,
+} from './buildWindow.js';
 import { SET_CANCEL_AT_SQL, SET_SUBSCRIPTION_ID_SQL, SUBSCRIPTION_COLUMNS } from './subscriptionSql.js';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -133,6 +136,15 @@ export function openStore(file) {
     return windowResult(taken, taken ? null : windowStartSql.get(userId), options.windowMs, params[5]);
   };
   const releaseBuild = (userId, usageId = null, start = null) => { releaseBuildSql.run(userId, usageId, start ?? null); };
+  // Paid extras inside an action (plan web search, webTools.js).
+  const chargeUsesSql = db.prepare(CHARGE_USES_SQL);
+  const refundUsesSql = db.prepare(REFUND_USES_SQL);
+  const chargeUses = (userId, options) => {
+    const params = chargeUsesParams(userId, options);
+    const taken = chargeUsesSql.get(...params);
+    return windowResult(taken, taken ? null : windowStartSql.get(userId), options.windowMs, params[5]);
+  };
+  const refundUses = (userId, { uses = 1, start }) => { refundUsesSql.run(userId, uses, start); };
 
   // The Polar subscription (subscriptionSql.js), keyed by Clerk user.
   const setSubscriptionIdSql = db.prepare(SET_SUBSCRIPTION_ID_SQL);
@@ -148,7 +160,7 @@ export function openStore(file) {
   const deleteAccountSql = db.prepare('delete from accounts where user_id = ?');
   const deleteAccount = (userId) => { if (userId) deleteAccountSql.run(userId); };
 
-  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, deleteAccount, close: () => db.close() };
+  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, chargeUses, refundUses, setSubscriptionId, setCancelAt, deleteAccount, close: () => db.close() };
 }
 
 export const defaultDatabasePath = (env) => {

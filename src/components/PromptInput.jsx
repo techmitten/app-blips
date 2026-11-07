@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, X, Paperclip, Camera, Send, Mic } from 'lucide-react';
+import { Loader2, X, Paperclip, Camera, Send, Mic, Globe } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 
@@ -39,6 +39,11 @@ export default function PromptInput({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
+  // Plan web search for the next prompt: the plan's allowance
+  // ({ uses, searches, fetches }) when the button is offered, else null.
+  planWebSearch = null,
+  webSearch = false,
+  onWebSearchChange,
   voiceInput = false,
 }) {
   const textareaRef = useRef(null);
@@ -154,6 +159,12 @@ export default function PromptInput({
     onAttachFile(named);
   };
 
+  const showWebSearch = Boolean(planWebSearch && onWebSearchChange);
+  const webSearchCost = planWebSearch?.uses === 1 || !planWebSearch ? '1 use' : `${planWebSearch.uses} uses`;
+  const webSearchTitle = webSearch
+    ? 'Web search is on for this prompt. Click to turn it off.'
+    : `Search the web for this prompt. Each search or page read costs ${webSearchCost} from your plan.`;
+
   const isWebsite = studioMode === 'website';
   const noun = isWebsite ? 'Website' : studioMode === 'game' ? 'Game' : studioMode === 'codebase' ? 'Site' : 'App';
 
@@ -206,6 +217,11 @@ export default function PromptInput({
       )}
       {voiceError && (
         <p role="alert" className="px-3 sm:px-4 pt-2 text-xs font-semibold text-rose-600 dark:text-rose-400">{voiceError}</p>
+      )}
+      {showWebSearch && webSearch && !isGenerating && (
+        <p className="px-3 sm:px-4 pt-2 text-xs font-semibold text-slate-600 dark:text-white/60">
+          Web search is on for this prompt: up to {planWebSearch.searches} searches and {planWebSearch.fetches} page reads, {webSearchCost} each.
+        </p>
       )}
       <div className="relative">
         <textarea
@@ -268,6 +284,18 @@ export default function PromptInput({
                     className="chat-mode-option min-w-(--composer-key-size)! p-0!"
                   >
                     {isCapturingScreenshot ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} aria-hidden="true" />}
+                  </button>
+                )}
+                {showWebSearch && (
+                  <button
+                    type="button"
+                    onClick={() => onWebSearchChange(!webSearch)}
+                    aria-pressed={webSearch}
+                    aria-label={webSearchTitle}
+                    title={webSearchTitle}
+                    className="chat-mode-option prompt-web-search min-w-(--composer-key-size)! p-0!"
+                  >
+                    <Globe size={18} aria-hidden="true" />
                   </button>
                 )}
               </div>

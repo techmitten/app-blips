@@ -3,7 +3,10 @@
 // returns a Promise; the shared handlers await them either way. The tables
 // are created by worker/migrations, not here.
 
-import { RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL, takeBuildParams, windowResult } from '../electron/server/hosted/buildWindow.js';
+import {
+  CHARGE_USES_SQL, REFUND_USES_SQL, RELEASE_BUILD_SQL, TAKE_BUILD_SQL, WINDOW_START_SQL,
+  chargeUsesParams, takeBuildParams, windowResult,
+} from '../electron/server/hosted/buildWindow.js';
 import { SET_CANCEL_AT_SQL, SET_SUBSCRIPTION_ID_SQL } from '../electron/server/hosted/subscriptionSql.js';
 
 const now = () => new Date().toISOString();
@@ -68,6 +71,16 @@ export function d1Store(db) {
   const releaseBuild = async (userId, usageId = null, start = null) => {
     await db.prepare(RELEASE_BUILD_SQL).bind(userId, usageId ?? null, start ?? null).run();
   };
+  // Paid extras inside an action (plan web search, webTools.js).
+  const chargeUses = async (userId, options) => {
+    const params = chargeUsesParams(userId, options);
+    const taken = await db.prepare(CHARGE_USES_SQL).bind(...params).first();
+    const current = taken ? null : await db.prepare(WINDOW_START_SQL).bind(userId).first();
+    return windowResult(taken, current, options.windowMs, params[5]);
+  };
+  const refundUses = async (userId, { uses = 1, start }) => {
+    await db.prepare(REFUND_USES_SQL).bind(userId, uses, start).run();
+  };
 
   // The Polar subscription (subscriptionSql.js); columns from migrations/0003.
   const setSubscriptionId = async (userId, subscriptionId) => {
@@ -82,5 +95,5 @@ export function d1Store(db) {
     if (userId) await db.prepare('delete from accounts where user_id = ?').bind(userId).run();
   };
 
-  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, setSubscriptionId, setCancelAt, deleteAccount, close: () => {} };
+  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, chargeUses, refundUses, setSubscriptionId, setCancelAt, deleteAccount, close: () => {} };
 }

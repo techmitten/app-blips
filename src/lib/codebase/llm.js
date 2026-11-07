@@ -7,7 +7,7 @@ import { asRoutedAnswerChunks, describeFileChanges, findSetupHints, generateChat
 import { CODEBASE_READ_TOOLS, CODEBASE_TOOLS, describeCodebaseToolCall, executeCodebaseTool } from './tools.js';
 import { CODEBASE_ASK_PROMPT, CODEBASE_ROUTED_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
 import { changedProjectPaths, createCodebaseDiagnostics, toolDiagnostic } from './diagnostics.js';
-import { WEB_SEARCH_GUIDANCE, WEB_SEARCH_TOOL, createWebSearchBudget, executeWebSearch, isWebSearchCall, isWebSearchEnabled } from '../webSearch.js';
+import { startWebSearch } from '../webSearch.js';
 import {
   SANDBOX_COMPUTER_GUIDANCE, SANDBOX_EXEC_TOOL, createSandboxBudget,
   executeSandboxToolCall, isSandboxComputerEnabled, isSandboxToolCall,
@@ -56,7 +56,9 @@ const forwardChunks = (onChunk) => (chunk, kind) => {
 };
 
 // opts: { prompt, files, assets, meta, chatHistory, onChunk, signal, attachment,
-//   isAsk, isAutoFix, maxReadOnlyTurns, buildCheck(files, assets, { diagnostics }) -> Promise<{ errors }> }
+//   isAsk, isAutoFix, maxReadOnlyTurns, buildCheck(files, assets, { diagnostics }) -> Promise<{ errors }>,
+//   planWebSearch (plan web search switched on for this prompt: the allowance
+//   from /api/billing/me, or null) }
 // Returns { files, assets, editMode, editSummary, reply, buildErrors }.
 export async function generateCodebaseEdit(options) {
   if (options.isAutoFix) markAutomaticRepair(options.signal);
@@ -97,18 +99,21 @@ async function runCodebaseEdit({
   // Import preparation bounds reviewing before it requires an actual edit.
   // Ordinary editing and Ask mode keep their existing behavior.
   maxReadOnlyTurns = 0,
+  planWebSearch = null,
 }) {
   const status = (text) => onChunk?.(text, 'status');
   const context = formatCodebaseContext(files, assets, meta);
-  // With the Tavily connector on, edits can also search the web.
-  const webSearch = !isAsk && isWebSearchEnabled() ? createWebSearchBudget() : null;
+  // Plan web search, switched on by the user for this prompt, works in Ask
+  // mode too; the Tavily connector only in edits.
+  const planWeb = planWebSearch && !isAutoFix ? startWebSearch({ plan: planWebSearch, signal }) : null;
+  const webSearch = planWeb || (!isAsk ? startWebSearch() : null);
   // The sandbox runs commands in the person's own remote computer, so only a
   // request they typed gets it: not Ask mode (a question is read-only, and
   // the loop below never writes files back), and not automatic repairs,
   // which an error message written by the page itself can start.
   const sandboxBudget = !isAsk && !isAutoFix && isSandboxComputerEnabled() ? createSandboxBudget() : null;
   const basePrompt = isAsk ? (routedFromBuild ? CODEBASE_ROUTED_ASK_PROMPT : CODEBASE_ASK_PROMPT) : CODEBASE_SYSTEM_PROMPT;
-  const systemPrompt = [basePrompt, webSearch && WEB_SEARCH_GUIDANCE, sandboxBudget && SANDBOX_COMPUTER_GUIDANCE].filter(Boolean).join('\n\n');
+  const systemPrompt = [basePrompt, webSearch?.guidance, sandboxBudget && SANDBOX_COMPUTER_GUIDANCE].filter(Boolean).join('\n\n');
   const messages = [
     { role: 'system', content: systemPrompt },
     ...chatHistory,
@@ -120,7 +125,7 @@ async function runCodebaseEdit({
     for (let turn = 1; turn <= MAX_CODEBASE_ASK_TURNS; turn++) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
       const last = turn === MAX_CODEBASE_ASK_TURNS;
-      const askTools = CODEBASE_READ_TOOLS;
+      const askTools = [...CODEBASE_READ_TOOLS, ...(webSearch ? webSearch.tools() : [])];
       let streamed = '';
       const message = await requestModelText({
         messages,
@@ -141,7 +146,9 @@ async function runCodebaseEdit({
       for (const toolCall of message.tool_calls) {
         status(describeCodebaseToolCall(toolCall));
         const allowed = CODEBASE_READ_TOOLS.some((t) => t.function.name === toolCall.function?.name);
-        const { result } = allowed
+        const { result } = webSearch?.isCall(toolCall)
+          ? { result: await webSearch.execute(toolCall) }
+          : allowed
           ? executeCodebaseTool(state, toolCall)
           : { result: { success: false, error: 'Read-only mode: this tool is not available.' } };
         messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
@@ -207,7 +214,7 @@ async function runCodebaseEdit({
     const requireEdit = maxReadOnlyTurns > 0 && readOnlyTurns >= maxReadOnlyTurns
       && (!changed || buildErrors.length > 0) && !pendingFailures.size;
     const extraTools = [
-      ...(webSearch?.left > 0 ? [WEB_SEARCH_TOOL] : []),
+      ...(webSearch ? webSearch.tools() : []),
       ...(sandboxBudget?.left > 0 ? [SANDBOX_EXEC_TOOL] : []),
     ];
     const availableTools = requireEdit ? CODEBASE_TOOLS.filter((tool) => MUTATION_TOOLS.has(tool.function.name))
@@ -271,8 +278,8 @@ async function runCodebaseEdit({
     for (const toolCall of message.tool_calls) {
       status(describeCodebaseToolCall(toolCall));
       const allowed = availableTools.some((tool) => tool.function.name === toolCall.function?.name);
-      const outcome = isWebSearchCall(toolCall) && webSearch && !requireEdit
-        ? { state, applied: false, result: await executeWebSearch(toolCall, webSearch) }
+      const outcome = webSearch?.isCall(toolCall) && !requireEdit
+        ? { state, applied: false, result: await webSearch.execute(toolCall) }
         : isSandboxToolCall(toolCall) && sandboxBudget && !requireEdit
         ? await executeSandboxToolCall(state, toolCall, sandboxBudget, { onChunk, signal, kind: 'codebase' })
         : !requireEdit || allowed ? executeCodebaseTool(state, toolCall)

@@ -5,6 +5,7 @@
 
 import { getAuthToken } from './authToken';
 import { isDesktop } from './desktop';
+import { setPlanWebSearch } from './planWeb';
 
 const withAuth = async (init = {}) => {
   const token = await getAuthToken();
@@ -33,7 +34,11 @@ export async function fetchBillingMe() {
   try {
     const res = await fetch('/api/billing/me', await withAuth());
     if (!res.ok) return null;
-    return await res.json();
+    const me = await res.json();
+    // Every fresh answer also says whether plan web search is on offer
+    // (the prompt box's globe button, planWeb.js).
+    setPlanWebSearch(me?.active ? me.webSearch : null);
+    return me;
   } catch {
     return null;
   }

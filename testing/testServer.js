@@ -89,6 +89,13 @@ test('/api/chat: POST only, foreign origins refused, unconfigured provider expla
   assert.equal(own.headers['x-content-type-options'], 'nosniff');
 });
 
+test('/api/web (plan web search) does not exist without hosted plans', async () => {
+  for (const path of ['/api/web/search', '/api/web/fetch']) {
+    const res = await get(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"query":"x"}' });
+    assert.equal(res.status, 404, path);
+  }
+});
+
 test('other methods are refused', async () => {
   assert.equal((await get('/', { method: 'DELETE' })).status, 405);
 });
@@ -123,6 +130,9 @@ test('hosted mode: /api/chat needs a sign-in and the saved-key routes are off', 
   }
   const scan = await get('/api/seo/scan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://example.com' }) });
   assert.equal(scan.status, 401);
+  // Plan web search exists in hosted mode, for signed-in plan users only.
+  const web = await get('/api/web/search', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"query":"x"}' });
+  assert.equal(web.status, 401);
 });
 
 test('oversized request bodies are refused with 413', async () => {

@@ -69,6 +69,38 @@ export const RELEASE_BUILD_SQL = `
 
 export const WINDOW_START_SQL = 'select build_window_start as start, build_window_requests as requests from accounts where user_id = ?';
 
+// Charges `n` extra uses at once, for paid extras inside an action (a plan
+// web search or page read, hosted/webTools.js), before the work is done. Same
+// window and ceiling rules as TAKE_BUILD_SQL, but it never rides on a usage
+// id and leaves the last-id columns alone, so the prompt that made the call
+// keeps counting once. Unlike a repeat of the latest id, a charge is never
+// let through past the limit.
+//   ?1 user_id  ?2 cutoff (now - window)  ?3 now  ?4 use limit  ?5 n
+//   ?6 request ceiling
+export const CHARGE_USES_SQL = `
+  update accounts set
+    build_window_start = case when ${EXPIRED} then ?3 else build_window_start end,
+    build_window_count = case when ${EXPIRED} then ?5 else build_window_count + ?5 end,
+    build_window_requests = case when ${EXPIRED} then 1 else build_window_requests + 1 end
+  where user_id = ?1
+    and ((${EXPIRED}) or build_window_requests < ?6)
+    and ((${EXPIRED}) or build_window_count + ?5 <= ?4)
+    and ?5 <= ?4
+  returning build_window_start as start, build_window_count as count, 1 as counted
+`;
+
+// Gives back a charge whose work wasn't billed by the provider, only in the
+// window it was taken in. Requests are never given back.
+//   ?1 user_id  ?2 n  ?3 that window's start
+export const REFUND_USES_SQL = `
+  update accounts set build_window_count = build_window_count - ?2
+  where user_id = ?1 and build_window_count >= ?2 and build_window_start = ?3
+`;
+
+export const chargeUsesParams = (userId, { uses = 1, limit, requestLimit, windowMs, at = Date.now() }) => [
+  userId, at - windowMs, at, limit, uses, requestLimit ?? limit * REQUESTS_PER_USE,
+];
+
 // Older stores get the columns added in place (Node store; D1 has a migration).
 export const BUILD_WINDOW_COLUMNS = {
   build_window_start: 'alter table accounts add column build_window_start integer',

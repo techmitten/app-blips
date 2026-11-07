@@ -18,6 +18,7 @@ import { verifyClerkToken } from './electron/server/hosted/clerk.js'
 import { resolveAddresses } from './electron/server/dnsLookup.js'
 import { handleBilling } from './electron/server/hosted/billing.js'
 import { gateChat, releaseBuild } from './electron/server/hosted/chat.js'
+import { handleWebTools } from './electron/server/hosted/webTools.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { forwardToHosted } from './electron/hostedApi.js'
 import { hostAllowed } from './electron/server/hosts.js'
@@ -179,6 +180,20 @@ function llmProxyDevMiddleware(mode) {
       })
       server.middlewares.use('/api/billing', billing)
       server.middlewares.use('/api/webhooks/polar', billing)
+      // Plan web search (hosted/webTools.js): plan users only, like billing.
+      server.middlewares.use('/api/web', guarded(async (req, res) => {
+        if (hostedApiUrl) {
+          await forwardHosted(req, res)
+          return
+        }
+        if (!hosted) {
+          res.statusCode = 404
+          res.end('Web search for plans is not enabled.')
+          return
+        }
+        const response = await handleWebTools(await toFetchRequest(req, res), env, store)
+        sendWebResponse(res, response, {}, '[web]')
+      }))
       server.middlewares.use('/api/provider', guarded(async (req, res) => {
         if (hostedOnly(res)) return
         if (!hostAllowed(req.headers.host || '', env)) {

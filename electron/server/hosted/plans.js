@@ -9,6 +9,17 @@
 
 export const PLAN_IDS = ['basic', 'silver', 'max'];
 
+// Plan web search (hosted/webTools.js): what one search or page read costs in
+// uses, and how many of each one prompt may make (the client stops offering
+// the tools after that; the server's usage window bounds the rest).
+// DeepSeek bills $0.75 per 1,000 successful Search or Fetch requests, so
+// $0.00075 per call. One use of Basic is worth at least $5 / 7,200 (50 uses
+// every 5 hours for a month) ≈ $0.0007 of what the user pays, so one call is
+// charged as one use. Calls DeepSeek doesn't bill aren't charged either.
+export const WEB_CALL_USES = 1;
+export const MAX_WEB_SEARCHES = 3;
+export const MAX_WEB_FETCHES = 3;
+
 export const PLANS = Object.freeze({
   basic: {
     id: 'basic',

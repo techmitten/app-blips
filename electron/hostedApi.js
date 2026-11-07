@@ -55,7 +55,7 @@ const CLERK_SITE_ORIGIN = 'https://www.appblips.com';
 const isRoute = (pathname, base) => pathname === base || pathname.startsWith(`${base}/`);
 
 export function isHostedRequest(request, pathname) {
-  if (isRoute(pathname, '/api/billing') || isRoute(pathname, '/api/sandbox')) return true;
+  if (isRoute(pathname, '/api/billing') || isRoute(pathname, '/api/sandbox') || isRoute(pathname, '/api/web')) return true;
   return pathname === '/api/chat' && request.headers.has('authorization');
 }
 

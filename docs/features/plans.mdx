@@ -37,8 +37,25 @@ A use is counted whenever you send a message to the AI. Every 5-hour window give
 - **AI reviews:** starting an optional AI review after a build also deducts one use.
 - **Questions in Ask mode:** questions you ask in Ask mode are free and do not deduct a use.
 - **Automatic error repairs:** when AppBlips automatically detects and repairs an error in generated code, it does not deduct a use.
+- **Web searches:** when you turn on [web search](#search-the-web) for a prompt, each web search or page the AI reads deducts one more use, in Build mode and in Ask mode.
 
 If a message fails to send or the AI returns an error, your use is not deducted.
+
+### Search the web
+
+With a plan, the AI can search the web for one prompt at a time. Use it when your request depends on facts the AI may not know, such as a real business's opening hours, current prices or news, or how to use a service.
+
+1. Below the message box, click the **Search the web** key (a globe). It lights up, and a line at the top of the message box says how many searches and page reads the AI may make.
+2. Type your message and send it.
+
+While it searches, the chat shows "Searching the web…" or "Reading a web page…". Web search turns itself off once your message is sent, so click the globe again for each prompt that needs it. If the AI asks you a question before building, it stays on for your answer. If the message fails, it's put back in the box with web search still on.
+
+- **Cost:** each search, and each page the AI reads in full, deducts one use from your 50, on top of the use for the message itself. Searches that find nothing, pages that can't be read and searches that fail aren't deducted.
+- **Limit:** the AI makes at most 3 searches and reads at most 3 pages for one prompt, so a prompt with web search uses at most 6 extra uses. It only searches when your request needs it.
+- **Out of uses:** if you run out during a prompt, the AI stops searching and finishes with what it has found.
+- **Accuracy:** search results come from the open web and can be wrong or out of date. Check important facts, like prices and opening hours, before you publish.
+
+The globe only appears while you're signed in with an active plan. Without a plan, you can let the AI search the web with your own [Tavily](/features/connectors#tavily) key instead.
 
 ### If you reach the usage limit
 
@@ -137,7 +154,7 @@ To delete your account as well, see [Cancel your plan or delete your account](/f
 
 ## Your data on a plan
 
-With a plan, your build requests go to AppBlips' server instead of to an AI provider of your choosing. The server checks your plan and passes each request to the AI provider AppBlips uses, named in the [Privacy Policy](https://www.appblips.com/privacy). Your prompts, your project's code and any images you attach go there to build your app, as they would go to your own provider.
+With a plan, your build requests go to AppBlips' server instead of to an AI provider of your choosing. The server checks your plan and passes each request to the AI provider AppBlips uses, named in the [Privacy Policy](https://www.appblips.com/privacy). Your prompts, your project's code and any images you attach go there to build your app, as they would go to your own provider. When you turn on [web search](#search-the-web), the AI's search words and the addresses of pages it reads also go to that provider's search service, never your project's code.
 
 Payments are handled by [Polar](https://polar.sh), and sign-in by [Clerk](https://clerk.com). AppBlips never sees your card details.
 

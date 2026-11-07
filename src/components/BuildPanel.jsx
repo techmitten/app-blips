@@ -54,6 +54,9 @@ export default function BuildPanel({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
+  planWebSearch = null,
+  webSearch = false,
+  onWebSearchChange,
 }) {
   const isClarifying = chatMode === 'build' && versions[currentVersionIndex]?.editMode === 'clarify';
 
@@ -238,6 +241,9 @@ export default function BuildPanel({
           onAttachScreenshot={onAttachScreenshot}
           onAttachFile={onAttachFile}
           onRemoveAttachment={onRemoveAttachment}
+          planWebSearch={planWebSearch}
+          webSearch={webSearch}
+          onWebSearchChange={onWebSearchChange}
         />
       </div>
     </div>

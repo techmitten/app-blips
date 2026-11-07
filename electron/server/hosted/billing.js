@@ -11,9 +11,12 @@
 // Deleting an account (DELETE /api/billing/account, Settings → Account) also
 // lives here because it has to stop the Polar subscription first.
 
-import { PLANS, isPlanId, isPlanOnSale, planForProductId, planProductId, publicCatalog } from './plans.js';
+import {
+  MAX_WEB_FETCHES, MAX_WEB_SEARCHES, PLANS, WEB_CALL_USES, isPlanId, isPlanOnSale, planForProductId, planProductId, publicCatalog,
+} from './plans.js';
 import { deleteClerkUser, verifiedRecently, verifyClerkToken } from './clerk.js';
 import { windowUsage } from './buildWindow.js';
+import { webSearchAvailable } from './webTools.js';
 import {
   cancelSubscription, createCheckout, findUserSubscription, getSubscription, listUserSubscriptions,
   polarWebhookSecret, revokeSubscription, verifyPolarWebhook,
@@ -62,6 +65,12 @@ async function handleMe(request, env, store) {
     // { used, limit, windowHours, resetAt }, or null for plans without one.
     usage: plan.windowBuilds && plan.windowHours
       ? { ...windowUsage(account, { limit: plan.windowBuilds, windowMs: plan.windowHours * 60 * 60 * 1000 }), windowHours: plan.windowHours }
+      : null,
+    // Plan web search (webTools.js): offered to active plans with a usage
+    // window, when the server's AI provider is DeepSeek. Each search or page
+    // read costs `uses`; one prompt makes at most `searches` + `fetches`.
+    webSearch: account?.active && plan.monthlyCredits == null && plan.windowBuilds && webSearchAvailable(env)
+      ? { uses: WEB_CALL_USES, searches: MAX_WEB_SEARCHES, fetches: MAX_WEB_FETCHES }
       : null,
     plans: publicCatalog(),
   });

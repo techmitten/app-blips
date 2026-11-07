@@ -34,7 +34,7 @@ Here are quick answers to the most common questions about AppBlips — what it c
   <Accordion title="What counts as a use on an AppBlips plan?">
     A use is counted whenever you send a message to the AI. Each message or prompt you send in Build mode deducts one use from your 50 uses for that 5-hour window, no matter how many steps the AI takes to complete the build.
 
-    Running an optional AI review also deducts one use. Questions in Ask mode and automatic error repairs do not deduct a use. If you reach 50 uses, you can build again once the 5-hour window resets. See [What counts as a use](/features/plans#what-counts-as-a-use).
+    Running an optional AI review also deducts one use. Questions in Ask mode and automatic error repairs do not deduct a use. If you turn on web search for a prompt (the globe below the message box), each web search or page the AI reads deducts one more use, up to 6 for that prompt. If you reach 50 uses, you can build again once the 5-hour window resets. See [What counts as a use](/features/plans#what-counts-as-a-use).
   </Accordion>
 
   <Accordion title="How do I cancel my plan?">
@@ -53,7 +53,7 @@ Here are quick answers to the most common questions about AppBlips — what it c
     It connects to:
 
     - **Your AI provider** (the one in **Settings → AI**), when you build with your own key: your prompts, your project's code and any images you attach are sent there to build your app.
-    - **AppBlips' server and Clerk:** desktop app only. When it starts, the app asks AppBlips' server (on Cloudflare) whether plans are available, and loads the sign-in form from Clerk, AppBlips' sign-in service, whether or not you sign in. Signed in, the app sends your plan's build requests to AppBlips' server, which passes them on to the AI provider AppBlips uses, named in the [Privacy Policy](https://www.appblips.com/privacy). Google and GitHub sign-in open `auth.appblips.com` in your web browser. See [Plans](/features/plans#your-data-on-a-plan).
+    - **AppBlips' server and Clerk:** desktop app only. When it starts, the app asks AppBlips' server (on Cloudflare) whether plans are available, and loads the sign-in form from Clerk, AppBlips' sign-in service, whether or not you sign in. Signed in, the app sends your plan's build requests to AppBlips' server, which passes them on to the AI provider AppBlips uses, named in the [Privacy Policy](https://www.appblips.com/privacy). When you turn on web search for a prompt, the AI's search words and the addresses of pages it reads go the same way, to that provider's search service. Google and GitHub sign-in open `auth.appblips.com` in your web browser. See [Plans](/features/plans#your-data-on-a-plan).
     - **Polar:** only when you subscribe. Checkout opens Polar's payment page in your web browser.
     - **GitHub:** to check for new versions, when the app starts and every hour while it's open. The desktop app also downloads updates from there. Turn this off in **Settings → Workspace → Check for updates**. The Microsoft Store version gets updates from the Store instead and doesn't check GitHub.
     - **Google Fonts:** for the fonts AppBlips itself uses.

@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useAuth, useClerk } from '@clerk/react';
 import { setAccountSignOut, setAuthTokenGetter } from '../lib/authToken';
 import { fetchSandboxStatus, setSandboxComputerEnabled } from '../lib/sandboxComputer';
+import { fetchBillingMe } from '../lib/billing';
+import { setPlanWebSearch } from '../lib/planWeb';
 import { AccountDialogsProvider } from './AccountDialogs';
 import { useBrowserSignInTickets } from '../lib/browserSignIn';
 
@@ -40,6 +42,15 @@ export default function AuthSession({ children }) {
     if (!isLoaded) return;
     if (isSignedIn) fetchSandboxStatus();
     else setSandboxComputerEnabled(false);
+  }, [isLoaded, isSignedIn]);
+
+  // The prompt box's plan web search button: offered once the plan is known
+  // to be active (fetchBillingMe passes every answer on, so a checkout or a
+  // later plan check updates it too), and never while signed out.
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (isSignedIn) fetchBillingMe();
+    else setPlanWebSearch(null);
   }, [isLoaded, isSignedIn]);
 
   return <AccountDialogsProvider>{children}</AccountDialogsProvider>;

@@ -211,6 +211,35 @@ try {
   await both((s) => s.releaseBuild('u6', 'release-b1', 6 * hour));
   assert.equal((await row('u6')).build_window_count, 0);
 
+  // Charging extra uses (plan web search): never past the limit, never riding
+  // on a usage id, and leaving the prompt's own id alone.
+  const charge = (id, at, extra = {}) => both((s) => s.chargeUses(id, { uses: 1, limit: 3, windowMs: 5 * hour, at, ...extra }));
+  await both((s) => s.saveAccount({ userId: 'u7', active: true }));
+  assert.deepEqual(await charge('u7', 0), { allowed: true, counted: true, start: 0 }, 'a charge with no window running starts one');
+  assert.equal((await row('u7')).build_window_count, 1);
+  assert.deepEqual(await take('u7', long(1000, 'prompt-id-1')), { allowed: true, counted: true });
+  const charged = await charge('u7', 2000);
+  assert.equal(charged.allowed, true);
+  assert.equal((await row('u7')).build_window_count, 3);
+  assert.equal((await row('u7')).build_window_last_id, 'prompt-id-1', 'a charge leaves the latest usage id alone');
+  assert.deepEqual(await take('u7', long(3000, 'prompt-id-1')), { allowed: true, counted: false }, 'the prompt still rides on its id');
+  assert.deepEqual(await charge('u7', 4000), { allowed: false, resetAt: 5 * hour, reason: 'uses' }, 'no charge past the limit');
+  assert.equal((await row('u7')).build_window_count, 3);
+  // A refund gives back exactly what was charged, only in its own window.
+  await both((s) => s.refundUses('u7', { uses: 1, start: charged.start }));
+  assert.equal((await row('u7')).build_window_count, 2);
+  await both((s) => s.refundUses('u7', { uses: 1, start: 12345 }));
+  assert.equal((await row('u7')).build_window_count, 2, 'a refund for another window changes nothing');
+  assert.equal((await charge('u7', 5000, { uses: 2 })).allowed, false, 'a charge of several uses must fit whole');
+  // In a new window the charge starts it with just that use.
+  assert.deepEqual(await charge('u7', 6 * hour), { allowed: true, counted: true, start: 6 * hour });
+  assert.equal((await row('u7')).build_window_count, 1);
+  assert.equal((await row('u7')).build_window_requests, 1);
+  // The request ceiling stops charges too.
+  assert.deepEqual(await charge('u7', 6 * hour + 1, { requestLimit: 1 }), { allowed: false, resetAt: 11 * hour, reason: 'requests' });
+  // No account row: nothing to charge.
+  assert.equal((await charge('ghost', 0)).allowed, false);
+
   await both((s) => s.setSubscriptionId('u1', 'sub_1'));
   await both((s) => s.setSubscriptionId('u1', ''));
   assert.equal((await row('u1')).subscription_id, 'sub_1', 'an empty id doesn\'t clear it');

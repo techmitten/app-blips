@@ -37,6 +37,7 @@ import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 import { handleBilling } from './electron/server/hosted/billing.js';
 import { gateChat, releaseBuild } from './electron/server/hosted/chat.js';
 import { handleSandbox } from './electron/server/hosted/sandbox.js';
+import { handleWebTools } from './electron/server/hosted/webTools.js';
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js';
 import { isHosted } from './electron/server/hosted/mode.js';
 import { verifyClerkToken } from './electron/server/hosted/clerk.js';
@@ -177,6 +178,19 @@ const server = createServer((req, res) => {
     toFetchRequest(req, res)
       .then((request) => handleSandbox(request, process.env, store))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[sandbox]'))
+      .catch(fail);
+    return;
+  }
+
+  // Plan web search (hosted/webTools.js): plan users only, so hosted only.
+  if (req.url === '/api/web' || req.url.startsWith('/api/web/')) {
+    if (!hosted) {
+      sendText(res, 404, 'Web search for plans is not enabled.');
+      return;
+    }
+    toFetchRequest(req, res)
+      .then((request) => handleWebTools(request, process.env, store))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[web]'))
       .catch(fail);
     return;
   }

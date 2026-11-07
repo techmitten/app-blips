@@ -24,9 +24,18 @@ const json = (status, body, headers = {}) => new Response(JSON.stringify(body), 
   headers: { 'content-type': 'application/json', ...headers },
 });
 
+// "1 h 5 min" until the window resets, and the minutes for retry-after.
+export const waitUntil = (resetAt) => {
+  const minutes = Math.max(1, Math.ceil((resetAt - Date.now()) / 60000));
+  return { minutes, wait: minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min` };
+};
+
 const planOf = (account) => (account?.plan && isPlanId(account.plan) ? account.plan : 'basic');
 
-export async function gateChat(request, env, store) {
+// The checks every plan route shares: a valid Clerk session, an active
+// subscription, and a plan that's on sale. -> { userId, planId, plan } or
+// { response } to send back as is.
+export async function authenticatePlan(request, env, store) {
   const header = request.headers.get('authorization') || '';
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   if (!token) return { response: json(401, { error: 'Sign in to use AppBlips AI.', code: 'sign_in_required' }) };
@@ -37,18 +46,6 @@ export async function gateChat(request, env, store) {
   } catch {
     return { response: json(401, { error: 'Your session has expired. Sign in again.' }) };
   }
-
-  let payload;
-  try {
-    payload = await request.json();
-  } catch {
-    return { response: json(400, { error: 'Invalid JSON body.' }) };
-  }
-
-  // Client-supplied overrides never win: the plan decides the model, and
-  // hosted chat always spends the server's provider, not the user's key.
-  delete payload.hosted_model_override;
-  delete payload.user_provider;
 
   const account = await store.getAccount(userId);
   // A subscription is required for any AI access, Basic included.
@@ -62,8 +59,6 @@ export async function gateChat(request, env, store) {
   }
   const planId = planOf(account);
   const plan = PLANS[planId];
-  const model = planModel(env, planId);
-  if (model) payload.hosted_model_override = model;
 
   // Plans with a monthly credit allowance (Silver, Max) aren't sold yet,
   // and there's no credit ledger behind them: refuse every request (Ask mode
@@ -77,6 +72,27 @@ export async function gateChat(request, env, store) {
       }),
     };
   }
+  return { userId, planId, plan };
+}
+
+export async function gateChat(request, env, store) {
+  const checked = await authenticatePlan(request, env, store);
+  if (checked.response) return checked;
+  const { userId, planId, plan } = checked;
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return { response: json(400, { error: 'Invalid JSON body.' }) };
+  }
+
+  // Client-supplied overrides never win: the plan decides the model, and
+  // hosted chat always spends the server's provider, not the user's key.
+  delete payload.hosted_model_override;
+  delete payload.user_provider;
+  const model = planModel(env, planId);
+  if (model) payload.hosted_model_override = model;
 
   const usageId = usageIdOf(payload.usage_id);
   const counts = payload.ask !== true && payload.automatic_repair !== true;
@@ -98,8 +114,7 @@ export async function gateChat(request, env, store) {
       counts,
     });
     if (!window.allowed) {
-      const minutes = Math.max(1, Math.ceil((window.resetAt - Date.now()) / 60000));
-      const wait = minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
+      const { minutes, wait } = waitUntil(window.resetAt);
       const ceiling = window.reason === 'requests';
       return {
         response: json(429, {
