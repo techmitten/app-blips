@@ -112,16 +112,6 @@ try {
   await both((s) => s.setPlan('u1', 'pro'));
   assert.equal((await row('u1')).active, 1, 'setPlan defaults to active');
 
-  r = await both((s) => s.setSandbox('u3', { sandboxId: 'sb_1' }));
-  assert.equal(r.sandbox_id, 'sb_1', 'setSandbox creates the row when needed');
-  r = await both((s) => s.setSandbox('u3', { snapshotId: 'snap_1' }));
-  assert.equal(r.sandbox_id, 'sb_1', 'an undefined field is kept');
-  assert.equal(r.snapshot_id, undefined);
-  assert.equal(r.sandbox_snapshot_id, 'snap_1');
-  r = await both((s) => s.setSandbox('u3', { sandboxId: null }));
-  assert.equal(r.sandbox_id, null, 'null clears it');
-  assert.equal(r.sandbox_snapshot_id, 'snap_1');
-
   assert.equal(await both((s) => s.claimEvent('evt_1')), true);
   assert.equal(await both((s) => s.claimEvent('evt_1')), false, 'a webhook is processed once');
   assert.equal(await both((s) => s.claimEvent('')), false);
@@ -248,6 +238,7 @@ try {
   await both((s) => s.setCancelAt('u1', undefined));
   assert.equal((await row('u1')).cancel_at, null, 'resubscribing clears the end date');
 
+  await both((s) => s.saveAccount({ userId: 'u3' }));
   await both((s) => s.deleteAccount('u1'));
   assert.equal(await row('u1'), null);
   assert.ok(await row('u3'), 'only that account is deleted');
@@ -255,6 +246,27 @@ try {
 
   node.close();
   d1Db.close();
+
+  // ---- Node store: the removed sandbox computer's columns go ------------------------------
+  {
+    const file = join(tmp, 'sandbox.db');
+    const old = new DatabaseSync(file);
+    old.exec(`
+      create table accounts (user_id text primary key, customer_id text, credit_account_id text,
+        plan text not null default 'basic', active integer not null default 0,
+        sandbox_id text, sandbox_snapshot_id text, updated_at text not null);
+      create table webhook_events (id text primary key, received_at text not null);
+      insert into accounts values ('old', 'polar_cus', null, 'basic', 1, 'sb_1', 'snap_1', '2026-01-01');
+    `);
+    old.close();
+    const store = openStore(file);
+    const migrated = store.getAccount('old');
+    assert.equal('sandbox_id' in migrated, false, 'sandbox_id is dropped');
+    assert.equal('sandbox_snapshot_id' in migrated, false, 'sandbox_snapshot_id is dropped');
+    assert.equal(migrated.customer_id, 'polar_cus', 'the rest of the row is kept');
+    assert.equal(migrated.active, 1);
+    store.close();
+  }
 
   // ---- Node store: moving off the old payment service's column --------------------------
   {
@@ -276,7 +288,7 @@ try {
     assert.equal(migrated.cancel_at, null);
     assert.equal(migrated.plan, 'pro', 'the plan itself is kept');
     assert.equal('creem_customer_id' in migrated, false);
-    assert.ok('sandbox_id' in migrated && 'build_window_count' in migrated, 'missing columns are added');
+    assert.ok('build_window_count' in migrated, 'missing columns are added');
     store.saveAccount({ userId: 'new', customerId: 'polar_cus' });
     assert.equal(store.getAccount('new').customer_id, 'polar_cus');
     store.close();

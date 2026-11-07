@@ -57,8 +57,6 @@ async function handleMe(request, env, store) {
     // Monthly build credits (Silver, Max) aren't sold yet, so none to report.
     credits: null,
     monthlyCredits: plan.monthlyCredits,
-    sandboxId: account?.sandbox_id || null,
-    sandboxSnapshotId: account?.sandbox_snapshot_id || null,
     // Set after a cancel: the plan stays active until then, with no renewal.
     cancelAt: account?.active ? account?.cancel_at || null : null,
     // The usage cooldown so far (plans.js windowBuilds / windowHours):

@@ -11,7 +11,6 @@ import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
 import { handlePixabayApi } from './electron/server/pixabayApi.js'
 import { handleTavilyApi } from './electron/server/tavilyApi.js'
 import { handleSeoScanApi } from './electron/server/seoScanApi.js'
-import { handleSandbox } from './electron/server/hosted/sandbox.js'
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js'
 import { isHosted } from './electron/server/hosted/mode.js'
 import { verifyClerkToken } from './electron/server/hosted/clerk.js'
@@ -267,21 +266,6 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const response = await handleSeoScanApi(request, env, { lookup: resolveAddresses })
-        sendWebResponse(res, response, {}, '[dev-proxy]')
-      }))
-      // Per-user Render Sandbox computer (when RENDER_API_KEY + RENDER_WORKSPACE_ID are set).
-      server.middlewares.use('/api/sandbox', guarded(async (req, res) => {
-        // A plan feature, so with APPBLIPS_API_URL it's the Worker's too.
-        if (hostedApiUrl) {
-          await forwardHosted(req, res)
-          return
-        }
-        if (!hostAllowed(req.headers.host || '', env)) {
-          res.statusCode = 403
-          res.end('Sandbox access is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
-          return
-        }
-        const response = await handleSandbox(await toFetchRequest(req, res), env, store)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },

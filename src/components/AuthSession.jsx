@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
 import { useAuth, useClerk } from '@clerk/react';
 import { setAccountSignOut, setAuthTokenGetter } from '../lib/authToken';
-import { fetchSandboxStatus, setSandboxComputerEnabled } from '../lib/sandboxComputer';
 import { fetchBillingMe } from '../lib/billing';
 import { setPlanWebSearch } from '../lib/planWeb';
 import { AccountDialogsProvider } from './AccountDialogs';
 import { useBrowserSignInTickets } from '../lib/browserSignIn';
 
-// Shares the Clerk session with non-React code (the chat transport, billing
-// and sandbox helpers). Nothing here forces a sign-in: signing in is how a
+// Shares the Clerk session with non-React code (the chat transport and
+// billing helpers). Nothing here forces a sign-in: signing in is how a
 // person chooses a plan (onboarding's "Subscribe to a plan", or Settings →
 // Plan), and signed-out people build with their own AI key. So a session is
 // only handed out while someone is signed in; the server treats a request
@@ -33,16 +32,6 @@ export default function AuthSession({ children }) {
     setAccountSignOut(() => signOut());
     return () => setAccountSignOut(null);
   }, [signOut]);
-
-  // The sandbox computer is for signed-in paid plans only; re-ask the server
-  // whenever that can have changed, so the AI stops (or starts) being offered
-  // the tool without a reload. Signed out can never have it, so that case
-  // just turns the tool off instead of asking (and logging a 401).
-  useEffect(() => {
-    if (!isLoaded) return;
-    if (isSignedIn) fetchSandboxStatus();
-    else setSandboxComputerEnabled(false);
-  }, [isLoaded, isSignedIn]);
 
   // The prompt box's plan web search button: offered once the plan is known
   // to be active (fetchBillingMe passes every answer on, so a checkout or a

@@ -8,11 +8,6 @@ import { CODEBASE_READ_TOOLS, CODEBASE_TOOLS, describeCodebaseToolCall, executeC
 import { CODEBASE_ASK_PROMPT, CODEBASE_ROUTED_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
 import { changedProjectPaths, createCodebaseDiagnostics, toolDiagnostic } from './diagnostics.js';
 import { startWebSearch } from '../webSearch.js';
-import {
-  SANDBOX_COMPUTER_GUIDANCE, SANDBOX_EXEC_TOOL, createSandboxBudget,
-  executeSandboxToolCall, isSandboxComputerEnabled, isSandboxToolCall,
-  snapshotSandboxComputer,
-} from '../sandboxComputer.js';
 
 export const MAX_CODEBASE_TURNS = 20;
 export const MAX_CODEBASE_ASK_TURNS = 8;
@@ -107,13 +102,8 @@ async function runCodebaseEdit({
   // mode too; the Tavily connector only in edits.
   const planWeb = planWebSearch && !isAutoFix ? startWebSearch({ plan: planWebSearch, signal }) : null;
   const webSearch = planWeb || (!isAsk ? startWebSearch() : null);
-  // The sandbox runs commands in the person's own remote computer, so only a
-  // request they typed gets it: not Ask mode (a question is read-only, and
-  // the loop below never writes files back), and not automatic repairs,
-  // which an error message written by the page itself can start.
-  const sandboxBudget = !isAsk && !isAutoFix && isSandboxComputerEnabled() ? createSandboxBudget() : null;
   const basePrompt = isAsk ? (routedFromBuild ? CODEBASE_ROUTED_ASK_PROMPT : CODEBASE_ASK_PROMPT) : CODEBASE_SYSTEM_PROMPT;
-  const systemPrompt = [basePrompt, webSearch?.guidance, sandboxBudget && SANDBOX_COMPUTER_GUIDANCE].filter(Boolean).join('\n\n');
+  const systemPrompt = [basePrompt, webSearch?.guidance].filter(Boolean).join('\n\n');
   const messages = [
     { role: 'system', content: systemPrompt },
     ...chatHistory,
@@ -213,10 +203,7 @@ async function runCodebaseEdit({
     if (turn === 1) status('Looking through your site\'s files…');
     const requireEdit = maxReadOnlyTurns > 0 && readOnlyTurns >= maxReadOnlyTurns
       && (!changed || buildErrors.length > 0) && !pendingFailures.size;
-    const extraTools = [
-      ...(webSearch ? webSearch.tools() : []),
-      ...(sandboxBudget?.left > 0 ? [SANDBOX_EXEC_TOOL] : []),
-    ];
+    const extraTools = webSearch ? webSearch.tools() : [];
     const availableTools = requireEdit ? CODEBASE_TOOLS.filter((tool) => MUTATION_TOOLS.has(tool.function.name))
       : [...CODEBASE_TOOLS, ...extraTools];
     if (requireEdit) {
@@ -280,8 +267,6 @@ async function runCodebaseEdit({
       const allowed = availableTools.some((tool) => tool.function.name === toolCall.function?.name);
       const outcome = webSearch?.isCall(toolCall) && !requireEdit
         ? { state, applied: false, result: await webSearch.execute(toolCall) }
-        : isSandboxToolCall(toolCall) && sandboxBudget && !requireEdit
-        ? await executeSandboxToolCall(state, toolCall, sandboxBudget, { onChunk, signal, kind: 'codebase' })
         : !requireEdit || allowed ? executeCodebaseTool(state, toolCall)
         : { state, applied: false, result: { success: false, error: 'This tool is temporarily unavailable. Apply the requested edits using the file contents already provided.' } };
       diagnostics[outcome.result.success === false ? 'warn' : 'info']('Tool result', { turn, ...toolDiagnostic(toolCall, outcome) });
@@ -345,10 +330,6 @@ async function runCodebaseEdit({
     reply = [intro, completion].filter(Boolean).join('\n\n');
   } else if (completionText) {
     onChunk?.(`${intro ? '\n\n' : ''}${completionText}`, 'reply');
-  }
-
-  if (sandboxBudget?.used > 0) {
-    snapshotSandboxComputer().catch(() => {});
   }
 
   return {

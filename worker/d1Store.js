@@ -19,19 +19,17 @@ export function d1Store(db) {
 
   // One upsert instead of read-then-write, so two requests for a new user
   // can't both insert. Fields the caller doesn't know (null) keep their value.
-  const saveAccount = async ({ userId, customerId = null, plan = 'basic', active = false, sandboxId = null, snapshotId = null }) => {
+  const saveAccount = async ({ userId, customerId = null, plan = 'basic', active = false }) => {
     if (!userId) return null;
     await db.prepare(`
-      insert into accounts (user_id, customer_id, plan, active, sandbox_id, sandbox_snapshot_id, updated_at)
-      values (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+      insert into accounts (user_id, customer_id, plan, active, updated_at)
+      values (?1, ?2, ?3, ?4, ?5)
       on conflict(user_id) do update set
         customer_id = coalesce(?2, customer_id),
         plan = ?3,
         active = ?4,
-        sandbox_id = coalesce(?5, sandbox_id),
-        sandbox_snapshot_id = coalesce(?6, sandbox_snapshot_id),
-        updated_at = ?7
-    `).bind(userId, customerId, plan, active ? 1 : 0, sandboxId, snapshotId, now()).run();
+        updated_at = ?5
+    `).bind(userId, customerId, plan, active ? 1 : 0, now()).run();
     return getAccount(userId);
   };
 
@@ -39,18 +37,6 @@ export function d1Store(db) {
     if (!userId) return;
     await db.prepare('update accounts set plan = ?, active = ?, updated_at = ? where user_id = ?')
       .bind(plan, active ? 1 : 0, now(), userId).run();
-  };
-
-  // Pass `null` for `sandboxId` when clearing a terminated sandbox; leave a
-  // field undefined to keep it.
-  const setSandbox = async (userId, { sandboxId, snapshotId } = {}) => {
-    if (!userId) return null;
-    const existing = (await getAccount(userId)) || (await saveAccount({ userId }));
-    const nextSandboxId = sandboxId === undefined ? existing.sandbox_id : sandboxId;
-    const nextSnapshotId = snapshotId === undefined ? existing.sandbox_snapshot_id : snapshotId;
-    await db.prepare('update accounts set sandbox_id = ?, sandbox_snapshot_id = ?, updated_at = ? where user_id = ?')
-      .bind(nextSandboxId ?? null, nextSnapshotId ?? null, now(), userId).run();
-    return getAccount(userId);
   };
 
   // True only the first time an event id is seen.
@@ -95,5 +81,5 @@ export function d1Store(db) {
     if (userId) await db.prepare('delete from accounts where user_id = ?').bind(userId).run();
   };
 
-  return { getAccount, saveAccount, setPlan, setSandbox, claimEvent, takeBuild, releaseBuild, chargeUses, refundUses, setSubscriptionId, setCancelAt, deleteAccount, close: () => {} };
+  return { getAccount, saveAccount, setPlan, claimEvent, takeBuild, releaseBuild, chargeUses, refundUses, setSubscriptionId, setCancelAt, deleteAccount, close: () => {} };
 }

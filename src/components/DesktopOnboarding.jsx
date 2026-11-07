@@ -349,8 +349,6 @@ export function CompareModal({ onClose, onChoose }) {
     { label: 'AI', plan: 'Run by AppBlips. No setup.', own: 'Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter' },
     { label: 'API key', plan: 'Not needed', own: 'Your own, kept on your computer' },
     { label: 'Builds', plan: planBuilds, own: 'As many as your provider allows' },
-    // Switched off until tested (sandbox.js SANDBOX_AVAILABLE).
-    { label: 'Agent computer', plan: 'Coming soon', own: 'Not included' },
     { label: 'Account', plan: 'Sign-in needed', own: 'None needed' },
   ];
   const cell = (text, mark) => (

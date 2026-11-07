@@ -18,11 +18,6 @@ import {
   MAX_RESEARCH_SEARCHES, formatWebResearch, isWebFetchCall, isWebToolCall, researchPage, startWebSearch,
 } from './webSearch';
 import {
-  SANDBOX_COMPUTER_GUIDANCE, SANDBOX_EXEC_TOOL, createSandboxBudget,
-  executeSandboxToolCall, isSandboxComputerEnabled, isSandboxToolCall,
-  snapshotSandboxComputer,
-} from './sandboxComputer';
-import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
 } from './pages';
 import {
@@ -771,7 +766,6 @@ export const describeToolCall = (toolCall) => {
   const name = toolCall.function?.name;
   if (name === 'web_search') return 'Searching the web…';
   if (name === 'web_fetch') return 'Reading a web page…';
-  if (name === 'run_sandbox_command') return 'Running command on your computer…';
   if (['list_sections', 'view_code', 'list_pages'].includes(name)) return 'Reviewing your build…';
   if (name === 'apply_surgical_edits') return 'Applying your changes…';
   if (name === 'create_page') return 'Adding a page…';
@@ -924,7 +918,6 @@ const generateAppCodeCore = async (
   }
   if (isAskMode || routedFromBuild) {
     if (routedFromBuild && onChunk) onChunk('Answering your question…', 'status');
-    const askSandboxBudget = isSandboxComputerEnabled() ? createSandboxBudget(3) : null;
     const messages = [
       {
         role: 'system',
@@ -935,7 +928,6 @@ const generateAppCodeCore = async (
             : 'You are a helpful coding assistant. The user has not built an app yet. Answer their question directly and concisely. Do NOT generate or output any HTML/app code — if they want an app built, tell them to switch to Build mode.')
           + buildAskConnectorNote(getActiveConnectors(), studioMode, routedFromBuild)
           + (getActiveGallery().length ? `\n\n${buildImageGalleryNote(getActiveGallery(), studioMode)}` : '')
-          + (askSandboxBudget ? `\n\n${SANDBOX_COMPUTER_GUIDANCE}` : '')
           + (planWeb ? `\n\n${planWeb.guidance}` : '')
       },
       ...chatHistory,
@@ -953,10 +945,7 @@ const generateAppCodeCore = async (
     // searches, then page reads, then the answer.
     const askTurns = planWeb ? 4 + MAX_PLAN_WEB_TURNS : 4;
     for (let turn = 1; turn <= askTurns; turn++) {
-      const askTools = [
-        ...(askSandboxBudget && askSandboxBudget.left > 0 ? [SANDBOX_EXEC_TOOL] : []),
-        ...(planWeb ? planWeb.tools() : []),
-      ];
+      const askTools = planWeb ? planWeb.tools() : [];
       const last = turn === askTurns || !askTools.length;
       const message = await requestModelText({
         messages,
@@ -975,9 +964,7 @@ const generateAppCodeCore = async (
         if (onChunk) onChunk(describeToolCall(toolCall), 'status');
         const outcome = planWeb?.isCall(toolCall)
           ? { result: await planWeb.execute(toolCall) }
-          : isSandboxToolCall(toolCall) && askSandboxBudget
-            ? await executeSandboxToolCall({ files: currentCode ? startFiles : {} }, toolCall, askSandboxBudget, { onChunk, signal })
-            : { result: { success: false, error: 'Tool not available in Ask mode.' } };
+          : { result: { success: false, error: 'Tool not available in Ask mode.' } };
         messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(outcome.result) });
       }
     }
@@ -1247,13 +1234,8 @@ const generateAppCodeCore = async (
   // With the Tavily connector on, or plan web search switched on for this
   // prompt, the model can also search the web.
   const webSearch = planWeb || startWebSearch();
-  const sandboxBudget = isSandboxComputerEnabled() ? createSandboxBudget() : null;
   const systemPrompt = buildHtmlSystemPrompt(studioMode, getActiveConnectors());
-  const fullSystemPrompt = [
-    systemPrompt,
-    webSearch?.guidance,
-    sandboxBudget && SANDBOX_COMPUTER_GUIDANCE,
-  ].filter(Boolean).join('\n\n');
+  const fullSystemPrompt = [systemPrompt, webSearch?.guidance].filter(Boolean).join('\n\n');
   const messages = [
     { role: 'system', content: fullSystemPrompt },
     ...formattedChatHistory,
@@ -1299,7 +1281,6 @@ const generateAppCodeCore = async (
     const currentTools = [
       ...getRefinementTools(studioMode),
       ...(webSearch ? webSearch.tools() : []),
-      ...(sandboxBudget && sandboxBudget.left > 0 ? [SANDBOX_EXEC_TOOL] : []),
     ];
 
     // Once edits have applied cleanly, the next turn is normally just the model
@@ -1338,9 +1319,6 @@ const generateAppCodeCore = async (
           if (onChunk) onChunk('Fixing links between pages…', 'status');
           messages.push({ role: 'user', content: buildBrokenLinkInstruction(brokenLinks) });
           continue;
-        }
-        if (sandboxBudget?.used > 0) {
-          snapshotSandboxComputer().catch(() => {});
         }
         return {
           ...filesResult(),
@@ -1381,17 +1359,6 @@ const generateAppCodeCore = async (
           ? await webSearch.execute(toolCall)
           : { success: false, error: 'Web search is not available.' };
         messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
-        continue;
-      }
-      if (isSandboxToolCall(toolCall)) {
-        if (!sandboxBudget) {
-          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: false, error: 'Sandbox computer is not available.' }) });
-          continue;
-        }
-        const outcome = await executeSandboxToolCall({ files: workingFiles }, toolCall, sandboxBudget, { onChunk, signal, kind: 'pages' });
-        workingFiles = outcome.state.files;
-        if (outcome.applied) editsApplied = true;
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(outcome.result) });
         continue;
       }
       const { files: nextFiles, applied, result } = executeFilesTool(workingFiles, toolCall);

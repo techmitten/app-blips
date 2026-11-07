@@ -1,10 +1,9 @@
 // The online, multi-user side of AppBlips as a Cloudflare Worker. It holds
-// the secret keys (Polar, Render, the server's AI provider) so they never
+// the secret keys (Polar, the server's AI provider) so they never
 // ship in the desktop app, and answers only the hosted routes:
 //   /api/chat             signed-in, subscribed users; the plan picks the model
 //   /api/billing/*        plan status and Polar checkout
 //   /api/webhooks/polar   Polar payment notices (signature-checked)
-//   /api/sandbox/*        the user's Render Sandbox computer
 //   /api/web/*            plan web search and page reads (DeepSeek Search/Fetch)
 //   /desktop-sign-in      Google/GitHub sign-in for the desktop app (desktopAuth.js)
 // Bring-your-own-key users never reach it: their app talks to their provider.
@@ -13,7 +12,6 @@
 import { handleChatProxy, isForeignOrigin } from '../electron/server/chatProxy.js';
 import { handleBilling } from '../electron/server/hosted/billing.js';
 import { gateChat, releaseBuild } from '../electron/server/hosted/chat.js';
-import { handleSandbox } from '../electron/server/hosted/sandbox.js';
 import { handleWebTools } from '../electron/server/hosted/webTools.js';
 import { isHosted } from '../electron/server/hosted/mode.js';
 import { d1Store } from './d1Store.js';
@@ -96,10 +94,6 @@ async function route(request, env, ctx) {
 
   if (pathname === '/api/webhooks/polar' || isRoute(pathname, '/api/billing')) {
     return handleBilling(request, env, store);
-  }
-
-  if (isRoute(pathname, '/api/sandbox')) {
-    return handleSandbox(request, env, store);
   }
 
   if (isRoute(pathname, '/api/web')) {

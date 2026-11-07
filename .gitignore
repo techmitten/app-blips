@@ -63,11 +63,8 @@ pinokio/
 # Hosted billing store (SQLite)
 appblips.db
 appblips.db-*
-sandbox.md
 # Local AI-assistant config (OpenCode); keep off GitHub
 opencode.json
-# Scratch folder from trying Render Sandboxes; not part of AppBlips
-my-sandbox/
 # Wrangler's local state from `wrangler dev` (local D1 copy, temp builds)
 .wrangler/
 searchfetch.md
