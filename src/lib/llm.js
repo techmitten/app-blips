@@ -643,7 +643,12 @@ export const requestModelText = async ({
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     logWarn(`AI request failed${willRetry ? `, retrying (${retryCount + 1}/${delays.length})` : ''}`, err);
     if (willRetry) {
-      await new Promise(r => setTimeout(r, delays[retryCount]));
+      // Cancelling during the wait ends the request, not just the next try.
+      await new Promise((resolve, reject) => {
+        const abort = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
+        const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, delays[retryCount]);
+        signal?.addEventListener('abort', abort, { once: true });
+      });
       return requestModelText({
         messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode, userProvider
       });

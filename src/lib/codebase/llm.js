@@ -102,7 +102,11 @@ async function runCodebaseEdit({
   const context = formatCodebaseContext(files, assets, meta);
   // With the Tavily connector on, edits can also search the web.
   const webSearch = !isAsk && isWebSearchEnabled() ? createWebSearchBudget() : null;
-  const sandboxBudget = isSandboxComputerEnabled() ? createSandboxBudget() : null;
+  // The sandbox runs commands in the person's own remote computer, so only a
+  // request they typed gets it: not Ask mode (a question is read-only, and
+  // the loop below never writes files back), and not automatic repairs,
+  // which an error message written by the page itself can start.
+  const sandboxBudget = !isAsk && !isAutoFix && isSandboxComputerEnabled() ? createSandboxBudget() : null;
   const basePrompt = isAsk ? (routedFromBuild ? CODEBASE_ROUTED_ASK_PROMPT : CODEBASE_ASK_PROMPT) : CODEBASE_SYSTEM_PROMPT;
   const systemPrompt = [basePrompt, webSearch && WEB_SEARCH_GUIDANCE, sandboxBudget && SANDBOX_COMPUTER_GUIDANCE].filter(Boolean).join('\n\n');
   const messages = [
@@ -116,7 +120,7 @@ async function runCodebaseEdit({
     for (let turn = 1; turn <= MAX_CODEBASE_ASK_TURNS; turn++) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
       const last = turn === MAX_CODEBASE_ASK_TURNS;
-      const askTools = sandboxBudget?.left > 0 ? [...CODEBASE_READ_TOOLS, SANDBOX_EXEC_TOOL] : CODEBASE_READ_TOOLS;
+      const askTools = CODEBASE_READ_TOOLS;
       let streamed = '';
       const message = await requestModelText({
         messages,
@@ -136,18 +140,6 @@ async function runCodebaseEdit({
       }
       for (const toolCall of message.tool_calls) {
         status(describeCodebaseToolCall(toolCall));
-        if (isSandboxToolCall(toolCall) && sandboxBudget) {
-          const readOnlyCall = {
-            ...toolCall,
-            function: {
-              ...toolCall.function,
-              arguments: JSON.stringify({ ...JSON.parse(toolCall.function?.arguments || '{}'), sync_files_back: false }),
-            },
-          };
-          const { result } = await executeSandboxToolCall(state, readOnlyCall, sandboxBudget, { onChunk, signal });
-          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
-          continue;
-        }
         const allowed = CODEBASE_READ_TOOLS.some((t) => t.function.name === toolCall.function?.name);
         const { result } = allowed
           ? executeCodebaseTool(state, toolCall)
