@@ -4,15 +4,27 @@ import Modal from './Modal';
 import { formatBytes } from '../lib/codebase/paths';
 import { completeEnvironment, environmentDraft } from '../lib/codebase/environment';
 import { logError } from '../lib/errorLog';
+import { LANDING_PAGE, pageTitle } from '../lib/pages';
 
-// Imports a React + Vite project from a .zip (studioMode 'codebase'). Step
-// one reads and checks the zip without saving anything; step two shows what
-// was found and asks for a name, and only then does App create the project.
-// The zip is parsed in the renderer (lib/codebase/import.js); nothing in it runs.
+// Imports a site. A React + Vite project .zip becomes a 'codebase' project
+// (lib/codebase/import.js); a single .html file or a .zip of plain HTML/CSS/JS
+// becomes a Website Studio project (lib/staticSiteImport.js, result.kind
+// 'website'). Step one reads and checks the file without saving anything;
+// step two shows what was found and asks for a name, and only then does App
+// create the project. Files are parsed in the renderer; nothing in them runs.
 
 const nameFromZip = (fileName, pkgName) => {
-  const base = (pkgName || fileName.replace(/\.zip$/i, '')).replace(/[-_]+/g, ' ').trim();
+  const base = (pkgName || fileName.replace(/\.(zip|html?)$/i, '')).replace(/[-_]+/g, ' ').trim();
   return base ? base.replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 80) : 'Imported Site';
+};
+
+// Gallery images get their size when the browser can decode them (SVGs may not).
+const measureImage = async (bytes, type) => {
+  if (typeof createImageBitmap !== 'function') return null;
+  const bitmap = await createImageBitmap(new Blob([bytes], { type }));
+  const size = { width: bitmap.width, height: bitmap.height };
+  bitmap.close?.();
+  return size;
 };
 
 export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, reasoningEffort }) {
@@ -38,8 +50,9 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
     if (!file) return;
     requestRef.current?.abort();
     setError('');
-    if (!/\.zip$/i.test(file.name)) {
-      setError('Choose a .zip file of the website project.');
+    const isHtml = /\.html?$/i.test(file.name);
+    if (!isHtml && !/\.zip$/i.test(file.name)) {
+      setError('Choose an .html file, or a .zip file of the website.');
       return;
     }
     setPhase('reading');
@@ -47,13 +60,27 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
     requestRef.current = request;
     try {
       const { importCodebaseZip, MAX_UNZIPPED_BYTES } = await import('../lib/codebase/import');
+      const staticSite = await import('../lib/staticSiteImport');
       // Checked before the whole file is read into memory; the import
       // checks what it unpacks to as well.
-      if (file.size > MAX_UNZIPPED_BYTES) throw new Error(`This zip is larger than ${Math.round(MAX_UNZIPPED_BYTES / 1024 / 1024)} MB, more than a project can hold.`);
+      const maxBytes = isHtml ? staticSite.MAX_HTML_FILE_BYTES : MAX_UNZIPPED_BYTES;
+      if (file.size > maxBytes) throw new Error(`This file is larger than ${Math.round(maxBytes / 1024 / 1024)} MB, more than a project can hold.`);
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const imported = await importCodebaseZip(bytes, { sourceName: file.name });
+      const options = { sourceName: file.name, measure: measureImage };
+      let imported;
+      if (isHtml) imported = await staticSite.importHtmlFile(bytes, options);
+      else if (await staticSite.detectZipKind(bytes) === 'static') imported = await staticSite.importStaticZip(bytes, options);
+      else imported = await importCodebaseZip(bytes, { sourceName: file.name });
       if (request.signal.aborted) return;
       setResult(imported);
+      if (imported.kind === 'website') {
+        // "Joe &amp; Co | Home" -> "Joe & Co"
+        const title = new DOMParser().parseFromString(pageTitle(imported.files[LANDING_PAGE]), 'text/html')
+          .documentElement.textContent.replace(/\s+[|·–—-]\s.*$/, '').trim();
+        setName(title.slice(0, 80) || nameFromZip(file.name));
+        setPhase('review');
+        return;
+      }
       setName(nameFromZip(file.name, imported.meta.name));
       setEnvDraft(environmentDraft(imported.files, imported.environment));
       setPhase(imported.environment.detected ? 'environment' : 'review');
@@ -115,7 +142,8 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
     }
   };
 
-  const fileCount = result ? Object.keys(result.files).length + Object.keys(result.assets).length : 0;
+  const isWebsite = result?.kind === 'website';
+  const fileCount = result ? Object.keys(result.files).length + Object.keys(result.assets || {}).length : 0;
   const assetBytes = result ? [...result.blobs.values()].reduce((n, b) => n + b.length, 0) : 0;
   const busy = phase === 'reading' || phase === 'saving' || phase === 'adapting';
 
@@ -137,9 +165,13 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
       {(phase === 'pick' || phase === 'reading') && (
         <div className="p-6 space-y-4">
           <p className="text-sm text-slate-600">
-            Choose the <strong>.zip file</strong> of a React + Vite website project, for example one your web designer sent you.
-            AppBlips keeps all of its files, so you can export it again later.
+            Choose a website to bring in, for example one your web designer sent you:
           </p>
+          <ul className="-mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
+            <li>a single <strong>.html file</strong>,</li>
+            <li>a <strong>.zip</strong> of a plain HTML site (pages, CSS, JavaScript and images), or</li>
+            <li>a <strong>.zip</strong> of a React + Vite project, which keeps all of its files so you can export it again later.</li>
+          </ul>
           <button
             type="button"
             disabled={busy}
@@ -154,12 +186,12 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
             {phase === 'reading' ? (
               <>
                 <Loader2 className="animate-spin text-brand" size={26} />
-                <span className="text-sm font-semibold text-slate-700">Reading the zip…</span>
+                <span className="text-sm font-semibold text-slate-700">Reading the file…</span>
               </>
             ) : (
               <>
                 <Upload className="text-slate-400" size={26} />
-                <span className="text-sm font-semibold text-slate-700">Click to choose a .zip, or drop it here</span>
+                <span className="text-sm font-semibold text-slate-700">Click to choose a .html or .zip file, or drop it here</span>
                 <span className="text-xs text-slate-400">node_modules and build folders are skipped automatically</span>
               </>
             )}
@@ -167,7 +199,7 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
           <input
             ref={inputRef}
             type="file"
-            accept=".zip,application/zip"
+            accept=".zip,application/zip,.html,.htm,text/html"
             className="hidden"
             onChange={(e) => { readZip(e.target.files?.[0]); e.target.value = ''; }}
           />
@@ -229,13 +261,23 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
         <form onSubmit={handleOpen} className="p-6 space-y-5">
           <div className="flex items-start gap-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
-            <div>
-              <p className="font-semibold">Found a React + Vite project</p>
-              <p className="mt-0.5 text-emerald-700">
-                {fileCount} files{assetBytes ? `, ${formatBytes(assetBytes)} of images and fonts` : ''}
-                {result.meta.tailwind ? ` · Tailwind CSS v${result.meta.tailwind}` : ''}
-              </p>
-            </div>
+            {isWebsite ? (
+              <div>
+                <p className="font-semibold">{fileCount === 1 ? 'Found a one-page website' : `Found a website with ${fileCount} pages`}</p>
+                <p className="mt-0.5 text-emerald-700">
+                  Opens in the Website Studio
+                  {result.images.length ? ` · ${result.images.length} image${result.images.length === 1 ? '' : 's'} (${formatBytes(assetBytes)}) added to My images` : ''}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="font-semibold">Found a React + Vite project</p>
+                <p className="mt-0.5 text-emerald-700">
+                  {fileCount} files{assetBytes ? `, ${formatBytes(assetBytes)} of images and fonts` : ''}
+                  {result.meta.tailwind ? ` · Tailwind CSS v${result.meta.tailwind}` : ''}
+                </p>
+              </div>
+            )}
           </div>
 
           {result.meta.environmentResolution && (

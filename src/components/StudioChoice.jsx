@@ -175,8 +175,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
       key: 'import',
       Icon: FolderUp,
       title: 'Import a site',
-      description: 'Open a React + Vite project from a .zip and keep editing it with AI.',
-      label: 'Import a site: open a React + Vite project from a .zip',
+      description: 'Open an HTML page, a website .zip or a React + Vite project and keep editing it with AI.',
+      label: 'Import a site: open an HTML page, a website .zip or a React + Vite project',
       onClick: onImportSite,
       hidden: !onImportSite,
       badge: (

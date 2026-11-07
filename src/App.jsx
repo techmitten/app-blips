@@ -2348,10 +2348,54 @@ export default function App({ coldStart = false }) {
     URL.revokeObjectURL(url);
   };
 
+  // Imported plain HTML site (lib/staticSiteImport.js): a Website Studio
+  // project whose pictures are already in My images.
+  const handleImportedWebsite = async (imported, name) => {
+    const projectId = Date.now().toString();
+    await putBlobs(projectId, imported.blobs);
+    const sessionId = newChatSessionId();
+    const pageCount = Object.keys(imported.files).length;
+    const version = {
+      id: Date.now(),
+      prompt: `Imported ${imported.meta.sourceName || 'a site'}`,
+      files: imported.files,
+      timestamp: new Date().toLocaleTimeString(),
+      editMode: 'import',
+      editSummary: 'Imported website',
+      reply: `Imported ${pageCount === 1 ? 'your page' : `${pageCount} pages`}${imported.images.length ? ` and ${imported.images.length} image${imported.images.length === 1 ? '' : 's'} (now in My images)` : ''}. Your site is ready: describe a change below, like "Change the headline on the home page".`,
+      chatMode: 'build',
+      sessionId,
+    };
+    flushSync(() => {
+      resetCurrentWorkspace('website');
+      setCurrentChatSessionId(sessionId);
+      setProjectName(name);
+      setFiles(imported.files);
+      setActivePage(LANDING_PAGE);
+      setGalleryImages(imported.images);
+      setVersions([version]);
+      setCurrentVersionIndex(0);
+      setHasSentFirstPrompt(true);
+    });
+    await saveProjectRef.current({
+      versionsToSave: [version],
+      indexToSave: 0,
+      nameToSave: name,
+      idToSave: projectId,
+      chatContextStartToSave: 0,
+      sessionIdToSave: sessionId,
+      studioModeToSave: 'website',
+      imagesToSave: imported.images,
+    });
+    setIsImportSiteOpen(false);
+    setIsStudioChoiceOpen(false);
+  };
+
   // Imported codebase (ImportSiteDialog has already read and checked the zip):
   // store its images/fonts, start a fresh 'codebase' workspace and save the
   // project with the import as its first version.
   const handleImportedSite = async (imported, name) => {
+    if (imported.kind === 'website') return handleImportedWebsite(imported, name);
     const projectId = Date.now().toString();
     await putBlobs(projectId, imported.blobs);
     const sessionId = newChatSessionId();
