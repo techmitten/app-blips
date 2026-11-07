@@ -6,6 +6,34 @@ rss: true
 
 Each entry lists what changed in that version of AppBlips, newest first. To get the latest version, see [Install the desktop app](/quickstart-desktop) or [Run from source](/quickstart-source). Downloads for every release are on [GitHub Releases](https://github.com/TechMitten/app-blips/releases).
 
+<Update label="0.1.26" description="November 7, 2026" tags={["New", "Improved", "Look and feel", "For developers"]}>
+  ## New
+
+  - **AppBlips plans.** Sign in with email, Google or GitHub and let AppBlips run the AI for you, with no API key needed. On the desktop app, Google and GitHub sign-in open in your web browser. Using your own key still works exactly as before.
+  - **Account tab.** **Settings → Account** shows your plan and build usage, and lets you change your password, manage your sign-ins, cancel your plan or delete your account. Cancel and delete are in the **Danger Zone**.
+  - **Account menu.** Once you are signed in, an account button and menu appear on the studio picker and in the workspace header, with **Sign out**.
+
+  ## Improved
+
+  - **Fairer usage.** A build is counted once per prompt, however many steps it takes. Ask mode and automatic fixes are free. The count is called **Usage** and is refreshed each time you open the account menu.
+  - **No double subscriptions.** AppBlips never offers or starts a second subscription for a plan you already have.
+  - **Returning plan users** land on **Settings → Account** during setup. **Factory Reset** also signs you out of your AppBlips account.
+  - **Automatic fixes are bounded.** AppBlips makes at most four automatic repair attempts per prompt, and cancelling ends any wait between attempts.
+  - **Saves are safer.** A project save survives a failed folder rename, files on disk are re-checked, and storage problems are shown in the app instead of being ignored.
+  - **Desktop.** AppBlips asks before quitting while a build is running, pop-up windows opened by a preview are paced to one per second, and plan sign-in stays active after the first minute.
+  - **Imported sites.** The AI keeps to your project's own files, and AppBlips won't write through shortcuts that point to other places on your computer.
+
+  ## Look and feel
+
+  - The splash video is shorter and plays at normal speed. On the desktop app it also plays on first launch, over setup.
+
+  ## For developers
+
+  - Plan payments go through Polar. A self-hosted server turns on plans when its `.env` file has a Clerk key and `POLAR_ACCESS_TOKEN`. In that mode only plan users can chat, and the saved-key routes are off. See [Configuration](/self-hosting/configuration#accounts-and-plans).
+  - The server caps request sizes, times out slow AI providers, and refuses SEO scans of names that point at private addresses.
+  - `npm run dev` can start the `dev.appblips.com` tunnel, and `APPBLIPS_API_URL` takes plans from the AppBlips Worker.
+</Update>
+
 <Update label="0.1.25" description="November 7, 2026" tags={["New", "Improved", "Look and feel", "For developers"]}>
   ## New
 
@@ -32,8 +60,8 @@ Each entry lists what changed in that version of AppBlips, newest first. To get 
 
   ## For developers
 
-  - Updated Electron to 44.10.1 for Chromium security fixes, plus React, Tailwind, Capacitor and other dependencies.
-  - A self-hosted server turns on sign-in and paid plans by itself when its `.env` has both a Clerk key and a Creem key, and the `APPBLIPS_HOSTED` setting is gone. See [Configuration](/self-hosting/configuration#accounts-and-plans). Without those keys nothing changes.
+  - Updated the desktop app's underlying browser engine (Electron 44.10.1) for security fixes, plus other software AppBlips is built on.
+  - A self-hosted server turns on sign-in and paid plans by itself when its `.env` file has the sign-in and payment keys, and the `APPBLIPS_HOSTED` setting is gone. See [Configuration](/self-hosting/configuration#accounts-and-plans). Without those keys nothing changes.
 </Update>
 
 <Update label="0.1.24" description="November 2, 2026" tags={["New", "Improved", "Look and feel"]}>
@@ -47,7 +75,7 @@ Each entry lists what changed in that version of AppBlips, newest first. To get 
   - **Your own edits stay yours.** If code you saved by hand has an error, AppBlips shows the error and its line in the chat instead of having the AI rewrite your change. Saving again clears it.
   - **Clearer updates for Linux .deb installs.** The update notice and **Settings → Check** show the right steps for how you installed AppBlips, with a command to copy.
   - **Desktop preview opens full size.** The framed desktop window is one click away on the **Full size** toggle.
-  - **Agent computer removed.** The AI no longer runs npm on computer.appblips.com, so nothing is sent there, and the **Agent computer** switch is gone from **Settings → Connectors**. For imported sites, the AI edits `package.json` itself and AppBlips' built-in build check tests the result.
+  - **Agent computer removed.** The AI no longer runs your project's install commands on computer.appblips.com, so nothing is sent there, and the **Agent computer** switch is gone from **Settings → Connectors**. For imported sites, the AI edits the project's dependency list itself and AppBlips' built-in build check tests the result.
 
   ## Look and feel
 
@@ -57,7 +85,7 @@ Each entry lists what changed in that version of AppBlips, newest first. To get 
 <Update label="0.1.23" description="November 2, 2026" tags={["For developers"]}>
   ## For developers
 
-  - Updated build tools and dependencies (Electron Builder, Capacitor CLI, ESLint, minimatch and glob) to fix known security issues. Nothing changes in how AppBlips looks or works.
+  - Updated the tools AppBlips is built with to fix known security issues. Nothing changes in how AppBlips looks or works.
 </Update>
 
 <Update label="0.1.22" description="November 2, 2026" tags={["New", "Improved"]}>
@@ -184,7 +212,7 @@ Each entry lists what changed in that version of AppBlips, newest first. To get 
 
   - Onboarding asks whether you want to bring your own API key or use AI Credits.
   - Websites and imported sites can use **Full size** preview.
-  - Electron updated to 44.9.1 for Chromium security fixes.
+  - Updated the desktop app's browser engine (Electron 44.9.1) for security fixes.
   - The Docker guide now says to install Docker Compose v2.
 
   ## Look and feel
@@ -292,7 +320,7 @@ Each entry lists what changed in that version of AppBlips, newest first. To get 
   - The first-visit tour invitation goes away on its own.
   - The project name is treated as a name, not as instructions for the AI.
   - Fixed: the Linux `.deb` package showed a generic icon in the launcher.
-  - A security issue was fixed.
+  - Fixed a security issue.
 
   ## Look and feel
 
@@ -349,7 +377,7 @@ Each entry lists what changed in that version of AppBlips, newest first. To get 
   - **Review** checks your app at mobile, tablet and desktop sizes and reports layout problems such as sideways scrolling, broken images and missing labels.
   - **Reasoning** for builds defaults to Low.
   - Fixed: click-to-edit failed on text that contained styled words.
-  - Security fixes found by code scanning.
+  - Security fixes found by automated code scanning.
 </Update>
 
 <Update label="0.1.5" description="October 10, 2026" tags={["New", "Improved", "For developers"]}>
