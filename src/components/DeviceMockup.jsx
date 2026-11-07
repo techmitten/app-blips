@@ -819,28 +819,43 @@ export default function DeviceMockup({
             </>
           )
         ) : mode === 'tablet' ? (
+          // Same hardware vocabulary as the phone (.device-hw-btn etc.),
+          // laid out like a current tablet: front camera centred in the
+          // bezel, power key on the top edge, volume keys high on the right.
+          // Landscape maps edges the way the phone does (top -> left,
+          // right -> bottom).
           orientation === 'landscape' ? (
             <>
-              {/* Side Buttons Visuals (rotated to top/bottom edges) */}
-              <div className="absolute -top-1 left-24 h-1 w-12 bg-slate-700 rounded-b-sm shadow-sm animate-fade-in"></div>
-              <div className="absolute -top-1 left-40 h-1 w-20 bg-slate-700 rounded-b-sm shadow-sm animate-fade-in"></div>
-              <div className="absolute -bottom-1 left-36 h-1 w-20 bg-slate-700 rounded-t-sm shadow-sm animate-fade-in"></div>
+              <div className="device-front-camera-landscape device-tablet-camera animate-fade-in" aria-hidden="true" />
 
-              {/* Home Indicator (rotated to right edge) */}
-              <div className="absolute right-2 inset-y-0 flex items-center justify-center z-20 pointer-events-none animate-fade-in">
-                <div className="h-32 w-1.5 rounded-full bg-slate-200/70"></div>
+              <div className="device-antenna device-antenna-h -top-[2.5px] left-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h -top-[2.5px] right-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h -bottom-[2.5px] left-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h -bottom-[2.5px] right-24" aria-hidden="true" />
+
+              <div className="device-hw-btn -left-0.75 bottom-16 w-0.75 h-12 rounded-l-xs animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn-landscape -bottom-0.75 left-16 h-0.75 w-11 rounded-b-xs animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn-landscape -bottom-0.75 left-30 h-0.75 w-11 rounded-b-xs animate-fade-in" aria-hidden="true" />
+
+              <div className="absolute right-2.25 inset-y-0 flex items-center justify-center z-20 pointer-events-none animate-fade-in">
+                <div className="device-home-indicator-bar-landscape device-tablet-home-indicator"></div>
               </div>
             </>
           ) : (
             <>
-              {/* Side Buttons Visuals */}
-              <div className="absolute -left-1 top-24 w-1 h-12 bg-slate-700 rounded-r-sm shadow-sm animate-fade-in"></div>
-              <div className="absolute -left-1 top-40 w-1 h-20 bg-slate-700 rounded-r-sm shadow-sm animate-fade-in"></div>
-              <div className="absolute -right-1 top-36 w-1 h-20 bg-slate-700 rounded-l-sm shadow-sm animate-fade-in"></div>
+              <div className="device-front-camera device-tablet-camera animate-fade-in" aria-hidden="true" />
 
-              {/* Home Indicator */}
-              <div className="absolute bottom-2 inset-x-0 flex justify-center z-20 pointer-events-none animate-fade-in">
-                <div className="w-32 h-1.5 rounded-full bg-slate-200/70"></div>
+              <div className="device-antenna device-antenna-v -left-[2.5px] top-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v -left-[2.5px] bottom-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v -right-[2.5px] top-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v -right-[2.5px] bottom-24" aria-hidden="true" />
+
+              <div className="device-hw-btn-landscape -top-0.75 right-16 h-0.75 w-12 rounded-t-xs animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn -right-0.75 top-16 w-0.75 h-11 rounded-r-xs animate-fade-in" aria-hidden="true" />
+              <div className="device-hw-btn -right-0.75 top-30 w-0.75 h-11 rounded-r-xs animate-fade-in" aria-hidden="true" />
+
+              <div className="absolute bottom-2.25 inset-x-0 flex justify-center z-20 pointer-events-none animate-fade-in">
+                <div className="device-home-indicator-bar device-tablet-home-indicator"></div>
               </div>
             </>
           )
