@@ -16,6 +16,7 @@
 //     not written back to the project.
 //   - navigate-page: swaps in another page of a multi-page site (the frame
 //     never navigates itself), then scrolls to the link's #hash.
+//   - open-youtube: opens a YouTube video the preview shows as a poster.
 // Everything else the bridge posts (editing, nav-state, screenshots) is
 // ignored here.
 //
@@ -113,6 +114,12 @@ const SHELL_SOURCE = `(function () {
       var href = typeof p.href === 'string' && p.href.length < 500 ? p.href : '';
       var target = resolvePage(href);
       if (target) load(target, href.indexOf('#') >= 0 ? href.slice(href.indexOf('#') + 1) : '');
+    } else if (d.type === 'open-youtube') {
+      // Same as youTubeWatchUrl in previewBridge.js: the payload is untrusted.
+      var id = typeof p.id === 'string' ? p.id : '';
+      var url = p.kind === 'video' && /^[A-Za-z0-9_-]{11}$/.test(id) ? 'https://www.youtube.com/watch?v=' + id
+        : p.kind === 'list' && /^[A-Za-z0-9_-]{2,64}$/.test(id) ? 'https://www.youtube.com/playlist?list=' + id : '';
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
     }
   });
 

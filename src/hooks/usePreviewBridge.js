@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION } from '../previewBridge';
+import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION, youTubeWatchUrl } from '../previewBridge';
 import { PREVIEW_MODES } from '../lib/constants';
 import { rasterizeDomSnapshot } from '../lib/attachments';
 import { logWarn } from '../lib/errorLog';
@@ -242,6 +242,14 @@ export default function usePreviewBridge({
       }
       else if (data.type === 'nav-state') {
         setNavState({ canGoBack: !!data.payload?.canGoBack, canGoForward: !!data.payload?.canGoForward });
+      }
+      else if (data.type === 'open-youtube') {
+        // The preview's YouTube poster was clicked (the player itself can't
+        // run in the sandbox). Opened from here, not from the frame: a popup
+        // opened by the frame would inherit its sandbox and break YouTube too.
+        // Untrusted payload, so only a validated id goes into a fixed URL.
+        const url = youTubeWatchUrl(data.payload);
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
       }
       else if (data.type === "error") logWarn('Preview bridge reported an error', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
