@@ -20,7 +20,7 @@ An API key is a password-like code from an AI provider that lets AppBlips use th
 **Basic** is the plan on sale now:
 
 - **Price:** $5 a month. This is a beta price.
-- **Usage:** unlimited while AppBlips is in beta, up to 50 uses every 5 hours. Each prompt or review counts as one use, however much work it takes. Questions in Ask mode and automatic error fixes don't count.
+- **Usage:** unlimited while AppBlips is in beta, up to 50 uses every 5 hours. Each message or prompt you send to the AI deducts one use from your 50 uses.
 - **AI:** run by AppBlips. No setup, and no bill from an AI provider.
 
 **Silver** and **Max** are marked **Coming soon**. The **agent computer**, a computer in the cloud that the AI can use while it builds, is also coming soon for plans. Neither can be bought yet.
@@ -29,9 +29,20 @@ An API key is a password-like code from an AI provider that lets AppBlips use th
   The $5 price and unlimited usage last only while AppBlips is in beta. The price and usage limits will change when the beta ends.
 </Warning>
 
+### What counts as a use
+
+A use is counted whenever you send a message to the AI. Every 5-hour window gives you 50 uses:
+
+- **Messages and prompts:** each message or prompt you send to the AI in Build mode deducts one use. However much work the AI does to complete your request—writing code, creating files, or using tools—sending the message deducts only one use.
+- **AI reviews:** starting an optional AI review after a build also deducts one use.
+- **Questions in Ask mode:** questions you ask in Ask mode are free and do not deduct a use.
+- **Automatic error repairs:** when AppBlips automatically detects and repairs an error in generated code, it does not deduct a use.
+
+If a message fails to send or the AI returns an error, your use is not deducted.
+
 ### If you reach the usage limit
 
-After 50 uses in 5 hours, the chat shows a message like:
+Your 50 uses operate on a rolling 5-hour window. After 50 uses in 5 hours, the chat shows a message like:
 
 > You've reached your usage limit for this 5-hour window. You can build again in 1 h 40 min.
 

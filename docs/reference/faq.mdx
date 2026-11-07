@@ -31,6 +31,12 @@ Here are quick answers to the most common questions about AppBlips — what it c
     One or the other. In the desktop app, you can subscribe to an AppBlips plan, and AppBlips runs the AI for you with no API key. Or you can use your own API key from an AI provider for free, and the provider bills you. See [Plans](/features/plans). The browser version (from source or Docker) always uses your own key.
   </Accordion>
 
+  <Accordion title="What counts as a use on an AppBlips plan?">
+    A use is counted whenever you send a message to the AI. Each message or prompt you send in Build mode deducts one use from your 50 uses for that 5-hour window, no matter how many steps the AI takes to complete the build.
+
+    Running an optional AI review also deducts one use. Questions in Ask mode and automatic error repairs do not deduct a use. If you reach 50 uses, you can build again once the 5-hour window resets. See [What counts as a use](/features/plans#what-counts-as-a-use).
+  </Accordion>
+
   <Accordion title="How do I cancel my plan?">
     Open **Settings → Danger Zone**, click **Cancel subscription**, then **Yes, cancel**. Your plan stays active until the end of the period you've paid for, and you won't be charged again. See [Cancel your plan or delete your account](/features/cancel-or-delete#cancel-your-plan).
   </Accordion>
