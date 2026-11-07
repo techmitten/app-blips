@@ -129,9 +129,10 @@ An app you already have is only replaced if the backup's copy is newer. Imported
 
 ## Updates
 
-AppBlips checks for new versions when it starts, and again every hour while it's open.
+- **Microsoft Store:** the Store updates AppBlips for you, and AppBlips doesn't show its own update notices. To check for a new version straight away, open **Settings → Workspace → Check for updates**, click **Check now**, then **Open Microsoft Store**.
 
-- **Microsoft Store:** the Store updates AppBlips for you. When a new version is out, AppBlips also tells you and links to its Store page, so you can update straight away. A new version can take a day or two to appear in the Store.
+The AppImage and .deb versions check for new versions when AppBlips starts, and again every hour while it's open.
+
 - **AppImage:** a new version downloads in the background. When it's ready, AppBlips offers **Restart to update**. If you choose **Later**, it installs the next time you close AppBlips.
 - **.deb:** AppBlips tells you when a new version is out and shows the steps for your setup, with a command you can copy. AppBlips can't install it for you, because that needs your password.
   - If you added the AppBlips package source (see [Install](#install) above, or said yes when the installer asked): install the update from the **Updates** section of your software center, or run `sudo apt update && sudo apt upgrade` in a terminal. A new version can take a little while to reach apt after it's announced; if it isn't offered yet, try again later or click **Download installer**.

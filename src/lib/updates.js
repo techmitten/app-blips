@@ -3,8 +3,8 @@
 // into the build (__APPBLIPS_VERSION__, from package.json via vite.config.js).
 //
 // The desktop app's AppImage builds update themselves instead
-// (electron/updater.js); this check covers every other install, including
-// Microsoft Store ones, whose notice links to the Store.
+// (electron/updater.js), and Microsoft Store installs are left to the Store;
+// this check covers every other install.
 // Results are cached in localStorage so reloads don't re-ask GitHub, whose
 // unauthenticated API allows 60 requests an hour per IP. No React, so
 // testing/testUpdates.js can load it in node.
@@ -19,7 +19,7 @@ export const UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-source#upd
 // .deb installs can't update themselves (it needs the user's password), so
 // their notice spells out the steps and links here for the long version.
 export const DESKTOP_UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-desktop#updates';
-// Microsoft Store installs link to their Store page instead of the release.
+// Settings → "Check now" on a Microsoft Store install links here.
 export const STORE_URL = 'https://apps.microsoft.com/detail/9nk9ss4v2n1k';
 // Hourly, so a new release reaches people soon after it is published. One
 // request an hour per install stays far below the API limit above.

@@ -16,8 +16,8 @@
 // against the GitHub API (src/lib/updates.js), linking to the release.
 //
 // Microsoft Store (MSIX) installs are updated by the Store, so they answer
-// { auto: false, store: true }: the renderer still runs the GitHub check, but
-// its notice links to the Store page instead of the release.
+// { auto: false, store: true } and the renderer shows no update notice: GitHub
+// releases go out days before Microsoft approves the Store version.
 import electronUpdater from 'electron-updater';
 import { debInstall } from './debInstall.js';
 

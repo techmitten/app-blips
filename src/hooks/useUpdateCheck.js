@@ -9,10 +9,12 @@ import { logWarn } from '../lib/errorLog';
 // shows the answer under the row. Works even with the switch off: clicking
 // is the user asking for this one check. Mirrors UpdateNotice's three kinds
 // of install: self-updating desktop builds report downloading/ready, the
-// Microsoft Store links to the Store, everything else links to the release.
+// Microsoft Store says the Store handles updates (without asking GitHub, whose
+// releases go out before the Store approves them), everything else links to
+// the release.
 // A dismissed notice doesn't hide the answer here, since the user asked.
 export function useUpdateCheck() {
-  const [result, setResult] = useState(null); // { status, version?, url?, store?, deb?, apt? }
+  const [result, setResult] = useState(null); // { status, version?, url?, deb?, apt? }
 
   // A self-updating build finishes downloading after the check returns.
   useEffect(() => (isDesktop ? desktopBridge.updates.onStatus((state) => {
@@ -27,7 +29,11 @@ export function useUpdateCheck() {
           logWarn('Desktop update check failed; checking GitHub releases instead', err);
           return null;
         });
-        if (desktop?.auto && !desktop.store) {
+        if (desktop?.store) {
+          setResult({ status: 'store', url: STORE_URL });
+          return;
+        }
+        if (desktop?.auto) {
           const state = desktop.state || {};
           setResult(state.status === 'downloading' || state.status === 'ready'
             ? { status: state.status, version: state.version }
@@ -35,9 +41,9 @@ export function useUpdateCheck() {
           return;
         }
         const release = await checkForUpdate({ storage: safeStorage('local'), force: true });
-        setResult(!release ? { status: 'current' }
-          : desktop?.store ? { status: 'available', version: release.version, url: STORE_URL, store: true }
-            : { status: 'available', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) });
+        setResult(release
+          ? { status: 'available', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) }
+          : { status: 'current' });
         return;
       }
       const release = await checkForUpdate({ storage: safeStorage('local'), force: true });

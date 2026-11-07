@@ -3,16 +3,16 @@ import { ArrowUpCircle, X } from 'lucide-react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import DebUpdateHelp from './DebUpdateHelp';
 import { isDesktop, desktopBridge } from '../lib/desktop';
-import { checkForUpdate, CHECK_INTERVAL_MS, STORE_URL, UPDATE_GUIDE_URL } from '../lib/updates';
+import { checkForUpdate, CHECK_INTERVAL_MS, UPDATE_GUIDE_URL } from '../lib/updates';
 import { loadCheckUpdates, loadDismissedUpdate, saveDismissedUpdate, safeStorage } from '../lib/config';
 import { logError, logWarn } from '../lib/errorLog';
 
 // "A new version is out" notice, behind Settings → Workspace → Check for updates.
 //   - Desktop Windows/AppImage builds update themselves (electron/updater.js):
 //     the notice appears once the update has downloaded and offers a restart.
-//   - Microsoft Store installs are updated by the Store, but the Store can take
-//     days to get round to it, so they get the release notice with a link to
-//     the Store page instead of GitHub.
+//   - Microsoft Store installs get no notice at all: the Store updates them,
+//     and a GitHub release goes out days before Microsoft approves the Store
+//     version, so a notice from GitHub offered a version the Store didn't have.
 //   - Every other install (.deb, running from source) gets a notice
 //     from the GitHub release check (lib/updates.js) with a link: the .deb to
 //     download the new installer, source to the update instructions. A .deb
@@ -29,7 +29,7 @@ function NoticeLink({ href, className, children }) {
 }
 
 export default function UpdateNotice({ aboveOverlay = false }) {
-  const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url?, store?, deb?, apt? }
+  const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url?, deb?, apt? }
   const [installing, setInstalling] = useState(false);
   const [installFailed, setInstallFailed] = useState(false);
 
@@ -39,12 +39,11 @@ export default function UpdateNotice({ aboveOverlay = false }) {
     const fromDesktop = (state) => {
       if (!cancelled && state?.status === 'ready') setUpdate({ kind: 'ready', version: state.version });
     };
-    // `desktop` is the desktop updater's answer: store, or a .deb with or
-    // without the apt source.
+    // `desktop` is the desktop updater's answer: a .deb with or without the
+    // apt source.
     const checkReleases = (desktop = null) => checkForUpdate({ storage: safeStorage('local') }).then((release) => {
       if (cancelled || !release || release.version === loadDismissedUpdate()) return;
-      if (desktop?.store) setUpdate({ kind: 'notify', version: release.version, url: STORE_URL, store: true });
-      else setUpdate({ kind: 'notify', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) });
+      setUpdate({ kind: 'notify', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) });
     });
     const run = async () => {
       if (isDesktop) {
@@ -52,10 +51,7 @@ export default function UpdateNotice({ aboveOverlay = false }) {
           logWarn('Desktop update check failed; checking GitHub releases instead', err);
           return null;
         });
-        if (result?.store) {
-          checkReleases(result);
-          return;
-        }
+        if (result?.store) return;
         if (result?.auto) {
           fromDesktop(result.state);
           return;
@@ -115,9 +111,7 @@ export default function UpdateNotice({ aboveOverlay = false }) {
           <p className="mt-0.5 text-xs text-slate-600 leading-snug">
             {ready
               ? `AppBlips ${update.version} has downloaded. Restart to use it now, or it installs the next time you close AppBlips.`
-              : update.store
-                ? 'Open the Microsoft Store to update. A new version can take a day or two to appear there. Your projects stay where they are.'
-                : isDesktop
+              : isDesktop
                   ? 'Download the new installer and install it over this version. Your projects stay where they are.'
                   : 'See what changed, and how to update your copy.'}
           </p>
@@ -139,7 +133,7 @@ export default function UpdateNotice({ aboveOverlay = false }) {
             ) : (
               <>
                 <a href={isDesktop && update.downloadUrl ? update.downloadUrl : update.url} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
-                  {update.store ? 'Open Microsoft Store' : isDesktop ? 'Download' : "What's new"}
+                  {isDesktop ? 'Download' : "What's new"}
                 </a>
                 {!isDesktop && (
                   <a href={UPDATE_GUIDE_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
