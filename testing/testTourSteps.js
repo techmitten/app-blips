@@ -44,7 +44,8 @@ for (const studioMode of ['app', 'website', 'game', 'codebase']) {
         assert.equal(/React project/.test(text(download)), studioMode === 'app', `${label}: React project choice`);
       }
       assert.equal(steps.some((step) => step.id === 'edit'), studioMode === 'website' && hasCode, `${label}: edit step`);
-      assert.match(text(steps.at(-1)), /Connectors/, `${label}: finish mentions Connectors`);
+      // The settings tab was renamed Connectors -> Extensions.
+      assert.match(text(steps.at(-1)), /Extensions/, `${label}: finish mentions Extensions`);
     }
   }
 }
