@@ -78,7 +78,9 @@ These give the server its own provider. It's used whenever **Settings → AI** h
 
 ## Accounts and plans
 
-AppBlips has no accounts unless you set them up. If your `.env` contains both a Clerk publishable key (`VITE_CLERK_PUBLISHABLE_KEY`) and a Polar access token (`POLAR_ACCESS_TOKEN`), the server turns on sign-in and paid plans by itself: signed-in subscribers build with the server's AI provider, and everyone else keeps using their own key. There is no separate switch. For a normal install, leave both keys out.
+AppBlips has no accounts unless you set them up. If your `.env` contains both a Clerk publishable key (`VITE_CLERK_PUBLISHABLE_KEY`) and a Polar access token (`POLAR_ACCESS_TOKEN`), the server turns on sign-in and paid plans by itself. There is no separate switch. For a normal install, leave both keys out.
+
+With accounts on, the server is for plan users only: every build needs a signed-in subscriber and runs on the server's AI provider. Visitors can't use their own API key there, so **Settings → AI** shows no provider form, and the server answers "Not available on this server" for the key-based extensions (**Publish**, Pollinations, Pixabay and Tavily). The SEO site scan needs a sign-in too. The desktop app is different: it always keeps your own key on your computer, with or without a plan.
 
 ## Example `.env` files
 

@@ -219,7 +219,8 @@ For a complete architectural walkthrough (generation flow, preview sandboxing, a
 
 - **Strict Sandboxing:** Generated apps run inside a sandboxed iframe (`sandbox` without `allow-same-origin`) using an opaque origin, isolating them completely from the parent app.
 - **Local-First Keys:** The desktop app opens zero network ports and encrypts API keys in your OS keychain. The browser/Docker server binds strictly to `127.0.0.1` (`localhost`) and stores keys on disk (`~/.appblips` or `appblips-data` volume with restricted permissions)—never in browser storage.
-- **Opt-In Cloud Services:** Nothing leaves your machine unless you connect an external provider or explicitly click **Publish** to upload static files to Surge.
+- **Opt-In Cloud Services:** Nothing leaves your machine unless you connect an external provider, sign in to an AppBlips plan, or explicitly click **Publish** to upload static files to Surge.
+- **Plans stay separate from your key:** on a self-hosted server with accounts turned on, only signed-in subscribers can build, on the server's own AI provider; own keys are for local installs and the desktop app, where they never leave your computer.
 
 ## Disclaimer
 

@@ -6,9 +6,9 @@
 // `user_provider` it would otherwise carry, so chatProxy applies identical
 // handling (preset endpoint, "rejected the API key" errors). A test request
 // for the saved provider may leave apiKey empty to mean "the saved key". The
-// key goes only to that provider's preset endpoint (or a localhost server):
-// resolveUserProvider ignores any other base URL, and chatProxy still refuses
-// requests from other origins.
+// key goes only to that provider's preset endpoint: resolveUserProvider
+// ignores any other base URL, and chatProxy still refuses requests from
+// other origins.
 export async function withSavedProvider(request, { keyFor, active = () => null }) {
   if (request.method !== 'POST') return request;
   const text = await request.text();

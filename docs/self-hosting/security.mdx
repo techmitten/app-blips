@@ -19,6 +19,9 @@ The browser version (`npm start`) and Docker run a small web server on your comp
 - It listens on `127.0.0.1` (Docker publishes it as `127.0.0.1:3000`), so other devices on your network can't connect.
 - It only answers when opened as `localhost`, `127.0.0.1` or `[::1]`. This stops a website from pointing its own domain name at your computer to reach AppBlips.
 - Like the desktop app, it refuses AI requests from other websites and from the apps you build.
+- It refuses requests larger than 32 MB for builds and 72 MB for publishing, so one request can't use up the server's memory.
+- The SEO site scan only visits addresses on the public internet, on the normal web ports (80 and 443), and checks where a name points before visiting it. It won't read pages from your own network.
+- If you turn on accounts (see [Accounts and plans](/self-hosting/configuration#accounts-and-plans)), the server builds only for signed-in subscribers, with its own AI provider; nobody can use the server with their own key.
 
 <Warning>
   If you make AppBlips reachable from other devices (by changing `HOST`, removing `127.0.0.1:` from `docker-compose.yml`, or adding names to `APPBLIPS_ALLOWED_HOSTS`), anyone who can reach it can spend an API key set in `.env` and use the server to send requests on your behalf. Put your own sign-in in front of it first, for example a reverse proxy with authentication.
