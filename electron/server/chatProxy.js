@@ -150,7 +150,12 @@ const routeModel = (env, provider, payload, plan) => {
   return provider.model;
 };
 
-export async function handleChatProxy(request, env, { plan = false, local = false } = {}) {
+// How long the provider has to start answering (headers, not the whole
+// reply, which streams for minutes). Without it a provider that never
+// answers holds the request open for good.
+export const UPSTREAM_CONNECT_MS = 120_000;
+
+export async function handleChatProxy(request, env, { plan = false, local = false, connectTimeoutMs = UPSTREAM_CONNECT_MS } = {}) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -232,14 +237,29 @@ export async function handleChatProxy(request, env, { plan = false, local = fals
   // nudges the model if 'auto' returns no tool call.
   applyProviderSettings(bodyObj, provider, { effort: reasoning_effort ?? 'none' });
 
-  const send = (body) => (provider.id === 'anthropic' ? callAnthropic(body, provider) : fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  }));
+  // The client going away (request.signal) cancels the upstream call at any
+  // point; the connect timer only runs until the provider's headers arrive.
+  // (The Anthropic SDK has its own timeout, anthropic.js.)
+  const send = async (body) => {
+    if (provider.id === 'anthropic') return callAnthropic(body, provider);
+    const control = new AbortController();
+    const timer = setTimeout(() => control.abort(new Error(`${providerLabel(provider.id)} did not answer within ${Math.round(connectTimeoutMs / 1000)} s.`)), connectTimeoutMs);
+    const onClientGone = () => control.abort(request.signal?.reason);
+    request.signal?.addEventListener('abort', onClientGone, { once: true });
+    try {
+      return await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: control.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   let upstream;
   try {
@@ -259,6 +279,8 @@ export async function handleChatProxy(request, env, { plan = false, local = fals
       upstream = await send({ ...bodyObj, [limitField]: limit });
     }
   } catch (err) {
+    // The client cancelled: nobody is waiting for an answer.
+    if (request.signal?.aborted) return new Response(null, { status: 499 });
     console.error(`[proxy] could not reach ${provider.id} (${model}):`, err);
     return new Response(JSON.stringify({ error: `Failed to reach LLM endpoint: ${err.message}` }), {
       status: 502,

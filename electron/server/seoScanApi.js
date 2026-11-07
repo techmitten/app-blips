@@ -10,10 +10,13 @@
 // renderer asks only after the user says yes (SeoQuestionsModal.jsx).
 //
 // This fetches an address the user typed, so it stays on the public internet:
-// no localhost, private or link-local addresses, with every redirect hop
-// checked the same way. A public name that resolves to a private address can't
-// be seen from Fetch primitives; the only thing that comes back is the handful
-// of extracted text fields, on a single-user app.
+// no localhost, private or link-local addresses, only the web ports, with
+// every redirect hop checked the same way. Node hosts also pass a resolver
+// (`lookup`, electron/server/dnsLookup.js), so a public name that points at a
+// private address (10.0.0.5.nip.io) is refused too; the Android app has none
+// and keeps the name check. A name that changes its answer between this check
+// and the fetch is out of reach here; the only thing that comes back is the
+// handful of extracted text fields.
 import { isForeignOrigin } from './chatProxy.js';
 import { seoOrigin } from '../../src/lib/seo.js';
 
@@ -42,6 +45,22 @@ export const isPublicHost = (hostname) => {
   if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return !PRIVATE_V4.some((re) => re.test(host));
   return true;
 };
+
+// True for a resolved address on the public internet: the IPv4 ranges above,
+// and for IPv6 loopback, unspecified, unique-local (fc00::/7), link-local
+// (fe80::/10) and IPv4-mapped addresses (::ffff:10.0.0.5), checked as IPv4.
+export const isPublicAddress = (address) => {
+  const ip = String(address || '').toLowerCase();
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) return !PRIVATE_V4.some((re) => re.test(ip));
+  if (!ip.includes(':')) return false;
+  const mapped = ip.match(/^(?:0*:)*ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return isPublicAddress(mapped[1]);
+  if (ip === '::' || ip === '::1' || /^0*:(0*:)*0*1$/.test(ip)) return false;
+  if (/^f[cd]/.test(ip) || /^fe[89ab]/.test(ip)) return false;
+  return true;
+};
+
+const WEB_PORTS = ['', '80', '443'];
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: '\'', nbsp: ' ' };
 const clean = (html, max) => String(html ?? '')
@@ -109,7 +128,7 @@ async function readCapped(response) {
   return new TextDecoder().decode(bytes);
 }
 
-export async function handleSeoScanApi(request, env = {}, { fetch: fetchImpl = fetch } = {}) {
+export async function handleSeoScanApi(request, env = {}, { fetch: fetchImpl = fetch, lookup = null } = {}) {
   if (isForeignOrigin(request, env)) return json({ error: 'Requests from other sites are not allowed.' }, 403);
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
 
@@ -123,8 +142,15 @@ export async function handleSeoScanApi(request, env = {}, { fetch: fetchImpl = f
   let target = new URL(`${origin}/`);
   try {
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      if (!['http:', 'https:'].includes(target.protocol) || !isPublicHost(target.hostname)) {
+      if (!['http:', 'https:'].includes(target.protocol) || !isPublicHost(target.hostname) || !WEB_PORTS.includes(target.port)) {
         return json({ error: 'AppBlips only scans sites on the public internet.' }, 400);
+      }
+      if (lookup) {
+        let addresses = [];
+        try { addresses = await lookup(target.hostname); } catch { /* unresolvable: the fetch below says so */ }
+        if (addresses.some((address) => !isPublicAddress(address))) {
+          return json({ error: 'AppBlips only scans sites on the public internet.' }, 400);
+        }
       }
       const response = await fetchImpl(target.href, {
         redirect: 'manual',

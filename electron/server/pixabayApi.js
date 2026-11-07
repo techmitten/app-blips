@@ -174,12 +174,22 @@ async function download({ id }, tokens, fetchImpl) {
   const target = pixabayUrl(hit?.largeImageURL) || pixabayUrl(hit?.webformatURL);
   if (!target) return json({ error: 'That photo is no longer on Pixabay.' }, 404);
 
+  // Redirects are followed by hand so every hop stays on pixabay.com.
   let response;
+  let next = target;
   try {
-    response = await fetchImpl(target, { headers: { accept: 'image/*' }, signal: AbortSignal.timeout(60_000) });
+    for (let hop = 0; hop < 4 && next; hop++) {
+      response = await fetchImpl(next, { headers: { accept: 'image/*' }, redirect: 'manual', signal: AbortSignal.timeout(60_000) });
+      const location = response.status >= 300 && response.status < 400 ? response.headers.get('location') : null;
+      if (!location) break;
+      response.body?.cancel().catch(() => {});
+      next = pixabayUrl(new URL(location, next).href);
+      response = null;
+    }
   } catch {
     return json({ error: UNREACHABLE }, 502);
   }
+  if (!response) return json({ error: 'Pixabay couldn’t send that photo. Try another one.' }, 502);
   const type = response.headers.get('content-type') || '';
   const length = Number(response.headers.get('content-length')) || 0;
   if (!response.ok || !IMAGE_TYPE_RE.test(type) || length > MAX_IMAGE_BYTES) {

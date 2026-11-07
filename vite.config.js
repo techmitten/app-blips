@@ -15,6 +15,7 @@ import { handleSandbox } from './electron/server/hosted/sandbox.js'
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js'
 import { isHosted } from './electron/server/hosted/mode.js'
 import { verifyClerkToken } from './electron/server/hosted/clerk.js'
+import { resolveAddresses } from './electron/server/dnsLookup.js'
 import { handleBilling } from './electron/server/hosted/billing.js'
 import { gateChat, releaseBuild } from './electron/server/hosted/chat.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
@@ -32,6 +33,12 @@ function guarded(handler) {
     try {
       await handler(req, res, next)
     } catch (err) {
+      if (err?.status === 413 && !res.headersSent) {
+        res.statusCode = 413
+        res.setHeader('content-type', 'application/json')
+        res.end(JSON.stringify({ error: err.message }))
+        return
+      }
       console.error('[dev-proxy] handler error:', err)
       if (!res.headersSent) {
         res.statusCode = 502
@@ -116,7 +123,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('Requests from other sites are not allowed.')
           return
         }
-        const request = await toFetchRequest(req)
+        const request = await toFetchRequest(req, res)
         sendWebResponse(res, await forwardToHosted(request, new URL(request.url), null, hostedApiUrl), {}, '[hosted]')
       }
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
@@ -132,7 +139,7 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         if (hosted) {
-          const gated = await gateChat(await toChatRequest(req), env, store)
+          const gated = await gateChat(await toChatRequest(req, res), env, store)
           if (gated.response) {
             sendWebResponse(res, gated.response, {}, '[billing]')
             return
@@ -152,7 +159,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('AI requests are only answered for this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req), keys), env)
+        const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req, res), keys), env)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // Plans, checkout and Polar's payment notices. Without the hosted keys
@@ -167,7 +174,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('Hosted billing is not enabled.')
           return
         }
-        const response = await handleBilling(await toFetchRequest(req), env, store)
+        const response = await handleBilling(await toFetchRequest(req, res), env, store)
         sendWebResponse(res, response, {}, '[billing]')
       })
       server.middlewares.use('/api/billing', billing)
@@ -179,7 +186,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('Settings → AI is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleProviderApi(await toFetchRequest(req), env, keys)
+        const response = await handleProviderApi(await toFetchRequest(req, res), env, keys)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // Publish to Surge, with the Surge token kept server-side the same way.
@@ -191,7 +198,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('Publishing is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleSurgeApi(await toFetchRequest(req), env, surgeTokens)
+        const response = await handleSurgeApi(await toFetchRequest(req, res), env, surgeTokens)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The Pollinations connector's sign-in, with its key kept the same way.
@@ -203,7 +210,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('Pollinations sign-in is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handlePollinationsApi(await toFetchRequest(req), env, pollinationsKeys)
+        const response = await handlePollinationsApi(await toFetchRequest(req, res), env, pollinationsKeys)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The Pixabay connector's photo search, with the user's key kept the same way.
@@ -215,7 +222,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('Pixabay search is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handlePixabayApi(await toFetchRequest(req), env, pixabayKeys)
+        const response = await handlePixabayApi(await toFetchRequest(req, res), env, pixabayKeys)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The Tavily connector's web search for the AI, with the user's key kept the same way.
@@ -227,7 +234,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('Tavily web search is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleTavilyApi(await toFetchRequest(req), env, tavilyKeys)
+        const response = await handleTavilyApi(await toFetchRequest(req, res), env, tavilyKeys)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The SEO connector's one-time read of the user's own website.
@@ -237,14 +244,14 @@ function llmProxyDevMiddleware(mode) {
           res.end('Scanning a site is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const request = await toFetchRequest(req)
+        const request = await toFetchRequest(req, res)
         if (!(await signedIn(request))) {
           res.statusCode = 401
           res.setHeader('content-type', 'application/json')
           res.end(JSON.stringify({ error: 'Sign in to scan a site.', code: 'sign_in_required' }))
           return
         }
-        const response = await handleSeoScanApi(request, env)
+        const response = await handleSeoScanApi(request, env, { lookup: resolveAddresses })
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // Per-user Render Sandbox computer (when RENDER_API_KEY + RENDER_WORKSPACE_ID are set).
@@ -259,7 +266,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('Sandbox access is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleSandbox(await toFetchRequest(req), env, store)
+        const response = await handleSandbox(await toFetchRequest(req, res), env, store)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },

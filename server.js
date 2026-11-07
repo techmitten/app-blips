@@ -40,6 +40,7 @@ import { handleSandbox } from './electron/server/hosted/sandbox.js';
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js';
 import { isHosted } from './electron/server/hosted/mode.js';
 import { verifyClerkToken } from './electron/server/hosted/clerk.js';
+import { resolveAddresses } from './electron/server/dnsLookup.js';
 
 // A .env in the folder it starts from, when there is one. Docker passes its
 // settings as real environment variables instead; those win over the file.
@@ -151,6 +152,10 @@ const server = createServer((req, res) => {
   }
 
   const fail = (err) => {
+    if (err?.status === 413 && !res.headersSent) {
+      sendJson(res, 413, { error: err.message });
+      return;
+    }
     console.error('[server] request failed:', req.url, err);
     if (!res.headersSent) sendText(res, 500, 'Internal error.');
     else res.destroy();
@@ -161,7 +166,7 @@ const server = createServer((req, res) => {
       sendText(res, 404, 'Hosted billing is not enabled.');
       return;
     }
-    toFetchRequest(req)
+    toFetchRequest(req, res)
       .then((request) => handleBilling(request, process.env, store))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[billing]'))
       .catch(fail);
@@ -169,7 +174,7 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/sandbox' || req.url.startsWith('/api/sandbox/')) {
-    toFetchRequest(req)
+    toFetchRequest(req, res)
       .then((request) => handleSandbox(request, process.env, store))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[sandbox]'))
       .catch(fail);
@@ -182,7 +187,7 @@ const server = createServer((req, res) => {
       return;
     }
     const handle = async () => {
-      let request = await toChatRequest(req);
+      let request = await toChatRequest(req, res);
       let gated = null;
       // Hosted: every request is a plan user's or is turned away by the gate
       // (sign-in, active plan, usage). Single-user: the saved key rides along.
@@ -208,7 +213,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/provider' || req.url.startsWith('/api/provider/')) {
     if (hostedOnly(res)) return;
-    toFetchRequest(req)
+    toFetchRequest(req, res)
       .then((request) => handleProviderApi(request, process.env, keys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
@@ -217,7 +222,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/surge' || req.url.startsWith('/api/surge/')) {
     if (hostedOnly(res)) return;
-    toFetchRequest(req)
+    toFetchRequest(req, res)
       .then((request) => handleSurgeApi(request, process.env, surgeTokens))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
@@ -226,7 +231,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/pollinations' || req.url.startsWith('/api/pollinations/')) {
     if (hostedOnly(res)) return;
-    toFetchRequest(req)
+    toFetchRequest(req, res)
       .then((request) => handlePollinationsApi(request, process.env, pollinationsKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
@@ -235,7 +240,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/pixabay' || req.url.startsWith('/api/pixabay/')) {
     if (hostedOnly(res)) return;
-    toFetchRequest(req)
+    toFetchRequest(req, res)
       .then((request) => handlePixabayApi(request, process.env, pixabayKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
@@ -244,7 +249,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/tavily' || req.url.startsWith('/api/tavily/')) {
     if (hostedOnly(res)) return;
-    toFetchRequest(req)
+    toFetchRequest(req, res)
       .then((request) => handleTavilyApi(request, process.env, tavilyKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
@@ -252,9 +257,9 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/seo/scan') {
-    toFetchRequest(req)
+    toFetchRequest(req, res)
       .then(async (request) => (await signedIn(request)
-        ? handleSeoScanApi(request, process.env)
+        ? handleSeoScanApi(request, process.env, { lookup: resolveAddresses })
         : new Response(JSON.stringify({ error: 'Sign in to scan a site.', code: 'sign_in_required' }), { status: 401, headers: { 'content-type': 'application/json' } })))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);

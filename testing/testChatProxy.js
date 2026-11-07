@@ -416,3 +416,47 @@ test('hosted mode honours the plan model only on a gated request', async (t) => 
   assert.equal((await send({ local: true })).status, 200);
   assert.equal(upstream.model, 'test-model');
 });
+
+// --- Upstream timeouts, client cancellation and relayed headers ----------
+
+test('a provider that never answers is given up on; a cancelled client cancels the upstream call', async (t) => {
+  let upstreamSignal;
+  t.mock.method(globalThis, 'fetch', (url, options) => new Promise((_resolve, reject) => {
+    upstreamSignal = options.signal;
+    options.signal.addEventListener('abort', () => reject(options.signal.reason));
+  }));
+  const body = JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] });
+  const slow = await handleChatProxy(new Request('https://app.example/api/chat', { method: 'POST', body }), env, { connectTimeoutMs: 20 });
+  assert.equal(slow.status, 502);
+  assert.match((await slow.json()).error, /did not answer within/);
+
+  const client = new AbortController();
+  const pending = handleChatProxy(new Request('https://app.example/api/chat', { method: 'POST', body, signal: client.signal }), env);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  client.abort();
+  const cancelled = await pending;
+  assert.equal(cancelled.status, 499);
+  assert.equal(upstreamSignal.aborted, true);
+});
+
+test('only the headers the app reads are relayed from the provider', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('data: [DONE]\n\n', {
+    headers: {
+      'content-type': 'text/event-stream',
+      'set-cookie': '__cf_bm=abc; Path=/',
+      'access-control-allow-origin': 'https://provider.example',
+      'x-ratelimit-remaining-requests': '9',
+      'x-request-id': 'req_1',
+      'content-encoding': 'gzip',
+    },
+  }));
+  const response = await handleChatProxy(new Request('https://app.example/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'text/event-stream');
+  assert.equal(response.headers.get('x-ratelimit-remaining-requests'), '9');
+  assert.equal(response.headers.get('x-request-id'), 'req_1');
+  for (const name of ['set-cookie', 'access-control-allow-origin', 'content-encoding']) assert.equal(response.headers.get(name), null, name);
+});

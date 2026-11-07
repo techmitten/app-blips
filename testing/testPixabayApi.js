@@ -199,6 +199,23 @@ test('download refuses non-image answers, oversized files and images off Pixabay
   assert.ok(!offsite.seen.some((url) => url.includes('evil.example')));
 });
 
+test('download follows redirects only within pixabay.com', async () => {
+  const tokens = memoryTokens('4c5d', KEY);
+  const bytes = new Response(new Uint8Array([9, 9]), { headers: { 'content-type': 'image/jpeg' } });
+  const onsite = stubPixabay({ image: (url) => (url === 'https://pixabay.com/get/42_1280.jpg'
+    ? new Response(null, { status: 302, headers: { location: 'https://cdn.pixabay.com/real/42.jpg' } })
+    : bytes) });
+  const ok = await call('/api/pixabay/download', { method: 'POST', body: { id: 42 } }, tokens, onsite.fetch);
+  assert.equal(ok.status, 200);
+  assert.deepEqual([...ok.body], [9, 9]);
+  assert.ok(onsite.seen.includes('https://cdn.pixabay.com/real/42.jpg'));
+
+  const offsite = stubPixabay({ image: () => new Response(null, { status: 302, headers: { location: 'https://evil.example/42.jpg' } }) });
+  const refused = await call('/api/pixabay/download', { method: 'POST', body: { id: 42 } }, tokens, offsite.fetch);
+  assert.equal(refused.status, 502);
+  assert.ok(!offsite.seen.some((url) => url.startsWith('https://evil.example')), 'followed a redirect off Pixabay');
+});
+
 test('a downloaded photo is named from its tags and noted for the AI', () => {
   assert.equal(pixabayFileName('mountain, lake, sunset, nature', 42, 'image/jpeg'), 'mountain lake sunset.jpg');
   assert.equal(pixabayFileName('', 42, 'image/png'), 'pixabay 42.png');

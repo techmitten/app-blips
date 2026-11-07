@@ -28,6 +28,7 @@ import { handlePollinationsApi } from './server/pollinationsApi.js';
 import { handlePixabayApi } from './server/pixabayApi.js';
 import { handleTavilyApi } from './server/tavilyApi.js';
 import { handleSeoScanApi } from './server/seoScanApi.js';
+import { resolveAddresses } from './server/dnsLookup.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
 import { executeBrowserInput } from './browserControls.js';
@@ -231,7 +232,7 @@ async function handleAppRequest(request) {
       case '/api/tavily/search':
         return withSecurityHeaders(await handleTavilyApi(request, process.env, tavilyStore));
       case '/api/seo/scan':
-        return withSecurityHeaders(await handleSeoScanApi(request, process.env));
+        return withSecurityHeaders(await handleSeoScanApi(request, process.env, { lookup: resolveAddresses }));
       default:
         if (request.method !== 'GET' && request.method !== 'HEAD') {
           return new Response('Method not allowed', { status: 405, headers: SECURITY_HEADERS });

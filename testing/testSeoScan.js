@@ -3,7 +3,7 @@
 // and that it only ever goes to public addresses.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { extractScan, handleSeoScanApi, isPublicHost } from '../electron/server/seoScanApi.js';
+import { extractScan, handleSeoScanApi, isPublicAddress, isPublicHost } from '../electron/server/seoScanApi.js';
 
 const HTML = `<!doctype html><html lang="en-US"><head>
 <title> Maple &amp; Street Bakery </title>
@@ -12,10 +12,10 @@ const HTML = `<!doctype html><html lang="en-US"><head>
 </head><body><h1>Our <em>bread</em></h1><h2>Visit us</h2><h2>Visit us</h2><h3>Ignored</h3>
 <script>alert(1)</script></body></html>`;
 
-const post = (body, fetchImpl, headers = {}) => handleSeoScanApi(
+const post = (body, fetchImpl, headers = {}, lookup = null) => handleSeoScanApi(
   new Request('http://localhost:3000/api/seo/scan', { method: 'POST', body: JSON.stringify(body), headers }),
   {},
-  { fetch: fetchImpl },
+  { fetch: fetchImpl, lookup },
 );
 const page = (html = HTML, init = {}) => new Response(html, { headers: { 'content-type': 'text/html' }, ...init });
 
@@ -35,6 +35,32 @@ test('only public hosts are scanned', () => {
   for (const host of ['localhost', 'app.localhost', 'nas.local', 'intranet', '127.0.0.1', '10.0.0.5', '192.168.1.1', '172.20.0.1', '169.254.169.254', '100.64.0.1', '[::1]', 'a.internal', '']) {
     assert.equal(isPublicHost(host), false, host);
   }
+});
+
+test('resolved addresses are checked too, and only the web ports', async () => {
+  for (const ip of ['93.184.216.34', '2606:2800:220:1:248:1893:25c8:1946']) assert.equal(isPublicAddress(ip), true, ip);
+  for (const ip of ['127.0.0.1', '10.1.2.3', '169.254.169.254', '::1', '::', 'fd12::1', 'fe80::1', '::ffff:192.168.0.1', '::ffff:10.0.0.5', '']) {
+    assert.equal(isPublicAddress(ip), false, ip);
+  }
+  let calls = 0;
+  const never = async () => { calls++; return page(); };
+  // A public name that points at a private address (10.0.0.5.nip.io).
+  const inside = await post({ url: 'https://files.example.com' }, never, {}, async () => ['10.0.0.5']);
+  assert.equal(inside.status, 400);
+  const both = await post({ url: 'https://files.example.com' }, never, {}, async () => ['93.184.216.34', '::1']);
+  assert.equal(both.status, 400);
+  for (const url of ['http://maple.com:8080', 'https://maple.com:8443']) assert.equal((await post({ url }, never)).status, 400, url);
+  assert.equal(calls, 0);
+  // A name that resolves to the public internet is fetched as before.
+  const fine = await post({ url: 'https://maple.com' }, async () => page(), {}, async () => ['93.184.216.34']);
+  assert.equal(fine.status, 200);
+  // Through a redirect, each hop is resolved.
+  const hops = [];
+  const redirected = await post({ url: 'https://maple.com' }, async (url) => (url === 'https://maple.com/'
+    ? new Response(null, { status: 302, headers: { location: 'https://cdn.maple.com/' } })
+    : page()), {}, async (host) => { hops.push(host); return host === 'cdn.maple.com' ? ['172.16.0.9'] : ['93.184.216.34']; });
+  assert.equal(redirected.status, 400);
+  assert.deepEqual(hops, ['maple.com', 'cdn.maple.com']);
 });
 
 test('a good page comes back as a scan; nothing but the fields is returned', async () => {

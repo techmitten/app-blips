@@ -67,9 +67,21 @@ async function handleMe(request, env, store) {
   });
 }
 
+// One checkout at a time per user: two clicks in flight together would both
+// pass the "already subscribed" checks and start two Polar subscriptions.
+const checkoutsInFlight = new Map(); // userId -> Promise<Response>
+
 async function handleCheckout(request, env, store) {
   const auth = await requireUser(request, env);
   if (auth.response) return auth.response;
+  const pending = checkoutsInFlight.get(auth.userId);
+  if (pending) return (await pending).clone();
+  const run = startCheckout(request, env, store, auth).finally(() => checkoutsInFlight.delete(auth.userId));
+  checkoutsInFlight.set(auth.userId, run);
+  return (await run).clone();
+}
+
+async function startCheckout(request, env, store, auth) {
 
   const body = await request.json().catch(() => null);
   const planId = body?.plan;
@@ -235,7 +247,13 @@ async function applySubscription(eventSub, env, store) {
   // An older subscription ending must not switch off a newer one.
   if (!active && account?.active && account.subscription_id && account.subscription_id !== sub.id) return true;
 
-  const planId = planForProductId(env, sub.product_id) || 'basic';
+  // Only AppBlips' own products carry a plan: another product of the Polar
+  // organisation (or a free one) naming the user must not switch AI on.
+  const planId = planForProductId(env, sub.product_id);
+  if (!planId) {
+    console.warn(`[billing] ignoring subscription ${sub.id} to unknown product ${sub.product_id}`);
+    return true;
+  }
   await store.saveAccount({ userId, customerId: sub.customer_id || sub.customer?.id || null, plan: planId, active });
   await store.setSubscriptionId(userId, sub.id);
   const cancelAt = active && sub.cancel_at_period_end ? (sub.ends_at || sub.current_period_end || null) : null;

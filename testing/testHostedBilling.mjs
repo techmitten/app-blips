@@ -229,6 +229,12 @@ try {
   assert.equal(store.getAccount('user_lagging').active, 1, 'the live subscription was not applied');
   assert.equal(store.getAccount('user_lagging').subscription_id, 'sub_lagging');
   assert.equal(checkoutCalls.length, 1);
+
+  // Two clicks at once start one checkout, not two subscriptions.
+  const pair = await Promise.all([checkoutReq({ plan: 'basic' }), checkoutReq({ plan: 'basic' })]);
+  assert.deepEqual(pair.map((res) => res.status), [200, 200]);
+  assert.equal(checkoutCalls.length, 2, 'concurrent checkouts both reached Polar');
+  checkoutCalls.pop();
   store.setPlan('user_1', 'max', true);
 
   const unauth = await handleBilling(new Request('http://localhost/api/billing/me'), env, store);
@@ -273,6 +279,12 @@ try {
   assert.equal(store.getAccount('user_attacker'), null, 'event body chose the user');
   assert.equal(store.getAccount('user_owner').active, 1);
   assert.equal(store.getAccount('user_owner').plan, 'basic', 'event body chose the plan');
+
+  // A subscription to a product that isn't an AppBlips plan (another product
+  // of the Polar organisation, a free one) never switches AI on.
+  subscription('sub_other', 'user_other', { product_id: 'prod_something_else' });
+  assert.equal((await sendEvent('subscription.active', subscriptions.get('sub_other'))).status, 202);
+  assert.equal(store.getAccount('user_other'), null, 'an unknown product activated a plan');
 
   // A subscription made outside AppBlips' checkout has no Clerk user: ignored.
   subscription('sub_manual', null, { customer: { id: 'cust_manual', external_id: null } });

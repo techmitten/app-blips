@@ -26,16 +26,23 @@ export function clerkIssuer(env) {
   }
 }
 
-async function getKeys(issuer) {
+// Fetched at most every few seconds when a token names an unknown key, so a
+// rotation at Clerk doesn't lock everyone out until the hour is up, and a
+// flood of bad tokens can't turn this into a request per token.
+const JWKS_RETRY_MS = 10 * 1000;
+
+async function getKeys(issuer, { refresh = false } = {}) {
   const cached = jwksCache.get(issuer);
-  if (cached && Date.now() - cached.fetchedAt < JWKS_TTL_MS) return cached.keys;
-  const res = await fetch(`${issuer}/.well-known/jwks.json`);
+  const age = cached ? Date.now() - cached.fetchedAt : Infinity;
+  if (cached && age < (refresh ? JWKS_RETRY_MS : JWKS_TTL_MS)) return cached.keys;
+  const res = await fetch(`${issuer}/.well-known/jwks.json`, { signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`Could not load Clerk signing keys (${res.status}).`);
   const body = await res.json();
   const keys = Array.isArray(body?.keys) ? body.keys : [];
   jwksCache.set(issuer, { keys, fetchedAt: Date.now() });
   return keys;
 }
+
 
 // Returns the token's claims (with `sub` = Clerk user id), or throws.
 export async function verifyClerkToken(token, env) {
@@ -48,8 +55,9 @@ export async function verifyClerkToken(token, env) {
   const claims = decodePart(parts[1]);
   if (header.alg !== 'RS256') throw new Error('Unsupported session token algorithm.');
 
-  const keys = await getKeys(issuer);
-  const jwk = keys.find((key) => key.kid === header.kid) || (keys.length === 1 ? keys[0] : null);
+  const findKey = (keys) => keys.find((key) => key.kid === header.kid) || (keys.length === 1 ? keys[0] : null);
+  let jwk = findKey(await getKeys(issuer));
+  if (!jwk) jwk = findKey(await getKeys(issuer, { refresh: true }));
   if (!jwk) throw new Error('Unknown session token signing key.');
 
   const key = createPublicKey({ key: jwk, format: 'jwk' });

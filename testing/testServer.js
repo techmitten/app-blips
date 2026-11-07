@@ -124,3 +124,9 @@ test('hosted mode: /api/chat needs a sign-in and the saved-key routes are off', 
   const scan = await get('/api/seo/scan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://example.com' }) });
   assert.equal(scan.status, 401);
 });
+
+test('oversized request bodies are refused with 413', async () => {
+  const res = await get('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': '99999999999' }, body: undefined });
+  assert.equal(res.status, 413);
+  assert.match(JSON.parse(res.text).error, /larger than/);
+});
