@@ -3329,6 +3329,31 @@ export default function App({ coldStart = false }) {
             />
           </div>
 
+          {/* Seam between the two panes (side-by-side layout only). lg:order-1
+              keeps it between them when the build pane is moved to the right
+              (order-2, preview stays 0). Decorative: the panes are not resizable,
+              so it carries an emblem rather than a drag handle. */}
+          <div className={`pane-divider hidden lg:flex ${buildPaneSide === 'right' ? 'lg:order-1' : ''}`} aria-hidden="true">
+            {/* The AppBlips wave as a snake coiled round the seam. Drawn in
+                seam pixels: the 32px-wide SVG is centred on the 10px channel,
+                so the channel is x 11-21. Where the body passes behind, a
+                patch of channel (.pane-divider-patch) is painted over it. */}
+            <span className="pane-divider-emblem">
+              <svg viewBox="0 0 32 72" width="32" height="72" focusable="false">
+                <path className="pane-divider-snake" d="M16 10C27 14 27 21 16 25S5 37 16 41S27 53 16 57S10 64 12 68" />
+                {[25, 57].map((y) => (
+                  <g key={y} className="pane-divider-patch">
+                    <rect x="11" y={y - 6} width="10" height="12" className="pane-divider-patch-ground" />
+                    <rect x="11" y={y - 6} width="1" height="12" className="pane-divider-patch-edge" />
+                    <rect x="20" y={y - 6} width="1" height="12" className="pane-divider-patch-edge" />
+                    <rect x="15.5" y={y - 6} width="1" height="12" className="pane-divider-patch-line" />
+                  </g>
+                ))}
+                <circle className="pane-divider-snake-head" cx="16" cy="8" r="3.6" />
+              </svg>
+            </span>
+          </div>
+
           {/* Preview/Device Area (opposite side) */}
           <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex h-full w-full flex-1 min-w-0 min-h-0`}>
             <PreviewPane

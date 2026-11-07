@@ -11,12 +11,15 @@
 /* In Tailwind v4, redefining --text-xs etc. no longer overrides utility classes
    that compile to hardcoded rem values. Since the build pane needs to stay fixed
    while the root font size scales up, we counter-scale the pane via zoom. */
-@media (min-width: 1280px) { .build-panel { zoom: calc(17.5 / 16.5); } }
-@media (min-width: 1536px) { .build-panel { zoom: calc(17.5 / 17.5); } }
-@media (min-width: 1920px) { .build-panel { zoom: calc(17.5 / 18.5); } }
-@media (min-width: 2560px) { .build-panel { zoom: calc(17.5 / 20.5); } }
-@media (min-width: 3440px) { .build-panel { zoom: calc(17.5 / 22.5); } }
-@media (min-width: 3840px) { .build-panel { zoom: calc(17.5 / 25); } }
+/* --build-zoom carries the same factor so the pane header can divide it back
+   out and stay level with the (unzoomed) preview toolbar beside it. */
+.build-panel { --build-zoom: 1; zoom: var(--build-zoom); }
+@media (min-width: 1280px) { .build-panel { --build-zoom: calc(17.5 / 16.5); } }
+@media (min-width: 1536px) { .build-panel { --build-zoom: calc(17.5 / 17.5); } }
+@media (min-width: 1920px) { .build-panel { --build-zoom: calc(17.5 / 18.5); } }
+@media (min-width: 2560px) { .build-panel { --build-zoom: calc(17.5 / 20.5); } }
+@media (min-width: 3440px) { .build-panel { --build-zoom: calc(17.5 / 22.5); } }
+@media (min-width: 3840px) { .build-panel { --build-zoom: calc(17.5 / 25); } }
 
 /* Light-theme build pane — clean SaaS surface: off-white canvas, a quiet
    pastel mesh, and frosted glass cards on top of it (hairline borders, no
@@ -133,6 +136,15 @@
   min-height: var(--chrome-row-h);
   max-height: var(--chrome-row-h);
   box-sizing: border-box;
+}
+
+/* The build pane's zoom would scale its header too, leaving it shorter (or
+   taller) than the preview toolbar on large monitors; undo it for the height. */
+.build-panel-header {
+  --build-header-h: calc(var(--chrome-row-h) / var(--build-zoom, 1));
+  height: var(--build-header-h);
+  min-height: var(--build-header-h);
+  max-height: var(--build-header-h);
 }
 
 .build-panel-header {
@@ -338,3 +350,88 @@
     padding-left: calc(1.25rem - var(--bezel, 10px));
   }
 }
+
+/* Seam between the build pane and the preview (App.jsx, >=1024px only).
+   A recessed channel: crisp borders on both edges, a darker inset ground and
+   a centre rule that brightens into the brand accent around the middle, where
+   the AppBlips wave coils round the channel. */
+.pane-divider {
+  --seam-ground: #e9edf2;
+  --seam-edge: rgb(15 23 42 / 0.11);
+  --seam-line: rgb(15 23 42 / 0.16);
+  --seam-glow: var(--color-accent);
+  position: relative;
+  z-index: 25;
+  flex: none;
+  width: 10px;
+  align-items: center;
+  justify-content: center;
+  background: var(--seam-ground);
+  border-inline: 1px solid var(--seam-edge);
+  box-shadow:
+    inset 2px 0 3px -2px rgb(15 23 42 / 0.10),
+    inset -2px 0 3px -2px rgb(15 23 42 / 0.10);
+}
+
+.pane-divider::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background:
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      color-mix(in srgb, var(--seam-glow) 75%, transparent) 30%,
+      color-mix(in srgb, var(--seam-glow) 75%, transparent) 70%,
+      transparent 100%
+    ) center / 1px 76% no-repeat,
+    var(--seam-line);
+}
+
+/* The emblem: the AppBlips wave coiled round the channel like a snake, its
+   coral blip as the head. No badge behind it, so it doesn't read as a drag
+   handle (the panes don't resize). */
+.pane-divider-emblem {
+  position: relative;
+  display: flex;
+  flex: none;
+  width: 32px;
+  height: 72px;
+  color: #0a0a0a;
+}
+
+.pane-divider-emblem svg { display: block; overflow: visible; }
+
+.pane-divider-snake {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.pane-divider-snake-head { fill: #e9604f; }
+
+/* Channel patches over the stretches that pass behind: the same ground,
+   edges and centre rule the channel draws there (the rule is at its accent
+   peak at the vertical centre). */
+.pane-divider-patch-ground { fill: var(--seam-ground); }
+.pane-divider-patch-edge { fill: var(--seam-edge); }
+.pane-divider-patch-line { fill: color-mix(in srgb, var(--seam-glow) 75%, var(--seam-ground)); }
+
+:is(html.dark, .force-dark) .pane-divider {
+  --seam-ground: #080808;
+  --seam-edge: rgb(255 255 255 / 0.09);
+  --seam-line: rgb(255 255 255 / 0.10);
+  box-shadow:
+    inset 2px 0 3px -2px rgb(0 0 0 / 0.7),
+    inset -2px 0 3px -2px rgb(0 0 0 / 0.7);
+}
+
+/* Very slightly dimmed in dark. On the body and head, not the whole SVG,
+   or the patches would turn translucent and show the hidden coils. */
+:is(html.dark, .force-dark) .pane-divider-emblem { color: #f5f5f5; }
+:is(html.dark, .force-dark) :is(.pane-divider-snake, .pane-divider-snake-head) { opacity: 0.85; }
