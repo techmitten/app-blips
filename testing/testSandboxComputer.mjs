@@ -69,19 +69,23 @@ const makeToken = (claims = {}) => {
 // Minimal POSIX ustar reader for the mock Render server
 function unpackTarArchive(buf) {
   const out = new Map();
+  let pendingLongName = null;
   let offset = 0;
   while (offset + 512 <= buf.length) {
     const header = buf.subarray(offset, offset + 512);
     if (header.every((byte) => byte === 0)) break;
     const name = header.subarray(0, 100).toString('utf8').replace(/\0.*$/, '');
     const prefix = header.subarray(345, 500).toString('utf8').replace(/\0.*$/, '');
-    const fullName = prefix ? `${prefix}/${name}` : name;
+    const type = String.fromCharCode(header[156]);
     const sizeOctal = header.subarray(124, 136).toString('ascii').replace(/\0.*$/, '').trim();
     const size = parseInt(sizeOctal || '0', 8);
     offset += 512;
     const content = buf.subarray(offset, offset + size).toString('utf8');
-    out.set(fullName, content);
     offset += size + ((512 - (size % 512)) % 512);
+    if (type === 'L') { pendingLongName = content.replace(/\0.*$/, ''); continue; }
+    const fullName = pendingLongName || (prefix ? `${prefix}/${name}` : name);
+    pendingLongName = null;
+    out.set(fullName, content);
   }
   return out;
 }
@@ -312,6 +316,13 @@ try {
   }));
   assert.equal(tarRoundtrip.get('index.html'), '<!doctype html>');
   assert.equal(tarRoundtrip.get(longPath), 'export const ok = true;');
+  // A file name over 100 bytes, and a path over 255: GNU long-name entries.
+  const longFile = `src/${'component'.repeat(13)}.tsx`;
+  const longDirs = `${'folder/'.repeat(32)}file.ts`; // 231 chars: no ustar split fits
+  const longRoundtrip = unpackTarArchive(packTarArchive({ [longFile]: 'a', [longDirs]: 'b', 'short.ts': 'c' }));
+  assert.equal(longRoundtrip.get(longFile), 'a');
+  assert.equal(longRoundtrip.get(longDirs), 'b');
+  assert.equal(longRoundtrip.get('short.ts'), 'c');
 
   // ---- 0. Switched off for everyone until it has been tested -------------------
   const offRes = await handleSandbox(new Request('http://localhost/api/sandbox/status'), env, store);

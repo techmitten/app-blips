@@ -18,6 +18,8 @@ import { posix } from 'node:path';
 import { verifyClerkToken } from './clerk.js';
 import { validateProjectPath } from '../../../src/lib/codebase/paths.js';
 import { isHosted } from './mode.js';
+import { PLANS, isPlanId } from './plans.js';
+import { REQUESTS_PER_USE } from './buildWindow.js';
 
 export const WORKSPACE_ROOT = '/workspace';
 export const DEFAULT_TIMEOUT_SECONDS = 0;
@@ -25,6 +27,10 @@ export const DEFAULT_IDLE_TIMEOUT_SECONDS = 300;
 const DEFAULT_WAIT_INTERVAL_MS = 250;
 const DEFAULT_WAIT_TIMEOUT_MS = 60_000;
 const MAX_OUTPUT_CHARS = 64_000;
+// The sync-back script prints the whole workspace as JSON: its own cap on
+// what it collects, and a matching cap on what is read back, well above the
+// command-output cap, which would truncate the JSON of any real project.
+const MAX_SYNC_BYTES = 16 * 1024 * 1024;
 const IMAGE_ID_PATTERN = /^sbb-[0-9a-v]{20}$/;
 
 // In-flight provisioning promises keyed by userId, so concurrent tool calls
@@ -32,9 +38,9 @@ const IMAGE_ID_PATTERN = /^sbb-[0-9a-v]{20}$/;
 const inflightByUser = new Map();
 let cachedWorkspaceByKey = { apiKey: '', workspaceId: '' };
 
-const json = (status, body) => new Response(JSON.stringify(body), {
+const json = (status, body, headers = {}) => new Response(JSON.stringify(body), {
   status,
-  headers: { 'content-type': 'application/json' },
+  headers: { 'content-type': 'application/json', ...headers },
 });
 
 export const renderBaseUrl = (env) => String(env?.RENDER_API_BASE_URL || 'https://api.render.com/v1').replace(/\/+$/, '');
@@ -108,14 +114,44 @@ export function packTarArchive(files) {
     const data = Buffer.isBuffer(content) ? content : Buffer.from(String(content), 'utf8');
     const header = Buffer.alloc(512, 0);
 
+    // ustar: up to 100 bytes of name, with up to 155 bytes of leading
+    // folders in the prefix field. A path that fits neither way (a single
+    // segment over 100 bytes, or over 255 in all) gets a GNU long-name
+    // entry first, which every tar reader in use understands.
     let name = relative;
     let prefix = '';
+    let longName = false;
     if (Buffer.byteLength(name, 'utf8') > 100) {
-      const slash = name.lastIndexOf('/');
-      if (slash > 0) {
-        prefix = name.slice(0, slash);
-        name = name.slice(slash + 1);
+      let split = -1;
+      for (let slash = name.indexOf('/'); slash > 0; slash = name.indexOf('/', slash + 1)) {
+        if (Buffer.byteLength(name.slice(0, slash), 'utf8') <= 155 && Buffer.byteLength(name.slice(slash + 1), 'utf8') <= 100) split = slash;
       }
+      if (split > 0) {
+        prefix = name.slice(0, split);
+        name = name.slice(split + 1);
+      } else {
+        longName = true;
+      }
+    }
+    if (longName) {
+      const nameBytes = Buffer.from(`${relative}\0`, 'utf8');
+      const longHeader = Buffer.alloc(512, 0);
+      longHeader.write('././@LongLink', 0, 13, 'ascii');
+      longHeader.write('0000644\0', 100, 8, 'ascii');
+      longHeader.write('0000000\0', 108, 8, 'ascii');
+      longHeader.write('0000000\0', 116, 8, 'ascii');
+      longHeader.write(nameBytes.length.toString(8).padStart(11, '0') + '\0', 124, 12, 'ascii');
+      longHeader.write(mtimeOctal, 136, 12, 'ascii');
+      longHeader.write('        ', 148, 8, 'ascii');
+      longHeader.write('L', 156, 1, 'ascii');
+      longHeader.write('ustar  \0', 257, 8, 'ascii');
+      let longSum = 0;
+      for (let i = 0; i < 512; i++) longSum += longHeader[i];
+      longHeader.write(longSum.toString(8).padStart(6, '0') + '\0 ', 148, 8, 'ascii');
+      blocks.push(longHeader, nameBytes);
+      const pad = (512 - (nameBytes.length % 512)) % 512;
+      if (pad) blocks.push(Buffer.alloc(pad, 0));
+      name = relative.slice(0, 100);
     }
 
     header.write(name, 0, Math.min(100, Buffer.byteLength(name)), 'utf8');
@@ -322,8 +358,24 @@ export async function ensureUserSandbox(userId, env, store, { signal, waitOption
     throw new Error('Render Sandboxes are not configured on this server (missing RENDER_API_KEY).');
   }
 
+  // Callers that arrive while provisioning runs share the one task. Its
+  // abort signal fires only once every caller has cancelled, so one person
+  // closing a tab doesn't fail the others' requests with AbortError.
   const inflight = inflightByUser.get(userId);
-  if (inflight) return inflight;
+  if (inflight) {
+    inflight.join(signal);
+    return inflight.task;
+  }
+  const control = new AbortController();
+  let waiting = 0;
+  const join = (callerSignal) => {
+    waiting += 1;
+    const leave = () => { if (--waiting === 0) control.abort(callerSignal?.reason); };
+    if (callerSignal?.aborted) leave();
+    else callerSignal?.addEventListener('abort', leave, { once: true });
+  };
+  join(signal);
+  signal = control.signal;
 
   const task = (async () => {
     const account = (await store?.getAccount(userId)) || null;
@@ -377,11 +429,12 @@ export async function ensureUserSandbox(userId, env, store, { signal, waitOption
     };
   })();
 
-  inflightByUser.set(userId, task);
+  const entry = { task, join };
+  inflightByUser.set(userId, entry);
   try {
     return await task;
   } finally {
-    if (inflightByUser.get(userId) === task) {
+    if (inflightByUser.get(userId) === entry) {
       inflightByUser.delete(userId);
     }
   }
@@ -440,7 +493,7 @@ async function* parseRenderSse(stream) {
 
 // Runs a shell command inside the sandbox using Render's two-step stream
 // connect token flow.
-export async function execSandboxCommand(env, sandboxId, command, { onOutput, signal } = {}) {
+export async function execSandboxCommand(env, sandboxId, command, { onOutput, signal, maxOutputChars = MAX_OUTPUT_CHARS } = {}) {
   const ownerId = await resolveRenderWorkspaceId(env, { signal });
   const tokenRes = await renderRequest(
     env,
@@ -483,9 +536,9 @@ export async function execSandboxCommand(env, sandboxId, command, { onOutput, si
       const streamName = parsed.stream === 'stderr' ? 'stderr' : 'stdout';
       const chunk = String(parsed.data ?? '');
       if (streamName === 'stderr') {
-        if (stderr.length < MAX_OUTPUT_CHARS) stderr += chunk.slice(0, MAX_OUTPUT_CHARS - stderr.length);
-      } else if (stdout.length < MAX_OUTPUT_CHARS) {
-        stdout += chunk.slice(0, MAX_OUTPUT_CHARS - stdout.length);
+        if (stderr.length < maxOutputChars) stderr += chunk.slice(0, maxOutputChars - stderr.length);
+      } else if (stdout.length < maxOutputChars) {
+        stdout += chunk.slice(0, maxOutputChars - stdout.length);
       }
       onOutput?.({ stream: streamName, data: chunk });
     } else if (item.event === 'exit') {
@@ -631,6 +684,8 @@ const fs = require("fs");
 const path = require("path");
 const root = ${JSON.stringify(WORKSPACE_ROOT)};
 const skipDirs = new Set(["node_modules", ".git", "dist", "build", ".next", ".cache"]);
+const maxTotal = ${MAX_SYNC_BYTES};
+let total = 0;
 const out = {};
 function walk(dir, relBase) {
   let entries;
@@ -644,9 +699,10 @@ function walk(dir, relBase) {
     } else if (entry.isFile()) {
       try {
         const stat = fs.statSync(full);
-        if (stat.size > 512 * 1024) continue;
+        if (stat.size > 512 * 1024 || total + stat.size > maxTotal) continue;
         const buf = fs.readFileSync(full);
         if (buf.includes(0)) continue;
+        total += buf.length;
         out[rel] = buf.toString("utf8");
       } catch {}
     }
@@ -657,7 +713,8 @@ process.stdout.write(JSON.stringify(out));
 '`;
 
 export async function syncFilesFromSandbox(env, sandboxId, { signal } = {}) {
-  const { stdout, exitCode } = await execSandboxCommand(env, sandboxId, SYNC_FROM_WORKSPACE_SCRIPT, { signal });
+  // JSON escaping can roughly double the bytes collected; leave room for it.
+  const { stdout, exitCode } = await execSandboxCommand(env, sandboxId, SYNC_FROM_WORKSPACE_SCRIPT, { signal, maxOutputChars: MAX_SYNC_BYTES * 3 });
   if (exitCode !== 0 || !stdout.trim()) return {};
   try {
     const parsed = JSON.parse(stdout);
@@ -761,6 +818,27 @@ export async function handleSandbox(request, env, store, { enabled = SANDBOX_AVA
       const body = await request.json().catch(() => null);
       const rawCommand = typeof body?.command === 'string' ? body.command.trim() : '';
       if (!rawCommand) return json(400, { error: 'A command string is required.' });
+      // Each command counts toward the plan's request ceiling (hosted/chat.js
+      // counts AI requests the same way), never as a use of its own, so a
+      // script can't run commands without end on the operator's account.
+      const plan = PLANS[isPlanId(auth.account?.plan) ? auth.account.plan : 'basic'];
+      if (plan?.windowBuilds && plan?.windowHours && store?.takeBuild) {
+        const window = await store.takeBuild(userId, {
+          limit: plan.windowBuilds,
+          requestLimit: plan.windowBuilds * REQUESTS_PER_USE,
+          windowMs: plan.windowHours * 60 * 60 * 1000,
+          usageId: null,
+          counts: false,
+        });
+        if (!window.allowed) {
+          const minutes = Math.max(1, Math.ceil((window.resetAt - Date.now()) / 60000));
+          return json(429, {
+            error: `You've run a lot of commands in this ${plan.windowHours}-hour window. You can continue in ${minutes} min.`,
+            code: 'request_limit',
+            resetAt: new Date(window.resetAt).toISOString(),
+          }, { 'retry-after': String(minutes * 60) });
+        }
+      }
 
       const ensured = await ensureUserSandbox(userId, env, store, { signal: request.signal });
       if (body?.files && typeof body.files === 'object') {
