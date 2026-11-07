@@ -2,6 +2,7 @@ import { TriangleAlert, RotateCcw, X, Plus, History, PanelLeftClose, PanelLeftOp
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';
+import PromptSuggestions from './PromptSuggestions';
 import { displayBuildPrompt } from '../lib/buildMessages';
 
 // The pane's open width at lg+, shared with the animated wrapper in App.
@@ -62,6 +63,8 @@ export default function BuildPanel({
   onWebSearchChange,
   side = 'left',
   isCollapsed = false,
+  suggestions = null,
+  onPickSuggestion,
   onToggleCollapsed,
 }) {
   const isClarifying = chatMode === 'build' && versions[currentVersionIndex]?.editMode === 'clarify';
@@ -125,7 +128,7 @@ export default function BuildPanel({
       <div className="build-panel-header relative h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
         <div className="flex items-center">
           {side !== 'right' && collapseButton}
-          <h2 className="build-panel-title text-sm font-semibold text-slate-900 dark:text-white">Build</h2>
+          <h2 className="build-panel-title text-sm 2xl:text-base font-bold text-slate-900 whitespace-nowrap tracking-tight">Build</h2>
         </div>
         {/* Quick actions */}
         <div className="flex items-center">
@@ -281,6 +284,10 @@ export default function BuildPanel({
 
       {/* Fixed Bottom Input Area */}
       <div className="build-panel-composer shrink-0 p-3 sm:p-4 border-t border-slate-200/90 dark:border-white/10 bg-surface/95 backdrop-blur-xl relative z-1">
+        {/* Next-step ideas for Build mode only: they are build requests. */}
+        {chatMode === 'build' && !isGenerating && onPickSuggestion && (
+          <PromptSuggestions suggestions={suggestions} onPick={onPickSuggestion} />
+        )}
         <PromptInput
           prompt={prompt}
           onPromptChange={onPromptChange}

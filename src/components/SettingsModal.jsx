@@ -14,7 +14,7 @@ import AccountSettings, { AccountDangerZone } from './AccountSettings';
 import { useAccounts } from '../lib/accounts';
 import { ownKeyAllowed } from '../lib/ownKey';
 import {
-  FIELD_CLASS, SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
+  SelectMenu, SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
 } from './SettingControls';
 import { isDesktop } from '../lib/desktop';
 import {
@@ -38,9 +38,16 @@ import { CURRENT_VERSION } from '../lib/updates';
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
 // The option buttons show an "A" at the size it selects -- the preview IS the label.
 const CHAT_FONT_PREVIEW = { small: 'text-[12px]', default: 'text-sm', large: 'text-base', xlarge: 'text-lg' };
-const SELECT_COLORS = { backgroundColor: 'var(--color-surface)', color: 'var(--color-slate-900)' };
-// More levels than this don't fit side by side at phone width.
-const MAX_SEGMENTS = 4;
+// One line under each reasoning level in its dropdown.
+const EFFORT_HINTS = {
+  none: 'Fastest and cheapest, no extra thinking',
+  minimal: 'A quick think before answering',
+  low: 'Light thinking, still quick',
+  medium: 'A balance of speed and care',
+  high: 'Thorough, for complex projects',
+  xhigh: 'Very thorough, noticeably slower',
+  max: 'Deepest thinking, slowest and costliest',
+};
 const PROVIDER_NAMES = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini', deepseek: 'DeepSeek', openrouter: 'OpenRouter' };
 
 // The levels the active provider and model accept (useReasoningLevels in
@@ -53,30 +60,17 @@ function ReasoningSetting({ value, onChange, reasoning }) {
   const options = levels.map((level) => ({
     value: level,
     label: EFFORT_LABELS[level],
-    ariaLabel: level === defaultLevel ? `${EFFORT_LABELS[level]} (the model's default)` : undefined,
+    hint: EFFORT_HINTS[level],
+    badge: level === defaultLevel ? 'Default' : undefined,
   }));
   const description = levels.length
-    ? <>How long the AI thinks before it writes code, whether building, editing or fixing. Lower is faster and cheaper; higher suits complex apps. {source ? <>Showing the levels <strong>{source}</strong> supports{defaultLevel ? <>, where {EFFORT_LABELS[defaultLevel]} is its default</> : null}.</> : 'Choose a provider above to see the levels its models support.'}</>
+    ? <>How much the AI thinks before writing code. Higher suits complex apps but is slower and costs more. {source ? <>Levels for <strong>{source}</strong>{defaultLevel ? <> (default: {EFFORT_LABELS[defaultLevel]})</> : null}.</> : 'Choose a provider above to see its levels.'}</>
     : <>{note}{source ? <> ({source})</> : null}</>;
   return (
     <SettingRow id="set-reasoning-build" title="Reasoning" description={description}>
-      {!levels.length ? null : levels.length > MAX_SEGMENTS ? (
-        <select
-          aria-label="Reasoning"
-          value={shown}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${FIELD_CLASS} w-auto`}
-          style={SELECT_COLORS}
-        >
-          {options.map((option) => (
-            <option key={option.value} value={option.value} style={SELECT_COLORS}>
-              {option.label}{option.value === defaultLevel ? ' (default)' : ''}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <Segmented label="Reasoning" value={shown} onChange={onChange} options={options} />
-      )}
+      {levels.length ? (
+        <SelectMenu label="Reasoning" labelledBy="set-reasoning-build" value={shown} onChange={onChange} options={options} />
+      ) : null}
     </SettingRow>
   );
 }
@@ -144,6 +138,8 @@ export default function SettingsModal({
   onAskClarifyingQuestionsChange,
   askToReview,
   onAskToReviewChange,
+  promptSuggestions,
+  onPromptSuggestionsChange,
   gameEngineRouter,
   onGameEngineRouterChange,
   websiteAddonRouter,
@@ -418,6 +414,9 @@ export default function SettingsModal({
               </SettingRow>
               <SettingRow id="set-ask-review" title={<>Review <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15">Beta</span></>} description="After each build or edit, offer to have the AI test it and report problems. Uses extra tokens, so it only runs if you say yes.">
                 <Switch checked={askToReview} onChange={onAskToReviewChange} labelledBy="set-ask-review" />
+              </SettingRow>
+              <SettingRow id="set-prompt-suggestions" title="Suggested prompts" description="Show AI-suggested next prompts above the chat box after each build. Uses a few extra tokens.">
+                <Switch checked={promptSuggestions} onChange={onPromptSuggestionsChange} labelledBy="set-prompt-suggestions" />
               </SettingRow>
               <SettingRow id="set-engine-router" title="Smart game engine" description="The AI picks an engine for each game, like Phaser or Three.js. An engine named in your prompt always wins.">
                 <Switch checked={gameEngineRouter} onChange={onGameEngineRouterChange} labelledBy="set-engine-router" />

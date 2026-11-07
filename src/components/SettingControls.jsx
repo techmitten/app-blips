@@ -1,4 +1,6 @@
-import { useRef } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Check, ChevronDown } from 'lucide-react';
 
 // Building blocks shared by the settings-style modals (SettingsModal), so
 // their rows, switches and buttons stay identical.
@@ -120,5 +122,185 @@ export function TabList({ tabs, active, onSelect, idPrefix, label }) {
         );
       })}
     </div>
+  );
+}
+
+// Dropdown for a setting with more choices than fit as a segmented row.
+// options: [{ value, label, hint?, badge? }]. A button shows the current
+// choice; the list opens in a portal with fixed positioning, so the settings
+// body's scroll box never clips it, and flips above the button when there
+// isn't room below. Keyboard follows the listbox pattern: arrows, Home/End,
+// Enter/Space to pick, Escape or Tab to close, typing a letter to jump.
+export function SelectMenu({ label, value, options, onChange, labelledBy }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [position, setPosition] = useState(null);
+  const buttonRef = useRef(null);
+  const listRef = useRef(null);
+  const listId = useId();
+  const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value));
+  const selected = options[selectedIndex];
+
+  const place = useCallback(() => {
+    const button = buttonRef.current;
+    const list = listRef.current;
+    if (!button || !list) return;
+    const rect = button.getBoundingClientRect();
+    const height = list.offsetHeight;
+    const width = Math.max(rect.width, 240);
+    const gap = 6;
+    const below = window.innerHeight - rect.bottom - gap;
+    const top = below >= height || below >= rect.top - gap ? rect.bottom + gap : rect.top - gap - height;
+    const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+    setPosition({ top: Math.max(8, top), left, width });
+  }, []);
+
+  // Measured before paint, so the list never shows at a stale spot.
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
+
+  const hide = useCallback(() => {
+    setOpen(false);
+    setPosition(null);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (event) => {
+      if (buttonRef.current?.contains(event.target) || listRef.current?.contains(event.target)) return;
+      hide();
+    };
+    // The list is fixed to where the button was; scrolling the settings body
+    // or resizing the window would leave it floating, so follow the button.
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open, place, hide]);
+
+  useEffect(() => {
+    if (open && position) listRef.current?.focus();
+  }, [open, position]);
+
+  const openList = () => {
+    setActive(selectedIndex);
+    setOpen(true);
+  };
+
+  const close = (refocus = true) => {
+    hide();
+    if (refocus) buttonRef.current?.focus();
+  };
+
+  const pick = (index) => {
+    const option = options[index];
+    if (option && option.value !== value) onChange(option.value);
+    close();
+  };
+
+  const onButtonKeyDown = (event) => {
+    if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
+      event.preventDefault();
+      openList();
+    }
+  };
+
+  const onListKeyDown = (event) => {
+    const last = options.length - 1;
+    const move = (index) => {
+      event.preventDefault();
+      setActive(Math.min(last, Math.max(0, index)));
+    };
+    if (event.key === 'ArrowDown') move(active + 1);
+    else if (event.key === 'ArrowUp') move(active - 1);
+    else if (event.key === 'Home') move(0);
+    else if (event.key === 'End') move(last);
+    else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      pick(active);
+    } else if (event.key === 'Escape') {
+      // Only the list closes, not a dialog it sits in.
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    } else if (event.key === 'Tab') {
+      close(false);
+    } else if (event.key.length === 1 && /\S/.test(event.key)) {
+      const letter = event.key.toLowerCase();
+      const from = (active + 1) % options.length;
+      const order = [...options.slice(from), ...options.slice(0, from)];
+      const hit = order.find((option) => option.label.toLowerCase().startsWith(letter));
+      if (hit) move(options.indexOf(hit));
+    }
+  };
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-label={labelledBy ? undefined : label}
+        aria-labelledby={labelledBy}
+        onClick={() => (open ? close() : openList())}
+        onKeyDown={onButtonKeyDown}
+        className={`inline-flex min-w-[10rem] items-center justify-between gap-3 rounded-lg border bg-surface px-3 py-2 text-sm font-semibold text-slate-900 shadow-2xs transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
+          open ? 'border-indigo-400 ring-2 ring-indigo-500/15' : 'border-slate-300 hover:border-slate-400'
+        }`}
+      >
+        <span className="truncate">{selected?.label}</span>
+        <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-slate-500 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && createPortal(
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          tabIndex={-1}
+          aria-label={label}
+          aria-activedescendant={`${listId}-${active}`}
+          onKeyDown={onListKeyDown}
+          style={position ? { top: position.top, left: position.left, width: position.width } : { visibility: 'hidden', top: 0, left: 0 }}
+          className="select-menu fixed z-[80] max-h-[min(20rem,70vh)] overflow-y-auto rounded-xl border border-slate-200 bg-surface p-1 shadow-xl outline-none animate-scale-in dark:border-white/12 dark:bg-[#1c1c22] dark:shadow-[0_16px_40px_-12px_rgb(0_0_0/0.85)]"
+        >
+          {options.map((option, index) => {
+            const isSelected = index === selectedIndex;
+            const isActive = index === active;
+            return (
+              <li
+                key={option.value}
+                id={`${listId}-${index}`}
+                role="option"
+                aria-selected={isSelected}
+                onPointerMove={() => setActive(index)}
+                onClick={() => pick(index)}
+                className={`flex items-start gap-2.5 rounded-lg px-2.5 py-2 cursor-pointer select-none ${isActive ? 'bg-slate-100 dark:bg-white/[0.07]' : ''}`}
+              >
+                <span className="mt-0.5 w-4 shrink-0 text-indigo-600 dark:text-indigo-300" aria-hidden="true">
+                  {isSelected && <Check size={16} strokeWidth={2.5} />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className={`text-sm ${isSelected ? 'font-semibold text-slate-900' : 'font-medium text-slate-800'}`}>{option.label}</span>
+                    {option.badge && (
+                      <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15">{option.badge}</span>
+                    )}
+                  </span>
+                  {option.hint && <span className="mt-0.5 block text-xs leading-snug text-slate-500">{option.hint}</span>}
+                </span>
+              </li>
+            );
+          })}
+        </ul>,
+        document.body,
+      )}
+    </>
   );
 }

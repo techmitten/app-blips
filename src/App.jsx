@@ -63,7 +63,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, PREVIEW_SHUTTER_MS, STUDIO_MODES, DOCS_URL, normalizeStudioMode
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadAskToReview, ASK_TO_REVIEW_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadCodeAutocomplete, CODE_AUTOCOMPLETE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isWideLayout } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadAskToReview, ASK_TO_REVIEW_KEY, loadPromptSuggestions, PROMPT_SUGGESTIONS_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadCodeAutocomplete, CODE_AUTOCOMPLETE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isWideLayout } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -112,6 +112,7 @@ export default function App({ coldStart = false }) {
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
   const [askToReview, setAskToReview] = useState(loadAskToReview);
+  const [promptSuggestions, setPromptSuggestions] = useState(loadPromptSuggestions);
   const [gameEngineRouter, setGameEngineRouter] = useState(loadGameEngineRouter);
   const [websiteAddonRouter, setWebsiteAddonRouter] = useState(loadWebsiteAddonRouter);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
@@ -182,6 +183,17 @@ export default function App({ coldStart = false }) {
 
   // --- Workspace state (the generation flow owns these) ---
   const [prompt, setPrompt] = useState('');
+  // A suggested prompt goes into the box to edit or send, like a starter
+  // idea, with the caret at the end so typing carries on from it.
+  const handlePickSuggestion = useCallback((text) => {
+    setPrompt(text);
+    requestAnimationFrame(() => {
+      const field = document.getElementById('prompt');
+      if (!field) return;
+      field.focus();
+      field.setSelectionRange(text.length, text.length);
+    });
+  }, []);
   // Which studio the workspace is in: 'app', 'website' or 'game'. Drives
   // prompt selection, starter ideas, preview defaults and copy; persisted
   // per-project so reopening restores it. Starts null: a fresh session must
@@ -1436,6 +1448,10 @@ export default function App({ coldStart = false }) {
   }, [askToReview]);
 
   useEffect(() => {
+    localStorage.setItem(PROMPT_SUGGESTIONS_KEY, promptSuggestions);
+  }, [promptSuggestions]);
+
+  useEffect(() => {
     localStorage.setItem(GAME_ENGINE_ROUTER_KEY, gameEngineRouter);
   }, [gameEngineRouter]);
 
@@ -1901,6 +1917,11 @@ export default function App({ coldStart = false }) {
       // review doesn't handle imported codebases yet.
       const isBuildVersion = newVersion.editMode === 'full-generation' || newVersion.editMode === 'surgical';
       if (isBuildVersion && studioMode !== 'codebase' && (isAutoFix ? prevVersion?.reviewOffer === 'pending' : askToReview)) newVersion.reviewOffer = 'pending';
+      // Suggested next prompts come with a finished build or edit. An
+      // auto-fix, an Ask answer or a clarifying question leaves the project
+      // as it was, so it keeps the suggestions the version before it had.
+      const suggestions = isBuildVersion && !isAutoFix ? generationResult.suggestions : prevVersion?.suggestions;
+      if (suggestions?.length) newVersion.suggestions = suggestions;
 
       const finalVersions = [...updatedVersions, newVersion];
       setVersions(finalVersions);
@@ -2912,6 +2933,8 @@ export default function App({ coldStart = false }) {
           onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
           askToReview={askToReview}
           onAskToReviewChange={setAskToReview}
+          promptSuggestions={promptSuggestions}
+          onPromptSuggestionsChange={setPromptSuggestions}
           gameEngineRouter={gameEngineRouter}
           onGameEngineRouterChange={setGameEngineRouter}
           websiteAddonRouter={websiteAddonRouter}
@@ -3251,6 +3274,8 @@ export default function App({ coldStart = false }) {
               isHistoryOpen={isHistoryOpen}
               onToggleHistory={() => setIsHistoryOpen((open) => !open)}
               side={buildPaneSide}
+              suggestions={promptSuggestions ? versions[currentVersionIndex]?.suggestions : null}
+              onPickSuggestion={handlePickSuggestion}
               isCollapsed={isBuildPaneCollapsed}
               onToggleCollapsed={() => setIsBuildPaneCollapsed((collapsed) => !collapsed)}
               chatBottomRef={chatBottomRef}

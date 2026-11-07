@@ -89,6 +89,20 @@ export const loadAskToReview = () => {
   }
 };
 
+export const PROMPT_SUGGESTIONS_KEY = 'orion-prompt-suggestions';
+
+// Boolean: whether each finished build also asks the AI for a few next
+// prompts, shown as a row above the chat box. It costs a short extra AI
+// request per build, so it is off by default; only an explicit 'true' turns
+// it on.
+export const loadPromptSuggestions = () => {
+  try {
+    return safeStorage('local')?.getItem(PROMPT_SUGGESTIONS_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 export const GAME_ENGINE_ROUTER_KEY = 'orion-game-engine-router';
 
 // Boolean: whether new games get an engine (Phaser, Three.js or none) picked

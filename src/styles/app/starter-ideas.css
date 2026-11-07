@@ -121,3 +121,29 @@
   -webkit-mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
   mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
 }
+
+/* Suggested prompts above the chat box (PromptSuggestions.jsx). Same hidden
+   scrollbar and edge fades as the starter chip row. */
+.prompt-suggestions-row {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.prompt-suggestions-row::-webkit-scrollbar {
+  display: none;
+}
+
+.prompt-suggestions-row[data-fade-start] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 1.5rem);
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem);
+}
+
+.prompt-suggestions-row[data-fade-end] {
+  -webkit-mask-image: linear-gradient(to left, transparent, #000 1.5rem);
+  mask-image: linear-gradient(to left, transparent, #000 1.5rem);
+}
+
+.prompt-suggestions-row[data-fade-start][data-fade-end] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
+}

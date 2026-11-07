@@ -1,6 +1,7 @@
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply, invalidArgumentsError } from './edits';
 import { isDesktop, webProviderStore } from './desktop';
-import { loadOutputTokenLimit } from './config';
+import { loadOutputTokenLimit, loadPromptSuggestions } from './config';
+import { describeProjectForSuggestions, recentRequests, parseSuggestions, MAX_SUGGESTIONS } from './promptSuggestions';
 import { connectorStatus, getActiveConnectors, savePollinationsAccount } from './connectors';
 import { findImageRequests, resolveImages } from './pollinations';
 import { MAX_IMAGES_PER_BUILD } from './pollinationsApp';
@@ -1501,6 +1502,39 @@ SETUP STEPS: if the changes leave something only the user can supply before part
   }
 };
 
+// A few next prompts for the finished build (Settings → AI → Suggested
+// prompts). It runs alongside the completion reply with the build's signal, so
+// it adds no waiting and, on a hosted plan, rides on the build's usage id
+// rather than counting as a use of its own. Suggestions are a nicety: any
+// failure returns [] and the build is unaffected.
+export const generatePromptSuggestions = async ({ prompt, studioMode, files, chatHistory = [], signal }) => {
+  const noun = studioNoun(studioMode);
+  const earlier = recentRequests(chatHistory);
+  try {
+    const message = await requestModelText({
+      messages: [
+        {
+          role: 'system',
+          content: `You suggest what a non-developer could ask for next while building a ${noun} with an AI. Given the ${noun}'s current code and the requests made so far, propose the ${MAX_SUGGESTIONS} most useful next requests: features or content it is clearly missing, improvements to what is there, or polish that would make it feel finished. Each one is a short instruction the user could send as-is, written as the user (for example "Add a dark mode toggle" or "Let players pause with the Escape key"), under 80 characters, in plain words with no code, file or technical terms. Make them specific to this ${noun}, different from each other, and never something already done or already asked for. Reply with only a JSON array of strings.`
+        },
+        {
+          role: 'user',
+          content: `${earlier.length ? `Earlier requests:\n${earlier.map((r) => `- ${r}`).join('\n')}\n\n` : ''}Latest request: ${prompt}\n\n${describeProjectForSuggestions(files)}`
+        }
+      ],
+      reasoningEffort: CHAT_REASONING_EFFORT,
+      signal
+    });
+    const suggestions = parseSuggestions(message?.content ?? message);
+    if (!suggestions.length) logWarn(`Prompt suggestions reply had none usable. Reply: ${String(message?.content ?? '').slice(0, 300) || '(empty)'}`);
+    return suggestions;
+  } catch (err) {
+    if (err?.name === 'AbortError' || signal?.aborted) throw err;
+    logWarn('Prompt suggestions failed, showing none', err);
+    return [];
+  }
+};
+
 const withSeoNote = (content, seoNote) => (seoNote ? `${content}\n\n${seoNote}` : content);
 
 export const generateAppCode = (...args) => generateAppCodeWithSummary(...args);
@@ -1555,7 +1589,7 @@ const fixGalleryRefs = (result, onChunk) => {
 
 const generateAppCodeWithSummary = async (...args) => {
   const result = await generateAppCodeCore(...args);
-  const [prompt, currentCode, , onChunk, , signal, , , , isAutoFix, , studioMode, currentFiles] = args;
+  const [prompt, currentCode, chatHistory, onChunk, , signal, , , , isAutoFix, , studioMode, currentFiles] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
   const galleryNote = isBuildResult ? fixGalleryRefs(result, onChunk) : '';
   const imageNote = [galleryNote, isBuildResult ? await resolvePollinationsImages(result, { onChunk, signal }) : ''].filter(Boolean).join('\n\n');
@@ -1565,14 +1599,20 @@ const generateAppCodeWithSummary = async (...args) => {
     if (onChunk) onChunk('Writing a summary of the changes…', 'status');
     const before = currentFiles && Object.keys(currentFiles).length ? currentFiles : currentCode ? makeFiles(currentCode) : {};
     const after = result.files || makeFiles(result.code);
-    const completion = await generateCompletionReply({
-      prompt,
-      editMode: result.editMode,
-      studioMode,
-      signal,
-      changes: describeFileChanges(before, after),
-      setupHints: findSetupHints(before, after)
-    });
+    const [completion, suggestions] = await Promise.all([
+      generateCompletionReply({
+        prompt,
+        editMode: result.editMode,
+        studioMode,
+        signal,
+        changes: describeFileChanges(before, after),
+        setupHints: findSetupHints(before, after)
+      }),
+      loadPromptSuggestions()
+        ? generatePromptSuggestions({ prompt, studioMode, files: after, chatHistory, signal })
+        : null,
+    ]);
+    if (suggestions) result.suggestions = suggestions;
     const separator = result.reply ? '\n\n' : '';
     // Surface it in the live transcript right away, then persist it with the
     // version (appended to the opening acknowledgement when there is one).
