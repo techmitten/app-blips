@@ -37,7 +37,7 @@
   --hero-rail-muted: rgb(255 255 255 / 0.5);
   --hero-chip-bg: rgb(10 8 8 / 0.5);
   --hero-chip-bg-hover: rgb(10 8 8 / 0.72);
-  --hero-chip-border: rgb(255 255 255 / 0.14);
+  --hero-chip-border: rgb(255 255 255 / 0.2);
   --hero-chip-border-hover: rgb(235 97 80 / 0.4);
   --hero-chip-fg: rgb(255 255 255 / 0.9);
 }
@@ -281,6 +281,9 @@
   --hero-chip-border: rgb(15 23 42 / 0.14);
   --hero-chip-border-hover: rgb(15 23 42 / 0.3);
   --hero-chip-fg: #0b1220;
+  --hero-tray-bg: rgb(248 250 252 / 0.75);
+  --hero-tray-border: rgb(15 23 42 / 0.12);
+  --hero-tray-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 10px 22px -14px rgb(15 23 42 / 0.35);
 }
 
 /* The picker's fine line grid, fading out towards the edges. */
@@ -321,23 +324,20 @@
     0 24px 46px -16px rgb(15 23 42 / 0.4);
 }
 
+/* A tight shadow that fits inside the scrolling row (a deeper one is cut off
+   at the row's edge and makes the chips look unfinished). */
 .hero-landing:not(.dark) .starter-chip {
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 8px 16px -10px rgb(15 23 42 / 0.25);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.1);
 }
 
 .hero-landing:not(.dark) .starter-chip:hover {
-  box-shadow: 0 2px 4px rgb(15 23 42 / 0.1), 0 14px 22px -12px rgb(15 23 42 / 0.35);
-  transform: translateY(-1px);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.16);
 }
 
 /* The rail's primary key becomes a white card, like the picker's. */
 .hero-landing:not(.dark) .hero-rail-item-primary {
   border: 1px solid rgb(15 23 42 / 0.13);
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 8px 16px -10px rgb(15 23 42 / 0.3);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-landing:not(.dark) .starter-chip:hover { transform: none; }
 }
 
 /* The slide-out menu reuses the studio picker's panel classes, which read

@@ -78,6 +78,24 @@
   outline-offset: 2px;
 }
 
+/* The hero's chip row sits in a tray of its own: a defined edge under the
+   composer, so the chips read as one group rather than loose pills floating
+   on the backdrop. The arrows live inside it. */
+.starter-tray {
+  border: 1px solid var(--hero-tray-border, rgb(255 255 255 / 0.12));
+  background: var(--hero-tray-bg, rgb(10 8 8 / 0.4));
+  box-shadow: var(--hero-tray-shadow, inset 0 1px 0 rgb(255 255 255 / 0.05), 0 10px 24px -14px rgb(0 0 0 / 0.7));
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+
+/* Inside the tray the chips are flat buttons with a clear border; a drop
+   shadow would be clipped by the scrolling row and leave them edgeless. */
+.starter-tray .starter-chip {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* Sliding rows. Touch and trackpads scroll natively; StarterIdeas adds mouse
    drag. The scrollbar is hidden because the arrows (and, for chips, the edge
    fades) already show there is more. Snapping is switched off mid-drag, or the

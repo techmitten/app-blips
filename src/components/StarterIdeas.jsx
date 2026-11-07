@@ -217,7 +217,7 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
 
   if (isChips) {
     return (
-      <div className="flex items-center gap-1.5 animate-fade-in" style={{ animationDelay: '0.08s' }}>
+      <div className="starter-tray flex items-center gap-1 rounded-full p-1 animate-fade-in" style={{ animationDelay: '0.08s' }}>
         <button
           type="button"
           onClick={() => scrollByStep(-1)}
@@ -233,7 +233,7 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
           aria-label="Starter ideas"
           data-fade-start={atStart ? undefined : 'true'}
           data-fade-end={atEnd ? undefined : 'true'}
-          className="starter-scroller starter-chip-row flex-1 min-w-0 flex items-center gap-2 overflow-x-auto py-1 px-0.5"
+          className="starter-scroller starter-chip-row flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto py-0.5 px-0.5"
         >
           {pages.flat().map(({ starter, hue }) => {
             const IconComponent = starter.icon || Sparkles;
