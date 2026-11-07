@@ -810,7 +810,10 @@ export default function App({ coldStart = false }) {
             touchEnabled: PREVIEW_MODES[previewMode].isTouchChrome,
             // Read here rather than as a dependency: a changed Pollinations
             // choice reaches the preview on its next reload.
-            pollinations: getPollinationsHelperOptions(),
+            // An imported codebase never needs the helper (its code
+            // predates AppBlips), and the helper carries the person's
+            // Pollinations site key into whatever the repo's pages do.
+            pollinations: isCodebase ? undefined : getPollinationsHelperOptions(),
             gallery: isCodebase ? undefined : previewGallery,
           })
         : { srcDoc: '', token: '' },
@@ -994,6 +997,9 @@ export default function App({ coldStart = false }) {
   // gallery list it was just added to, which state has not caught up with).
   const applyElementChangesToSource = useCallback((element, changes, saveExtra = {}) => {
     if (!element || !activeCode) return { ok: false, reason: 'invalid' };
+    // Direct edits exist for the Website Studio's pages only: elsewhere
+    // activeCode isn't the stored source (a codebase shows its bundle).
+    if (studioModeRef.current !== 'website') return { ok: false, reason: 'invalid' };
     // A group only supports deleting all of it; anything else goes through AI.
     const result = element.group
       ? (changes?.remove ? removeElements(activeCode, element.elements) : { ok: false, reason: 'invalid' })
@@ -1219,7 +1225,10 @@ export default function App({ coldStart = false }) {
   // source shows it for real, at the remembered scroll offset), failure
   // makes the bridge revert and opens the panel with the AI path.
   const handleElementTextCommitted = useCallback((payload) => {
-    if (!payload || !payload.newText) {
+    // A build in flight commits with its own copy of the versions, which
+    // would drop this edit silently: refuse it now instead (the frame
+    // reverts the text and the panel offers the AI path).
+    if (!payload || !payload.newText || isGeneratingRef.current) {
       replyInlineEditResult(false, payload?.editId);
       return;
     }

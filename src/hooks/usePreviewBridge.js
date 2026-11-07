@@ -9,6 +9,12 @@ import { logWarn } from '../lib/errorLog';
 // can no longer touch its document. The mobile touch-scroll simulation now runs
 // inside the frame (src/previewBridge.js); this effect just drives it.
 
+// Messages that change the project or open its editing UI (see onMessage).
+const EDITING_MESSAGES = new Set([
+  'element-selected', 'elements-selected', 'element-deselected', 'element-text-committed',
+  'inline-edit-started', 'inline-typography', 'inline-history', 'inline-edit-ended',
+  'element-shortcut', 'element-drop', 'insert-menu', 'insert-menu-dismissed',
+]);
 const ELEMENT_SHORTCUT_ACTIONS = new Set(['delete', 'duplicate', 'move-up', 'move-down', 'undo', 'redo']);
 
 export default function usePreviewBridge({
@@ -239,6 +245,11 @@ export default function usePreviewBridge({
       }
       else if (data.type === "error") logWarn('Preview bridge reported an error', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);
+      // Everything below edits the project or opens its editing UI. The
+      // bridge only sends these while editing is on, but the token isn't a
+      // secret (see above), so the generated page could send them itself:
+      // outside editing they are dropped here, before any handler.
+      else if (!editingEnabledRef.current && EDITING_MESSAGES.has(data.type)) return;
       else if (data.type === 'element-selected' && onElementSelectedRef.current) onElementSelectedRef.current(data.payload);
       // Box select / Shift+click: several snapshots at once, handed on as one
       // group selection (see `selectedElement` in App.jsx).

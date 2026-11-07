@@ -53,7 +53,9 @@ const replaceUnique = (code, search, replace) => {
 
   const exactCount = countExactOccurrences(code, search);
   if (exactCount === 1) {
-    return { ok: true, code: code.replace(search, replace) };
+    // A function replacer: the typed text may hold "$$" or "$'", which a
+    // string replacement would expand.
+    return { ok: true, code: code.replace(search, () => replace) };
   }
   if (exactCount > 1) {
     return { ok: false, reason: 'ambiguous' };
@@ -453,10 +455,10 @@ const mergeStylesIntoOpenTag = (html, styles) => {
       });
     const escapeForQuote = (v) => (quote === '"' ? v.replace(/"/g, '&quot;') : v.replace(/'/g, '&#39;'));
     const merged = [...existing, ...Object.entries(wanted).map(([k, v]) => `${k}: ${escapeForQuote(v)}`)].join('; ');
-    nextOpen = open.replace(styleAttr[0], `${styleAttr[1]}${quote}${merged};${quote}`);
+    nextOpen = open.replace(styleAttr[0], () => `${styleAttr[1]}${quote}${merged};${quote}`);
   } else {
     const decls = Object.entries(wanted).map(([k, v]) => `${k}: ${v.replace(/"/g, '&quot;')}`).join('; ');
-    nextOpen = open.replace(/\s*(\/?>)$/, ` style="${decls};"$1`);
+    nextOpen = open.replace(/\s*(\/?>)$/, (_, close) => ` style="${decls};"${close}`);
   }
   return nextOpen + html.slice(open.length);
 };
@@ -542,7 +544,7 @@ const applyTextChange = (code, element, nextTextRaw, styleChanges = null, innerH
   if (!styles) {
     for (const candidate of textCandidates(prevText)) {
       if (countExactOccurrences(code, candidate) === 1) {
-        return { ok: true, code: code.replace(candidate, escapedNext), summary };
+        return { ok: true, code: code.replace(candidate, () => escapedNext), summary };
       }
     }
   }

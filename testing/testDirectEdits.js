@@ -883,3 +883,26 @@ check('group prompt lists an unlocatable element by description', () => {
 });
 
 console.log(`\n${passed} checks passed${process.exitCode ? ' (with failures above)' : ''}`);
+
+console.log('replacement strings:');
+
+check('typed text with dollar patterns is written as typed', () => {
+  const element = el({
+    tag: 'h1',
+    role: 'heading',
+    text: 'Fresh bread, every morning',
+    outerHTML: '<h1 class="text-5xl font-black text-white">Fresh bread, every morning</h1>',
+  });
+  // ("$&" is HTML-escaped on the way in, like any ampersand.)
+  for (const [text, written] of [['$$ · Italian'], ["Costs $' extra"], ['Use $& wisely', 'Use $&amp; wisely'], ['Back $` please']]) {
+    const result = applyDirectEdit(FIXTURE, element, { text });
+    assert.ok(result.ok, `expected ok for ${text}, got: ${result.reason}`);
+    assert.ok(result.code.includes(`>${written || text}<`), `${text} was changed to: ${result.code.match(/<h1[^>]*>([^<]*)</)?.[1]}`);
+  }
+  const fallback = applyDirectEdit(FIXTURE, el({ tag: 'h1', role: 'heading', text: 'Fresh bread, every morning', outerHTML: '' }), { text: 'Only $$ today' });
+  assert.ok(fallback.ok);
+  assert.ok(fallback.code.includes('Only $$ today'));
+  const styled = applyDirectEdit(FIXTURE, element, { style: { color: 'rgb(1, 2, 3)' }, text: 'Pay $$ here' });
+  assert.ok(styled.ok, `expected ok, got: ${styled.reason}`);
+  assert.ok(styled.code.includes('Pay $$ here'));
+});

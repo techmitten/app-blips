@@ -3320,12 +3320,19 @@ const buildTag = (token, initialStorage, touchEnabled, projectMode, sourceFp) =>
     initialStorage && typeof initialStorage === 'object' ? initialStorage : {}
   ).replace(/</g, '\\u003c');
 
-  const source = BRIDGE_SOURCE
-    .replace('__ORION_TOKEN__', token)
-    .replace('__ORION_INITIAL_STORAGE__', safeData)
-    .replace('__ORION_INITIAL_TOUCH_ENABLED__', touchEnabled ? 'true' : 'false')
-    .replace('__ORION_PROJECT_MODE__', projectMode ? 'true' : 'false')
-    .replace('__ORION_SOURCE_FP__', sourceFp ? JSON.stringify(sourceFp) : 'null');
+  // One pass with a function replacer: a saved storage value is user data
+  // and may hold "$'" or "$$", which String.replace with a string
+  // replacement would expand (copying bridge source into the script, or
+  // eating a dollar sign on every reload), or the name of a later
+  // placeholder, which a chain of replaces would then fill in.
+  const values = {
+    __ORION_TOKEN__: token,
+    __ORION_INITIAL_STORAGE__: safeData,
+    __ORION_INITIAL_TOUCH_ENABLED__: touchEnabled ? 'true' : 'false',
+    __ORION_PROJECT_MODE__: projectMode ? 'true' : 'false',
+    __ORION_SOURCE_FP__: sourceFp ? JSON.stringify(sourceFp) : 'null',
+  };
+  const source = BRIDGE_SOURCE.replace(/__ORION_(?:TOKEN|INITIAL_STORAGE|INITIAL_TOUCH_ENABLED|PROJECT_MODE|SOURCE_FP)__/g, (name) => values[name]);
 
   if (source.indexOf('</') !== -1) {
     throw new Error('previewBridge: Injected script contains "</", which would truncate the injected script tag.');

@@ -23,10 +23,37 @@ const escapeForRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const xmlEscape = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
+// The URLs come from the generated page (its stylesheets, src= and url()
+// references), and these fetches run here in the privileged parent, so only
+// plain https addresses on other origins are fetched, without credentials,
+// a bounded number of them and a bounded size each: never this app's own
+// /api routes or anything else on its origin.
+const MAX_INLINED_URLS = 40;
+const MAX_INLINED_BYTES = 4 * 1024 * 1024;
+
+const isFetchableUrl = (url) => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.origin !== window.location.origin && !parsed.username && !parsed.password;
+  } catch {
+    return false;
+  }
+};
+
+const fetchCapped = async (url) => {
+  if (!isFetchableUrl(url)) return null;
+  const res = await fetch(url, { credentials: 'omit', redirect: 'follow' });
+  if (!res.ok) return null;
+  const length = Number(res.headers.get('content-length')) || 0;
+  if (length > MAX_INLINED_BYTES) { res.body?.cancel().catch(() => {}); return null; }
+  const blob = await res.blob();
+  return blob.size > MAX_INLINED_BYTES ? null : blob;
+};
+
 const fetchText = async (url) => {
   try {
-    const res = await fetch(url);
-    return res.ok ? await res.text() : null;
+    const blob = await fetchCapped(url);
+    return blob ? await blob.text() : null;
   } catch {
     return null;
   }
@@ -39,9 +66,8 @@ const fetchText = async (url) => {
 // screenshot at the toDataURL() step, not just that one image.
 const inlineHttpUrl = async (url) => {
   try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const blob = await res.blob();
+    const blob = await fetchCapped(url);
+    if (!blob) return null;
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
@@ -74,13 +100,14 @@ export const rasterizeDomSnapshot = async ({
 }) => {
   // Stylesheets the frame couldn't read (cross-origin, e.g. Google Fonts) can
   // usually still be fetched here as plain text.
-  const recovered = await Promise.all(externalStyleUrls.map((url) => fetchText(url)));
+  const styleUrls = (Array.isArray(externalStyleUrls) ? externalStyleUrls : []).filter((url) => typeof url === 'string').slice(0, MAX_INLINED_URLS);
+  const recovered = await Promise.all(styleUrls.map((url) => fetchText(url)));
 
   let safeHtml = html || '';
   let safeCss = [css || '', ...recovered.filter(Boolean)].join('\n');
 
   const urls = new Set([...collectHttpUrls(safeHtml), ...collectHttpUrls(safeCss)]);
-  const inlined = await Promise.all([...urls].map(async (url) => [url, await inlineHttpUrl(url)]));
+  const inlined = await Promise.all([...urls].map(async (url, index) => [url, index < MAX_INLINED_URLS ? await inlineHttpUrl(url) : null]));
 
   for (const [url, dataUrl] of inlined) {
     if (dataUrl) {
