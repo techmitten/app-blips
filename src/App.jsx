@@ -7,7 +7,7 @@ import { signOutAccount } from './lib/authToken';
 
 import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
-import BuildPanel from './components/BuildPanel';
+import BuildPanel, { BUILD_PANE_WIDTH } from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
 import InsertMenu from './components/InsertMenu';
 import SettingsModal from './components/SettingsModal';
@@ -124,6 +124,9 @@ export default function App({ coldStart = false }) {
   const [codeAutocomplete, setCodeAutocomplete] = useState(loadCodeAutocomplete);
   const [liveCodePreview, setLiveCodePreview] = useState(loadLiveCodePreview);
   const [buildPaneSide, setBuildPaneSide] = useState(loadBuildPaneSide);
+  // Wide layouts only (lg+): shrinks the build pane to a thin rail so the
+  // preview gets the room. Below lg the chat/preview switcher applies instead.
+  const [isBuildPaneCollapsed, setIsBuildPaneCollapsed] = useState(false);
   const [buildReasoningEffort, setBuildReasoningEffort] = useState(() => loadReasoningEffort());
   // The levels the active provider and model accept. The saved choice is kept
   // as picked (so switching back to a provider restores it); requests use the
@@ -3184,9 +3187,12 @@ export default function App({ coldStart = false }) {
         {/* Main Workspace */}
         <main className="flex-1 min-w-0 min-h-0 flex overflow-hidden relative">
 
-          {/* Prompt/Chat Sidebar (left by default, right via Settings) - Build Panel */}
+          {/* Prompt/Chat Sidebar (left by default, right via Settings) - Build Panel.
+              Collapsing animates only this wrapper's width (200ms); the pane
+              inside keeps its width and is clipped, and on the right side
+              justify-end clips its inner edge so the outer edge stays put. */}
           <div
-            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex h-full w-full lg:w-[clamp(320px,35vw,420px)] flex-1 lg:flex-none min-w-0 min-h-0 relative ${buildPaneSide === 'right' ? 'build-pane-right lg:order-2' : ''}`}
+            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex h-full w-full ${isBuildPaneCollapsed ? 'lg:w-12' : BUILD_PANE_WIDTH} flex-1 lg:flex-none min-w-0 min-h-0 relative lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out motion-reduce:transition-none ${buildPaneSide === 'right' ? 'build-pane-right lg:order-2 lg:justify-end' : ''}`}
           >
             <BuildPanel
               isChatActive={isChatActive}
@@ -3244,6 +3250,9 @@ export default function App({ coldStart = false }) {
               onNewChat={handleStartNewChat}
               isHistoryOpen={isHistoryOpen}
               onToggleHistory={() => setIsHistoryOpen((open) => !open)}
+              side={buildPaneSide}
+              isCollapsed={isBuildPaneCollapsed}
+              onToggleCollapsed={() => setIsBuildPaneCollapsed((collapsed) => !collapsed)}
               chatBottomRef={chatBottomRef}
               interruptedJob={interruptedJob}
               onRetryInterruptedJob={handleRetryInterruptedJob}

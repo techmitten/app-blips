@@ -1,8 +1,11 @@
-import { TriangleAlert, RotateCcw, X, Plus, History } from 'lucide-react';
+import { TriangleAlert, RotateCcw, X, Plus, History, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';
 import { displayBuildPrompt } from '../lib/buildMessages';
+
+// The pane's open width at lg+, shared with the animated wrapper in App.
+export const BUILD_PANE_WIDTH = 'lg:w-[clamp(320px,35vw,420px)]';
 
 // Left-hand prompt/chat pane: studio header, starter ideas, chat transcript and
 // the fixed bottom input area (prompt). The generation flow and
@@ -57,10 +60,61 @@ export default function BuildPanel({
   planWebSearch = null,
   webSearch = false,
   onWebSearchChange,
+  side = 'left',
+  isCollapsed = false,
+  onToggleCollapsed,
 }) {
   const isClarifying = chatMode === 'build' && versions[currentVersionIndex]?.editMode === 'clarify';
+  const CollapseIcon = side === 'right' ? PanelRightClose : PanelLeftClose;
+  const ExpandIcon = side === 'right' ? PanelRightOpen : PanelLeftOpen;
+  // The toggle sits on the pane's outer edge (next to the window edge), so
+  // when the pane shrinks to the rail the expand button lands where the
+  // collapse button was. Collapsing is a wide-layout (lg+) feature only:
+  // narrower screens switch between chat and preview instead.
+  const collapseButton = onToggleCollapsed && (
+    <button
+      type="button"
+      onClick={onToggleCollapsed}
+      className={`build-panel-collapse hidden lg:inline-flex items-center justify-center rounded-lg p-1.5 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer ${side === 'right' ? 'ml-2' : '-ml-1.5 mr-1.5'}`}
+      aria-label="Collapse build pane"
+      aria-expanded="true"
+      title="Collapse build pane"
+    >
+      <CollapseIcon size={20} aria-hidden="true" />
+    </button>
+  );
 
   return (
+    <>
+    {/* Collapsed rail (lg+ only), layered over the pane's outer edge. It is
+        always mounted so it can cross-fade with the pane; `invisible` (which
+        flips only once the fade-out ends) keeps it out of the tab order and
+        the accessibility tree while the pane is open. */}
+    <div
+      className={`build-panel-rail absolute inset-0 z-30 hidden lg:flex flex-col items-center bg-surface border-slate-200/80 dark:border-white/10 transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none ${side === 'right' ? 'border-l' : 'border-r'} ${isCollapsed ? 'opacity-100 visible delay-75' : 'opacity-0 invisible pointer-events-none'}`}
+    >
+      <div className="build-panel-header w-full shrink-0 flex items-center justify-center border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f]">
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-700 dark:text-white/70 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+          aria-label="Expand build pane"
+          aria-expanded="false"
+          title="Expand build pane"
+        >
+          <ExpandIcon size={20} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+    {/* Fixed-width frame: while the wrapper in App animates its width, the
+        pane keeps its full width and is clipped instead of reflowing its text
+        every frame. The frame (not .build-panel) carries the width because
+        .build-panel's `zoom` would scale a fixed width past the wrapper's. The
+        pane stays mounted when collapsed, so the chat scroll position and the
+        composer survive. */}
+    <div
+      className={`build-panel-frame h-full w-full ${BUILD_PANE_WIDTH} lg:shrink-0 min-w-0 min-h-0 flex transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none ${isCollapsed ? 'lg:opacity-0 lg:invisible' : 'delay-75'}`}
+    >
     <div
       className="build-panel h-full w-full min-h-0 overflow-hidden flex flex-col bg-surface z-20 shrink-0 relative @container border-b md:border-b-0 md:border-r border-slate-200/80 dark:border-white/10"
     >
@@ -69,7 +123,10 @@ export default function BuildPanel({
 
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
       <div className="build-panel-header relative h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
-        <h2 className="build-panel-title text-sm font-semibold text-slate-900 dark:text-white">Build</h2>
+        <div className="flex items-center">
+          {side !== 'right' && collapseButton}
+          <h2 className="build-panel-title text-sm font-semibold text-slate-900 dark:text-white">Build</h2>
+        </div>
         {/* Quick actions */}
         <div className="flex items-center">
           <button
@@ -93,6 +150,7 @@ export default function BuildPanel({
           >
             <Plus size={20} strokeWidth={3} aria-hidden="true" />
           </button>
+          {side === 'right' && collapseButton}
         </div>
       </div>
 
@@ -247,5 +305,7 @@ export default function BuildPanel({
         />
       </div>
     </div>
+    </div>
+    </>
   );
 }
