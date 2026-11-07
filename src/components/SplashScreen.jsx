@@ -6,6 +6,10 @@ const splashVideo = '/animatedsplash.mp4';
 // final black frame.
 const END_FADE_MS = 300;
 const FADE_IN_MS = 1000;
+// The video is a 24fps render; at 1x the motion looks steppy, while 1.5x shows
+// 36 frames a second. Set at runtime rather than re-encoding, which would cost
+// the video another generation of quality.
+const PLAYBACK_RATE = 1.5;
 // Skipping (button or Esc) uses a quicker fade so it doesn't feel ignored.
 const SKIP_FADE_MS = 500;
 
@@ -64,6 +68,9 @@ export default function SplashScreen({ skip = false, onDone, aboveSetup = false 
           muted
           playsInline
           aria-label="AppBlips"
+          onLoadedMetadata={(e) => {
+            e.currentTarget.playbackRate = PLAYBACK_RATE;
+          }}
           // Fade in once frames are actually showing, not while it buffers.
           onPlaying={() => setIsPlaying(true)}
           onEnded={() => endSplash(END_FADE_MS)}
