@@ -87,3 +87,12 @@ assert.equal(JSON.parse(byName['todo/package.json']).dependencies['lucide-react'
 assert.equal(buildViteProject(preact), null);
 
 console.log('testJsxCompile: ok');
+
+// Only plain versions reach package.json: the import map came from the model.
+assert.deepEqual(projectDependencies(`<script type="importmap">${JSON.stringify({ imports: {
+  react: 'https://esm.sh/react@19.2.0',
+  'react-dom': 'https://esm.sh/react-dom@19.2.0',
+  evil: 'https://esm.sh/evil@npm:other-pkg',
+  lodash: 'https://esm.sh/lodash@4.17.21',
+} })}</script>`), { lodash: '^4.17.21', react: '^19.2.0', 'react-dom': '^19.2.0' });
+console.log('ok - dependency versions are validated');

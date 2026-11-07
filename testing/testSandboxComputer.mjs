@@ -439,6 +439,15 @@ try {
   assert.equal(budget.left, 1);
   assert.equal(budget.used, 1);
 
+  // What comes back from the sandbox is filtered like the file tools' input.
+  const { filterSyncedFiles } = await import('../src/lib/sandboxComputer.js');
+  const pages = filterSyncedFiles('pages', { 'index.html': '<h1>a</h1>' }, { 'about.html': '<h1>b</h1>', 'src/x.js': 'x', '../up.html': 'y', 'a\\..\\b.html': 'z' });
+  assert.deepEqual(pages.changed, ['about.html']);
+  assert.equal(pages.rejected.length, 3);
+  const repo = filterSyncedFiles('codebase', { 'package.json': '{}' }, { 'src/App.tsx': 'x', '.git/config': 'bad', 'node_modules/a.js': 'bad', '.env': 'SECRET=1', 'package-lock.json': '{}', '../out.txt': 'bad' });
+  assert.deepEqual(repo.changed, ['src/App.tsx']);
+  assert.equal(repo.rejected.length, 5);
+
   // Path traversal on upload is rejected
   const badUpload = await handleSandbox(new Request('http://localhost/api/sandbox/upload', {
     method: 'POST',

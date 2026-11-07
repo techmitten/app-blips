@@ -10,6 +10,9 @@
 import { getAuthToken } from './authToken.js';
 import { invalidArgumentsError } from './edits.js';
 import { logWarn } from './errorLog.js';
+import { checkFilesLimits, validatePageName } from './pages.js';
+import { checkCodebaseLimits, isLockfile, skipReason, validateProjectPath } from './codebase/paths.js';
+import { isPrivateEnvPath } from './codebase/environment.js';
 
 export const SANDBOX_EXEC_TOOL_NAME = 'run_sandbox_command';
 export const MAX_SANDBOX_COMMANDS_PER_REQUEST = 8;
@@ -282,11 +285,39 @@ const truncateOutput = (text) => {
 
 // Executes a `run_sandbox_command` tool call against the user's Render Sandbox
 // and merges any changed files in `/workspace` back into `state.files`.
+// Files that come back from the sandbox are what a command wrote: the same
+// rules as the file tools apply before any of it enters the project.
+// `kind` is 'pages' (a website or app: pages named like the page tools
+// require) or 'codebase' (an imported repo: paths as validateProjectPath,
+// lockfiles and .env files untouched). Returns { files, rejected }.
+export function filterSyncedFiles(kind, current, synced, assets = {}) {
+  const files = { ...current };
+  const rejected = [];
+  const changed = [];
+  for (const [path, content] of Object.entries(synced || {})) {
+    if (typeof content !== 'string' || files[path] === content) continue;
+    let problem = null;
+    if (kind === 'pages') {
+      if (!validatePageName(path)) problem = 'not a page name';
+    } else {
+      problem = validateProjectPath(path) || skipReason(path)
+        || (isLockfile(path) ? 'lockfiles are kept as uploaded' : null)
+        || (isPrivateEnvPath(path) ? 'secrets stay out of the project' : null);
+    }
+    if (problem) { rejected.push(`${path} (${problem})`); continue; }
+    files[path] = content;
+    changed.push(path);
+  }
+  const limit = changed.length ? (kind === 'pages' ? checkFilesLimits(files) : checkCodebaseLimits(files, assets)) : null;
+  if (limit) return { files: current, changed: [], rejected: [...rejected, `all changes (${limit})`] };
+  return { files, changed, rejected };
+}
+
 export async function executeSandboxToolCall(
   state,
   toolCall,
   budget,
-  { onChunk, signal, exec = execInSandboxComputer } = {},
+  { onChunk, signal, exec = execInSandboxComputer, kind = 'codebase' } = {},
 ) {
   let args;
   try {
@@ -332,18 +363,15 @@ export async function executeSandboxToolCall(
 
     let nextState = state;
     let applied = false;
-    const changedFiles = [];
+    let changedFiles = [];
+    let rejectedFiles = [];
 
     if (syncBack && outcome?.files && typeof outcome.files === 'object') {
-      const mergedFiles = { ...state.files };
-      for (const [path, content] of Object.entries(outcome.files)) {
-        if (typeof content === 'string' && mergedFiles[path] !== content) {
-          mergedFiles[path] = content;
-          changedFiles.push(path);
-        }
-      }
+      const filtered = filterSyncedFiles(kind, state.files, outcome.files, state.assets);
+      changedFiles = filtered.changed;
+      rejectedFiles = filtered.rejected;
       if (changedFiles.length > 0) {
-        nextState = { ...state, files: mergedFiles };
+        nextState = { ...state, files: filtered.files };
         applied = true;
       }
     }
@@ -357,6 +385,7 @@ export async function executeSandboxToolCall(
         stdout: truncateOutput(outcome.stdout),
         stderr: truncateOutput(outcome.stderr),
         changedFiles,
+        ...(rejectedFiles.length ? { rejectedFiles, note: 'Rejected files were not brought into the project; use the file tools for them.' } : {}),
       },
     };
   } catch (err) {

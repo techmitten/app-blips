@@ -28,6 +28,10 @@ export function validateProjectPath(path) {
     if (BAD_CHAR_RE.test(segment)) return 'Path has a character Windows does not allow.';
     if (/[. ]$/.test(segment)) return 'Path segment ends with a dot or space.';
     if (RESERVED_NAME_RE.test(segment)) return 'Path uses a name Windows reserves.';
+    // Imports leave these out (skipReason), so nothing may put them back:
+    // the site/ mirror is a real folder, and a .git/config or
+    // .vscode/tasks.json written there could run commands when opened.
+    if (SKIP_DIRS.has(segment)) return `Path goes through ${segment}, which a project cannot contain.`;
   }
   return null;
 }

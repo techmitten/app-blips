@@ -1361,7 +1361,7 @@ const generateAppCodeCore = async (
           messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: false, error: 'Sandbox computer is not available.' }) });
           continue;
         }
-        const outcome = await executeSandboxToolCall({ files: workingFiles }, toolCall, sandboxBudget, { onChunk, signal });
+        const outcome = await executeSandboxToolCall({ files: workingFiles }, toolCall, sandboxBudget, { onChunk, signal, kind: 'pages' });
         workingFiles = outcome.state.files;
         if (outcome.applied) editsApplied = true;
         messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(outcome.result) });

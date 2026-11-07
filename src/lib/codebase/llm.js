@@ -274,7 +274,7 @@ async function runCodebaseEdit({
       const outcome = isWebSearchCall(toolCall) && webSearch && !requireEdit
         ? { state, applied: false, result: await executeWebSearch(toolCall, webSearch) }
         : isSandboxToolCall(toolCall) && sandboxBudget && !requireEdit
-        ? await executeSandboxToolCall(state, toolCall, sandboxBudget, { onChunk, signal })
+        ? await executeSandboxToolCall(state, toolCall, sandboxBudget, { onChunk, signal, kind: 'codebase' })
         : !requireEdit || allowed ? executeCodebaseTool(state, toolCall)
         : { state, applied: false, result: { success: false, error: 'This tool is temporarily unavailable. Apply the requested edits using the file contents already provided.' } };
       diagnostics[outcome.result.success === false ? 'warn' : 'info']('Tool result', { turn, ...toolDiagnostic(toolCall, outcome) });

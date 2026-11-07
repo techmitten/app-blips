@@ -20,7 +20,7 @@
 // folder yet ('draft', or a project mid-first-save) lives in `orphanDir`.
 // Every operation on one id runs through that id's queue, so a project save and
 // the app-data migration that follows it land on disk in the order they were sent.
-import { mkdir, readdir, readFile, rename, rm, writeFile, cp, copyFile, stat } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile, cp, copyFile, stat, lstat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve, sep } from 'node:path';
@@ -281,8 +281,23 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       if (!full.startsWith(siteDir + sep)) throw new Error('Path escapes the site folder.');
       return full;
     };
+    // The lexical check above can't see a link the user (or a package
+    // manager) put inside site/: a write through one would land outside.
+    // Every existing component of the path must be a plain folder or file.
+    const throughLink = async (path) => {
+      let at = siteDir;
+      for (const segment of path.split('/')) {
+        at = join(at, segment);
+        try {
+          if ((await lstat(at)).isSymbolicLink()) return true;
+        } catch {
+          return false; // not there yet: nothing to follow
+        }
+      }
+      return false;
+    };
     for (const path of Object.keys(previous)) {
-      if (!wanted.has(path) && !validateProjectPath(path)) await rm(inSite(path), { force: true });
+      if (!wanted.has(path) && !validateProjectPath(path) && !(await throughLink(path))) await rm(inSite(path), { force: true });
     }
     const written = {};
     for (const [path, hash] of wanted) {
@@ -290,6 +305,10 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       if (previous[path] !== hash || !existsSync(target)) {
         const source = join(blobs, hash);
         if (!existsSync(source)) continue;
+        if (await throughLink(path)) {
+          console.warn('[projectStore] not writing through a link in the site folder:', path);
+          continue;
+        }
         await mkdir(dirname(target), { recursive: true });
         await copyFile(source, target);
       }

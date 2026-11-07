@@ -28,7 +28,10 @@ export const projectDependencies = (html) => {
     const pkg = packageFromUrl(url);
     if (!pkg) continue;
     const [name, version] = pkg;
-    deps[name] = /^\d/.test(version) ? `^${version}` : version;
+    // Only a plain version: the URL came from the model, and anything else
+    // ("npm:other-pkg", a git URL) would make npm install something else.
+    if (!/^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(version)) continue;
+    deps[name] = `^${version}`;
   }
   return Object.fromEntries(Object.entries(deps).sort(([a], [b]) => a.localeCompare(b)));
 };

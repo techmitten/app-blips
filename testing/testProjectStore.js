@@ -378,3 +378,19 @@ test('writes queued during a folder move wait for it', () => withStore(async (st
   assert.ok(existsSync(join(target, 'One', 'app-data.json')));
   assert.ok(!existsSync(join(dir, 'Projects', 'One')));
 }));
+
+test('the site mirror never writes through a link inside site/', { skip: process.platform === 'win32' }, () => withStore(async (store, dir) => {
+  const { symlink } = await import('node:fs/promises');
+  const first = 'first';
+  await store.putBlobs('8', [blob(first)]);
+  await store.save(codebaseRow('8', 'Linked', [{ 'ok.txt': sha(first) }]));
+  const folder = join(store.root, 'Linked');
+  const outside = join(dir, 'outside');
+  await mkdir(outside, { recursive: true });
+  await symlink(outside, join(folder, 'site', 'public'));
+  const second = 'second';
+  await store.putBlobs('8', [blob(second)]);
+  await store.save(codebaseRow('8', 'Linked', [{ 'ok.txt': sha(first) }, { 'ok.txt': sha(first), 'public/x.txt': sha(second) }]));
+  assert.ok(!existsSync(join(outside, 'x.txt')), 'wrote through the link');
+  assert.equal(await readFile(join(folder, 'site', 'ok.txt'), 'utf8'), first);
+}));

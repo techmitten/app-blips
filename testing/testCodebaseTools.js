@@ -71,7 +71,7 @@ test('edits, creates and deletes return a new state and leave the old one alone'
 
 test('tools refuse unsafe paths, lockfiles and required files', () => {
   const state = state0();
-  for (const path of ['../evil.ts', '/etc/passwd', 'src/../../x', 'C:/x', 'con.ts']) {
+  for (const path of ['../evil.ts', '/etc/passwd', 'src/../../x', 'C:/x', 'con.ts', '.git/config', 'node_modules/x.js', 'src/.vscode/tasks.json']) {
     assert.equal(executeCodebaseTool(state, call('create_file', { path, content: 'x', overwrite: true })).applied, false, path);
   }
   assert.equal(executeCodebaseTool(state, call('apply_surgical_edits', { file: 'package-lock.json', edits: [{ search: '{', replace: '[', occurrence: null, replace_all: null }] })).applied, false);
