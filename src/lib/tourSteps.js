@@ -129,7 +129,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
       target: ['download', 'preview'],
       view: 'preview',
       placement: 'bottom',
-      title: 'Download it',
+      title: 'Download',
       body: `The download key saves your ${noun}${site ? ' as a ZIP of pages' : ' as a single HTML file'} you can open in any browser or host anywhere.`,
       ...(studioMode === 'app' ? { tips: ['For a React app it asks first: HTML file, or a React project to keep building with npm.'] } : {}),
     });
@@ -165,7 +165,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
         target: ['apps'],
         placement: 'bottom',
         title: 'All your projects',
-        body: `Work saves automatically. Apps (${SHORTCUT_HINTS.apps}) reopens, renames, or deletes projects; New starts another idea in the app, website, or game studio, or imports a site from a .zip.`,
+        body: `Work saves automatically. Projects (${SHORTCUT_HINTS.apps}) reopens, renames, or deletes projects; New starts another idea in the app, website, or game studio, or imports a site from a .zip.`,
       },
       {
         id: 'finish',
@@ -192,7 +192,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
       title: 'Everything else is in the menu',
       body: `${codebase ? 'Try asking for one small change' : `Try describing one small, useful ${noun}`} to begin.`,
       tips: [
-        'Apps: reopen, rename, or delete saved projects.',
+        'Projects: reopen, rename, or delete saved projects.',
         'History, Settings (including Extensions and Tools), and Help live here too.',
         'Take the tour replays this walkthrough.',
       ],

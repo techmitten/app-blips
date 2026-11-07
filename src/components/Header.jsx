@@ -155,12 +155,12 @@ export default function Header({
             data-tour="apps"
             onClick={onOpenApps}
             className="nav-btn nav-ghost nav-btn-icon"
-            data-tip="My saved apps"
+            data-tip="My saved projects"
             data-tip-key={SHORTCUT_HINTS.apps}
-            aria-label="My saved apps"
+            aria-label="My saved projects"
           >
             <FolderOpen size={16} />
-            <span>Apps</span>
+            <span>Projects</span>
             {savedAppsCount > 0 && <span className="nav-count">{savedAppsCount}</span>}
           </button>
 
@@ -351,12 +351,12 @@ export default function Header({
               <button
                 type="button"
                 data-tour="apps"
-                aria-label="Apps"
+                aria-label="Projects"
                 onClick={() => runMobileAction(onOpenApps)}
                 className="mobile-menu-item"
               >
                 <FolderOpen size={16} />
-                <span>Apps</span>
+                <span>Projects</span>
                 {savedAppsCount > 0 && <span className="mobile-menu-count">{savedAppsCount}</span>}
               </button>
               <button
