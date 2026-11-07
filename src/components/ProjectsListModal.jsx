@@ -27,6 +27,10 @@ const FILTERS = [
 
 const studioOf = (project) => normalizeStudioMode(project.studioMode);
 
+// Touch screens: focusing the search on open would throw up the on-screen
+// keyboard over the list the person came to see.
+const coarsePointer = () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+
 const toDate = (value) => {
   if (!value) return null;
   const d = typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
@@ -151,8 +155,8 @@ export default function ProjectsListModal({
     <>
       <Modal
         zIndex={60}
-        scrimClass="fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fade-in"
-        cardClass="w-full max-w-2xl bg-surface rounded-2xl border border-slate-200 shadow-2xl dark:bg-[#17171c] dark:border-white/12 dark:shadow-[0_24px_64px_-16px_rgb(0_0_0/0.9)] overflow-hidden flex flex-col h-[min(640px,85vh)] animate-scale-in"
+        scrimClass="fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center p-0 sm:p-6 animate-fade-in"
+        cardClass="w-full max-w-2xl bg-surface rounded-none border-0 sm:rounded-2xl sm:border border-slate-200 shadow-2xl dark:bg-[#17171c] dark:border-white/12 dark:shadow-[0_24px_64px_-16px_rgb(0_0_0/0.9)] overflow-hidden flex flex-col h-[100dvh] sm:h-[min(640px,85vh)] animate-scale-in"
         cardProps={{
           onClick: (e) => e.stopPropagation(),
           role: 'dialog',
@@ -161,7 +165,7 @@ export default function ProjectsListModal({
         }}
       >
         {/* Header: title + count, close */}
-        <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4">
+        <div className="flex items-start justify-between gap-4 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 sm:px-6 sm:pt-6 sm:pb-4">
           <div className="min-w-0">
             <h2 id="projects-modal-title" className="text-lg font-semibold tracking-tight text-slate-900">
               Your projects
@@ -169,14 +173,14 @@ export default function ProjectsListModal({
             <p className="mt-0.5 text-sm text-slate-500">
               {projects.length === 0
                 ? 'Nothing saved yet'
-                : `${projects.length} saved · pick up where you left off`}
+                : <>{projects.length} saved<span className="max-sm:hidden"> · pick up where you left off</span></>}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className={`${ICON_BTN} -mr-1.5 -mt-1 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.08] dark:hover:text-white`}
+            className={`${ICON_BTN} -mr-1.5 -mt-1 max-sm:h-10 max-sm:w-10 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.08] dark:hover:text-white`}
           >
             <X size={18} />
           </button>
@@ -184,18 +188,18 @@ export default function ProjectsListModal({
 
         {/* Toolbar: search + studio filter */}
         {projects.length > 0 && (
-          <div className="flex flex-col gap-3 border-b border-slate-200 px-6 pb-4 sm:flex-row sm:items-center dark:border-white/10">
+          <div className="relative z-10 flex flex-col gap-2.5 border-b border-slate-200 px-4 pb-3 max-sm:shadow-[0_6px_12px_-8px_rgb(15_23_42/0.18)] dark:max-sm:shadow-[0_6px_14px_-8px_rgb(0_0_0/0.8)] sm:flex-row sm:items-center sm:gap-3 sm:px-6 sm:pb-4 dark:border-white/10">
             <div className="relative flex-1">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
               <input
                 ref={searchRef}
-                autoFocus
+                autoFocus={!coarsePointer()}
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search projects"
                 aria-label="Search projects"
-                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-8 text-sm text-slate-900 placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-indigo-500 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-white/15 dark:bg-black/30 dark:placeholder:text-slate-500 dark:hover:border-white/25 dark:focus:bg-black/40 [&::-webkit-search-cancel-button]:hidden"
+                className="h-10 sm:h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-8 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-indigo-500 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-white/15 dark:bg-black/30 dark:placeholder:text-slate-500 dark:hover:border-white/25 dark:focus:bg-black/40 [&::-webkit-search-cancel-button]:hidden"
               />
               {query && (
                 <button
@@ -209,7 +213,7 @@ export default function ProjectsListModal({
               )}
             </div>
 
-            <div role="tablist" aria-label="Filter by studio" className="inline-flex shrink-0 rounded-lg bg-slate-100 p-0.5 dark:bg-black/30 dark:ring-1 dark:ring-white/10">
+            <div role="tablist" aria-label="Filter by studio" className="flex shrink-0 overflow-x-auto rounded-lg bg-slate-100 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:inline-flex dark:bg-black/30 dark:ring-1 dark:ring-white/10">
               {FILTERS.filter(({ key }) => key !== 'codebase' || counts.codebase > 0).map(({ key, label }) => {
                 const active = filter === key;
                 return (
@@ -219,7 +223,7 @@ export default function ProjectsListModal({
                     role="tab"
                     aria-selected={active}
                     onClick={() => setFilter(key)}
-                    className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${
+                    className={`inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-[13px] max-sm:flex-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 ${
                       active
                         ? 'bg-surface text-slate-900 shadow-sm dark:bg-white/[0.12] dark:text-white dark:shadow-none'
                         : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'
@@ -237,7 +241,7 @@ export default function ProjectsListModal({
         )}
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-auto custom-scrollbar max-sm:bg-slate-50 dark:max-sm:bg-black/25">
           {projects.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-6 py-16 text-center">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200/80 dark:ring-indigo-400/25">
@@ -277,7 +281,7 @@ export default function ProjectsListModal({
               )}
             </div>
           ) : (
-            <ul className="flex flex-col gap-1 p-3" aria-label="Saved projects">
+            <ul className="flex flex-col gap-2 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:gap-1" aria-label="Saved projects">
               {visibleProjects.map((project) => {
                 const isCurrent = currentProjectId === project.id;
                 const studio = STUDIO_ICONS[studioOf(project)];
@@ -289,7 +293,7 @@ export default function ProjectsListModal({
                 return (
                   <li
                     key={project.id}
-                    className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                    className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors max-sm:border max-sm:border-slate-200 max-sm:bg-surface max-sm:py-3 max-sm:shadow-[0_1px_2px_rgb(15_23_42/0.06),0_2px_8px_-2px_rgb(15_23_42/0.08)] max-sm:active:bg-slate-100 dark:max-sm:border-white/10 dark:max-sm:bg-white/[0.05] dark:max-sm:shadow-[0_2px_8px_-2px_rgb(0_0_0/0.6)] ${isCurrent && !isEditing ? 'max-sm:border-emerald-300 dark:max-sm:border-emerald-400/40' : ''} ${
                       isEditing
                         ? 'bg-slate-100 ring-1 ring-slate-200 dark:bg-white/[0.06] dark:ring-white/12'
                         : 'hover:bg-slate-100 focus-within:bg-slate-100 dark:hover:bg-white/[0.06] dark:focus-within:bg-white/[0.06]'
@@ -364,15 +368,15 @@ export default function ProjectsListModal({
                               </span>
                             )}
                           </span>
-                          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 whitespace-nowrap text-xs text-slate-500">
                             <span>{studio.label}</span>
-                            <span aria-hidden="true" className="text-slate-300">·</span>
-                            <span className="inline-flex items-center gap-1">
+                            <span aria-hidden="true" className="text-slate-300 max-sm:hidden">·</span>
+                            <span className="inline-flex items-center gap-1 max-sm:hidden">
                               <Layers size={11} aria-hidden="true" />
                               {versionCount} version{versionCount !== 1 ? 's' : ''}
                             </span>
                             <span aria-hidden="true" className="text-slate-300">·</span>
-                            <span title={formatModifiedTime(project.lastModified)}>
+                            <span className="truncate" title={formatModifiedTime(project.lastModified)}>
                               Edited {formatRelative(project.lastModified)}
                             </span>
                           </span>
@@ -398,7 +402,7 @@ export default function ProjectsListModal({
                             <Trash2 size={15} />
                           </button>
                         </div>
-                        <ChevronRight size={16} className="shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500" aria-hidden="true" />
+                        <ChevronRight size={16} className="shrink-0 max-sm:hidden text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500" aria-hidden="true" />
                       </>
                     )}
                   </li>
@@ -410,7 +414,7 @@ export default function ProjectsListModal({
 
         {/* Footer: result count + keyboard hint */}
         {projects.length > 0 && (
-          <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-3 text-xs text-slate-500 dark:border-white/10 dark:bg-black/20">
+          <div className="hidden sm:flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-3 text-xs text-slate-500 dark:border-white/10 dark:bg-black/20">
             <span>
               {isFiltered
                 ? <>Showing <span className="font-semibold text-slate-700">{visibleProjects.length}</span> of {projects.length}</>
