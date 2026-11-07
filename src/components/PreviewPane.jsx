@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, FolderTree, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, Expand, ExternalLink, Download, FolderDown, Globe, MousePointerClick, Move, Loader2, Square, RotateCw
+  ZoomIn, ZoomOut, Expand, ExternalLink, Globe, MousePointerClick, Move, Loader2, Square, RotateCw
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
 import PreviewTools from './PreviewTools';
 import BrowserBar from './BrowserBar';
 import PagePicker from './PagePicker';
+import ExportButton from './ExportButton';
 import ElementToolbar from './ElementToolbar';
 import ElementGroupToolbar from './ElementGroupToolbar';
 import TextFormatToolbar from './TextFormatToolbar';
@@ -407,22 +408,8 @@ export default function PreviewPane({
 
           {hasSavedCode && <span className="chrome-divider preview-actions-divider" aria-hidden="true" />}
 
-          {/* React apps can also leave as a Vite project to keep building with npm. */}
-          {hasSavedCode && onExportReactProject && (
-            <button
-              onClick={onExportReactProject}
-              disabled={isBrowserTesting}
-              className="nav-btn nav-ghost nav-btn-icon"
-              aria-label="Download React project"
-              data-tip="Download as a React project (.zip)"
-              data-tip-align="end"
-            >
-              <FolderDown size={16} />
-            </button>
-          )}
-
           {/* Puts the site online at a free surge.sh address (PublishDialog).
-              The filled key when offered; Export steps down to an icon. */}
+              Next to it, the download key drops its label (same brand fill). */}
           {hasSavedCode && onPublish && (
             <button
               data-tour="publish"
@@ -438,23 +425,17 @@ export default function PreviewPane({
             </button>
           )}
 
-          {/* Export the HTML file (also carries the tour anchor). Imported
-              sites can't publish, so there it stays the filled key. */}
+          {/* The download key (also carries the tour anchor). React apps pick
+              the HTML file or a Vite project from its menu. Imported sites
+              can't publish, so there it shows its "Export" label. */}
           {hasSavedCode && (
-            <button
-              data-tour="share"
-              onClick={onExportHtml}
+            <ExportButton
+              onExportHtml={onExportHtml}
+              onExportReactProject={onExportReactProject}
               disabled={isBrowserTesting}
-              className={onPublish
-                ? 'nav-btn nav-ghost nav-btn-icon'
-                : 'nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs'}
-              aria-label="Export app"
-              data-tip={exportTip || 'Download this app as an HTML file'}
-              data-tip-align="end"
-            >
-              <Download size={16} />
-              {!onPublish && <span className="preview-key-label">Export</span>}
-            </button>
+              showLabel={!onPublish}
+              tip={exportTip}
+            />
           )}
         </div>
       </div>

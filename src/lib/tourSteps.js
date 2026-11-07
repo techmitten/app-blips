@@ -131,7 +131,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
       body: `Publish puts your ${noun} online at a free surge.sh address you can send to anyone.`,
       tips: [
         `Export (the download key) saves it${site ? ' as a ZIP of pages' : ' as a single HTML file'}.`,
-        ...(studioMode === 'app' ? ['React apps can also download as a React project to keep building with npm.'] : []),
+        ...(studioMode === 'app' ? ['For a React app, the download key asks: HTML file, or a React project to keep building with npm.'] : []),
         'Open in a new tab runs it in your browser.',
       ],
     });
