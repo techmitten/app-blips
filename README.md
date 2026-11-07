@@ -70,7 +70,7 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere.
 - **One-Click Web Publishing** — Push your project live to a free `*.surge.sh` HTTPS address (with optional custom favicon, an optional prompt that lets visitors install the site as an app, and an optional password that keeps your code encrypted until a visitor unlocks it) directly from the preview toolbar.
 - **Built-in SEO** — Turn on SEO for a project in **Settings → Tools**, answer a few plain questions, and the AI adds search-engine optimization, plus a sitemap and robots file when you export or publish.
-- **Built-in Showcase** — Click **Explore** to browse community websites and games directly inside the app (even offline), and submit your own published creations.
+- **Built-in Showcase** — Click **See what others built** on the studio picker to browse community websites and games directly inside the app (even offline), and submit your own published creations.
 
 <details>
 <summary><strong>🎉 What's New in v0.1.26 (Click to expand)</strong></summary>

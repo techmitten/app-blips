@@ -623,7 +623,10 @@
      overflows spills past the top where it can't be scrolled to. */
   .desktop-onboarding { padding: 0; place-items: start stretch; }
   .desktop-onboarding-card { height: auto; min-height: 100dvh; border: 0; border-radius: 0; }
-  .onboarding-stage { overflow-y: visible; }
+  /* Stacked, the grid would stretch both rows to fill the card's 100dvh, which
+     pushes a short form (the name step) far down the screen, under the phone
+     keyboard. Pack the rows at the top instead. */
+  .onboarding-stage { overflow-y: visible; align-content: start; }
   .onboarding-stage, .desktop-onboarding-card.is-setup .onboarding-stage { grid-template-columns: 1fr; gap: 1.5rem; padding: 1.5rem; }
   .onboarding-copy { text-align: center; }.onboarding-copy h1, .onboarding-copy > p { margin-inline: auto; }
   .onboarding-greeting { justify-content: center; }
