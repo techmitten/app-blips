@@ -153,7 +153,7 @@ export default function HeroSidebar({
             <Plus size={18} aria-hidden="true" /> New
           </button>
           <button type="button" className="studio-menu-item" onClick={fromMenu(onOpenApps)}>
-            <FolderOpen size={18} aria-hidden="true" /> Saved apps{savedAppsCount > 0 ? ` (${savedAppsCount})` : ''}
+            <FolderOpen size={18} aria-hidden="true" /> Projects{savedAppsCount > 0 ? ` (${savedAppsCount})` : ''}
           </button>
           {recentProjects.length > 0 && (
             <>
