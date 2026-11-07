@@ -15,7 +15,7 @@ import { readFile, rm, stat } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { handleChatProxy } from './server/chatProxy.js';
+import { handleChatProxy, isForeignOrigin } from './server/chatProxy.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './server/staticFiles.js';
 import { describeConfig, formatConfigSummary } from './server/configSummary.js';
 import { resolveProvider } from './server/providers.js';
@@ -195,14 +195,22 @@ async function handleAppRequest(request) {
   if (url.host !== 'app') return new Response('Not found', { status: 404 });
   try {
     // Plans (sign-in, checkout, plan AI) are answered by the Worker
-    // (hostedApi.js); own-key chat stays here.
+    // (hostedApi.js); own-key chat stays here. The forward rewrites Origin to
+    // the app's, so anything that isn't the app (a sandboxed preview frame
+    // sends Origin "null") is turned away first, as /api/chat does itself.
     if (isHostedRequest(request, url.pathname)) {
+      if (isForeignOrigin(request, process.env)) {
+        return new Response(JSON.stringify({ error: 'Requests from other sites are not allowed.' }), {
+          status: 403,
+          headers: { ...SECURITY_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
       return withSecurityHeaders(await forwardToHosted(request, url, APP_ORIGIN));
     }
     switch (url.pathname) {
       case '/api/chat':
         if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env));
+        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env, { local: true }));
       case '/api/surge':
       case '/api/surge/login':
       case '/api/surge/publish':

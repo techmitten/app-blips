@@ -12,6 +12,7 @@ import OutputTokenSettings from './OutputTokenSettings';
 import PlanSettings from './PlanSettings';
 import AccountSettings, { AccountDangerZone } from './AccountSettings';
 import { useAccounts } from '../lib/accounts';
+import { ownKeyAllowed } from '../lib/ownKey';
 import {
   FIELD_CLASS, SettingRow, Switch, TabList, PRIMARY_BUTTON, SECONDARY_BUTTON, TAB_PANEL_CLASS,
 } from './SettingControls';
@@ -403,7 +404,13 @@ export default function SettingsModal({
 
           {tab === 'ai' && (
             <>
-              <DesktopProviderSettings guardRef={providerGuardRef} />
+              {ownKeyAllowed() ? (
+                <DesktopProviderSettings guardRef={providerGuardRef} />
+              ) : (
+                <SettingRow id="set-provider" title="AI provider" description="AppBlips runs the AI for plan users on this server, so there is no API key to set up. Your plan and usage are under Account.">
+                  <button type="button" onClick={() => selectTab('account')} className={PRIMARY_BUTTON}>Account</button>
+                </SettingRow>
+              )}
               <OutputTokenSettings />
               <ReasoningSetting value={buildReasoningEffort} onChange={onBuildReasoningEffortChange} reasoning={reasoningLevels} />
               <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask a few questions about your prompt before it builds.">

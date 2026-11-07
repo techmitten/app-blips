@@ -7,6 +7,7 @@ import {
 import { SignIn, SignUp, useAuth, useUser } from '@clerk/react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { useAccounts } from '../lib/accounts';
+import { ownKeyAllowed } from '../lib/ownKey';
 import { BrowserSignInStatus } from './AccountDialogs';
 import { useRequestSignOut } from '../lib/accountDialogs';
 import { fetchBillingConfig, fetchBillingMe, openCheckout, waitForPlan } from '../lib/billing';
@@ -447,19 +448,23 @@ const ACCESS_OPTIONS = [
 const SIGN_IN_CHOICES = ['plan', 'sign-in'];
 
 function AccessForm({ formRef, onSubmit, access, setAccess, onCompare }) {
+  // A hosted server is plan users only (lib/ownKey.js): no own-key card, and
+  // nothing to compare it with.
+  const options = ownKeyAllowed() ? ACCESS_OPTIONS : ACCESS_OPTIONS.filter((option) => option.id !== 'own-key');
+  const compare = ownKeyAllowed() ? onCompare : null;
   const pick = (event, index) => {
-    // Arrow keys move between the two cards like a radio group.
+    // Arrow keys move between the cards like a radio group.
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
     if (!step) return;
     event.preventDefault();
-    const next = ACCESS_OPTIONS[(index + step + ACCESS_OPTIONS.length) % ACCESS_OPTIONS.length].id;
+    const next = options[(index + step + options.length) % options.length].id;
     setAccess(next);
     formRef.current?.querySelector(`[data-access="${next}"]`)?.focus();
   };
   return (
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <div className="onboarding-choice-list" role="radiogroup" aria-label="How AppBlips gets its AI">
-        {ACCESS_OPTIONS.map(({ id, icon: Icon, title, text }, index) => (
+        {options.map(({ id, icon: Icon, title, text }, index) => (
           <button
             key={id}
             type="button"
@@ -481,8 +486,8 @@ function AccessForm({ formRef, onSubmit, access, setAccess, onCompare }) {
         ))}
       </div>
       {/* Not a choice itself (outside the radio group): opens the comparison. */}
-      {onCompare && (
-        <button type="button" className="onboarding-choice is-info" onClick={onCompare} aria-haspopup="dialog">
+      {compare && (
+        <button type="button" className="onboarding-choice is-info" onClick={compare} aria-haspopup="dialog">
           <span className="onboarding-choice-icon"><Info size={20} /></span>
           <span className="onboarding-choice-body">
             <span className="onboarding-choice-title">Not sure? Compare the options</span>
@@ -544,9 +549,10 @@ function PlanStepText({ access, planActive }) {
   const email = user?.primaryEmailAddress?.emailAddress;
   const account = email ? `You’re signed in as ${email}. ` : '';
   if (planActive) return <p>{account}Your plan is active, so AppBlips runs the AI for you. Press Start building to begin.</p>;
-  if (isSignedIn) return <p>{account}Pick a plan to have AppBlips run the AI for you. Prefer your own key? Press Back.</p>;
+  const ownKey = ownKeyAllowed() ? ' Prefer your own key? Press Back.' : '';
+  if (isSignedIn) return <p>{account}Pick a plan to have AppBlips run the AI for you.{ownKey}</p>;
   if (access === 'sign-in') return <p>Use the account you signed up with. Your plan and usage come with you. No plan yet? You can choose one after signing in.</p>;
-  return <p>Your account keeps your plan and usage. Already have one? Click Sign in below the form. Prefer your own key? Press Back.</p>;
+  return <p>Your account keeps your plan and usage. Already have one? Click Sign in below the form.{ownKey}</p>;
 }
 
 // Signed in already (an earlier setup, or the plan step): a way out of that

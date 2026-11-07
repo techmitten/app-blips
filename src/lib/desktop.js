@@ -1,4 +1,5 @@
 import { logError, logWarn } from './errorLog.js';
+import { ownKeyAllowed } from './ownKey.js';
 import { USER_PROVIDER_IDS } from '../../electron/server/providers.js';
 
 // Desktop (Electron) storage adapter. In the desktop app, electron/preload.cjs
@@ -176,8 +177,12 @@ export const webProviderStore = {
   // The provider for an outgoing /api/chat request, without a key: the server
   // attaches the saved one (withSavedProvider). A draft from "Test connection"
   // goes as given, with its typed key or an empty one meaning "the saved key".
+  // A hosted server has no saved keys (lib/ownKey.js): plan requests carry a
+  // sign-in instead, and a provider left over from before would only be
+  // refused.
   forRequest(input = null) {
     if (input) return input;
+    if (!ownKeyAllowed()) return null;
     const { enabled, id, model } = readWebProvider();
     if (!enabled || !id || !model) return null;
     return { id, model };
@@ -187,6 +192,11 @@ export const webProviderStore = {
     return providerRequest('/api/provider/models', 'POST', input);
   },
   async get() {
+    // A hosted server answers 404 for /api/provider; nothing to ask or move.
+    if (!ownKeyAllowed()) {
+      const { onboardingComplete } = readWebProvider();
+      return { enabled: false, id: '', model: '', hasKey: false, onboardingComplete: Boolean(onboardingComplete) };
+    }
     await moveLegacyKey();
     const info = readWebProvider();
     // A legacy key the move couldn't hand over yet.
@@ -197,13 +207,15 @@ export const webProviderStore = {
     return { enabled: false, ...info, hasKey: Boolean(info.id && server.id === info.id && server.hasKey) };
   },
   async set(info) {
-    await moveLegacyKey();
     const previous = readWebProvider();
-    // "Skip for now" in onboarding: remember it without saving a provider.
+    // "Skip for now" in onboarding, or the plan path: remember it without
+    // saving a provider.
     if (info.onboardingComplete === true && info.id === undefined) {
       writeWebProvider({ enabled: false, ...previous, onboardingComplete: true });
       return this.get();
     }
+    if (!ownKeyAllowed()) throw new Error('This server runs the AI for plan users; there is no own-key setup here.');
+    await moveLegacyKey();
     // The server checks the settings (with the saved key when none is typed)
     // and keeps the key; only the rest is saved here.
     await providerRequest('/api/provider', 'PUT', info);

@@ -435,10 +435,14 @@ export const requestModelText = async ({
     });
     if (response.status === 401) {
       // With a sign-in token the 401 is AppBlips refusing the session, not
-      // the person's AI provider refusing their key.
+      // the person's AI provider refusing their key. A hosted server also
+      // says so to anyone not signed in (code sign_in_required).
+      const errData = await response.json().catch(() => null);
       const err = new Error(authToken
         ? SIGN_IN_PROBLEM
-        : 'The AI provider rejected the request. Check the provider and key in Settings → AI.');
+        : errData?.code === 'sign_in_required'
+          ? 'Sign in to use AppBlips AI on this server.'
+          : 'The AI provider rejected the request. Check the provider and key in Settings → AI.');
       err.isNonRetryable = true;
       throw err;
     }

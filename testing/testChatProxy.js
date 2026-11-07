@@ -378,3 +378,41 @@ test('builder requests are not rate limited', async (t) => {
   for (let i = 0; i < 5; i++) assert.equal((await send({})).status, 200, `request ${i + 1}`);
 });
 
+
+// --- Hosted mode (hosted/mode.js) is plan users only ----------------------
+
+const hostedEnv = { ...env, VITE_CLERK_PUBLISHABLE_KEY: 'pk_test_abc', POLAR_ACCESS_TOKEN: 'polar_x' };
+
+test('hosted mode refuses ungated requests, own keys included, before contacting a provider', async (t) => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+    throw new Error('provider must not be called');
+  });
+  for (const payload of [{}, { user_provider: userProvider }, { hosted_model_override: 'gpt-4o' }]) {
+    const response = await handleChatProxy(new Request('https://app.example/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], ...payload }),
+    }), hostedEnv);
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).code, 'sign_in_required');
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test('hosted mode honours the plan model only on a gated request', async (t) => {
+  let upstream;
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    upstream = JSON.parse(options.body);
+    return new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+  });
+  const send = (options) => handleChatProxy(new Request('https://app.example/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], hosted_model_override: 'plan-model' }),
+  }), hostedEnv, options);
+  assert.equal((await send({ plan: true })).status, 200);
+  assert.equal(upstream.model, 'plan-model');
+  // The desktop and Android apps answer their own page: single-user whatever
+  // the environment holds, and never a model the page names.
+  upstream = null;
+  assert.equal((await send({ local: true })).status, 200);
+  assert.equal(upstream.model, 'test-model');
+});

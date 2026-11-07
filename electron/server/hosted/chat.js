@@ -29,7 +29,7 @@ const planOf = (account) => (account?.plan && isPlanId(account.plan) ? account.p
 export async function gateChat(request, env, store) {
   const header = request.headers.get('authorization') || '';
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-  if (!token) return { response: json(401, { error: 'Sign in to continue.' }) };
+  if (!token) return { response: json(401, { error: 'Sign in to use AppBlips AI.', code: 'sign_in_required' }) };
 
   let userId;
   try {

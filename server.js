@@ -10,6 +10,10 @@
 // `npm run dev`; the provider's API key is kept here instead (keyFile.js), so
 // the page never stores it.
 //
+// In hosted mode (below) it is a multi-user API instead, and the saved-key
+// routes are off: one key file for every visitor would let anyone spend, read
+// or replace the keys of whoever saved them.
+//
 // Only Node built-ins plus electron/server, so the Docker image ships it as
 // one bundled file (scripts/build-server.js) with no node_modules.
 import { createServer } from 'node:http';
@@ -35,6 +39,7 @@ import { gateChat, releaseBuild } from './electron/server/hosted/chat.js';
 import { handleSandbox } from './electron/server/hosted/sandbox.js';
 import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js';
 import { isHosted } from './electron/server/hosted/mode.js';
+import { verifyClerkToken } from './electron/server/hosted/clerk.js';
 
 // A .env in the folder it starts from, when there is one. Docker passes its
 // settings as real environment variables instead; those win over the file.
@@ -69,6 +74,27 @@ const store = openStore(defaultDatabasePath(process.env));
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });
   res.end(text);
+};
+const sendJson = (res, status, body) => {
+  res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
+};
+
+// The saved-key routes (Settings → AI, Publish, the key connectors) exist only
+// on a single-user install: hosted mode has accounts, and its AI is the plan's.
+const hostedOnly = (res) => {
+  if (!hosted) return false;
+  sendJson(res, 404, { error: 'Not available on this server: AppBlips runs the AI for plan users here.' });
+  return true;
+};
+
+// Hosted mode: a route that fetches on the caller's behalf needs a sign-in.
+const signedIn = async (request) => {
+  if (!hosted) return true;
+  const header = request.headers.get('authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!token) return false;
+  try { await verifyClerkToken(token, process.env); return true; } catch { return false; }
 };
 
 async function serveStatic(req, res) {
@@ -158,9 +184,9 @@ const server = createServer((req, res) => {
     const handle = async () => {
       let request = await toChatRequest(req);
       let gated = null;
-      // Signed-in requests are plan users (the app sends a Clerk session only
-      // then); everyone else builds with their own saved key, hosted or not.
-      if (hosted && request.headers.has('authorization')) {
+      // Hosted: every request is a plan user's or is turned away by the gate
+      // (sign-in, active plan, usage). Single-user: the saved key rides along.
+      if (hosted) {
         gated = await gateChat(request, process.env, store);
         if (gated.response) {
           sendWebResponse(res, gated.response, SECURITY_HEADERS, '[billing]');
@@ -170,7 +196,7 @@ const server = createServer((req, res) => {
       } else {
         request = await withSavedProvider(request, keys);
       }
-      const response = await handleChatProxy(request, process.env);
+      const response = await handleChatProxy(request, process.env, { plan: Boolean(gated) });
       // A rejected request didn't produce a build; don't charge for it.
       if (gated && !response.ok) await releaseBuild(process.env, store, gated);
       sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
@@ -181,6 +207,7 @@ const server = createServer((req, res) => {
 
 
   if (req.url === '/api/provider' || req.url.startsWith('/api/provider/')) {
+    if (hostedOnly(res)) return;
     toFetchRequest(req)
       .then((request) => handleProviderApi(request, process.env, keys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -189,6 +216,7 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/surge' || req.url.startsWith('/api/surge/')) {
+    if (hostedOnly(res)) return;
     toFetchRequest(req)
       .then((request) => handleSurgeApi(request, process.env, surgeTokens))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -197,6 +225,7 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/pollinations' || req.url.startsWith('/api/pollinations/')) {
+    if (hostedOnly(res)) return;
     toFetchRequest(req)
       .then((request) => handlePollinationsApi(request, process.env, pollinationsKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -205,6 +234,7 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/pixabay' || req.url.startsWith('/api/pixabay/')) {
+    if (hostedOnly(res)) return;
     toFetchRequest(req)
       .then((request) => handlePixabayApi(request, process.env, pixabayKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -213,6 +243,7 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/tavily' || req.url.startsWith('/api/tavily/')) {
+    if (hostedOnly(res)) return;
     toFetchRequest(req)
       .then((request) => handleTavilyApi(request, process.env, tavilyKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -222,7 +253,9 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/seo/scan') {
     toFetchRequest(req)
-      .then((request) => handleSeoScanApi(request, process.env))
+      .then(async (request) => (await signedIn(request)
+        ? handleSeoScanApi(request, process.env)
+        : new Response(JSON.stringify({ error: 'Sign in to scan a site.', code: 'sign_in_required' }), { status: 401, headers: { 'content-type': 'application/json' } })))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

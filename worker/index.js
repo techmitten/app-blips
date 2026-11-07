@@ -104,7 +104,7 @@ async function route(request, env, ctx) {
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
     const gated = await gateChat(request, env, store);
     if (gated.response) return gated.response;
-    const response = await handleChatProxy(gated.request, env);
+    const response = await handleChatProxy(gated.request, env, { plan: true });
     // A rejected request didn't produce a build; don't charge for it.
     if (!response.ok) ctx.waitUntil(releaseBuild(env, store, gated));
     return response;

@@ -14,6 +14,7 @@
 import { createContext, useContext } from 'react';
 import { fetchBillingConfig } from './billing';
 import { isDesktop } from './desktop';
+import { setOwnKeyAllowed } from './ownKey';
 
 // The desktop app always signs in to the production Clerk instance that the
 // AppBlips Worker checks tokens against, whatever .env the build was made
@@ -27,8 +28,11 @@ export const CLERK_PUBLISHABLE_KEY = isDesktop
   : String(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '').trim();
 
 export async function detectAccounts() {
-  if (!CLERK_PUBLISHABLE_KEY) return false;
-  return (await fetchBillingConfig()).hosted;
+  const accounts = Boolean(CLERK_PUBLISHABLE_KEY) && (await fetchBillingConfig()).hosted;
+  // A hosted server is plan users only (lib/ownKey.js); the desktop app keeps
+  // its own-key path, since its keys never leave the computer.
+  setOwnKeyAllowed(isDesktop || !accounts);
+  return accounts;
 }
 
 export const AccountsContext = createContext(false);
