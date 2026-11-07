@@ -493,6 +493,7 @@ export default function DeviceMockup({
   isAutoFixing = false,
   isTransitioning = false,
   onCancelGeneration,
+  tabTitle = '',
 }) {
   const { frames, onLiveLoad } = useDoubleBufferedDoc(srcDoc);
   const box = fillSize || getEffectivePreviewBox(mode, orientation);
@@ -672,7 +673,7 @@ export default function DeviceMockup({
             <div className="building-overlay absolute inset-0 flex flex-col items-center justify-center z-10 p-6 text-center">
               <div className="building-device-status" aria-hidden="true">
                 <SystemClock />
-                <span className="building-device-title">Your Workspace</span>
+                <span className="building-device-title">{tabTitle?.trim() || 'Your Workspace'}</span>
                 <span className="building-device-icons">
                   <span className="building-signal"><i /><i /><i /><i /></span>
                   <span className="building-wifi"><i /><i /></span>
