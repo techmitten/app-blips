@@ -271,26 +271,6 @@
 .dark .studio-row .studio-icon-tile,
 .dark .studio-chip svg { color: var(--sc-red); }
 
-.studio-saved-badge {
-  border: 1px solid var(--sc-line-strong);
-  background-color: var(--sc-badge-bg);
-  color: var(--sc-text-muted);
-}
-
-/* Beta marker on the Import a site row. Monochrome like the rest of the dark
-   picker; in light mode it picks up the row's own accent (--tint). */
-.studio-beta-badge {
-  border: 1px solid var(--sc-line-strong);
-  background-color: var(--sc-fill);
-  color: var(--sc-text-muted);
-}
-
-:root:not(.dark) .studio-beta-badge {
-  border-color: rgb(var(--tint) / 0.3);
-  background-color: rgb(var(--tint) / 0.1);
-  color: rgb(var(--tint));
-}
-
 @media (prefers-reduced-motion: reduce) {
   :root:not(.dark) .studio-glow::before { animation: none; }
   .studio-choice .animate-stagger-1,
@@ -448,9 +428,8 @@
   .studio-chips { margin-top: 0.5rem; }
 }
 
-/* Secondary entry points: compact pills under the panel. */
-.studio-chips-label { margin-right: 0.25rem; font-size: 0.8125rem; font-weight: 500; }
-@media (max-width: 639px) { .studio-chips-label { display: none; } }
+/* Secondary entry points: compact pills under the panel, one row from
+   640px up (phones stack them, below). */
 
 .studio-eyebrow {
   display: inline-flex;
@@ -477,7 +456,7 @@
 @media (max-height: 700px) { .studio-eyebrow { display: none; } }
 .studio-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -485,6 +464,8 @@
 }
 .studio-chip {
   display: inline-flex;
+  flex-shrink: 0;
+  white-space: nowrap;
   min-height: 2.75rem;
   align-items: center;
   gap: 0.5rem;
@@ -521,29 +502,6 @@
 }
 @media (max-width: 639px) and (max-height: 700px) {
   .studio-chip { min-height: 3.5rem; }
-}
-
-/* The Showcase link under the chips: text, not a pill, so it reads as an
-   aside rather than another way to start. */
-.studio-explore {
-  display: inline-flex;
-  align-self: center;
-  align-items: center;
-  gap: 0.375rem;
-  min-height: 2.75rem;
-  margin-top: clamp(0.125rem, 1vh, 0.5rem);
-  padding: 0 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--sc-text-soft);
-  transition: color 0.2s ease;
-}
-.studio-explore:hover { color: var(--sc-text-strong); }
-.studio-explore-arrow { transition: transform 0.2s ease; }
-.studio-explore:hover .studio-explore-arrow { transform: translateX(3px); }
-@media (prefers-reduced-motion: reduce) {
-  .studio-explore-arrow { transition: none; }
 }
 
 /* Mobile slide-out menu (rendered below md only). Absolute inside

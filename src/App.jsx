@@ -3017,7 +3017,6 @@ export default function App({ coldStart = false }) {
           onImportSite={() => setIsImportSiteOpen(true)}
           onOpenShowcase={() => setIsShowcaseOpen(true)}
           onCancel={isStudioChoiceOpen && !isProjectsListOpen && !isShowcaseOpen ? handleCancelStudioChoice : null}
-          savedAppsCount={myProjects.length}
           onOpenProjects={() => setIsProjectsListOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenAccount={() => { setSettingsInitialTab('account'); setIsSettingsOpen(true); }}

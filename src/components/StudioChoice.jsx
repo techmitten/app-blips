@@ -67,7 +67,7 @@ const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-
 
 const MENU_ITEM = `studio-menu-item ${FOCUS_RING}`;
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, savedAppsCount = 0, onOpenProjects, onOpenSettings, onOpenAccount = null, onOpenPlans = null, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenProjects, onOpenSettings, onOpenAccount = null, onOpenPlans = null, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
   const accounts = useAccounts();
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
@@ -165,11 +165,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
       description: 'Pick up where you left off.',
       label: 'My projects: open a saved project',
       onClick: handleOpenProjects,
-      badge: savedAppsCount > 0 && (
-        <span className="studio-saved-badge shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold">
-          {savedAppsCount} saved
-        </span>
-      ),
     },
     {
       key: 'import',
@@ -179,9 +174,15 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
       label: 'Import a site: open an HTML page, a website .zip or a React + Vite project',
       onClick: onImportSite,
       hidden: !onImportSite,
-      badge: (
-        <span className="studio-beta-badge shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">Beta</span>
-      ),
+    },
+    {
+      key: 'showcase',
+      Icon: Sparkles,
+      title: 'Explore',
+      description: 'See what others built with AppBlips.',
+      label: 'Explore: see what others built',
+      onClick: onOpenShowcase,
+      hidden: !onOpenShowcase,
     },
   ];
 
@@ -357,10 +358,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
 
               </div>
 
-              {/* Starting from something that already exists. */}
+              {/* Opening, importing or browsing instead of starting fresh. */}
               <div className="studio-chips animate-stagger-3">
-                <span className="studio-chips-label studio-text-soft">Or start from</span>
-                {EXTRA_ROWS.filter((row) => !row.hidden).map(({ key, Icon, title, description, label, onClick, badge }) => (
+                {EXTRA_ROWS.filter((row) => !row.hidden).map(({ key, Icon, title, description, label, onClick }) => (
                   <button
                     key={key}
                     type="button"
@@ -372,24 +372,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   >
                     <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span className="studio-text-strong">{title}</span>
-                    {badge}
                   </button>
                 ))}
               </div>
-
-              {/* Explore isn't a way to start a project, so it sits on its own
-                  as a quiet link rather than as a third chip in that row. */}
-              {onOpenShowcase && (
-                <button
-                  type="button"
-                  onClick={onOpenShowcase}
-                  className={`studio-explore animate-stagger-3 ${FOCUS_RING}`}
-                >
-                  <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>See what others built</span>
-                  <ArrowRight size={15} className="studio-explore-arrow shrink-0" aria-hidden="true" />
-                </button>
-              )}
             </div>
           </div>
 
