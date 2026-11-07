@@ -8,7 +8,7 @@ When your app or website is ready, you can download it as a file you keep and ho
 
 ## Export to HTML or ZIP
 
-Click the **Export** key (the download icon at the right end of the preview toolbar, tooltip **Download this app as an HTML file**) to download your project. On imported sites, it's the **Export** button instead. Single-page apps download as a single, self-contained HTML file. Multi-page websites download as a `.zip` file containing all the HTML pages. Images made with [Pollinations](/features/connectors#pollinations) and your own images from [My images](/features/building-apps#using-your-own-images-beta) come along: in an `images` folder in a `.zip`, or built into the page in a single HTML file. A React project download puts your own images in its `public/images` folder but keeps Pollinations' image addresses. If the [SEO tool](/features/tools#seo) is on and has your website address, a `sitemap.xml` and `robots.txt` come along too, so even a single page downloads as a `.zip`. The files work in any modern browser, can be hosted anywhere that serves static files, and require no build step or server to run.
+Click the download key (the download icon at the right end of the preview toolbar, next to **Publish**, tooltip **Download this app as an HTML file**) to download your project. On imported sites, it's the **Export** button instead. For a React app, the key opens a small **Download as** menu first: choose **HTML file** (see [Export a React project](#export-a-react-project)). Single-page apps download as a single, self-contained HTML file. Multi-page websites download as a `.zip` file containing all the HTML pages. Images made with [Pollinations](/features/connectors#pollinations) and your own images from [My images](/features/building-apps#using-your-own-images-beta) come along: in an `images` folder in a `.zip`, or built into the page in a single HTML file. A React project download puts your own images in its `public/images` folder but keeps Pollinations' image addresses. If the [SEO tool](/features/tools#seo) is on and has your website address, a `sitemap.xml` and `robots.txt` come along too, so even a single page downloads as a `.zip`. The files work in any modern browser, can be hosted anywhere that serves static files, and require no build step or server to run.
 
 Open the downloaded file directly in a browser, drag it onto a hosting service, or drop it into any static file host — it's ready to go immediately. (For `.zip` files, extract them first).
 
@@ -18,7 +18,10 @@ Open the downloaded file directly in a browser, drag it onto a hosting service, 
 
 ## Export a React project
 
-Apps from the App studio are built with React. (Apps made in older versions of AppBlips may use Preact instead; this option doesn't appear for those.) Next to **Export**, a second key (**Download as a React project**) saves the app as a `.zip` of a ready-made Vite project, for when you or a developer want to keep working on it with normal coding tools.
+Apps from the App studio are built with React. (Apps made in older versions of AppBlips may use Preact instead; this option doesn't appear for those.) For these apps, the download key (tooltip **Download as an HTML file or a React project**) opens a **Download as** menu with two choices:
+
+- **HTML file:** opens in any browser, ready to upload or share. Pick this if you just want to use or host the app.
+- **React project (.zip):** a ready-made Vite project, for when you or a developer want to keep working on it with normal coding tools. It needs Node.js installed and doesn't run until you follow the steps below.
 
 To run it:
 

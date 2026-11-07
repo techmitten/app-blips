@@ -26,7 +26,7 @@ Most readers are beginners who have never used an API key or a terminal.
 - **Microsoft Store version** and **installer from GitHub** when the two Windows installs behave differently (signing, updates)
 - Studios, exactly as on screen: **Mobile & Web App**, **Responsive Website**, **Browser Game**, **My projects**, **Import a site**, **Showcase**. In running text, "the App studio", "the Website studio" and "the Game studio" are fine
 - **App** for what the user builds, **project** for what is saved (a project holds every version and the chat)
-- **Imported site** for a React + Vite project opened from a `.zip`
+- **Imported site** for a React + Vite project opened from a `.zip`. An HTML page or plain website zip opened with **Import a site** becomes an ordinary Website studio project, not an imported site
 - **AI provider**, **API key** and **model**. Not "LLM", "endpoint" or "backend" in user-facing text
 - **Build mode** and **Ask mode**; **review** for the optional AI review after a build
 

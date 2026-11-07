@@ -67,7 +67,8 @@ Every studio shares the same fast loop: **Prompt → Live Preview → Version Hi
 - **One-Click Extensions** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Extensions**. The built-in **SEO** tool (**Settings → Tools**) needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
 
 ### Sharing & Hosting
-- **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere.
+- **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere. React apps from the App Studio can instead download as a Vite project: the one download button asks which you want.
+- **Import a Site** — Bring in a site someone already made: a single HTML file, a `.zip` of a plain HTML/CSS/JS website (opens in the Website Studio, with its pictures in My images), or a React + Vite project.
 - **One-Click Web Publishing** — Push your project live to a free `*.surge.sh` HTTPS address (with optional custom favicon, an optional prompt that lets visitors install the site as an app, and an optional password that keeps your code encrypted until a visitor unlocks it) directly from the preview toolbar.
 - **Built-in SEO** — Turn on SEO for a project in **Settings → Tools**, answer a few plain questions, and the AI adds search-engine optimization, plus a sitemap and robots file when you export or publish.
 - **Built-in Showcase** — Click **See what others built** on the studio picker to browse community websites and games directly inside the app (even offline), and submit your own published creations.
