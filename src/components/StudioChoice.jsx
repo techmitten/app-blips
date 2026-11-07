@@ -9,7 +9,6 @@ import { useRequestSignOut } from '../lib/accountDialogs';
 import { useAccounts } from '../lib/accounts';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
-import StudioArt from './StudioArt';
 import StudioAccountMenu from './StudioAccountMenu';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
@@ -40,7 +39,6 @@ const STUDIOS = [
     title: 'Mobile & Web App',
     description: 'Interactive tools, dashboards and utilities that work on any device.',
     cta: 'Build an app',
-    tagline: 'Habit trackers, calculators, dashboards and planners.',
   },
   {
     key: 'website',
@@ -48,7 +46,6 @@ const STUDIOS = [
     title: 'Responsive Website',
     description: 'Multi-page sites that look sharp on every screen, ready to share.',
     cta: 'Build a website',
-    tagline: 'Portfolios, landing pages, shops and local businesses.',
   },
   {
     key: 'game',
@@ -56,11 +53,10 @@ const STUDIOS = [
     title: 'Browser Game',
     description: '2D and 3D games with touch and keyboard controls that run in the browser.',
     cta: 'Build a game',
-    tagline: 'Platformers, puzzles, arcade classics and 3D worlds.',
   },
 ];
-
-// The heading's rotating word ("Build an app", "Build a website", ...).
+// The heading's rotating word ("Build an app", "Build a website", ...). Same
+// order as STUDIOS: hovering a studio row jumps the title to its index.
 const ROTATING_STUDIOS = ['an app', 'a website', 'a game'];
 
 // Colours come from the studio-* classes (studio-choice.css), not Tailwind's
@@ -78,9 +74,22 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
   // picker (e.g. Settings) handles its own Escape first.
   // Mobile slide-out menu. Escape closes it before it would close the picker.
   const [menuOpen, setMenuOpen] = useState(false);
-  // The studio previewed on the right: follows hover and keyboard focus.
+  // The highlighted studio row: follows hover and keyboard focus.
   const [active, setActive] = useState('app');
-  const activeStudio = STUDIOS.find((s) => s.key === active) || STUDIOS[0];
+  // While a mouse is over a studio row, the title's rotating word shows that
+  // studio and stops rotating; it carries on from there once the mouse leaves.
+  // Mouse only, so a tap on a touch screen (which also fires pointer events)
+  // doesn't jump the title just as the studio opens.
+  const titleRef = useRef(null);
+  const [titleHeld, setTitleHeld] = useState(false);
+  const holdTitle = (event, index) => {
+    if (event.pointerType !== 'mouse') return;
+    setTitleHeld(true);
+    titleRef.current?.jumpTo(index);
+  };
+  const releaseTitle = (event) => {
+    if (event.pointerType === 'mouse') setTitleHeld(false);
+  };
   const rowRefs = useRef({});
   const [indicator, setIndicator] = useState(null);
 
@@ -173,15 +182,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
       badge: (
         <span className="studio-beta-badge shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">Beta</span>
       ),
-    },
-    {
-      key: 'showcase',
-      Icon: Sparkles,
-      title: 'Explore',
-      description: 'See what people built with one prompt, and share your own.',
-      label: 'Explore: see what people have built with AppBlips',
-      onClick: onOpenShowcase,
-      hidden: !onOpenShowcase,
     },
   ];
 
@@ -295,7 +295,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   <span className="studio-title-line" aria-hidden="true">
                     <span>Build</span>
                     <RotatingText
+                      ref={titleRef}
                       texts={ROTATING_STUDIOS}
+                      auto={!titleHeld}
                       mainClassName="studio-rotate"
                       highlight
                       fixedWidth
@@ -313,13 +315,10 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                 </p>
               </header>
 
-              {/* The three ways to make something new: the list, with a live
-                  preview of the highlighted one beside it (900px+). Side by
-                  side rather than stacked so the whole picker fits in the
-                  window without scrolling. Hover or focus previews, click
-                  starts. On smaller screens it is just the list. */}
+              {/* The three ways to make something new. Hover or focus
+                  highlights a row, click starts. */}
               <div className="studio-panel animate-stagger-3">
-                <div className="studio-list" role="group" aria-label="Choose what to build" onKeyDown={onListKeyDown}>
+                <div className="studio-list" role="group" aria-label="Choose what to build" onKeyDown={onListKeyDown} onPointerLeave={releaseTitle}>
                   {indicator && (
                     <span
                       className="studio-indicator"
@@ -336,6 +335,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                       aria-keyshortcuts={String(index + 1)}
                       onClick={() => onSelectStudio(key)}
                       onMouseEnter={() => setActive(key)}
+                      onPointerEnter={(event) => holdTitle(event, index)}
                       onFocus={() => setActive(key)}
                       aria-label={`${cta}: ${title}`}
                       data-studio={key}
@@ -355,14 +355,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   ))}
                 </div>
 
-                <div className="studio-stage" data-studio={active}>
-                  <StudioArt key={active} studio={active} />
-                  <div className="studio-stage-foot">
-                    <div key={active} className="studio-stage-copy min-w-0">
-                      <p className="studio-stage-hint studio-text-soft">{activeStudio.tagline}</p>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Starting from something that already exists. */}
@@ -384,6 +376,20 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, savedApp
                   </button>
                 ))}
               </div>
+
+              {/* Explore isn't a way to start a project, so it sits on its own
+                  as a quiet link rather than as a third chip in that row. */}
+              {onOpenShowcase && (
+                <button
+                  type="button"
+                  onClick={onOpenShowcase}
+                  className={`studio-explore animate-stagger-3 ${FOCUS_RING}`}
+                >
+                  <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>See what others built</span>
+                  <ArrowRight size={15} className="studio-explore-arrow shrink-0" aria-hidden="true" />
+                </button>
+              )}
             </div>
           </div>
 
