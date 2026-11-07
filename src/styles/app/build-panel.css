@@ -353,8 +353,7 @@
 
 /* Seam between the build pane and the preview (App.jsx, >=1024px only).
    A recessed channel: crisp borders on both edges, a darker inset ground and
-   a centre rule that brightens into the brand accent around the middle, where
-   the AppBlips wave coils round the channel. */
+   a solid centre rule that brightens into the brand accent around the middle. */
 .pane-divider {
   --seam-ground: #e9edf2;
   --seam-edge: rgb(15 23 42 / 0.11);
@@ -392,36 +391,6 @@
     var(--seam-line);
 }
 
-/* The emblem: the AppBlips wave coiled round the channel like a snake, its
-   coral blip as the head. No badge behind it, so it doesn't read as a drag
-   handle (the panes don't resize). */
-.pane-divider-emblem {
-  position: relative;
-  display: flex;
-  flex: none;
-  width: 32px;
-  height: 72px;
-  color: #000;
-}
-
-.pane-divider-emblem svg { display: block; overflow: visible; }
-
-.pane-divider-snake {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 3;
-  stroke-linecap: round;
-}
-
-.pane-divider-snake-head { fill: #e9604f; }
-
-/* Channel patches over the stretches that pass behind: the same ground,
-   edges and centre rule the channel draws there (the rule is at its accent
-   peak at the vertical centre). */
-.pane-divider-patch-ground { fill: var(--seam-ground); }
-.pane-divider-patch-edge { fill: var(--seam-edge); }
-.pane-divider-patch-line { fill: color-mix(in srgb, var(--seam-glow) 75%, var(--seam-ground)); }
-
 :is(html.dark, .force-dark) .pane-divider {
   --seam-ground: #080808;
   --seam-edge: rgb(255 255 255 / 0.09);
@@ -431,7 +400,3 @@
     inset -2px 0 3px -2px rgb(0 0 0 / 0.7);
 }
 
-/* Very slightly dimmed in dark. On the body and head, not the whole SVG,
-   or the patches would turn translucent and show the hidden coils. */
-:is(html.dark, .force-dark) .pane-divider-emblem { color: #f5f5f5; }
-:is(html.dark, .force-dark) :is(.pane-divider-snake, .pane-divider-snake-head) { opacity: 0.85; }
