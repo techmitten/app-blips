@@ -46,7 +46,10 @@ export default function ImportSiteDialog({ onImported, onCancel, isNameTaken, re
     const request = new AbortController();
     requestRef.current = request;
     try {
-      const { importCodebaseZip } = await import('../lib/codebase/import');
+      const { importCodebaseZip, MAX_UNZIPPED_BYTES } = await import('../lib/codebase/import');
+      // Checked before the whole file is read into memory; the import
+      // checks what it unpacks to as well.
+      if (file.size > MAX_UNZIPPED_BYTES) throw new Error(`This zip is larger than ${Math.round(MAX_UNZIPPED_BYTES / 1024 / 1024)} MB, more than a project can hold.`);
       const bytes = new Uint8Array(await file.arrayBuffer());
       const imported = await importCodebaseZip(bytes, { sourceName: file.name });
       if (request.signal.aborted) return;

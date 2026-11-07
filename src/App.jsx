@@ -2246,6 +2246,9 @@ export default function App({ coldStart = false }) {
     });
     const url = URL.createObjectURL(new Blob([shellHtml], { type: 'text/html' }));
     window.open(url, '_blank');
+    // The tab has its document by then; the URL would otherwise hold the
+    // whole site in memory for as long as AppBlips stays open.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   // Hands the user the raw HTML file -- or, for a multi-page site, a .zip with

@@ -14,7 +14,7 @@ import { inspectEnvironment } from './environment.js';
 
 // Hard ceiling on what a zip may decompress to, checked against the declared
 // sizes before inflating and the real sizes after (a zip bomb can lie).
-const MAX_UNZIPPED_BYTES = MAX_TEXT_BYTES + MAX_LOCKFILE_BYTES + MAX_ASSET_BYTES;
+export const MAX_UNZIPPED_BYTES = MAX_TEXT_BYTES + MAX_LOCKFILE_BYTES + MAX_ASSET_BYTES;
 
 export class CodebaseImportError extends Error {}
 

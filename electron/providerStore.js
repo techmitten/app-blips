@@ -42,22 +42,30 @@ export function createProviderStore({ file, crypto }) {
   const weakEncryption = () => !encrypted()
     || crypto.getSelectedStorageBackend?.() === 'basic_text';
 
-  const decryptKey = () => {
-    if (!state.key) return '';
-    try {
-      if (typeof state.key.cipher === 'string') return crypto.decryptString(Buffer.from(state.key.cipher, 'base64'));
-      if (typeof state.key.plain === 'string') return state.key.plain;
-    } catch (err) {
-      console.warn('[providerStore] could not decrypt the saved API key:', err);
-    }
-    return '';
-  };
-
   const encryptKey = (apiKey) => (encrypted()
     ? { cipher: crypto.encryptString(apiKey).toString('base64') }
     : { plain: apiKey });
 
   const persist = () => writeFileAtomic(file, JSON.stringify(state, null, 2));
+
+  const decryptKey = () => {
+    if (!state.key) return '';
+    try {
+      if (typeof state.key.cipher === 'string') return crypto.decryptString(Buffer.from(state.key.cipher, 'base64'));
+      if (typeof state.key.plain === 'string') {
+        // Saved while no keychain was available: encrypt it now that one is.
+        if (encrypted()) {
+          state = { ...state, key: encryptKey(state.key.plain) };
+          persist().catch((err) => console.warn('[providerStore] could not re-encrypt the saved API key:', err));
+          return crypto.decryptString(Buffer.from(state.key.cipher, 'base64'));
+        }
+        return state.key.plain;
+      }
+    } catch (err) {
+      console.warn('[providerStore] could not decrypt the saved API key:', err);
+    }
+    return '';
+  };
 
   return {
     // Safe to hand to the renderer.

@@ -355,6 +355,22 @@ const isAppUrl = (url) => url === APP_ORIGIN || url.startsWith(`${APP_ORIGIN}/`)
 // Applied to every web contents: the main window and the blob: window of an
 // Open in new tab shell. A sandboxed app can only create blob:null URLs, so it
 // cannot open a window of its own this way.
+// window.open from the preview frame (it has allow-popups) ends up here
+// too, and the handler can't tell the frame from the app's own page. A
+// person clicks a link now and then; generated code could open hundreds of
+// browser tabs or mail drafts in a loop, so external opens are spaced out.
+const EXTERNAL_OPEN_GAP_MS = 1000;
+let lastExternalOpen = 0;
+const openExternalPaced = (url) => {
+  const now = Date.now();
+  if (now - lastExternalOpen < EXTERNAL_OPEN_GAP_MS) {
+    console.warn('[desktop] ignored a window.open that followed another too quickly:', url.slice(0, 120));
+    return;
+  }
+  lastExternalOpen = now;
+  shell.openExternal(url);
+};
+
 function lockDown(contents) {
   contents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith(`blob:${APP_ORIGIN}/`)) {
@@ -369,7 +385,7 @@ function lockDown(contents) {
     }
     // mailto: for Publish's "Share by email": it only opens a draft in the
     // user's mail app, which they still have to send.
-    if (/^(https?:\/\/|mailto:)/i.test(url)) shell.openExternal(url);
+    if (/^(https?:\/\/|mailto:)/i.test(url)) openExternalPaced(url);
     return { action: 'deny' };
   });
   contents.on('will-navigate', (event, url) => {
@@ -447,6 +463,20 @@ function createWindow() {
   });
   mainWindow.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
     if (isMainFrame) console.error(`[main] The app page failed to load: ${description} (${code}) ${url}`);
+  });
+  // The page objects to unloading while a build runs (beforeunload in
+  // App.jsx). A browser would ask; Electron silently cancels the close, so
+  // Quit and the close button did nothing until the build finished.
+  mainWindow.webContents.on('will-prevent-unload', (event) => {
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: 'question',
+      buttons: ['Leave anyway', 'Stay'],
+      defaultId: 1,
+      cancelId: 1,
+      message: 'A build is still running.',
+      detail: 'Leaving now stops it. Your project keeps its last saved version.',
+    });
+    if (choice === 0) event.preventDefault();
   });
   mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.loadURL(`${APP_ORIGIN}/`);
