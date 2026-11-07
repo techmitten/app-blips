@@ -19,7 +19,8 @@
               "introduction",
               "quickstart-desktop",
               "quickstart-source",
-              "self-hosting/docker"
+              "self-hosting/docker",
+              "features/plans"
             ]
           },
           {
@@ -34,7 +35,6 @@
               "features/publishing",
               "features/showcase",
               "features/importing-sites",
-              "features/plans",
               "features/cancel-or-delete"
             ]
           },
