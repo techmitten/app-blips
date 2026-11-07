@@ -29,9 +29,8 @@ Each entry lists what changed in that version of AppBlips, newest first. To get 
 
   ## For developers
 
-  - Plan payments go through Polar. A self-hosted server turns on plans when its `.env` file has a Clerk key and `POLAR_ACCESS_TOKEN`. In that mode only plan users can chat, and the saved-key routes are off. See [Configuration](/self-hosting/configuration#accounts-and-plans).
+  - Plan payments go through Polar. A self-hosted server turns on plans when its `.env` file has a Clerk key and `POLAR_ACCESS_TOKEN`. See [Configuration](/self-hosting/configuration#accounts-and-plans).
   - The server caps request sizes, times out slow AI providers, and refuses SEO scans of names that point at private addresses.
-  - `npm run dev` can start the `dev.appblips.com` tunnel, and `APPBLIPS_API_URL` takes plans from the AppBlips Worker.
 </Update>
 
 <Update label="0.1.25" description="November 7, 2026" tags={["New", "Improved", "Look and feel", "For developers"]}>
