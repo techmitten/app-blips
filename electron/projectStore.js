@@ -45,7 +45,8 @@ const BLOB_GC_INTERVAL_MS = 10 * 60 * 1000;
 const ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const MAX_NAME_LENGTH = 200;
 const MAX_FOLDER_NAME_LENGTH = 80;
-const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+// Reserved with any extension too (CON.txt is still CON on Windows).
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
 
 export const isValidProjectId = (id) => typeof id === 'string' && ID_RE.test(id);
 
@@ -149,8 +150,11 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
   const queues = new Map(); // id -> tail promise
   let scanned = false;
 
+  // While the projects folder is being moved (changeRoot), every write queued
+  // after the move began waits for it, or it would land in the old folder.
+  let rootMove = null;
   const enqueue = (id, task) => {
-    const run = (queues.get(id) || Promise.resolve()).catch(() => {}).then(task);
+    const run = (queues.get(id) || Promise.resolve()).catch(() => {}).then(() => rootMove).then(task);
     const tail = run.catch(() => {});
     queues.set(id, tail);
     tail.then(() => { if (queues.get(id) === tail) queues.delete(id); });
@@ -266,7 +270,8 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
     }
     let previous = {};
     try {
-      previous = await readJson(join(siteDir, SITE_MANIFEST));
+      const manifest = await readJson(join(siteDir, SITE_MANIFEST));
+      if (manifest && typeof manifest === 'object' && !Array.isArray(manifest)) previous = manifest;
     } catch (err) {
       if (err.code !== 'ENOENT') console.warn('[projectStore] ignoring unreadable site manifest', siteDir, readError(err));
     }
@@ -373,14 +378,26 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       return enqueue(row.id, async () => {
         await ensureScanned();
         const current = folders.get(row.id);
-        const wanted = uniqueFolder(row.name, current);
-        if (current && current !== wanted) {
-          await moveDir(folderPath(current), folderPath(wanted));
-        }
-        folders.set(row.id, wanted);
-        const dir = folderPath(wanted);
+        // The row is written where the project already is, and only then is
+        // the folder renamed after the project: a rename that fails (the
+        // folder open in an editor or terminal on Windows, which site/
+        // invites) costs the new name, never the save.
+        let folder = current || uniqueFolder(row.name, null);
+        let dir = folderPath(folder);
         await mkdir(dir, { recursive: true });
         await writeFileAtomic(join(dir, PROJECT_FILE), JSON.stringify(row, null, 2));
+        folders.set(row.id, folder);
+        const wanted = uniqueFolder(row.name, folder);
+        if (wanted !== folder) {
+          try {
+            await moveDir(dir, folderPath(wanted));
+            folders.set(row.id, wanted);
+            folder = wanted;
+            dir = folderPath(wanted);
+          } catch (err) {
+            console.warn(`[projectStore] could not rename the project folder "${folder}" to "${wanted}"; keeping the old name`, err);
+          }
+        }
         // First save of a project: adopt app data written while it had no folder.
         if (!current && existsSync(orphanPath(row.id))) {
           await rename(orphanPath(row.id), join(dir, APP_DATA_FILE)).catch((err) => console.warn('[projectStore] could not move draft app data into', dir, err));
@@ -388,8 +405,9 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
         // Review screenshots can be written before any project has a folder.
         await adoptOrphanBlobs(row.id, dir);
         await writeSiteMirror(dir, row);
-        // Gallery images removed by the user are cleaned up the same way.
-        if (isCodebaseRow(row) || row?.data?.images?.length) await collectBlobs(dir, row);
+        // Gallery images removed by the user (the last one too) and review
+        // photos of dropped versions are cleaned up the same way.
+        if (isCodebaseRow(row) || existsSync(join(dir, BLOBS_DIR))) await collectBlobs(dir, row);
       });
     },
 
@@ -459,6 +477,18 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
       });
     },
 
+    // The hashes of `hashes` that are not stored for this project. The
+    // renderer asks before each save instead of remembering what it sent:
+    // the cleanup above deletes blobs no version references any more, and a
+    // version that brings the same content back must store it again.
+    async missingBlobs(id, hashes) {
+      if (!isValidProjectId(id)) throw new Error('Invalid project id.');
+      if (!Array.isArray(hashes) || hashes.length > MAX_BLOB_BATCH_COUNT * 5) throw new Error('Invalid blob request.');
+      await ensureScanned();
+      const dirs = [blobDir(id), orphanBlobDir(id)];
+      return hashes.filter((hash) => typeof hash === 'string' && HASH_RE.test(hash) && !dirs.some((dir) => existsSync(join(dir, hash))));
+    },
+
     // Returns [{ hash, bytes }] for the hashes found (missing ones are left out).
     async getBlobs(id, hashes) {
       if (!isValidProjectId(id)) throw new Error('Invalid project id.');
@@ -496,25 +526,48 @@ export function createProjectStore({ root, orphanDir, trash } = {}) {
     // Point the store at another root, optionally moving every project folder
     // there first. Returns how many folders were moved.
     async changeRoot(newRoot, { move = false } = {}) {
-      await flush();
-      const target = resolve(newRoot);
-      await mkdir(target, { recursive: true });
-      let moved = 0;
-      if (move && target !== projectsRoot) {
-        await ensureScanned();
-        const taken = new Set((await readdir(target)).map((n) => n.toLowerCase()));
-        for (const folder of folders.values()) {
-          let name = folder;
-          for (let n = 2; taken.has(name.toLowerCase()); n += 1) name = `${folder} (${n})`;
-          await moveDir(folderPath(folder), join(target, name));
-          taken.add(name.toLowerCase());
-          moved += 1;
+      // Writes queued from here on wait (enqueue); the ones already queued
+      // finish first.
+      // Only the writes queued before the lock are waited for: the ones
+      // queued after it wait for the move, so flush() would never return.
+      const earlier = [...queues.values()];
+      let release;
+      rootMove = new Promise((resolve) => { release = resolve; });
+      try {
+        await Promise.all(earlier);
+        const target = resolve(newRoot);
+        await mkdir(target, { recursive: true });
+        let moved = 0;
+        if (move && target !== projectsRoot) {
+          await ensureScanned();
+          const taken = new Set((await readdir(target)).map((n) => n.toLowerCase()));
+          const done = []; // [from, to] pairs, for a rollback
+          try {
+            for (const folder of folders.values()) {
+              let name = folder;
+              for (let n = 2; taken.has(name.toLowerCase()); n += 1) name = `${folder} (${n})`;
+              await moveDir(folderPath(folder), join(target, name));
+              done.push([folderPath(folder), join(target, name)]);
+              taken.add(name.toLowerCase());
+              moved += 1;
+            }
+          } catch (err) {
+            // A folder that wouldn't move (open elsewhere, a full disk):
+            // bring the moved ones back so the old folder stays whole.
+            for (const [from, to] of done.reverse()) {
+              await moveDir(to, from).catch((rollbackErr) => console.error('[projectStore] could not move a project back after a failed move', to, rollbackErr));
+            }
+            throw err;
+          }
         }
+        projectsRoot = target;
+        scanned = false;
+        await scan();
+        return moved;
+      } finally {
+        rootMove = null;
+        release();
       }
-      projectsRoot = target;
-      scanned = false;
-      await scan();
-      return moved;
     },
 
     async count() {

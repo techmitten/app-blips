@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { reportStorageError } from '../lib/desktop';
 import {
   readProjectRows, writeProjectRows, localRowsToProjects
 } from '../lib/projectsStorage';
@@ -185,6 +186,13 @@ export default function useProjects({ workspace }) {
       loadUserProjects();
     } catch (err) {
       logError(`Could not save project ${projectId}`, err);
+      // The browser version writes every project into localStorage at once,
+      // so a full store loses the whole save: say so, instead of the work
+      // quietly vanishing on the next reload.
+      const full = err?.name === 'QuotaExceededError' || /quota|exceeded/i.test(String(err?.message || ''));
+      reportStorageError(full
+        ? 'This project could not be saved: the browser\'s storage for AppBlips is full. Export your projects from Settings → Data, delete some, and try again.'
+        : `This project could not be saved: ${err?.message || err}. Export it from Settings → Data before leaving the page.`);
     }
   }, [versions, currentVersionIndex, projectName, currentProjectId, studioMode, codebaseMeta, chatContextStartIndex, currentChatSessionId, loadUserProjects, setCurrentProjectId]);
 
@@ -260,6 +268,9 @@ export default function useProjects({ workspace }) {
     setCurrentChatSessionId(migrated.currentChatSessionId);
     setStudioMode(normalizeStudioMode(project.studioMode));
     setCodebaseMeta(project.codebase || null);
+    // As in loadProjectById: the gallery is per project, and the next save
+    // writes whatever is loaded here into this project.
+    setGalleryImages(normalizeGallery(project.images));
     setSeoProfile(normalizeSeoProfile(project.seo));
     if (migrated.versions && migrated.versions[project.currentVersionIndex]) {
       setFiles(versionFiles(migrated.versions[project.currentVersionIndex]));

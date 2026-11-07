@@ -6,7 +6,9 @@
 // same maps are kept on disk, next to each project (lib/desktop.js).
 
 import { safeStorage } from './config.js';
-import { isDesktop, createAppDataStorage } from './desktop.js';
+import { isDesktop, createAppDataStorage, reportStorageError } from './desktop.js';
+
+const overflowReported = new Set(); // project ids told about the 2 MB limit
 import { logError, logWarn } from './errorLog.js';
 
 const STORAGE_PREFIX = 'orion-preview-storage:';
@@ -75,6 +77,11 @@ export const savePreviewStorage = (projectId, storeMap) => {
     const serialized = JSON.stringify(clean);
     if (serialized.length > MAX_STORAGE_BYTES) {
       logError(`App data for project ${projectId || 'draft'} is over the 2MB limit (${serialized.length} chars), not saved`);
+      // Once per project, so an app writing every frame doesn't flood the notice.
+      if (!overflowReported.has(projectId || 'draft')) {
+        overflowReported.add(projectId || 'draft');
+        reportStorageError('This app stores more data than AppBlips keeps per project (2 MB), so its latest data is not saved. Clear its data from the preview toolbar, or ask the AI to store less.');
+      }
       return false;
     }
 

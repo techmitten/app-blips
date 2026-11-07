@@ -10,7 +10,11 @@ import { toBytes } from './codebase/hash.js';
 
 const bytesCache = new Map(); // hash -> Uint8Array
 const textCache = new Map(); // hash -> string
-const stored = new Map(); // projectId -> Set of hashes known to be persisted
+// projectId -> Set of hashes known to be in IndexedDB (browser only). The
+// desktop app asks main what is missing before every save instead: its
+// cleanup deletes blobs no version references any more, so a hash stored
+// once may be gone by the time the same content comes back.
+const stored = new Map();
 const decoder = new TextDecoder();
 
 // Electron's IPC moves structured clones; keep each call well under main's
@@ -76,15 +80,17 @@ export function cacheBlobs(entries) {
 // hasn't stored yet; resolves once everything is persisted.
 export async function putBlobs(projectId, entries) {
   const known = storedFor(projectId);
-  const pending = [];
+  const candidates = new Map();
   for (const [hash, content] of entries) {
     if (!HASH_RE.test(hash)) continue;
     if (typeof content === 'string') textCache.set(hash, content);
     else remember(hash, content);
-    if (!known.has(hash)) pending.push({ hash, bytes: toBytes(content) });
+    if (isDesktop || !known.has(hash)) candidates.set(hash, content);
   }
-  if (!pending.length) return;
+  if (!candidates.size) return;
   if (isDesktop) {
+    const missing = await desktopBridge.blobs.missing(projectId, [...candidates.keys()]);
+    const pending = missing.map((hash) => ({ hash, bytes: toBytes(candidates.get(hash)) }));
     let batch = [];
     let size = 0;
     const flush = async () => {
@@ -99,18 +105,19 @@ export async function putBlobs(projectId, entries) {
       size += entry.bytes.length;
     }
     await flush();
-  } else {
-    await idbPut(pending);
+    return;
   }
+  const pending = [...candidates].map(([hash, content]) => ({ hash, bytes: toBytes(content) }));
+  await idbPut(pending);
   for (const { hash } of pending) known.add(hash);
 }
 
 // Loads any of `hashes` not yet in memory. Hashes that come back are known
-// to be stored for this project.
+// to be stored for this project (ones only in memory may belong to another
+// project, or to nothing yet, so they are not).
 export async function ensureBlobs(projectId, hashes) {
   const known = storedFor(projectId);
   const missing = [...hashes].filter((h) => HASH_RE.test(h) && !bytesCache.has(h) && !textCache.has(h));
-  for (const h of hashes) if (bytesCache.has(h) || textCache.has(h)) known.add(h);
   if (!missing.length) return;
   const found = isDesktop ? await desktopBridge.blobs.get(projectId, missing) : await idbGet(missing);
   for (const { hash, bytes } of found || []) {

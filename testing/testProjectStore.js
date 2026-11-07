@@ -319,3 +319,62 @@ test('gallery images: GC keeps listed images and deletes removed ones', () => wi
   assert.ok(existsSync(join(blobs, sha(kept))));
   assert.ok(!existsSync(join(blobs, sha(removed))));
 }));
+
+// --- Saves survive a folder that won't rename; blobs are re-checked on disk ---
+
+test('reserved Windows names are avoided with any extension', () => {
+  assert.equal(folderNameFor('con.txt'), 'con.txt_');
+  assert.equal(folderNameFor('LPT1.app'), 'LPT1.app_');
+  assert.equal(folderNameFor('console'), 'console');
+});
+
+test('a rename that fails keeps the save (project.json is written first)', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => withStore(async (store) => {
+  const { chmod } = await import('node:fs/promises');
+  await store.save(row('1', 'Before'));
+  // A read-only projects folder: the project folder itself stays writable,
+  // but it can't be renamed (like a folder held open on Windows).
+  await chmod(store.root, 0o555);
+  try {
+    await store.save(row('1', 'After'));
+  } finally {
+    await chmod(store.root, 0o755);
+  }
+  assert.deepEqual(await readdir(store.root), ['Before']);
+  const saved = JSON.parse(await readFile(join(store.root, 'Before', 'project.json'), 'utf8'));
+  assert.equal(saved.name, 'After', 'the row was not written');
+  // The next save, with the folder writable again, renames it.
+  await store.save(row('1', 'After'));
+  assert.deepEqual(await readdir(store.root), ['After']);
+}));
+
+test('missingBlobs reports what is not on disk, so deleted blobs are stored again', () => withStore(async (store) => {
+  const kept = 'kept';
+  const gone = 'gone';
+  await store.putBlobs('5', [blob(kept), blob(gone)]);
+  await store.save(codebaseRow('5', 'Blobs', [{ 'a.txt': sha(kept) }]));
+  assert.deepEqual(await store.missingBlobs('5', [sha(kept), sha(gone), sha('never')]), [sha('never')]);
+  // An hour later the cleanup removes the unreferenced blob...
+  const blobs = join(store.root, 'Blobs', 'blobs');
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  await utimes(join(blobs, sha(gone)), twoHoursAgo, twoHoursAgo);
+  const again = createProjectStore({ root: store.root, orphanDir: join(store.root, '..', 'app-data') });
+  await again.save(codebaseRow('5', 'Blobs', [{ 'a.txt': sha(kept) }]));
+  assert.ok(!existsSync(join(blobs, sha(gone))));
+  // ...and a version that brings the content back learns it must be sent.
+  assert.deepEqual(await again.missingBlobs('5', [sha(kept), sha(gone)]), [sha(gone)]);
+  await again.putBlobs('5', [blob(gone)]);
+  assert.deepEqual(await again.missingBlobs('5', [sha(gone)]), []);
+  await assert.rejects(again.missingBlobs('../x', []), /Invalid project id/);
+}));
+
+test('writes queued during a folder move wait for it', () => withStore(async (store, dir) => {
+  await store.save(row('1', 'One'));
+  const target = join(dir, 'Elsewhere');
+  const moving = store.changeRoot(target, { move: true });
+  // Queued while the move runs: must land in the new folder.
+  const saved = store.saveAppData('1', { k: 'v' });
+  await moving;
+  await saved;
+  assert.ok(existsSync(join(target, 'One', 'app-data.json')));
+  assert.ok(!existsSync(join(dir, 'Projects', 'One')));
+}));

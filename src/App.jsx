@@ -2936,7 +2936,7 @@ export default function App({ coldStart = false }) {
           onToggleTheme={handleToggleTheme}
         />
         {settingsModal}
-        {isDesktop && <DesktopStorageNotice />}
+        <DesktopStorageNotice />
         <UpdateNotice />
         <PlansNotice onOpenPlans={openPlanSettings} />
         <SignInCallback />
@@ -3105,7 +3105,7 @@ export default function App({ coldStart = false }) {
       <UpdateNotice />
       <PlansNotice onOpenPlans={openPlanSettings} />
       <SignInCallback />
-      {isDesktop && <DesktopStorageNotice />}
+      <DesktopStorageNotice />
 
       {isResumingProject ? null : showHero ? (
         <HeroLanding

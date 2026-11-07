@@ -11,7 +11,8 @@ import { USER_PROVIDER_IDS } from '../../electron/server/providers.js';
 // once before rendering and reads are served from this in-memory copy. Writes
 // update the copy at once and go to disk over IPC in the background, only for
 // the rows that actually changed. A failed write is logged and reported to
-// onDesktopStorageError listeners (App shows a notice).
+// onDesktopStorageError listeners (App shows a notice); a row whose write
+// failed is sent again with the next write.
 
 const bridge = typeof window !== 'undefined' ? window.appblipsDesktop || null : null;
 
@@ -47,7 +48,13 @@ export const ipcErrorMessage = (err) => String(err?.message || err || '')
 
 const report = (what) => (err) => {
   logError(`${what} failed`, err);
-  lastError = `${what} failed: ${ipcErrorMessage(err)}`;
+  reportStorageError(`${what} failed: ${ipcErrorMessage(err)}. Your latest changes may not be saved to disk; check that the projects folder (Settings → Data) is writable.`);
+};
+
+// Shows `message` in the storage notice (DesktopStorageNotice.jsx) until it
+// is dismissed. The browser version uses it too, for a full localStorage.
+export const reportStorageError = (message) => {
+  lastError = message;
   errorListeners.forEach((listener) => listener(lastError));
 };
 
@@ -67,16 +74,27 @@ export async function initDesktopStore() {
 
 export const readDesktopRows = () => [...rowJson.values()].map((json) => JSON.parse(json));
 
+// rowJson holds what is on disk; inFlight what is on its way there. A write
+// that fails is in neither, so the next writeDesktopRows sends it again.
+const inFlight = new Map(); // project id -> JSON being saved
+
 export function writeDesktopRows(rows) {
   const next = new Map();
   for (const row of rows) next.set(row.id, JSON.stringify(row));
   for (const [id, json] of next) {
-    if (rowJson.get(id) !== json) bridge.projects.save(JSON.parse(json)).catch(report('Saving a project'));
+    if (rowJson.get(id) === json || inFlight.get(id) === json) continue;
+    inFlight.set(id, json);
+    bridge.projects.save(JSON.parse(json)).then(
+      () => { rowJson.set(id, json); },
+      report('Saving a project'),
+    ).finally(() => { if (inFlight.get(id) === json) inFlight.delete(id); });
   }
-  for (const id of rowJson.keys()) {
-    if (!next.has(id)) bridge.projects.delete(id).catch(report('Deleting a project'));
+  for (const id of [...rowJson.keys(), ...inFlight.keys()]) {
+    if (next.has(id)) continue;
+    rowJson.delete(id);
+    inFlight.delete(id);
+    bridge.projects.delete(id).catch(report('Deleting a project'));
   }
-  rowJson = next;
 }
 
 // A Storage-like view over the generated apps' data for previewStorage.js,

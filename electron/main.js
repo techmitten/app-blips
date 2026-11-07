@@ -279,6 +279,7 @@ function registerIpc() {
   handle('desktop:appData:save', (id, map) => projectStore.saveAppData(id, map));
   handle('desktop:blobs:put', (id, entries) => projectStore.putBlobs(id, entries));
   handle('desktop:blobs:get', (id, hashes) => projectStore.getBlobs(id, hashes));
+  handle('desktop:blobs:missing', (id, hashes) => projectStore.missingBlobs(id, hashes));
 
   handle('desktop:provider:get', () => ({ ...providerStore.describe(), envConfigured: envProviderConfigured() }));
   handle('desktop:provider:set', (patch) => providerStore.set(patch));

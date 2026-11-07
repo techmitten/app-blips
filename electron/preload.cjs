@@ -30,6 +30,7 @@ if (window.location.protocol === 'appblips:') {
     blobs: {
       put: call('desktop:blobs:put'),
       get: call('desktop:blobs:get'),
+      missing: call('desktop:blobs:missing'),
     },
     provider: {
       get: call('desktop:provider:get'),
