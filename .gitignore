@@ -70,3 +70,4 @@ opencode.json
 my-sandbox/
 # Wrangler's local state from `wrangler dev` (local D1 copy, temp builds)
 .wrangler/
+searchfetch.md
