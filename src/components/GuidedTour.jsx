@@ -2,7 +2,7 @@ import { WIDE_LAYOUT_QUERY } from '../lib/config';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, ArrowRight, Check, Compass, FolderOpen, History, Menu, MessageSquarePlus, MonitorSmartphone,
+  ArrowLeft, ArrowRight, Check, Compass, Download, FolderOpen, History, Menu, MessageSquarePlus, MonitorSmartphone,
   MousePointerClick, PartyPopper, Play, Repeat2, Share2, Sparkles, X,
 } from 'lucide-react';
 import { buildTourSteps, getTourState, setTourState } from '../lib/tourSteps';
@@ -10,7 +10,7 @@ import useTourGeometry from '../hooks/useTourGeometry';
 
 const STEP_ICONS = {
   idea: Sparkles, modes: Repeat2, preview: Play, devices: MonitorSmartphone, edit: MousePointerClick,
-  history: History, share: Share2, chats: MessageSquarePlus, apps: FolderOpen, finish: PartyPopper, menu: Menu,
+  history: History, download: Download, share: Share2, chats: MessageSquarePlus, apps: FolderOpen, finish: PartyPopper, menu: Menu,
 };
 
 function useMediaQuery(query) {

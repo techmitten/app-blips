@@ -406,10 +406,24 @@ export default function PreviewPane({
             </button>
           )}
 
-          {hasSavedCode && <span className="chrome-divider preview-actions-divider" aria-hidden="true" />}
+          {/* The download key (also carries the tour anchor), a ghost key like
+              its neighbours. React apps pick the HTML file or a Vite project
+              from its menu. Imported sites can't publish, so there it shows
+              its "Export" label. */}
+          {hasSavedCode && (
+            <ExportButton
+              onExportHtml={onExportHtml}
+              onExportReactProject={onExportReactProject}
+              disabled={isBrowserTesting}
+              showLabel={!onPublish}
+              tip={exportTip}
+            />
+          )}
+
+          {hasSavedCode && onPublish && <span className="chrome-divider preview-actions-divider" aria-hidden="true" />}
 
           {/* Puts the site online at a free surge.sh address (PublishDialog).
-              Next to it, the download key drops its label (same brand fill). */}
+              The one brand-filled key, alone at the end of the row. */}
           {hasSavedCode && onPublish && (
             <button
               data-tour="publish"
@@ -423,19 +437,6 @@ export default function PreviewPane({
               <Globe size={16} />
               <span className="preview-key-label">Publish</span>
             </button>
-          )}
-
-          {/* The download key (also carries the tour anchor). React apps pick
-              the HTML file or a Vite project from its menu. Imported sites
-              can't publish, so there it shows its "Export" label. */}
-          {hasSavedCode && (
-            <ExportButton
-              onExportHtml={onExportHtml}
-              onExportReactProject={onExportReactProject}
-              disabled={isBrowserTesting}
-              showLabel={!onPublish}
-              tip={exportTip}
-            />
           )}
         </div>
       </div>

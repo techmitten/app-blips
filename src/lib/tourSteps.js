@@ -111,30 +111,41 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
       : 'Preview tools step back and forward through versions. History in the menu lists every checkpoint, grouped by chat session.',
   });
 
+  // The download key, then Publish: left to right as they sit in the toolbar.
+  // An imported site has only the download key (labelled Export there).
   steps.push(codebase
     ? {
-      id: 'share',
-      icon: 'share',
-      target: ['share', 'preview'],
+      id: 'download',
+      icon: 'download',
+      target: ['download', 'preview'],
       view: 'preview',
       placement: 'bottom',
       title: 'Take it with you',
       body: 'Export downloads the whole project as a .zip, ready for npm install. Files you did not change come back exactly as they were.',
     }
     : {
-      id: 'share',
-      icon: 'share',
-      target: ['publish', 'share', 'preview'],
+      id: 'download',
+      icon: 'download',
+      target: ['download', 'preview'],
       view: 'preview',
       placement: 'bottom',
-      title: 'Share it or take it with you',
-      body: `Publish puts your ${noun} online at a free surge.sh address you can send to anyone.`,
-      tips: [
-        `Export (the download key) saves it${site ? ' as a ZIP of pages' : ' as a single HTML file'}.`,
-        ...(studioMode === 'app' ? ['For a React app, the download key asks: HTML file, or a React project to keep building with npm.'] : []),
-        'Open in a new tab runs it in your browser.',
-      ],
+      title: 'Download it',
+      body: `The download key saves your ${noun}${site ? ' as a ZIP of pages' : ' as a single HTML file'} you can open in any browser or host anywhere.`,
+      ...(studioMode === 'app' ? { tips: ['For a React app it asks first: HTML file, or a React project to keep building with npm.'] } : {}),
     });
+
+  if (!codebase) {
+    steps.push({
+      id: 'share',
+      icon: 'share',
+      target: ['publish', 'preview'],
+      view: 'preview',
+      placement: 'bottom',
+      title: 'Share it',
+      body: `Publish puts your ${noun} online at a free surge.sh address you can send to anyone.`,
+      tips: ['Open in a new tab runs it in your browser.'],
+    });
+  }
 
   steps.push({
     id: 'chats',

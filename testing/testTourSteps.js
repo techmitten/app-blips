@@ -26,15 +26,22 @@ for (const studioMode of ['app', 'website', 'game', 'codebase']) {
         assert.doesNotMatch(text(step), /\bAI builds\b|Build, Ask, or AI/, `${label}: ${step.id} mentions AI mode`);
       }
       const share = steps.find((step) => step.id === 'share');
+      const download = steps.find((step) => step.id === 'download');
+      // The download key has its own spotlit step in every studio.
+      assert.ok(download, `${label}: download step`);
+      assert.equal(download.target[0], 'download');
       if (studioMode === 'codebase') {
         // Imported sites have no Publish or Open key, and export a project zip.
-        assert.ok(!share.target.includes('publish'));
-        assert.match(text(share), /\.zip/);
-        assert.doesNotMatch(text(share), /Publish|Open in a new tab/);
+        assert.ok(!share, `${label}: no Publish step`);
+        assert.match(text(download), /\.zip/);
+        assert.doesNotMatch(text(download), /Publish|Open in a new tab/);
         assert.match(text(steps.find((step) => step.id === 'preview')), /Files tab/);
       } else {
         assert.equal(share.target[0], 'publish');
         assert.match(text(share), /Publish/);
+        // Left to right, as in the toolbar: download key, then Publish.
+        assert.equal(steps.indexOf(download) + 1, steps.indexOf(share), `${label}: download before Publish`);
+        assert.equal(/React project/.test(text(download)), studioMode === 'app', `${label}: React project choice`);
       }
       assert.equal(steps.some((step) => step.id === 'edit'), studioMode === 'website' && hasCode, `${label}: edit step`);
       assert.match(text(steps.at(-1)), /Connectors/, `${label}: finish mentions Connectors`);

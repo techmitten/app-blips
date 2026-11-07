@@ -4,8 +4,8 @@ import { Download, FileCode2, FolderDown } from 'lucide-react';
 // The preview toolbar's single download key. With one format (websites,
 // games, plain apps, imported codebases) it downloads straight away; React
 // apps can also leave as a Vite project, so there it opens a menu to pick
-// the HTML file or the React project. It has Publish's brand fill;
-// `showLabel` (no Publish key beside it) adds the "Export" label. The menu is
+// the HTML file or the React project. A ghost key like the toolbar keys
+// beside it; `showLabel` (no Publish key in the row) adds the "Export" label. The menu is
 // position: fixed under the key because the toolbar row clips overflow on
 // narrow widths.
 export default function ExportButton({ onExportHtml, onExportReactProject = null, disabled = false, showLabel = false, tip }) {
@@ -77,10 +77,10 @@ export default function ExportButton({ onExportHtml, onExportReactProject = null
       <button
         ref={triggerRef}
         type="button"
-        data-tour="share"
+        data-tour="download"
         onClick={() => (hasChoice ? toggle() : onExportHtml?.())}
         disabled={disabled}
-        className={`nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs${showLabel ? '' : ' nav-btn-icon'}`}
+        className={`nav-btn nav-ghost${showLabel ? '' : ' nav-btn-icon'}${open ? ' nav-ghost-active' : ''}`}
         aria-label={hasChoice ? 'Download' : 'Export app'}
         aria-haspopup={hasChoice ? 'menu' : undefined}
         aria-expanded={hasChoice ? open : undefined}
