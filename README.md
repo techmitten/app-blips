@@ -25,8 +25,6 @@
 
 <p align="center">
   <a href="https://github.com/TechMitten/app-blips/releases">Download</a> ·
-  <a href="https://discord.gg/a7QfqbvaF9">Discord</a> ·
-  <a href="#security--privacy">Security & Privacy</a> ·
   <a href="#license">License</a>
 </p>
 
