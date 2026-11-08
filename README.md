@@ -41,8 +41,8 @@ Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or Op
 - **Automatic Versioning** — Every generation and manual edit is saved as a snapshot that you can undo or restore at any time.
 
 ### AI & Integrations
-- **Bring Your Own Key (or Use a Plan)** — Connect an API key from Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter with configurable model reasoning levels, or use a managed AppBlips plan on desktop.
-- **One-Click Extensions** — Easily integrate Web3Forms (contact forms), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI media & chat), Pixabay (stock photos), and Tavily (live web search for the AI).
+- **Bring Your Own Key** — Connect an API key from Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter with configurable model reasoning levels.
+- **Extensions** — Easily integrate Web3Forms (contact forms), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI media & chat), Pixabay (stock photos), and Tavily (live web search for the AI).
 - **Built-in SEO** — Answer a few quick questions in **Settings → Tools** to automatically generate SEO metadata, a `sitemap.xml`, and a `robots.txt` on export or publish.
 
 ### Import, Export & Publishing
