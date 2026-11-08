@@ -25,8 +25,6 @@
 
 ---
 
-https://github.com/user-attachments/assets/58e2c34c-e469-4f2c-886b-7a163c0dea6f
-
 **AppBlips** lets anyone build functional apps, websites, and 2D games from natural-language descriptions—no coding required, with full code access when you want it.
 
 Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter) or sign in to an optional AppBlips plan. There is no vendor lock-in: the generated code is always yours to inspect, edit, export, or host anywhere.
