@@ -1,6 +1,6 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png" />
+    <source media="(prefers-color-scheme: dark)" srcset="public/blackblipsbg.webp" />
     <img src="docs/logo-light.png" alt="AppBlips — Text to App and Website Generator" width="320" />
   </picture>
 </p>
@@ -120,28 +120,6 @@ testing/             # Standalone Node test scripts for backend routes and previ
 scripts/             # Build scripts, including Whisper model fetching
 ```
 
-<details>
-<summary><strong>🔧 Deep Dive: Subsystems & Testing (Click to expand)</strong></summary>
-<br />
-
-For a complete architectural walkthrough (generation flow, preview sandboxing, and LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).
-
-- **Voice Input (`src/lib/whisperWorker.js`):** Runs an 8-bit quantized `whisper-base` ONNX model (~76 MB) in a Web Worker via `@huggingface/transformers`. Model weights are fetched and SHA-256 verified at build time by `scripts/fetch-whisper-model.js` for completely offline runtime execution. Test with `node testing/testVoiceInput.mjs`.
-- **Surge Publishing (`electron/server/surgeApi.js`):** Compiles JSX, adds loop protection, strips the preview bridge, bundles local gallery/Pollinations images and favicons, and uploads a tarball to Surge. Tokens are stored in the OS keychain (desktop) or `surge-token.json` (`0600` permissions on web/Docker). Test with `node testing/testSurgeApi.js`.
-- **My Images (`src/lib/prompts.js`):** Stores image blobs by content hash (`blobs/` on disk or IndexedDB in the browser). Only filenames, dimensions, and notes are sent to the LLM—never raw image data. Test with `node testing/testGalleryImages.js`.
-- **Pollinations (`electron/server/pollinationsApi.js`):** Resolves generated media URLs server-side and injects `window.Pollinations` (`chat`, `image`, `mountConnect`) into apps for visitor-paid or budget-capped AI features. Test with `node testing/testPollinations.js`.
-- **Pixabay (`electron/server/pixabayApi.js`):** Keeps the user's API key server-side, caches sanitized search results for 24 hours, and downloads selected images by ID directly into the project gallery. Test with `node testing/testPixabayApi.js`.
-
-</details>
-
----
-
-## Security & Privacy
-
-- **Strict Sandboxing:** Generated projects run inside a sandboxed iframe (`sandbox` without `allow-same-origin`), isolating them from the host application.
-- **Local-First Credentials:** The desktop app opens no network ports and encrypts API keys in your OS keychain. The web/Docker server binds exclusively to `127.0.0.1` and stores keys on disk with restricted permissions—never in browser storage.
-- **Opt-In Network Access:** No project data leaves your machine unless you send a prompt to your configured AI provider or explicitly publish your site.
-- **Key & Plan Separation:** Your personal API keys are only ever used on your local machine; self-hosted servers with accounts enabled use the server's configured provider exclusively for signed-in subscribers.
 
 ## License
 
