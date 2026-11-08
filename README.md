@@ -29,15 +29,6 @@
 
 Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter) or sign in to an optional AppBlips plan. There is no vendor lock-in: the generated code is always yours to inspect, edit, export, or host anywhere.
 
-## Three Studios, One Workflow
-
-Every studio follows the same fast loop: **Prompt → Live Preview → Version History → Export/Publish**.
-
-| Studio | Best For | Under the Hood |
-| :--- | :--- | :--- |
-| **App Studio** | Interactive tools, utilities, and dashboards | React & JavaScript with local browser storage; defaults to a mobile preview. |
-| **Website Studio** | Landing pages, portfolios, business sites, and blogs | Multi-section sites with Swiper, GSAP, or Leaflet. Supports AI prompts and direct visual editing. |
-| **Game Studio** | Playable 2D browser games with touch & keyboard controls | HTML5 Canvas 2D for simple arcade games, or Phaser 3 for physics, sprites, and tilemaps. |
 
 ## Key Features
 
