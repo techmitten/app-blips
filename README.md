@@ -23,11 +23,6 @@
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
 </p>
 
-<p align="center">
-  <a href="https://github.com/TechMitten/app-blips/releases">Download</a> ·
-  <a href="#license">License</a>
-</p>
-
 ---
 
 https://github.com/user-attachments/assets/58e2c34c-e469-4f2c-886b-7a163c0dea6f
