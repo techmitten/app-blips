@@ -1,15 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, LogIn, LogOut, Menu, MonitorSmartphone,
+  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
   Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, X,
 } from 'lucide-react';
-import { Show } from '@clerk/react';
-import { AuthButton } from './AccountDialogs';
-import { useRequestSignOut } from '../lib/accountDialogs';
-import { useAccounts } from '../lib/accounts';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
-import StudioAccountMenu from './StudioAccountMenu';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
 // invite/widget assets), drawn to match the lucide icons' ~17px box.
@@ -67,8 +62,7 @@ const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-
 
 const MENU_ITEM = `studio-menu-item ${FOCUS_RING}`;
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenProjects, onOpenSettings, onOpenAccount = null, onOpenPlans = null, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
-  const accounts = useAccounts();
+export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenProjects, onOpenSettings, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -149,7 +143,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
   // Runs the action after the panel has started closing, so a modal (Settings)
   // doesn't open over a menu that is still on screen.
   const fromMenu = (fn) => () => { setMenuOpen(false); fn?.(); };
-  const requestSignOut = useRequestSignOut();
 
   const isDark = resolvedTheme === 'dark';
 
@@ -236,25 +229,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                   >
                     <Settings size={17} aria-hidden="true" />
                   </button>
-                )}
-                {/* Signed out: the way back to a plan (or to make an account,
-                    from Clerk's dialog). Labelled, not icon-only, so it's found. */}
-                {accounts && (
-                  <Show when="signed-out">
-                    <AuthButton kind="sign-in">
-                      <button type="button" className={`${GHOST_BTN} h-9 px-3 max-md:hidden`}>
-                        <LogIn size={17} aria-hidden="true" /> Sign in
-                      </button>
-                    </AuthButton>
-                  </Show>
-                )}
-                {/* Signed in: who, with the plan and the account
-                    actions one click away (StudioAccountMenu). Shown at every
-                    width: the picture alone below md. */}
-                {accounts && (
-                  <Show when="signed-in">
-                    <StudioAccountMenu onOpenAccount={onOpenAccount} onOpenPlans={onOpenPlans} />
-                  </Show>
                 )}
                 <button
                   type="button"
@@ -462,22 +436,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                 {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
                 {isDark ? 'Light theme' : 'Dark theme'}
               </button>
-            )}
-            {accounts && (
-              <Show when="signed-out">
-                <AuthButton kind="sign-in">
-                  <button type="button" className={MENU_ITEM} onClick={fromMenu()}>
-                    <LogIn size={18} aria-hidden="true" /> Sign in
-                  </button>
-                </AuthButton>
-              </Show>
-            )}
-            {accounts && (
-              <Show when="signed-in">
-                <button type="button" className={MENU_ITEM} onClick={fromMenu(requestSignOut)}>
-                  <LogOut size={18} aria-hidden="true" /> Sign out
-                </button>
-              </Show>
             )}
             <div className="studio-menu-sep" role="separator" />
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>

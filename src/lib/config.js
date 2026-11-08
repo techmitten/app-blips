@@ -75,20 +75,6 @@ export const loadAskClarifyingQuestions = () => {
   }
 };
 
-export const ASK_TO_REVIEW_KEY = 'orion-ask-to-review';
-
-// Boolean: whether each finished build or edit offers an AI review (code check
-// plus browser test). A review can take dozens of model calls, so it only runs
-// when the user says yes; off means no offer and no review. Off by default (it
-// is a beta feature); only an explicit 'true' turns it on.
-export const loadAskToReview = () => {
-  try {
-    return safeStorage('local')?.getItem(ASK_TO_REVIEW_KEY) === 'true';
-  } catch {
-    return false;
-  }
-};
-
 export const PROMPT_SUGGESTIONS_KEY = 'orion-prompt-suggestions';
 
 // Boolean: whether each finished build also asks the AI for a few next
@@ -175,27 +161,6 @@ export const saveDismissedUpdate = (version) => {
     safeStorage('local')?.setItem(DISMISSED_UPDATE_KEY, String(version));
   } catch {
     // ignore unavailable storage
-  }
-};
-
-// Whether this person has been shown AppBlips plans: the plan choice in
-// onboarding, or the one-time "plans are here" notice (PlansNotice) that
-// reaches people who set up with their own key before plans existed.
-const PLANS_INTRO_KEY = 'orion-plans-intro-seen';
-
-export const loadPlansIntroSeen = () => {
-  try {
-    return safeStorage('local')?.getItem(PLANS_INTRO_KEY) === 'true';
-  } catch {
-    return false;
-  }
-};
-
-export const savePlansIntroSeen = () => {
-  try {
-    safeStorage('local')?.setItem(PLANS_INTRO_KEY, 'true');
-  } catch {
-    // ignore unavailable storage: the notice may show once more
   }
 };
 

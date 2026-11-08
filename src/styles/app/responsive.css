@@ -86,7 +86,7 @@
 
    The stages are ordered by how much each control is used, least first, and
    every threshold below was measured against the widest possible bar: website
-   studio, hosted mode, a deployment present. Anything the bar gives up here
+   studio, a deployment present. Anything the bar gives up here
    is still reachable in the sliders menu.
 
      1200  the deploy key loses its label

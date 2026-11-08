@@ -3,13 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, DoorOpen, FolderOpen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
-  Settings, CircleHelp, Compass, Menu, X, Power, LogIn, UserPlus, LogOut, UserRound
+  Settings, CircleHelp, Compass, Menu, X, Power
 } from 'lucide-react';
-import { Show } from '@clerk/react';
-import { AuthButton } from './AccountDialogs';
-import StudioAccountMenu from './StudioAccountMenu';
-import { useRequestSignOut } from '../lib/accountDialogs';
-import { useAccounts } from '../lib/accounts';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { DOCS_URL } from '../lib/constants';
 import { isDesktop, desktopBridge } from '../lib/desktop';
@@ -17,7 +12,7 @@ import { isDesktop, desktopBridge } from '../lib/desktop';
 
 
 // Top bar: brand icon on the left; New App /
-// Apps / History / Settings / Help / auth / theme on the right.
+// Apps / History / Settings / Help / theme on the right.
 export default function Header({
   onNewApp,
   onExit,
@@ -29,15 +24,12 @@ export default function Header({
   resolvedTheme,
   onToggleTheme,
   onOpenSettings,
-  onOpenAccount,
-  onOpenPlans,
   onStartTour,
   mobileView,
   onMobileViewChange,
   onNewChat,
   canNewChat = false,
 }) {
-  const accounts = useAccounts();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const menuRef = useRef(null);
@@ -75,7 +67,6 @@ export default function Header({
   }, [isMobileMenuOpen]);
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
-  const requestSignOut = useRequestSignOut();
 
   const runMobileAction = (action) => {
     closeMobileMenu();
@@ -225,35 +216,7 @@ export default function Header({
           </button>
         </div>
 
-        {/* Rank 4: account -- Clerk sign-in when signed out, the account
-            menu (the same one as the studio picker's) when signed in. Hidden entirely while Clerk loads, and absent
-            on local installs, which have no accounts (lib/accounts.js). */}
-        {accounts && (
-          <>
-            <span className="chrome-divider" aria-hidden="true" />
-            <div className="nav-rank">
-              <Show when="signed-out">
-                <AuthButton kind="sign-in">
-                  <button type="button" className="nav-btn nav-ghost" data-tip="Sign in">
-                    <LogIn size={16} />
-                    <span>Sign in</span>
-                  </button>
-                </AuthButton>
-                <AuthButton kind="sign-up">
-                  <button type="button" className="nav-btn nav-btn-secondary" data-tip="Create an account">
-                    <UserPlus size={16} />
-                    <span>Sign up</span>
-                  </button>
-                </AuthButton>
-              </Show>
-              <Show when="signed-in">
-                <StudioAccountMenu onOpenAccount={onOpenAccount} onOpenPlans={onOpenPlans} />
-              </Show>
-            </div>
-          </>
-        )}
-
-        {/* Rank 5: theme and exit */}
+        {/* Rank 4: theme and exit */}
         <span className="chrome-divider" aria-hidden="true" />
         <div className="nav-rank">
           {/* Theme toggle -- the icon names the destination, not the current state */}
@@ -399,34 +362,6 @@ export default function Header({
                 <Compass size={16} />
                 <span>Take the tour</span>
               </button>
-              {accounts && (
-                <>
-                  <Show when="signed-out">
-                    <AuthButton kind="sign-in">
-                      <button type="button" onClick={closeMobileMenu} className="mobile-menu-item">
-                        <LogIn size={16} />
-                        <span>Sign in</span>
-                      </button>
-                    </AuthButton>
-                    <AuthButton kind="sign-up">
-                      <button type="button" onClick={closeMobileMenu} className="mobile-menu-item mobile-menu-item-primary">
-                        <UserPlus size={16} />
-                        <span>Sign up</span>
-                      </button>
-                    </AuthButton>
-                  </Show>
-                  <Show when="signed-in">
-                    <button type="button" onClick={() => runMobileAction(onOpenAccount)} className="mobile-menu-item">
-                      <UserRound size={16} />
-                      <span>Account</span>
-                    </button>
-                    <button type="button" onClick={() => { closeMobileMenu(); requestSignOut(); }} className="mobile-menu-item">
-                      <LogOut size={16} />
-                      <span>Sign out</span>
-                    </button>
-                  </Show>
-                </>
-              )}
               <button
                 type="button"
                 onClick={() => runMobileAction(onToggleTheme)}

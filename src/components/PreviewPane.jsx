@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Play, TerminalSquare, FolderTree, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, Expand, ExternalLink, Globe, MousePointerClick, Move, Loader2, Square, RotateCw
+  ZoomIn, ZoomOut, Expand, ExternalLink, Globe, MousePointerClick, Move, RotateCw
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -60,11 +60,8 @@ export default function PreviewPane({
   onPublish = null,
   containerRef,
   iframeRef,
-  browserLockRef,
   shutterCount = 0,
   previewSrcDoc,
-  browserToken,
-  isBrowserTesting = false,
   onReloadPreview,
   isGenerating,
   generationStatus,
@@ -229,19 +226,8 @@ export default function PreviewPane({
 
           {/* Project pages are shared across device modes. The code view has
               its own file tabs. */}
-          {pages.length > 1 && activeTab === 'preview' && !isBrowserTesting && (
+          {pages.length > 1 && activeTab === 'preview' && (
             <PagePicker pages={pages} activePage={activePage} onSelectPage={onSelectPage} />
-          )}
-
-          {/* Lives here rather than in the browser bar, which the phone and
-              tablet mockups don't show: the stop control must always be
-              reachable. It takes the page picker's place while a test runs. */}
-          {isBrowserTesting && (
-            <div className="browser-testing-status" role="status">
-              <Loader2 size={14} className="animate-spin" />
-              <span>{generationStatus || 'Testing in browser…'}</span>
-              <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Stop browser testing" data-tip="Stop testing" onClick={onCancelGeneration}><Square size={13} /></button>
-            </div>
           )}
         </div>
 
@@ -302,7 +288,7 @@ export default function PreviewPane({
                   too common to bury. */}
               <button
                 onClick={onReloadPreview}
-                disabled={!hasCode || isBrowserTesting}
+                disabled={!hasCode}
                 className="nav-btn nav-ghost nav-btn-icon"
                 aria-label="Reload preview"
                 data-tip="Reload"
@@ -397,7 +383,6 @@ export default function PreviewPane({
           {hasSavedCode && onOpenNewTab && (
             <button
               onClick={onOpenNewTab}
-              disabled={isBrowserTesting}
               className="nav-btn nav-ghost nav-btn-icon"
               aria-label="Open site in new browser tab"
               data-tip="Open in a new tab"
@@ -414,7 +399,6 @@ export default function PreviewPane({
             <ExportButton
               onExportHtml={onExportHtml}
               onExportReactProject={onExportReactProject}
-              disabled={isBrowserTesting}
               showLabel={!onPublish}
               tip={exportTip}
             />
@@ -428,7 +412,6 @@ export default function PreviewPane({
             <button
               data-tour="publish"
               onClick={onPublish}
-              disabled={isBrowserTesting}
               className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
               aria-label="Publish to the web"
               data-tip="Publish to the web (free surge.sh address)"
@@ -493,8 +476,7 @@ export default function PreviewPane({
           touch mockups leave it out. */}
       {activeTab === 'preview' && !PREVIEW_MODES[previewMode].isTouchChrome && (
         <BrowserBar {...{ hasCode, navState, route, onNavigateRoute }} title={browserTitle}
-          onBack={onNavBack} onForward={onNavForward} onReload={onReloadPreview}
-          isTesting={isBrowserTesting} />
+          onBack={onNavBack} onForward={onNavForward} onReload={onReloadPreview} />
       )}
 
       {/* Container for Device or Code */}
@@ -519,12 +501,9 @@ export default function PreviewPane({
             fillSize={fillSize}
             isBareFill={isBareFill}
             iframeRef={iframeRef}
-            browserLockRef={browserLockRef}
             shutterCount={shutterCount}
             srcDoc={previewSrcDoc}
-            browserToken={browserToken}
-            isBrowserTesting={isBrowserTesting}
-            isGenerating={(isGenerating || isPreviewBuilding) && !isBrowserTesting}
+            isGenerating={isGenerating || isPreviewBuilding}
             generationStatus={generationStatus || (isPreviewBuilding ? 'Building the preview…' : null)}
             thinkingSince={thinkingSince}
             streamingReasoning={streamingReasoning}
@@ -532,7 +511,7 @@ export default function PreviewPane({
             liveCodeRef={liveCodeRef}
             liveCodePage={liveCodePage}
             hasCode={hasCode}
-            isAutoFixing={isAutoFixing && !isBrowserTesting}
+            isAutoFixing={isAutoFixing}
             isTransitioning={isTransitioning}
             onCancelGeneration={onCancelGeneration}
             tabTitle={projectName}

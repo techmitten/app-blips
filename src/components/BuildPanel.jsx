@@ -39,12 +39,6 @@ export default function BuildPanel({
   isHistoryOpen = false,
   onToggleHistory,
   onRewind,
-  canOfferReview = false,
-  onReview,
-  onSkipReview,
-  canOfferFix = false,
-  onFixReview,
-  onSkipFix,
   onApproveImages,
   gallery = null,
   projectId = null,
@@ -58,9 +52,6 @@ export default function BuildPanel({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
-  planWebSearch = null,
-  webSearch = false,
-  onWebSearchChange,
   side = 'left',
   isCollapsed = false,
   suggestions = null,
@@ -251,12 +242,6 @@ export default function BuildPanel({
                 studioMode={studioMode}
                 chatBottomRef={chatBottomRef}
                 onRewind={onRewind}
-                canOfferReview={canOfferReview}
-                onReview={onReview}
-                onSkipReview={onSkipReview}
-                canOfferFix={canOfferFix}
-                onFixReview={onFixReview}
-                onSkipFix={onSkipFix}
                 onApproveImages={chatMode === 'build' ? onApproveImages : undefined}
                 gallery={gallery}
                 projectId={projectId}
@@ -306,9 +291,6 @@ export default function BuildPanel({
           onAttachScreenshot={onAttachScreenshot}
           onAttachFile={onAttachFile}
           onRemoveAttachment={onRemoveAttachment}
-          planWebSearch={planWebSearch}
-          webSearch={webSearch}
-          onWebSearchChange={onWebSearchChange}
         />
       </div>
     </div>

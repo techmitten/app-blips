@@ -29,16 +29,16 @@ function RouteAddress({ route, onNavigateRoute, disabled }) {
 }
 
 export default function BrowserBar({ title, hasCode, navState, onBack, onForward,
-  onReload, isTesting, route = null, onNavigateRoute = null }) {
+  onReload, route = null, onNavigateRoute = null }) {
   return (
     <div className="embedded-browser-bar" aria-label="Browser navigation">
       <div className="browser-navigation">
-        <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Browser back" disabled={!navState?.canGoBack || isTesting} onClick={onBack}><ArrowLeft size={16} /></button>
-        <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Browser forward" disabled={!navState?.canGoForward || isTesting} onClick={onForward}><ArrowRight size={16} /></button>
-        <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Reload browser" disabled={!hasCode || isTesting} onClick={onReload}><RotateCw size={15} /></button>
+        <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Browser back" disabled={!navState?.canGoBack} onClick={onBack}><ArrowLeft size={16} /></button>
+        <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Browser forward" disabled={!navState?.canGoForward} onClick={onForward}><ArrowRight size={16} /></button>
+        <button type="button" className="nav-btn nav-ghost nav-btn-icon" aria-label="Reload browser" disabled={!hasCode} onClick={onReload}><RotateCw size={15} /></button>
       </div>
       {onNavigateRoute
-        ? <RouteAddress key={route} route={route || '/'} onNavigateRoute={onNavigateRoute} disabled={!hasCode || isTesting} />
+        ? <RouteAddress key={route} route={route || '/'} onNavigateRoute={onNavigateRoute} disabled={!hasCode} />
         : <BrowserTitle title={title} />}
     </div>
   );

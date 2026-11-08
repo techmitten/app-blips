@@ -89,50 +89,8 @@ test('/api/chat: POST only, foreign origins refused, unconfigured provider expla
   assert.equal(own.headers['x-content-type-options'], 'nosniff');
 });
 
-test('/api/web (plan web search) does not exist without hosted plans', async () => {
-  for (const path of ['/api/web/search', '/api/web/fetch']) {
-    const res = await get(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"query":"x"}' });
-    assert.equal(res.status, 404, path);
-  }
-});
-
 test('other methods are refused', async () => {
   assert.equal((await get('/', { method: 'DELETE' })).status, 405);
-});
-
-// --- Hosted mode: plan users only ------------------------------------------
-// Dummy Clerk and Polar values switch hosted mode on (hosted/mode.js) without
-// any network call: an unsigned request never gets past the gate.
-
-test('hosted mode: /api/chat needs a sign-in and the saved-key routes are off', async () => {
-  server.kill();
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('OPENAI_') && !k.startsWith('APPBLIPS_')));
-  server = spawn(process.execPath, [`${ROOT}server.js`], {
-    cwd: tmpdir(),
-    env: { ...env, PORT: String(PORT), HOST: '127.0.0.1', OPENAI_API_KEY: 'env-key', OPENAI_LLM_MODEL: 'env-model', VITE_CLERK_PUBLISHABLE_KEY: 'pk_test_abc', POLAR_ACCESS_TOKEN: 'polar_x' },
-  });
-  let output = '';
-  await new Promise((resolve, reject) => {
-    server.stdout.on('data', (c) => { output += c; if (output.includes('AppBlips is running')) resolve(); });
-    server.stderr.on('data', (c) => { output += c; });
-    server.on('exit', (code) => reject(new Error(`server exited (${code}): ${output}`)));
-  });
-  const body = JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], hosted_model_override: 'gpt-4o' });
-  const chat = await get('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body });
-  assert.equal(chat.status, 401);
-  assert.equal(JSON.parse(chat.text).code, 'sign_in_required');
-  const ownKey = await get('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: [], user_provider: { id: 'openai', model: 'gpt-4o' } }) });
-  assert.equal(ownKey.status, 401);
-  for (const path of ['/api/provider', '/api/surge', '/api/pollinations', '/api/pixabay/search', '/api/tavily/search']) {
-    const res = await get(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
-    assert.equal(res.status, 404, path);
-    assert.match(JSON.parse(res.text).error, /plan users/);
-  }
-  const scan = await get('/api/seo/scan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://example.com' }) });
-  assert.equal(scan.status, 401);
-  // Plan web search exists in hosted mode, for signed-in plan users only.
-  const web = await get('/api/web/search', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"query":"x"}' });
-  assert.equal(web.status, 401);
 });
 
 test('oversized request bodies are refused with 413', async () => {

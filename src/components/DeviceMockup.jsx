@@ -477,10 +477,7 @@ export default function DeviceMockup({
   fillSize = null,
   isBareFill = false,
   iframeRef,
-  browserLockRef,
   srcDoc,
-  browserToken,
-  isBrowserTesting = false,
   shutterCount = 0,
   isGenerating,
   generationStatus,
@@ -497,10 +494,10 @@ export default function DeviceMockup({
 }) {
   const { frames, onLiveLoad } = useDoubleBufferedDoc(srcDoc);
   const box = fillSize || getEffectivePreviewBox(mode, orientation);
-  const isErrorAutoFix = !isBrowserTesting && (isAutoFixing || Boolean(
+  const isErrorAutoFix = isAutoFixing || Boolean(
     generationStatus?.toLowerCase().includes('runtime error') ||
     generationStatus?.toLowerCase().includes('syntax error')
-  ));
+  );
   // Reasoning is on and the model hasn't produced output yet.
   const isThinking = Boolean(thinkingSince) && !isErrorAutoFix;
   // Normal builds show the blueprint (BuildBlueprint) with the code window one
@@ -546,8 +543,8 @@ export default function DeviceMockup({
 
                 There are two of them (see useDoubleBufferedDoc). Only the live
                 one -- the frame holding the newest document -- gets the ref
-                and the data-appblips-browser marker, so the bridge, the
-                embedded browser and the native input all address it. Their
+                and the data-appblips-browser marker, so the bridge and the
+                tests address it. Their
                 order never changes: moving an iframe in the DOM reloads it.
                 The wrapper's own stacking context keeps the frames' z-index
                 below the overlays that follow. */}
@@ -561,7 +558,6 @@ export default function DeviceMockup({
                     ref={isLive ? iframeRef : undefined}
                     title="AppBlips Browser"
                     data-appblips-browser={isLive ? 'true' : undefined}
-                    data-browser-token={isLive ? browserToken : undefined}
                     srcDoc={frames.docs[slot]}
                     onLoad={isLive ? onLiveLoad : undefined}
                     inert={!isLive}
@@ -578,27 +574,13 @@ export default function DeviceMockup({
                     sandbox="allow-scripts allow-forms allow-popups"
                     referrerPolicy="no-referrer"
                     allow=""
-                    tabIndex={isBrowserTesting || !isLive ? -1 : undefined}
+                    tabIndex={!isLive ? -1 : undefined}
                   />
                 );
               })}
             </div>
-            {/* Locks the app while the AI reviews it, so the user's clicks,
-                scrolls and typing can't change what the reviewer is testing.
-                Transparent so the reviewer's screenshots look normal; App lifts
-                it (pointer-events) only while native test input is dispatched,
-                because that input is hit-tested like a real mouse. */}
-            {isBrowserTesting && (
-              <div
-                ref={browserLockRef}
-                className="absolute inset-0 z-10 cursor-not-allowed outline-none"
-                tabIndex={-1}
-                title="The AI is testing this app. It unlocks when the review is done."
-                aria-label="Preview locked while the AI tests the app"
-              />
-            )}
             {/* Camera-shutter blink after each screenshot, so it's visible
-                when the AI (or the user) takes a picture. Remounted per shot
+                when the user takes a picture. Remounted per shot
                 by its key; it plays once and ends invisible. Painted after
                 the capture, so it never appears in one. */}
             {shutterCount > 0 && (

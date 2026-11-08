@@ -2,16 +2,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Eye, EyeOff,
-  FolderOpen, Info, KeyRound, Laptop, Loader2, LogOut, Plug, Sparkles, UserRound, X,
+  FolderOpen, Info, KeyRound, Laptop, Loader2, Plug, Sparkles, UserRound, X,
 } from 'lucide-react';
-import { SignIn, SignUp, useAuth, useUser } from '@clerk/react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
-import { useAccounts } from '../lib/accounts';
-import { ownKeyAllowed } from '../lib/ownKey';
-import { BrowserSignInStatus } from './AccountDialogs';
-import { useRequestSignOut } from '../lib/accountDialogs';
-import { fetchBillingConfig, fetchBillingMe, openCheckout, waitForPlan } from '../lib/billing';
-import { savePlansIntroSeen } from '../lib/config';
 import { logError, logWarn } from '../lib/errorLog';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { AVATAR_IDS, AVATAR_LABELS, MAX_NAME_LENGTH, cleanName, loadProfile, saveProfile } from '../lib/profile';
@@ -321,411 +314,6 @@ function NameForm({ formRef, onSubmit, name, setName, errors }) {
 // Second slide: the chat avatar and (desktop only) where projects are saved.
 // The folder picker is the same one as Settings → Data, so the main process
 // still decides whether existing projects move.
-// "Not sure? Compare the options" on the choice step: what a plan includes
-// next to bringing your own key, in a pop-up over the choice. The plan column
-// comes from the live catalog (the first plan on sale), so its price and beta
-// terms always match what checkout sells; text only, no model names
-// (plans.js). Its buttons pick an option and close it.
-export function CompareModal({ onClose, onChoose }) {
-  const [plan, setPlan] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetchBillingConfig().then((config) => {
-      if (!cancelled) setPlan((config.plans || []).find((entry) => !entry.comingSoon) || null);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  const beta = Boolean(plan?.betaPricing);
-  const planCost = plan ? `${planPrice(plan.priceCents)}/month${beta ? ', beta price' : ''}` : 'Monthly subscription';
-  const planBuilds = !plan ? 'Included with your plan'
-    : plan.monthlyCredits == null
-      ? [`Unlimited${beta ? ' during the beta' : ''}`, planWindow(plan)].filter(Boolean).join(', ')
-      : `${plan.monthlyCredits} a month`;
-  // A mark ('yes' | 'no') only where a feature is in one option and not the
-  // other, so the tick and cross point at the real difference.
-  const rows = [
-    { label: 'Cost', plan: planCost, own: 'Free. You pay your AI provider directly.' },
-    { label: 'AI', plan: 'Run by AppBlips. No setup.', own: 'Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter' },
-    { label: 'API key', plan: 'Not needed', own: 'Your own, kept on your computer' },
-    { label: 'Builds', plan: planBuilds, own: 'As many as your provider allows' },
-    { label: 'Account', plan: 'Sign-in needed', own: 'None needed' },
-  ];
-  const cell = (text, mark) => (
-    <td className={mark ? `has-mark is-${mark}` : undefined}>
-      {mark === 'yes' && <Check size={14} aria-hidden="true" />}
-      {mark === 'no' && <X size={14} aria-hidden="true" />}
-      <span>{text}</span>
-    </td>
-  );
-
-  return createPortal(
-    <Modal
-      zIndex={1200}
-      scrimClass="force-dark fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center p-4"
-      cardClass="onboarding-compare-modal animate-scale-in"
-      cardProps={{
-        role: 'dialog',
-        'aria-modal': true,
-        'aria-labelledby': 'onboarding-compare-title',
-        onKeyDown: (event) => { if (event.key === 'Escape') { event.stopPropagation(); onClose(); } },
-      }}
-    >
-      <header className="onboarding-compare-head">
-        <h2 id="onboarding-compare-title">Two ways to power AppBlips</h2>
-        <button type="button" className="onboarding-compare-close" onClick={onClose} aria-label="Close">
-          <X size={18} />
-        </button>
-      </header>
-      <table className="onboarding-compare">
-        <caption className="sr-only">What a plan includes compared with using your own AI key</caption>
-        <thead>
-          <tr>
-            <td />
-            <th scope="col"><Sparkles size={16} /> {plan ? `${plan.name} plan` : 'AppBlips plan'}</th>
-            <th scope="col"><KeyRound size={16} /> Your own key</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label}>
-              <th scope="row">{row.label}</th>
-              {cell(row.plan, row.planMark)}
-              {cell(row.own, row.ownMark)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {beta && (
-        <p className="onboarding-beta-note">
-          <Info size={16} />
-          <span>
-            <strong>Beta pricing.</strong> The {planPrice(plan.priceCents)}/month price
-            {plan.monthlyCredits == null ? ' and unlimited usage last' : ' lasts'} only while AppBlips is in beta.
-          </span>
-        </p>
-      )}
-      <footer className="onboarding-compare-actions">
-        <button type="button" className="onboarding-skip" onClick={() => onChoose('own-key')}>
-          Use my own AI key
-        </button>
-        <button type="button" className="onboarding-next" onClick={() => onChoose('plan')} autoFocus>
-          Subscribe to a plan <ArrowRight size={18} />
-        </button>
-      </footer>
-    </Modal>,
-    document.body,
-  );
-}
-
-// "Use my own AI key", "Subscribe to a plan" or "I already have an account".
-// Only offered when this copy
-// has accounts (lib/accounts.js); otherwise onboarding goes straight to the
-// own-key form, as every local install always has.
-const ACCESS_OPTIONS = [
-  {
-    id: 'plan',
-    icon: Sparkles,
-    title: 'Subscribe to a plan',
-    text: 'Create an account and pick a monthly plan. AppBlips runs the AI for you, so there’s no API key to set up.',
-  },
-  {
-    id: 'own-key',
-    icon: KeyRound,
-    title: 'Use my own AI key',
-    text: 'Free. Connect Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter with your own API key and pay them directly. No account needed.',
-  },
-  {
-    id: 'sign-in',
-    icon: UserRound,
-    title: 'I already have an account',
-    text: 'Sign in to pick up your plan and usage. No plan on your account yet? You can choose one after signing in.',
-  },
-];
-// Both account choices lead to the same sign-in step; only its wording differs.
-const SIGN_IN_CHOICES = ['plan', 'sign-in'];
-
-function AccessForm({ formRef, onSubmit, access, setAccess, onCompare }) {
-  // A hosted server is plan users only (lib/ownKey.js): no own-key card, and
-  // nothing to compare it with.
-  const options = ownKeyAllowed() ? ACCESS_OPTIONS : ACCESS_OPTIONS.filter((option) => option.id !== 'own-key');
-  const compare = ownKeyAllowed() ? onCompare : null;
-  const pick = (event, index) => {
-    // Arrow keys move between the cards like a radio group.
-    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
-    if (!step) return;
-    event.preventDefault();
-    const next = options[(index + step + options.length) % options.length].id;
-    setAccess(next);
-    formRef.current?.querySelector(`[data-access="${next}"]`)?.focus();
-  };
-  return (
-    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
-      <div className="onboarding-choice-list" role="radiogroup" aria-label="How AppBlips gets its AI">
-        {options.map(({ id, icon: Icon, title, text }, index) => (
-          <button
-            key={id}
-            type="button"
-            role="radio"
-            aria-checked={access === id}
-            tabIndex={access === id ? 0 : -1}
-            data-access={id}
-            className={`onboarding-choice ${access === id ? 'is-selected' : ''}`}
-            onClick={() => setAccess(id)}
-            onKeyDown={(event) => pick(event, index)}
-          >
-            <span className="onboarding-choice-icon"><Icon size={20} /></span>
-            <span className="onboarding-choice-body">
-              <span className="onboarding-choice-title">{title}</span>
-              <span className="onboarding-choice-text">{text}</span>
-            </span>
-            <span className="onboarding-choice-mark" aria-hidden="true">{access === id && <Check size={16} />}</span>
-          </button>
-        ))}
-      </div>
-      {/* Not a choice itself (outside the radio group): opens the comparison. */}
-      {compare && (
-        <button type="button" className="onboarding-choice is-info" onClick={compare} aria-haspopup="dialog">
-          <span className="onboarding-choice-icon"><Info size={20} /></span>
-          <span className="onboarding-choice-body">
-            <span className="onboarding-choice-title">Not sure? Compare the options</span>
-            <span className="onboarding-choice-text">See what a plan includes next to using your own key.</span>
-          </span>
-          <ArrowRight size={18} aria-hidden="true" className="onboarding-choice-go" />
-        </button>
-      )}
-    </form>
-  );
-}
-
-const planPrice = (cents) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
-// "up to 50 uses every 5 hours" for a plan with a usage cooldown (plans.js).
-const planWindow = (plan) => (plan?.windowBuilds && plan?.windowHours
-  ? `up to ${plan.windowBuilds} uses every ${plan.windowHours} hours` : '');
-
-// The AppBlips Terms and Privacy Policy live on the landing site (the
-// AppBlips-Landing project), the same pages the studio picker's footer links.
-const TERMS_URL = 'https://www.appblips.com/terms';
-const PRIVACY_URL = 'https://www.appblips.com/privacy';
-
-// Shown where people commit (creating an account, paying), not tucked away.
-function LegalNote({ action }) {
-  return (
-    <p className="onboarding-legal">
-      By {action}, you agree to the{' '}
-      <a href={TERMS_URL} target="_blank" rel="noopener noreferrer">Terms of Service</a> and{' '}
-      <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
-    </p>
-  );
-}
-
-// The plan path: Clerk sign-in inside onboarding, then the plans. Rendered
-// only with accounts on, since Clerk's components need its provider.
-// Checkout leaves the app for Polar, so setup is marked done first
-// (onCheckout); Polar brings the person back to the app, not to setup. The
-// desktop app opens checkout in the browser instead and stays on this step
-// until the plan is active.
-// The plan step's heading and text follow where the person is: signed out
-// (create an account, or sign in for "I already have an account"), signed
-// in without a plan (pick one), or signed in with one (nothing left to do).
-// Only rendered with accounts on, inside Clerk's provider.
-function PlanStepTitle({ titleRef, access, planActive }) {
-  const { isSignedIn } = useAuth();
-  const title = planActive
-    ? <>You’re all set. <span className="onboarding-title-accent">Start building.</span></>
-    : isSignedIn
-      ? <>You’re signed in. <span className="onboarding-title-accent">Choose your plan.</span></>
-      : access === 'sign-in'
-        ? <>Welcome back. <span className="onboarding-title-accent">Sign in to continue.</span></>
-        : <>Create your account and <span className="onboarding-title-accent">choose your plan.</span></>;
-  return <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>{title}</h1>;
-}
-
-function PlanStepText({ access, planActive }) {
-  const { isSignedIn } = useAuth();
-  const { user } = useUser();
-  const email = user?.primaryEmailAddress?.emailAddress;
-  const account = email ? `You’re signed in as ${email}. ` : '';
-  if (planActive) return <p>{account}Your plan is active, so AppBlips runs the AI for you. Press Start building to begin.</p>;
-  const ownKey = ownKeyAllowed() ? ' Prefer your own key? Press Back.' : '';
-  if (isSignedIn) return <p>{account}Pick a plan to have AppBlips run the AI for you.{ownKey}</p>;
-  if (access === 'sign-in') return <p>Use the account you signed up with. Your plan and usage come with you. No plan yet? You can choose one after signing in.</p>;
-  return <p>Your account keeps your plan and usage. Already have one? Click Sign in below the form.{ownKey}</p>;
-}
-
-// Signed in already (an earlier setup, or the plan step): a way out of that
-// account from setup itself, through the usual "Sign out of AppBlips?"
-// dialog. Only rendered with accounts on, inside Clerk's provider.
-function OnboardingSignOut() {
-  const { isSignedIn } = useAuth();
-  const requestSignOut = useRequestSignOut();
-  if (!isSignedIn) return null;
-  return (
-    <button type="button" className="onboarding-exit" onClick={requestSignOut}>
-      <LogOut size={15} /> Sign out
-    </button>
-  );
-}
-
-const NO_CLERK_SWITCH_LINK = { elements: { footerAction: { display: 'none' } } };
-
-function PlanForm({ onReady, onCheckout, newAccount }) {
-  const { isLoaded, isSignedIn } = useAuth();
-  // "Subscribe to a plan" starts on Clerk's sign-up form, "I already have an
-  // account" on sign-in. Clerk's own "Sign in" / "Sign up" link is hidden: it
-  // goes to Clerk's hosted pages (accounts.appblips.com), which leave the app
-  // (the desktop app opens them in the browser), so our link below swaps the
-  // two forms instead.
-  const [authMode, setAuthMode] = useState(newAccount ? 'sign-up' : 'sign-in');
-  const switchAuthMode = () => {
-    // Each form keeps its steps in the hash (routing="hash"); a fresh form
-    // starts at its first step.
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    setAuthMode((mode) => (mode === 'sign-up' ? 'sign-in' : 'sign-up'));
-  };
-  const [plans, setPlans] = useState(null);
-  const [me, setMe] = useState(null);
-  const [busy, setBusy] = useState(null);
-  const [error, setError] = useState('');
-  // Desktop: checkout is open in the browser and setup waits for the plan.
-  const [paying, setPaying] = useState(false);
-
-  useEffect(() => {
-    if (!paying) return undefined;
-    return waitForPlan((account) => { setMe(account); setPaying(false); });
-  }, [paying]);
-
-  // fetchBillingMe gives null when the plan couldn't be read (offline, a
-  // refused sign-in). That isn't "no plan": offering Subscribe then could
-  // charge someone who already pays, so it says so and offers a retry.
-  const [meFailed, setMeFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    if (!isSignedIn) return undefined;
-    let cancelled = false;
-    Promise.all([fetchBillingConfig(), fetchBillingMe()]).then(([config, account]) => {
-      if (cancelled) return;
-      setPlans(config.plans || []);
-      setMe(account);
-      setMeFailed(!account);
-    });
-    return () => { cancelled = true; };
-  }, [isSignedIn, attempt]);
-
-  const active = Boolean(me?.active);
-  useEffect(() => { onReady(active); }, [active, onReady]);
-
-  const subscribe = async (planId) => {
-    setBusy(planId);
-    setError('');
-    try {
-      await onCheckout();
-      if (await openCheckout(planId)) {
-        setBusy(null);
-        setPaying(true);
-      }
-    } catch (err) {
-      // Already paid for (the plan just hadn't shown yet): show it instead.
-      const account = err.code === 'already_subscribed' ? await fetchBillingMe() : null;
-      if (account?.active) setMe(account);
-      else {
-        logError(`Could not start checkout (${planId}) from setup`, err);
-        setError(err.message || 'Could not start checkout.');
-      }
-      setBusy(null);
-    }
-  };
-
-  if (!isLoaded) return <div className="onboarding-plan-wait"><Loader2 className="animate-spin" size={22} /></div>;
-  if (!isSignedIn) {
-    return (
-      <div className="onboarding-signin">
-        {authMode === 'sign-up'
-          ? <SignUp key="sign-up" routing="hash" appearance={NO_CLERK_SWITCH_LINK} />
-          : <SignIn key="sign-in" routing="hash" appearance={NO_CLERK_SWITCH_LINK} />}
-        <BrowserSignInStatus variant="onboarding" />
-        <p className="onboarding-auth-switch">
-          {authMode === 'sign-up' ? 'Already have an account?' : 'New to AppBlips?'}{' '}
-          <button type="button" onClick={switchAuthMode}>
-            {authMode === 'sign-up' ? 'Sign in' : 'Create an account'}
-          </button>
-        </p>
-        <LegalNote action="signing in or creating an account" />
-      </div>
-    );
-  }
-  if (!plans) return <div className="onboarding-plan-wait"><Loader2 className="animate-spin" size={22} /></div>;
-  if (meFailed) {
-    return (
-      <div className="desktop-onboarding-setup">
-        <p className="onboarding-field-error" role="alert">
-          <CircleAlert size={15} /> Could not check your plan. Check your internet connection, then try again.
-        </p>
-        <button type="button" className="onboarding-next" onClick={() => { setPlans(null); setAttempt((n) => n + 1); }}>
-          Try again
-        </button>
-      </div>
-    );
-  }
-  if (active) {
-    return (
-      <div className="desktop-onboarding-setup">
-        <p className="onboarding-plan-active"><CircleCheck size={20} /> You’re on the {me.planName} plan. Press Start building to begin.</p>
-      </div>
-    );
-  }
-  const betaPlan = plans.find((plan) => plan.betaPricing && !plan.comingSoon);
-  return (
-    <div className="desktop-onboarding-setup">
-      <div className="onboarding-choice-list">
-        {plans.map((plan) => (
-          <div key={plan.id} className={`onboarding-choice is-static${plan.comingSoon ? ' is-soon' : ''}`}>
-            <span className="onboarding-choice-body">
-              <span className="onboarding-choice-title">
-                {plan.name} · {planPrice(plan.priceCents)}/month
-                {plan.betaPricing && <span className="onboarding-beta-tag">Beta price</span>}
-              </span>
-              <span className="onboarding-choice-text">
-                {plan.monthlyCredits == null
-                  ? `Unlimited usage${plan.betaPricing ? ' while AppBlips is in beta' : ''}${planWindow(plan) ? ` (${planWindow(plan)})` : ''}.`
-                  : `${plan.monthlyCredits} usage credits a month.`}
-              </span>
-            </span>
-            {plan.comingSoon ? (
-              <span className="onboarding-soon-tag">Coming soon</span>
-            ) : (
-              <button type="button" className="onboarding-next onboarding-plan-button" disabled={busy !== null} onClick={() => subscribe(plan.id)}>
-                {busy === plan.id ? <Loader2 className="animate-spin" size={16} /> : 'Subscribe'}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      {/* Said before checkout, not in the small print: beta terms end. */}
-      {betaPlan && (
-        <p className="onboarding-beta-note">
-          <Info size={16} />
-          <span>
-            <strong>Beta pricing.</strong> {betaPlan.name}’s {planPrice(betaPlan.priceCents)}/month price
-            {betaPlan.monthlyCredits == null ? ' and unlimited usage last' : ' lasts'} only while AppBlips is in beta.
-            The price and usage limits will change when the beta ends.
-          </span>
-        </p>
-      )}
-      {error && <p className="onboarding-field-error" role="alert"><CircleAlert size={15} /> {error}</p>}
-      {paying ? (
-        <p className="onboarding-plan-waiting" role="status">
-          <Loader2 className="animate-spin" size={16} />
-          <span>Checkout opened in your web browser. Finish paying there, then come back: this step updates by itself.</span>
-        </p>
-      ) : (
-        <p className="onboarding-key-help">Payment opens on Polar’s secure checkout. Cancel anytime.</p>
-      )}
-      <LegalNote action="subscribing" />
-    </div>
-  );
-}
-
 function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFolder, folderStatus }) {
   const pickAvatar = (event, index) => {
     // Arrow keys move through the grid like a radio group.
@@ -782,31 +370,13 @@ function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFold
 // already has (or deliberately skipped) a setup, so they may leave without
 // re-entering a key. A first run offers "Skip for now" instead, which saves
 // that onboarding is done so it doesn't come back on the next launch.
-// Signing in with Google or GitHub leaves the page and comes back to it, and
-// Clerk's sign-in box must be on screen then to finish. So the plan step is
-// remembered for this tab and setup reopens on it.
-const RESUME_KEY = 'orion-onboarding-resume';
-const readResume = () => { try { return sessionStorage.getItem(RESUME_KEY); } catch { return null; } };
-const writeResume = (value) => {
-  try {
-    if (value) sessionStorage.setItem(RESUME_KEY, value);
-    else sessionStorage.removeItem(RESUME_KEY);
-  } catch { /* storage blocked: a sign-in redirect restarts setup instead */ }
-};
-
 export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup }) {
-  const accounts = useAccounts();
-  const resumed = accounts ? readResume() : null;
-  const resumePlan = SIGN_IN_CHOICES.includes(resumed);
-  const [step, setStep] = useState(resumePlan ? 'plan' : 'name');
-  const [access, setAccess] = useState(resumePlan ? resumed : 'plan');
-  const [planActive, setPlanActive] = useState(false);
-  const [compareOpen, setCompareOpen] = useState(false);
+  const [step, setStep] = useState('name');
   // Slide direction follows the step order; only updated when the step
   // changes so unrelated re-renders don't restart the animation.
   const [slide, setSlide] = useState({ step, rank: 0, dir: 'forward' });
   if (slide.step !== step) {
-    const rank = { name: 0, avatar: 1, access: 2, ai: 3, plan: 3 }[step];
+    const rank = { name: 0, avatar: 1, ai: 2 }[step];
     setSlide({ step, rank, dir: rank < slide.rank ? 'back' : 'forward' });
   }
   const [profile] = useState(loadProfile);
@@ -820,7 +390,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   // AI setup or the skip is saved first).
   const [folderChanged, setFolderChanged] = useState(false);
   const leave = (done) => (...args) => {
-    writeResume(null);
     if (folderChanged) window.location.reload();
     else done?.(...args);
   };
@@ -842,9 +411,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const formRef = useRef(null);
 
   useEffect(() => { titleRef.current?.focus(); }, [step]);
-  // Reaching the choice means plans have been offered: PlansNotice is only for
-  // people who set up before they existed.
-  useEffect(() => { if (step === 'access') savePlansIntroSeen(); }, [step]);
   useEffect(() => {
     if (isDesktop) desktopBridge.folder.get().then(setFolder).catch((err) => logWarn('Could not read the projects folder location', err));
   }, []);
@@ -882,22 +448,10 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     keepProfile();
     setStep('avatar');
   };
-  // After the avatar: the own-key form, or the choice when this copy has
-  // accounts (its "Compare the options" card opens the comparison).
+  // After the avatar: the own-key form.
   const continueToAi = () => {
     keepProfile();
-    setStep(accounts ? 'access' : 'ai');
-  };
-  const continueFromAccess = () => {
-    const signsIn = SIGN_IN_CHOICES.includes(access);
-    writeResume(signsIn ? access : null);
-    // Clerk's forms keep their step in the hash (routing="hash"). One left
-    // in the address (an earlier attempt, a reload mid-sign-up) names a step
-    // the new form doesn't have, and Clerk then leaves for its hosted page,
-    // so each visit starts at the form's first screen. A Google/GitHub
-    // return lands on the plan step directly, not through here.
-    if (signsIn && window.location.hash) window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    setStep(signsIn ? 'plan' : 'ai');
+    setStep('ai');
   };
 
   const needsProvider = !provider;
@@ -944,49 +498,17 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     onComplete();
   };
 
-  // Plan path: nothing to save locally; the plan lives with the account.
-  const startWithPlan = async () => {
-    if (!planActive) return;
-    keepProfile();
-    await markOnboarded();
-    onComplete();
-  };
-  // "I already have an account" and the account already has a plan: there's
-  // nothing left to choose, so setup ends and Settings → Account opens to
-  // show the plan and usage.
-  const returningWithPlan = step === 'plan' && access === 'sign-in' && planActive;
-  useEffect(() => {
-    if (!returningWithPlan) return;
-    (async () => {
-      keepProfile();
-      await markOnboarded();
-      onComplete({ openSettings: 'account' });
-    })();
-    // Runs once when the plan shows up active; the handlers are recreated each render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [returningWithPlan]);
-  // Checkout leaves the app, and Polar returns to the app itself, so setup
-  // is finished before going.
-  const beforeCheckout = async () => {
-    keepProfile();
-    writeResume(null);
-    await markOnboarded();
-  };
-
   const isName = step === 'name';
   const isAvatar = step === 'avatar';
-  const isAccess = step === 'access';
-  const isPlan = step === 'plan';
-  const isLast = step === 'ai' || isPlan;
-  const back = { avatar: 'name', access: 'avatar', ai: accounts ? 'access' : 'avatar', plan: 'access' }[step];
-  const stepCount = accounts ? 4 : 3;
-  const stepNumber = { avatar: 2, access: 3, ai: stepCount, plan: stepCount }[step];
+  const isLast = step === 'ai';
+  const back = { avatar: 'name', ai: 'avatar' }[step];
+  const stepCount = 3;
+  const stepNumber = { avatar: 2, ai: 3 }[step];
   const goBack = () => {
     setStatus(null);
-    if (isPlan) writeResume(null);
     setStep(back);
   };
-  const next = isName ? continueToAvatar : isAvatar ? continueToAi : continueFromAccess;
+  const next = isName ? continueToAvatar : continueToAi;
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
@@ -998,7 +520,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             <img src="/appblips-wordmark-dark.svg" alt="AppBlips" />
           </div>
           <div className="onboarding-topbar-actions">
-            {accounts && <OnboardingSignOut />}
             {onExit ? (
               <button type="button" className="onboarding-exit" onClick={onExit} disabled={status?.kind === 'busy'}>
                 Exit setup <X size={15} />
@@ -1026,12 +547,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Now pick <span className="onboarding-title-accent">your avatar.</span>
               </h1>
-            ) : isAccess ? (
-              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
-                How should AppBlips <span className="onboarding-title-accent">get its AI?</span>
-              </h1>
-            ) : isPlan ? (
-              <PlanStepTitle titleRef={titleRef} access={access} planActive={planActive} />
             ) : (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
@@ -1043,10 +558,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <p>{isDesktop
                 ? 'Pick a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
                 : 'Pick a fun avatar for your chat messages.'}</p>
-            ) : isAccess ? (
-              <p>Bring your own AI key, let AppBlips run the AI with a monthly plan, or sign in if you already have an account. You can change this later in Settings.</p>
-            ) : isPlan ? (
-              <PlanStepText access={access} planActive={planActive} />
             ) : (
               <p>Connect through Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter. You can change this later in Settings.</p>
             )}
@@ -1061,10 +572,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 {...{ avatar, setAvatar, folder, folderStatus }}
                 onChooseFolder={chooseFolder}
               />
-            ) : isAccess ? (
-              <AccessForm formRef={formRef} onSubmit={continueFromAccess} {...{ access, setAccess }} onCompare={() => setCompareOpen(true)} />
-            ) : isPlan ? (
-              <PlanForm onReady={setPlanActive} onCheckout={beforeCheckout} newAccount={access === 'plan'} />
             ) : (
               <SetupForm
                 formRef={formRef}
@@ -1097,12 +604,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <button type="button" className="onboarding-next" onClick={next}>
                 Continue <ArrowRight size={18} />
               </button>
-            ) : isPlan ? (
-              planActive && (
-                <button type="button" className="onboarding-next" onClick={startWithPlan}>
-                  Start building <ArrowRight size={18} />
-                </button>
-              )
             ) : (
               <button
                 type="button"
@@ -1117,12 +618,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
           </div>
         </footer>
       </main>
-      {compareOpen && isAccess && (
-        <CompareModal
-          onClose={() => setCompareOpen(false)}
-          onChoose={(choice) => { setAccess(choice); setCompareOpen(false); }}
-        />
-      )}
     </div>
   );
 }

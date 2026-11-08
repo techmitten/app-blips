@@ -18,10 +18,6 @@ if (window.location.protocol === 'appblips:') {
     },
     app: {
       quit: call('desktop:app:quit'),
-      clearSignIns: call('desktop:app:clearSignIns'),
-    },
-    browser: {
-      input: call('desktop:browser:input'),
     },
     appData: {
       save: call('desktop:appData:save'),
@@ -47,17 +43,6 @@ if (window.location.protocol === 'appblips:') {
         const handler = (_event, state) => listener(state);
         ipcRenderer.on('desktop:update', handler);
         return () => ipcRenderer.removeListener('desktop:update', handler);
-      },
-    },
-    // Google/GitHub sign-in in the web browser (main.js startBrowserSignIn):
-    // start opens the page; onTicket gets the one-time Clerk sign-in ticket
-    // when the browser hands it back. Returns an unsubscribe function.
-    auth: {
-      start: call('desktop:auth:start'),
-      onTicket: (listener) => {
-        const handler = (_event, ticket) => listener(ticket);
-        ipcRenderer.on('desktop:auth:ticket', handler);
-        return () => ipcRenderer.removeListener('desktop:auth:ticket', handler);
       },
     },
     folder: {

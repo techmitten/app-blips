@@ -15,7 +15,7 @@ import { readFile, rm, stat } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { handleChatProxy, isForeignOrigin } from './server/chatProxy.js';
+import { handleChatProxy } from './server/chatProxy.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './server/staticFiles.js';
 import { describeConfig, formatConfigSummary } from './server/configSummary.js';
 import { resolveProvider } from './server/providers.js';
@@ -31,9 +31,6 @@ import { handleSeoScanApi } from './server/seoScanApi.js';
 import { resolveAddresses } from './server/dnsLookup.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
-import { executeBrowserInput } from './browserControls.js';
-import { allowClerkFromApp, browserSignInUrl, forwardToHosted, isHostedRequest, readSignInLink } from './hostedApi.js';
-import { randomBytes } from 'node:crypto';
 
 const SCHEME = 'appblips';
 const APP_ORIGIN = `${SCHEME}://app`;
@@ -195,23 +192,10 @@ async function handleAppRequest(request) {
   }
   if (url.host !== 'app') return new Response('Not found', { status: 404 });
   try {
-    // Plans (sign-in, checkout, plan AI) are answered by the Worker
-    // (hostedApi.js); own-key chat stays here. The forward rewrites Origin to
-    // the app's, so anything that isn't the app (a sandboxed preview frame
-    // sends Origin "null") is turned away first, as /api/chat does itself.
-    if (isHostedRequest(request, url.pathname)) {
-      if (isForeignOrigin(request, process.env)) {
-        return new Response(JSON.stringify({ error: 'Requests from other sites are not allowed.' }), {
-          status: 403,
-          headers: { ...SECURITY_HEADERS, 'Content-Type': 'application/json' },
-        });
-      }
-      return withSecurityHeaders(await forwardToHosted(request, url, APP_ORIGIN));
-    }
     switch (url.pathname) {
       case '/api/chat':
         if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env, { local: true }));
+        return withSecurityHeaders(await handleChatProxy(await withSavedProvider(request, providerStore), process.env));
       case '/api/surge':
       case '/api/surge/login':
       case '/api/surge/publish':
@@ -268,8 +252,6 @@ function handle(channel, fn) {
 const envProviderConfigured = () => !resolveProvider(process.env, 'APPBLIPS_LLM', { quiet: true }).error;
 
 function registerIpc() {
-  handle('desktop:browser:input', (args) => executeBrowserInput(mainWindow, args));
-  handle('desktop:auth:start', (provider) => startBrowserSignIn(provider));
   handle('desktop:projects:list', async () => ({
     projects: await projectStore.list(),
     orphanAppData: await projectStore.orphanAppData(),
@@ -337,16 +319,6 @@ function registerIpc() {
   });
 
   handle('desktop:app:quit', () => app.quit());
-  // Factory Reset: forget the AppBlips account sign-in even if Clerk's own
-  // sign-out couldn't reach its server. Its session lives in cookies for
-  // clerk.appblips.com in this session (the page's localStorage is cleared
-  // by the renderer), and a Google/GitHub sign-in still waiting for the
-  // browser must not sign the reset app back in.
-  handle('desktop:app:clearSignIns', async () => {
-    pendingSignIn = null;
-    await session.defaultSession.clearStorageData({ storages: ['cookies'] });
-    return true;
-  });
 }
 
 // ---- Windows & navigation -------------------------------------------------------
@@ -521,35 +493,7 @@ function buildMenu() {
 process.on('uncaughtExceptionMonitor', (err, origin) => console.error(`[main] ${origin}:`, err));
 process.on('unhandledRejection', (reason) => console.error('[main] Unhandled promise rejection:', reason));
 
-// ---- Google/GitHub sign-in through the browser (hostedApi.js) --------------
-// The app opens the browser sign-in page with a one-time random state and
-// accepts only the appblips://auth link that brings that state back, within
-// 15 minutes. Any other appblips:// link (a web page can open one) is
-// ignored, so no site can sign the app in to an account of its choosing.
-let pendingSignIn = null;
-const SIGN_IN_WAIT_MS = 15 * 60 * 1000;
-
-function startBrowserSignIn(provider) {
-  const state = randomBytes(32).toString('base64url');
-  pendingSignIn = { state, expires: Date.now() + SIGN_IN_WAIT_MS };
-  shell.openExternal(browserSignInUrl(state, provider));
-  return true;
-}
-
-function acceptSignInLink(argv) {
-  const link = readSignInLink(argv);
-  if (!link) return;
-  const pending = pendingSignIn;
-  if (!pending || pending.expires < Date.now() || link.state !== pending.state) {
-    console.warn('[desktop] ignored a sign-in link that this app did not ask for');
-    return;
-  }
-  pendingSignIn = null;
-  mainWindow?.webContents.send('desktop:auth:ticket', link.ticket);
-}
-
-app.on('second-instance', (_event, argv) => {
-  acceptSignInLink(argv);
+app.on('second-instance', () => {
   if (!mainWindow) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.focus();
@@ -605,12 +549,6 @@ app.whenReady().then(() => {
   });
 
   protocol.handle(SCHEME, handleAppRequest);
-  allowClerkFromApp(session.defaultSession, APP_ORIGIN);
-  // appblips:// links (the browser sign-in's way back) open this app. The
-  // Store package and the Linux .deb declare it in their manifests
-  // (electron-builder.yml protocols); this covers the rest. Only for the
-  // installed app: a dev run would point the OS at the bare Electron binary.
-  if (app.isPackaged && !process.windowsStore) app.setAsDefaultProtocolClient(SCHEME);
   registerIpc();
   buildMenu();
 

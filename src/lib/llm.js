@@ -11,12 +11,9 @@ import {
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
 import { trackRequest } from './tokenUsage';
-import { markAutomaticRepair, usageFields } from './usage';
-import { getAuthToken, hasAuthSession } from './authToken';
-import { reviewGeneratedCode, formatReviewReport } from './codeReview';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
-  MAX_RESEARCH_SEARCHES, formatWebResearch, isWebFetchCall, isWebToolCall, researchPage, startWebSearch,
+  MAX_RESEARCH_SEARCHES, formatWebResearch, isWebSearchCall, startWebSearch,
 } from './webSearch';
 import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
@@ -53,9 +50,6 @@ import {
   buildGameInitialGenerationPrompt,
   buildSyntaxRepairInstruction
 } from './prompts';
-
-// A signed-in plan user whose session couldn't be confirmed (llm requests).
-const SIGN_IN_PROBLEM = 'Could not confirm your AppBlips sign-in. Check your internet connection, then try again. If it keeps happening, sign out and sign in again.';
 
 // The studio's lowercase noun, used in prompts, labels and error copy. Games
 // ride the same single-file pipeline as apps -- only the prompts differ.
@@ -381,18 +375,9 @@ export const requestModelText = async ({
   // Feeds the live token counter; a retry is tracked as its own request.
   let usageTracker = null;
   try {
-    // Hosted AppBlips verifies this session; local/desktop use has none.
     const headers = {
       'Content-Type': 'application/json',
     };
-    const authToken = await getAuthToken();
-    if (authToken) {
-      headers.Authorization = `Bearer ${authToken}`;
-    } else if (hasAuthSession()) {
-      const err = new Error(SIGN_IN_PROBLEM);
-      err.isNonRetryable = true;
-      throw err;
-    }
 
     const bodyObj = {
       stream: !!onChunk,
@@ -410,9 +395,6 @@ export const requestModelText = async ({
     const maxTokens = loadOutputTokenLimit(askMode);
     if (maxTokens != null) bodyObj.max_tokens = maxTokens;
     if (askMode) bodyObj.ask = true;
-    // Hosted plans count usage per action, not per request (usage.js).
-    // Without a sign-in nothing is counted, so the fields stay off.
-    if (authToken) Object.assign(bodyObj, usageFields(signal));
 
     // The user's own provider rides along with the request, added only to the
     // wire copy so a typed key never lands in bodyObj. The Settings "Test
@@ -429,15 +411,7 @@ export const requestModelText = async ({
       signal
     });
     if (response.status === 401) {
-      // With a sign-in token the 401 is AppBlips refusing the session, not
-      // the person's AI provider refusing their key. A hosted server also
-      // says so to anyone not signed in (code sign_in_required).
-      const errData = await response.json().catch(() => null);
-      const err = new Error(authToken
-        ? SIGN_IN_PROBLEM
-        : errData?.code === 'sign_in_required'
-          ? 'Sign in to use AppBlips AI on this server.'
-          : 'The AI provider rejected the request. Check the provider and key in Settings → AI.');
+      const err = new Error('The AI provider rejected the request. Check the provider and key in Settings → AI.');
       err.isNonRetryable = true;
       throw err;
     }
@@ -448,9 +422,7 @@ export const requestModelText = async ({
       // balance, busy model, ...) and passes its reason along; only this
       // app's own limiter is "you're sending requests too quickly".
       const errData = await response.json().catch(() => null);
-      // A plan's usage limit or request ceiling (hosted/chat.js) carries its
-      // own message, with when building unlocks again.
-      const fromProvider = (errData?.source === 'provider' || ['build_cooldown', 'request_limit'].includes(errData?.code)) && typeof errData.error === 'string';
+      const fromProvider = errData?.source === 'provider' && typeof errData.error === 'string';
       const err = new Error(fromProvider
         ? errData.error
         : retryAfter
@@ -716,21 +688,17 @@ export const MAX_REFINEMENT_TURNS = 8;
 export const MAX_WEBSITE_REFINEMENT_TURNS = 14;
 // Before a new project's first build (one streamed reply with no tools), let
 // the model search the web for facts the request depends on, when the Tavily
-// connector is on or the user switched on plan web search for this prompt
-// (`web`, webSearch.js startWebSearch). Returns a WEB RESEARCH block for the
+// connector is on (`web`, webSearch.js startWebSearch). Returns a WEB RESEARCH block for the
 // build request, or '' when nothing was found. Failures leave the build to go
 // ahead without it.
 const MAX_RESEARCH_TURNS = 2;
-// Plan web search can also read pages: search, then read, then finish.
-const MAX_PLAN_RESEARCH_TURNS = 3;
 const researchForBuild = async ({ requestText, signal, onChunk, web }) => {
   const messages = [
     { role: 'system', content: web.researchPrompt },
     { role: 'user', content: `Request:\n${requestText}` },
   ];
   const found = [];
-  const maxTurns = web.kind === 'plan' ? MAX_PLAN_RESEARCH_TURNS : MAX_RESEARCH_TURNS;
-  for (let turn = 1; turn <= maxTurns && web.canCall(); turn++) {
+  for (let turn = 1; turn <= MAX_RESEARCH_TURNS && web.canCall(); turn++) {
     const message = await requestModelText({
       messages,
       tools: web.tools(),
@@ -748,8 +716,7 @@ const researchForBuild = async ({ requestText, signal, onChunk, web }) => {
       }
       if (onChunk) onChunk(describeToolCall(toolCall), 'status');
       const result = await web.execute(toolCall);
-      if (result.success && isWebFetchCall(toolCall)) found.push(researchPage(result));
-      else if (result.success) found.push({ query: result.query, results: result.results });
+      if (result.success) found.push({ query: result.query, results: result.results });
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
   }
@@ -758,15 +725,12 @@ const researchForBuild = async ({ requestText, signal, onChunk, web }) => {
 
 export const MAX_LINK_REPAIR_ATTEMPTS = 2;
 const MAX_WEB_SEARCH_TURNS = 3;
-// Plan web search allows more calls (searches plus page reads) per prompt.
-const MAX_PLAN_WEB_TURNS = 6;
 export const MAX_SYNTAX_REPAIR_ATTEMPTS = 2;
 export const MAX_EMPTY_GENERATION_RETRIES = 2;
 
 export const describeToolCall = (toolCall) => {
   const name = toolCall.function?.name;
   if (name === 'web_search') return 'Searching the web…';
-  if (name === 'web_fetch') return 'Reading a web page…';
   if (['list_sections', 'view_code', 'list_pages'].includes(name)) return 'Reviewing your build…';
   if (name === 'apply_surgical_edits') return 'Applying your changes…';
   if (name === 'create_page') return 'Adding a page…';
@@ -885,16 +849,8 @@ const generateAppCodeCore = async (
   // (click-to-edit's "Apply with AI" / right-click "Ask AI"): only these are
   // checked against My images. The quoted element names the picture already
   // on the page, which is not a request to use one.
-  galleryCheckPrompt = null,
-  // Plan web search switched on by the user for this prompt only: the
-  // allowance from /api/billing/me (planWeb.js) or null. The AI then gets
-  // web_search and web_fetch through AppBlips, each call charged to the plan.
-  planWebSearch = null
+  galleryCheckPrompt = null
 ) => {
-  if (isAutoFix) markAutomaticRepair(signal);
-  // One session for the whole prompt, so its search and page-read limits
-  // hold across the research step, Ask answers and the edit loop.
-  const planWeb = planWebSearch && !isAutoFix ? startWebSearch({ plan: planWebSearch, signal }) : null;
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
   // Every code-writing call (build, edits, syntax/link/auto-fix repairs)
@@ -929,7 +885,6 @@ const generateAppCodeCore = async (
             : 'You are a helpful coding assistant. The user has not built an app yet. Answer their question directly and concisely. Do NOT generate or output any HTML/app code — if they want an app built, tell them to switch to Build mode.')
           + buildAskConnectorNote(getActiveConnectors(), studioMode, routedFromBuild)
           + (getActiveGallery().length ? `\n\n${buildImageGalleryNote(getActiveGallery(), studioMode)}` : '')
-          + (planWeb ? `\n\n${planWeb.guidance}` : '')
       },
       ...chatHistory,
       {
@@ -941,34 +896,14 @@ const generateAppCodeCore = async (
       }
     ];
     const forward = routedFromBuild ? asRoutedAnswerChunks(onChunk) : onChunk;
-    let rawText = '';
-    // Plan web search (switched on for this prompt) can take a few more turns:
-    // searches, then page reads, then the answer.
-    const askTurns = planWeb ? 4 + MAX_PLAN_WEB_TURNS : 4;
-    for (let turn = 1; turn <= askTurns; turn++) {
-      const askTools = planWeb ? planWeb.tools() : [];
-      const last = turn === askTurns || !askTools.length;
-      const message = await requestModelText({
-        messages,
-        tools: last ? undefined : askTools,
-        onChunk: forward,
-        signal,
-        reasoningEffort: CHAT_REASONING_EFFORT,
-        askMode: true
-      });
-      if (!message.tool_calls?.length) {
-        rawText = String(message.content || message || '').trim();
-        break;
-      }
-      messages.push(assistantTurn(message));
-      for (const toolCall of message.tool_calls) {
-        if (onChunk) onChunk(describeToolCall(toolCall), 'status');
-        const outcome = planWeb?.isCall(toolCall)
-          ? { result: await planWeb.execute(toolCall) }
-          : { result: { success: false, error: 'Tool not available in Ask mode.' } };
-        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(outcome.result) });
-      }
-    }
+    const message = await requestModelText({
+      messages,
+      onChunk: forward,
+      signal,
+      reasoningEffort: CHAT_REASONING_EFFORT,
+      askMode: true
+    });
+    const rawText = String(message.content || message || '').trim();
     return {
       code: currentCode || '',
       editMode: 'ask',
@@ -1078,7 +1013,7 @@ const generateAppCodeCore = async (
 
   if (!currentCode) {
     let research = '';
-    const researchWeb = isAutoFix ? null : planWeb || startWebSearch({ searches: MAX_RESEARCH_SEARCHES });
+    const researchWeb = isAutoFix ? null : startWebSearch({ searches: MAX_RESEARCH_SEARCHES });
     if (researchWeb) {
       try {
         research = await researchForBuild({
@@ -1232,9 +1167,8 @@ const generateAppCodeCore = async (
     return msg;
   });
 
-  // With the Tavily connector on, or plan web search switched on for this
-  // prompt, the model can also search the web.
-  const webSearch = planWeb || startWebSearch();
+  // With the Tavily connector on, the model can also search the web.
+  const webSearch = startWebSearch();
   const systemPrompt = buildHtmlSystemPrompt(studioMode, getActiveConnectors());
   const fullSystemPrompt = [systemPrompt, webSearch?.guidance].filter(Boolean).join('\n\n');
   const messages = [
@@ -1355,7 +1289,7 @@ const generateAppCodeCore = async (
       }
 
       if (onChunk) onChunk(describeToolCall(toolCall), 'status');
-      if (isWebToolCall(toolCall)) {
+      if (isWebSearchCall(toolCall)) {
         const result = webSearch?.isCall(toolCall)
           ? await webSearch.execute(toolCall)
           : { success: false, error: 'Web search is not available.' };
@@ -1368,8 +1302,7 @@ const generateAppCodeCore = async (
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
     reportChangedPages(onChunk, turnStartFiles, workingFiles);
-    const webTurns = webSearch?.kind === 'plan' ? MAX_PLAN_WEB_TURNS : MAX_WEB_SEARCH_TURNS;
-    if (message.tool_calls.every(isWebToolCall) && turnLimit < maxTurns + webTurns) turnLimit++;
+    if (message.tool_calls.every(isWebSearchCall) && turnLimit < maxTurns + MAX_WEB_SEARCH_TURNS) turnLimit++;
 
     // After every edit-applying turn, parse the working code; if it no longer
     // parses, inject the errors as corrective context and let the model fix
@@ -1504,8 +1437,7 @@ SETUP STEPS: if the changes leave something only the user can supply before part
 
 // A few next prompts for the finished build (Settings → AI → Suggested
 // prompts). It runs alongside the completion reply with the build's signal, so
-// it adds no waiting and, on a hosted plan, rides on the build's usage id
-// rather than counting as a use of its own. Suggestions are a nicety: any
+// it adds no waiting. Suggestions are a nicety: any
 // failure returns [] and the build is unaffected.
 export const generatePromptSuggestions = async ({ prompt, studioMode, files, chatHistory = [], signal }) => {
   const noun = studioNoun(studioMode);
@@ -1631,45 +1563,4 @@ const generateAppCodeWithSummary = async (...args) => {
     result.reply = `${result.reply || ''}\n\n${note}`.trim();
   }
   return result;
-};
-
-// The review is a separate, opt-in step (see "Review" in Settings):
-// it can take dozens of model calls, so builds don't run it on their own. It
-// only inspects and reports; when it finds problems, `mission` is the request
-// App sends to a normal build in a fresh chat if the user accepts the fix, so
-// the fix starts with nothing but the report and the code.
-// `fixCheck` is a review of the build an earlier review's report started. Its
-// request is that report, so the reviewer's summary talks about "the fix";
-// a plain "found no problems" before it read as if nothing had been wrong.
-export const reviewBuild = async ({ files, previousFiles = {}, prompt, chatHistory = [], studioMode = 'app',
-  layoutTarget = 'both', signal, onChunk, browser = null, fixCheck = false, screenshots = true, brokenFunction = false }) => {
-  // The cited screenshots come back beside the review: the caller stores
-  // them as files, since qualityReview is saved with the version.
-  const { photos = {}, ...review } = await reviewGeneratedCode({
-    files, previousFiles, prompt, chatHistory, onChunk, layoutTarget, signal, studioMode,
-    requestModelText, browser, connectors: getActiveConnectors(), screenshots, brokenFunction,
-  });
-  const noun = studioNoun(studioMode);
-  const checked = browser ? 'reviewed and tested' : 'reviewed';
-  const subject = fixCheck ? 'the fixes' : `the ${noun}`;
-  const report = formatReviewReport(review);
-  const mission = review.problems.length
-    ? `Fix the problems a review found in this ${noun}. Change only what these fixes need and keep everything else working as it is.\n\nReview report:\n\n${report}`
-    : null;
-  const reply = mission
-    ? `I ${checked} ${subject} and found ${review.problems.length === 1 ? 'one problem' : `${review.problems.length} problems`}${fixCheck ? ' still to fix' : ''}.\n\n${report}`
-    : review.warning
-      ? `I ${checked} ${subject} but couldn't finish: ${review.warning}${review.summary ? `\n\n${review.summary}` : ''}`
-      : `${fixCheck ? `I ${checked} the fixes and the ${noun} works now.` : `I ${checked} the ${noun} and found no problems.`}${review.summary ? ` ${review.summary}` : ''}`;
-  // A review can quietly end up without seeing the page at all (a text-only
-  // model rejects the image), so the user is told what it looked at.
-  const shots = review.screenshotsTaken;
-  // Screenshots are taken only to check a suspected problem, so none is normal.
-  const notes = !browser || !screenshots ? ''
-    : review.screenshotsOff
-      ? 'Screenshots didn\'t work with this AI model, so I checked the page\'s text and layout without seeing it.'
-      : shots
-        ? `I took ${shots === 1 ? 'one screenshot' : `${shots} screenshots`} to check what I found.`
-        : 'Nothing I found needed a screenshot, so I checked the page\'s text and layout without one.';
-  return { qualityReview: review, photos, report, mission, reply: notes ? `${reply}\n\n${notes}` : reply };
 };

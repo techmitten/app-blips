@@ -6,8 +6,7 @@
 </p>
 
 <p align="center">
-  <strong>The simple way to turn an idea into a working app or website.</strong><br />
-  Describe what you want in plain English, watch it get built in seconds, and use it right away.
+  <strong>Turn plain-English prompts into working apps, games, and websites in seconds.</strong>
 </p>
 
 <p align="center">
@@ -17,7 +16,6 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
-  <a href="https://docs.appblips.com/"><img alt="Docs" src="https://img.shields.io/badge/docs-docs.appblips.com-080808"></a>
   <a href="https://github.com/techmitten/app-blips/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/techmitten/app-blips?style=flat&color=yellow"></a>
   <a href="https://discord.gg/a7QfqbvaF9"><img alt="Discord" src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white"></a>
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white">
@@ -26,10 +24,9 @@
 </p>
 
 <p align="center">
-  <a href="https://docs.appblips.com/">Documentation</a> ·
   <a href="https://github.com/TechMitten/app-blips/releases">Download</a> ·
   <a href="https://discord.gg/a7QfqbvaF9">Discord</a> ·
-  <a href="#disclaimer">Disclaimer</a> ·
+  <a href="#security--privacy">Security & Privacy</a> ·
   <a href="#license">License</a>
 </p>
 
@@ -37,95 +34,54 @@
 
 https://github.com/user-attachments/assets/58e2c34c-e469-4f2c-886b-7a163c0dea6f
 
+**AppBlips** lets anyone build functional apps, websites, and 2D games from natural-language descriptions—no coding required, with full code access when you want it.
 
-**AppBlips is built for everyone.** Whether you've never written a line of code or you ship production apps every day, AppBlips turns plain-English prompts into working apps, games, and websites in seconds. 
-
-It runs locally on your machine—bring your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter). No mandatory accounts, no cloud lock-in, and the generated code is always yours to inspect, export, or host anywhere.
+Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter) or sign in to an optional AppBlips plan. There is no vendor lock-in: the generated code is always yours to inspect, edit, export, or host anywhere.
 
 ## Three Studios, One Workflow
 
-Every studio shares the same fast loop: **Prompt → Live Preview → Version History → Export/Publish**.
+Every studio follows the same fast loop: **Prompt → Live Preview → Version History → Export/Publish**.
 
 | Studio | Best For | Under the Hood |
 | :--- | :--- | :--- |
-| **App Studio** | Interactive tools, utilities, and dashboards | JavaScript-driven, persists data in the browser, defaults to mobile preview. |
-| **Website Studio** | Landing pages, portfolios, business sites, and blogs | Full website anatomy with Swiper, GSAP, or Leaflet. Supports both AI edits and direct click-to-edit. |
-| **Game Studio** | Playable 2D browser games with touch & keyboard controls | Raw Canvas 2D for simple arcade games or Phaser 3 (via CDN) for physics, sprites, and tilemaps. |
+| **App Studio** | Interactive tools, utilities, and dashboards | React & JavaScript with local browser storage; defaults to a mobile preview. |
+| **Website Studio** | Landing pages, portfolios, business sites, and blogs | Multi-section sites with Swiper, GSAP, or Leaflet. Supports AI prompts and direct visual editing. |
+| **Game Studio** | Playable 2D browser games with touch & keyboard controls | HTML5 Canvas 2D for simple arcade games, or Phaser 3 for physics, sprites, and tilemaps. |
 
 ## Key Features
 
 ### Creation & Editing
-- **Instant Live Preview** — Watch your app, game, or website render right next to your prompt in a safely sandboxed view, with mobile/desktop toggles and zoom controls.
-- **Click-to-Edit & Chat Refinements** — Click text, images, and links directly in Website Studio to make quick changes (drag a box or Shift+click to select several at once, or right-click to ask the AI for a change right there, add text or an image, or cut, copy, paste, duplicate, move or delete), or ask the AI in plain English for deeper structural tweaks.
-- **Project Image Gallery ("My Images", beta)** — Upload your own photos and logos from Settings → Tools → My images (or search free Pixabay stock photos with your own Pixabay key and add the ones you pick) and tell the AI how to use them (e.g., *"put team-photo in the hero"*). Reference screenshots are also supported.
-- **Local Voice Input** — Speak your prompts using the built-in microphone. Powered by a bundled Whisper model running locally on your hardware—zero audio is uploaded.
-- **Built-in Code Editor** — Open the **Code** tab, click **Edit** and change the code yourself, with syntax colours and autocomplete (word suggestions worked out on your computer, never by the AI; on by default, switch off in **Settings → Workspace → Code autocomplete**). Each save becomes a new version you can undo, and an error in your own edit is reported, not silently rewritten by the AI.
-- **Automatic Versioning** — Every generation and edit is saved as a snapshot you can undo/redo at any time.
+- **Instant Live Preview** — Watch your project render in a sandboxed view with desktop/mobile toggles and zoom controls.
+- **Visual Click-to-Edit** — Select elements directly in Website Studio to edit text, swap images, update links, or trigger targeted AI refinements from the context menu.
+- **Built-in Code Editor** — Inspect and edit code directly with syntax highlighting and local autocomplete. Manual edits are saved as new versions, and syntax errors are reported without being silently overwritten by the AI.
+- **Project Image Gallery ("My Images")** — Upload your own assets or pull free stock photos via Pixabay, then reference them in your prompts (e.g., *"use team-photo in the hero section"*).
+- **Local Voice Input** — Dictate prompts using a bundled Whisper model that runs entirely on your device—no audio ever leaves your machine.
+- **Automatic Versioning** — Every generation and manual edit is saved as a snapshot that you can undo or restore at any time.
 
 ### AI & Integrations
-- **Bring Your Own Key** — Connect your own API key from Anthropic, OpenAI, Gemini, DeepSeek or OpenRouter, and check it with **Test connection** before saving. **Reasoning** offers exactly the levels your model supports. AppBlips itself is free; your provider bills you for what you use.
-- **One-Click Extensions** — Wire up Web3Forms (contact emails), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI image generation & chat), Pixabay (free stock photos for My images), or Tavily (lets the AI search the web while it builds, with your own Tavily key) via **Settings → Extensions**. The built-in **SEO** tool (**Settings → Tools**) needs no account: answer a few friendly questions and the AI adds professional search-engine optimization, plus a sitemap and robots file when you export or publish.
+- **Bring Your Own Key (or Use a Plan)** — Connect an API key from Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter with configurable model reasoning levels, or use a managed AppBlips plan on desktop.
+- **One-Click Extensions** — Easily integrate Web3Forms (contact forms), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI media & chat), Pixabay (stock photos), and Tavily (live web search for the AI).
+- **Built-in SEO** — Answer a few quick questions in **Settings → Tools** to automatically generate SEO metadata, a `sitemap.xml`, and a `robots.txt` on export or publish.
 
-### Sharing & Hosting
-- **Single-File HTML Export** — Download any generated project as a self-contained HTML file ready to share or host anywhere. React apps from the App Studio can instead download as a Vite project: the one download button asks which you want.
-- **Import a Site** — Bring in a site someone already made: a single HTML file, a `.zip` of a plain HTML/CSS/JS website (opens in the Website Studio, with its pictures in My images), or a React + Vite project.
-- **One-Click Web Publishing** — Push your project live to a free `*.surge.sh` HTTPS address (with optional custom favicon, an optional prompt that lets visitors install the site as an app, and an optional password that keeps your code encrypted until a visitor unlocks it) directly from the preview toolbar.
-- **Built-in SEO** — Turn on SEO for a project in **Settings → Tools**, answer a few plain questions, and the AI adds search-engine optimization, plus a sitemap and robots file when you export or publish.
-- **Built-in Showcase** — Click **See what others built** on the studio picker to browse community websites and games directly inside the app (even offline), and submit your own published creations.
-
-<details>
-<summary><strong>🎉 What's New in v0.1.26 (Click to expand)</strong></summary>
-<br />
-
-### v0.1.26
-
-**New**
-- **AppBlips plans:** sign in with email, Google or GitHub and let AppBlips run the AI for you, with no API key needed. Using your own key still works exactly as before, and nothing is required if you prefer that.
-- **Account tab:** **Settings → Account** shows your plan and build usage, and lets you change your password, manage your sign-ins, cancel your plan or delete your account.
-- **Account menu:** once signed in, an account button appears on the studio picker and in the workspace header.
-
-**Improved**
-- **Fairer usage:** a build is counted once per prompt, and Ask mode and automatic fixes are free.
-- **Safer by default:** automatic error repairs are limited per prompt, saves survive a failed folder rename, and storage problems are shown instead of ignored.
-- **Desktop:** AppBlips asks before quitting during a build, and plan sign-in stays active.
-- **Imported sites:** the AI keeps to your project's own files, and your project folder is never written through shortcuts to other places.
-
-**Look and feel**
-- A shorter, smoother splash video that also plays on first launch.
-
-### v0.1.25
-
-**New**
-- **Install a published site as an app:** tick **Prompt visitors to install as an app** in **Publish** and visitors can add your site to their phone or computer.
-- **Test connection:** first-run setup lets you check your provider, key and model before saving.
-- **Reasoning levels:** **Settings → AI → Reasoning** offers the levels your model supports, and the build progress shows a **Reasoning** step.
-- **Settings → Tools:** SEO and My images have their own tab, and SEO is switched on per project.
-
-**Improved**
-- **Tidier Settings:** AI provider, key and model are at the top of **Settings → AI**; legal links and licenses are in **Settings → About**; **Connectors** is now **Extensions**.
-- **No provider is picked for you**, and your saved API key stays hidden (AppBlips asks before you replace it).
-- **Code Review is now Review.**
-- **LM Studio and Ollama removed:** AppBlips works with Anthropic, OpenAI, Gemini, DeepSeek and OpenRouter.
-
-**Look and feel**
-- A redesigned studio picker with a live preview beside the list, a phone-friendly menu, and **Showcase** renamed **Explore**.
-
-*For older releases, see the [full changelog](https://docs.appblips.com/changelog) or [GitHub Releases](https://github.com/TechMitten/app-blips/releases).*
-</details>
+### Import, Export & Publishing
+- **Flexible Export** — Download any project as a self-contained HTML file, or export App Studio projects as a full React + Vite codebase.
+- **Project Import** — Import an existing single-file HTML page, a `.zip` archive of an HTML/CSS/JS site, or a React + Vite project.
+- **One-Click Web Publishing** — Deploy directly to a free `*.surge.sh` HTTPS domain with optional password protection, custom favicons, and PWA install prompts.
+- **Community Explore** — Browse community-built websites and games inside the app and submit your own creations.
 
 ---
 
 ## Quick Start
 
-### 1. Desktop App (Windows & Linux)
-- **Windows:** Install from the **[Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** (signed by Microsoft with automatic updates).
-- **Linux:** Download the latest `.AppImage` (any distro) or `.deb` (Debian/Ubuntu) from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**. Debian/Ubuntu users can also add the [AppBlips package source](https://docs.appblips.com/quickstart-desktop) to update with `sudo apt upgrade`. *(For AppImage: right-click → Properties → allow executing as a program).*
-- **macOS:** Install with one click through **[Pinokio](https://pinokio.co/apps/github-com-techmitten-app-blips-pinokio)**, then click **Install**, **Start** and **Open AppBlips** in Pinokio. It runs the browser version with your own API key (plans are in the Windows and Linux desktop app only). You can also use Docker or run from source below.
+### 1. Desktop App (Windows, Linux, macOS)
+- **Windows:** Install from the **[Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** (includes automatic updates).
+- **Linux:** Download the `.AppImage` or `.deb` package from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**.
+- **macOS:** Install via **[Pinokio](https://pinokio.co/apps/github-com-techmitten-app-blips-pinokio)** to run the local browser edition with your own API key, or use Docker / source below.
 
-> **First run:** Choose where to save your projects, then paste an API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter). Keys are encrypted using your OS system keychain.
+> **First run:** Pick a folder for your projects, then either enter an API key (encrypted via your OS keychain) or sign in to an AppBlips plan.
 
 ### 2. Docker (All Platforms)
-With [Docker Compose v2](https://docs.docker.com/get-docker/) installed, run from the project root:
+With [Docker Compose v2](https://docs.docker.com/get-docker/) installed, run:
 
 ```bash
 docker compose up -d
@@ -133,28 +89,19 @@ docker compose up -d
 
 Open [http://localhost:3000](http://localhost:3000). Stop with `docker compose down`, or update with `git pull && docker compose up -d --build`.
 
-### 3. Run from Source (Windows, macOS, Linux)
+### 3. Run from Source
 Requires [Node.js](https://nodejs.org/) 22.12 LTS or newer.
 
 ```bash
-git clone [https://github.com/techmitten/app-blips.git](https://github.com/techmitten/app-blips.git)
+git clone https://github.com/techmitten/app-blips.git
 cd app-blips
 npm install
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000). 
-- **Want the Electron desktop app?** Run `npm run desktop` (dev) or `npm run desktop:dist` to build installers into `dist-desktop/`.
-- **Optional `.env` setup:** Copy `.env.example` to `.env` to pre-configure providers or server settings. See the [Configuration Reference](https://docs.appblips.com/self-hosting/configuration).
-
----
-
-## Documentation
-
-Full guides and references live at **[docs.appblips.com](https://docs.appblips.com/)**:
-
-- **[Introduction](https://docs.appblips.com/introduction)** · **[Desktop Quickstart](https://docs.appblips.com/quickstart-desktop)** · **[Run from Source](https://docs.appblips.com/quickstart-source)** · **[Docker Guide](https://docs.appblips.com/self-hosting/docker)**
-- **[Studio Feature Guides](https://docs.appblips.com/features/building-apps)** · **[Publishing to Surge](https://docs.appblips.com/features/publishing)** · **[Community Showcase](https://docs.appblips.com/features/showcase)**
+Open [http://localhost:3000](http://localhost:3000).
+- **Desktop development:** Run `npm run desktop` for development, or `npm run desktop:dist` to build installers in `dist-desktop/`.
+- **Configuration:** Copy `.env.example` to `.env` to customize server or provider settings.
 
 ---
 
@@ -162,17 +109,15 @@ Full guides and references live at **[docs.appblips.com](https://docs.appblips.c
 
 ```text
 src/
-  App.jsx            # Workspace/generation state, undo-redo, composition root
-  previewBridge.js   # Script injected into generated apps to bridge the sandboxed iframe
-  lib/               # Framework-free logic: LLM calls, surgical edits, prompts...
-  hooks/             # Stateful concerns: projects, preview viewport, theme...
-  components/        # Presentational UI: Header, BuildPanel, PreviewPane, modals...
-electron/            # Desktop app: main process, preload, on-disk project store,
-                     # encrypted provider settings, and the in-process /api/chat handler
-server.js            # Browser version (npm start, Docker): serves dist/ and /api/chat
-Dockerfile           # Container image for the browser version (docker-compose.yml)
-testing/             # Standalone Node scripts for exercising the proxy and preview
-scripts/             # Build helpers, including fetch-whisper-model.js for voice input
+  App.jsx            # Workspace state, undo/redo history, and composition root
+  previewBridge.js   # Script injected into generated apps to communicate with the sandboxed iframe
+  lib/               # Core logic: LLM requests, surgical code edits, prompts, and helpers
+  hooks/             # React hooks for project state, preview viewport, image gallery, and themes
+  components/        # UI components: Header, BuildPanel, PreviewPane, and modals
+electron/            # Desktop app: main process, preload, disk storage, and in-process API routes
+server.js            # Web server (npm start / Docker): serves dist/ and /api/* endpoints
+testing/             # Standalone Node test scripts for backend routes and preview logic
+scripts/             # Build scripts, including Whisper model fetching
 ```
 
 <details>
@@ -181,31 +126,11 @@ scripts/             # Build helpers, including fetch-whisper-model.js for voice
 
 For a complete architectural walkthrough (generation flow, preview sandboxing, and LLM proxy internals), see [`CLAUDE.md`](CLAUDE.md).
 
-#### Voice Input (Whisper)
-- **Model & Runtime:** Uses an 8-bit quantized ONNX conversion of OpenAI's multilingual `whisper-base` (~76 MB) via `@huggingface/transformers` (WASM backend) inside a dedicated Web Worker (`src/lib/whisperWorker.js`).
-- **Offline Bundling:** `scripts/fetch-whisper-model.js` pulls pinned model files into `public/whisper/` during build/dev and verifies SHA-256 hashes. No external network calls occur at runtime.
-- **Permissions:** `electron/main.js` restricts `media` audio permissions strictly to the top-level app UI—never the sandboxed preview iframe, and never the camera.
-- **Test:** `node testing/testVoiceInput.mjs` (after `npm run build`).
-
-#### Publishing with Surge
-- **Flow:** Compiles JSX, injects loop protection, strips the preview bridge, bundles referenced Pollinations/gallery images under `images/` plus `favicon.png` (`src/lib/favicon.js`), and uploads a gzipped tarball to Surge via `electron/server/surgeApi.js`.
-- **Auth Storage:** Passwords are never saved. The returned Surge token is encrypted in the system keychain on desktop (`electron/surgeStore.js`) or saved with `0600` permissions in `surge-token.json` for browser/Docker builds.
-- **Test:** `node testing/testSurgeApi.js` (offline; Surge is stubbed).
-
-#### My Images (Project Gallery)
-- **Storage & References:** Image bytes live in a content-addressed blob store (`blobs/` on desktop, IndexedDB in browser), while project metadata tracks `[{ hash, name, type, width, height, size, note }]`.
-- **Privacy & Export:** The AI only receives image file paths, dimensions, and user notes (`buildImageGalleryNote` in `src/lib/prompts.js`)—never raw pixels. At render time, `images/<name>` swaps to `appblips://assets` or `data:` URLs, and bundles cleanly on export/publish.
-- **Test:** `node testing/testGalleryImages.js`.
-
-#### Pollinations Extension
-- **Integration:** Uses Pollinations' device flow (`electron/server/pollinationsApi.js`). Keyless `gen.pollinations.ai` URLs are resolved server-side after build into public `media.pollinations.ai` assets and bundled on export.
-- **In-App AI:** Injects `window.Pollinations` (`chat`, `image`, `mountConnect`) via `src/lib/pollinationsHelper.js`. Supports visitor-paid device flow (default) or a budget-capped site key.
-- **Test:** `node testing/testPollinations.js` (offline; stubbed).
-
-#### Pixabay Extension
-- **Integration:** The user's own Pixabay API key is checked and stored server-side (`electron/server/pixabayApi.js`; OS keychain on desktop, `pixabay-key.json` in the browser version). The page only sees its last four characters. Search results are sanitized and cached for 24 hours, as Pixabay's API terms ask.
-- **Flow:** Picked photos are downloaded by id through the server (never by URL) and added to the project's My images via `useImageGallery`'s `addFiles`, with a note built from their tags. The AI never calls Pixabay.
-- **Test:** `node testing/testPixabayApi.js` (offline; stubbed).
+- **Voice Input (`src/lib/whisperWorker.js`):** Runs an 8-bit quantized `whisper-base` ONNX model (~76 MB) in a Web Worker via `@huggingface/transformers`. Model weights are fetched and SHA-256 verified at build time by `scripts/fetch-whisper-model.js` for completely offline runtime execution. Test with `node testing/testVoiceInput.mjs`.
+- **Surge Publishing (`electron/server/surgeApi.js`):** Compiles JSX, adds loop protection, strips the preview bridge, bundles local gallery/Pollinations images and favicons, and uploads a tarball to Surge. Tokens are stored in the OS keychain (desktop) or `surge-token.json` (`0600` permissions on web/Docker). Test with `node testing/testSurgeApi.js`.
+- **My Images (`src/lib/prompts.js`):** Stores image blobs by content hash (`blobs/` on disk or IndexedDB in the browser). Only filenames, dimensions, and notes are sent to the LLM—never raw image data. Test with `node testing/testGalleryImages.js`.
+- **Pollinations (`electron/server/pollinationsApi.js`):** Resolves generated media URLs server-side and injects `window.Pollinations` (`chat`, `image`, `mountConnect`) into apps for visitor-paid or budget-capped AI features. Test with `node testing/testPollinations.js`.
+- **Pixabay (`electron/server/pixabayApi.js`):** Keeps the user's API key server-side, caches sanitized search results for 24 hours, and downloads selected images by ID directly into the project gallery. Test with `node testing/testPixabayApi.js`.
 
 </details>
 
@@ -213,19 +138,11 @@ For a complete architectural walkthrough (generation flow, preview sandboxing, a
 
 ## Security & Privacy
 
-- **Strict Sandboxing:** Generated apps run inside a sandboxed iframe (`sandbox` without `allow-same-origin`) using an opaque origin, isolating them completely from the parent app.
-- **Local-First Keys:** The desktop app opens zero network ports and encrypts API keys in your OS keychain. The browser/Docker server binds strictly to `127.0.0.1` (`localhost`) and stores keys on disk (`~/.appblips` or `appblips-data` volume with restricted permissions)—never in browser storage.
-- **Opt-In Cloud Services:** Nothing leaves your machine unless you connect an external provider, sign in to an AppBlips plan, or explicitly click **Publish** to upload static files to Surge.
-- **Plans stay separate from your key:** on a self-hosted server with accounts turned on, only signed-in subscribers can build, on the server's own AI provider; own keys are for local installs and the desktop app, where they never leave your computer.
-
-## Disclaimer
-
-AppBlips is a tool. The apps, websites, games and other content it produces are generated by the AI provider you choose, from your prompts, and **you are solely responsible for that output and for how you use, publish or share it.** AI output can be inaccurate, insecure or infringe someone else's rights, so review and test anything you build before you rely on it or put it in front of other people.
-
-Using AppBlips to create, publish or distribute anything unlawful, or to infringe the rights of others, is prohibited by the [AppBlips Terms of Service](https://www.appblips.com/terms). You must also follow the terms of your AI provider and of any service you connect or publish to, such as [Surge](https://surge.sh/terms).
-
-AppBlips is provided "as is", without warranty of any kind, as set out in the [MIT License](LICENSE).
+- **Strict Sandboxing:** Generated projects run inside a sandboxed iframe (`sandbox` without `allow-same-origin`), isolating them from the host application.
+- **Local-First Credentials:** The desktop app opens no network ports and encrypts API keys in your OS keychain. The web/Docker server binds exclusively to `127.0.0.1` and stores keys on disk with restricted permissions—never in browser storage.
+- **Opt-In Network Access:** No project data leaves your machine unless you send a prompt to your configured AI provider or explicitly publish your site.
+- **Key & Plan Separation:** Your personal API keys are only ever used on your local machine; self-hosted servers with accounts enabled use the server's configured provider exclusively for signed-in subscribers.
 
 ## License
 
-Licensed under the [MIT License](LICENSE). Third-party open-source licenses are available inside the app under **Settings → About → Licenses**.
+Licensed under the [MIT License](LICENSE). Third-party open-source licenses are available in the app under **Settings → About → Licenses**.

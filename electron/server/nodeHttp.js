@@ -78,11 +78,6 @@ export async function toFetchRequest(req, res = null) {
     headers: {
       ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
       ...(req.headers.origin ? { origin: req.headers.origin } : {}),
-      ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
-      // Polar's webhook signature (Standard Webhooks).
-      ...Object.fromEntries(['webhook-id', 'webhook-timestamp', 'webhook-signature']
-        .filter((name) => req.headers[name])
-        .map((name) => [name, req.headers[name]])),
     },
     ...(hasBody ? { body } : {}),
     signal: clientSignal(res),

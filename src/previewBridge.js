@@ -2,7 +2,6 @@ import { injectLoopProtection } from './lib/loopProtection.js';
 import { compileJsxScripts } from './lib/jsxCompile.js';
 import { injectPollinationsHelper } from './lib/pollinationsHelper.js';
 import { sourceFingerprint, stampSourcePositions } from './lib/sourcePositions.js';
-import { BROWSER_RUNTIME_SOURCE } from './lib/browserRuntime.js';
 import { rewriteGalleryRefs } from './lib/galleryImages.js';
 
 /**
@@ -81,7 +80,6 @@ const BRIDGE_SOURCE = `(function () {
   var PROJECT_MODE = __ORION_PROJECT_MODE__;
   var CHANNEL = '${BRIDGE_CHANNEL}';
   var VERSION = ${BRIDGE_PROTOCOL_VERSION};
-  ${BROWSER_RUNTIME_SOURCE}
 
   // Chromium refuses declarative autofocus in this deliberately opaque,
   // cross-origin preview frame and logs a warning for every generated input.
@@ -3009,14 +3007,7 @@ const BRIDGE_SOURCE = `(function () {
     if (e.source !== parent) return;
     var d = e.data;
     if (!d || d.__orion !== CHANNEL || d.token !== TOKEN) return;
-    if (d.type === 'browser-action') {
-      try {
-        var browserResult = browserRuntime.act(d.payload || {});
-        post('browser-result', { requestId: d.payload.requestId, result: browserResult });
-      } catch (browserError) {
-        post('browser-result', { requestId: d.payload.requestId, error: String(browserError.message || browserError) });
-      }
-    } else if (d.type === 'configure') {
+    if (d.type === 'configure') {
       desiredEnabled = !!(d.payload && d.payload.enabled);
       sync();
     } else if (d.type === 'set-editing') {
@@ -3378,7 +3369,6 @@ const BRIDGE_SOURCE = `(function () {
     }
     lastReportedError = key;
     lastReportedTime = now;
-    browserRuntime.reportError(msg);
     post('runtime_error', { message: msg, line: line, col: col });
   }
 

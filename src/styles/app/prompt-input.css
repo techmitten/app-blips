@@ -302,25 +302,6 @@
   color: #ffffff;
 }
 
-/* Plan web search (the globe): lit while it's switched on for the next
-   prompt, like the toolbar's active toggles. */
-.chat-mode-option.prompt-web-search[aria-pressed="true"],
-:is(html.dark, .force-dark) .chat-mode-option.prompt-web-search[aria-pressed="true"] {
-  color: var(--color-brand);
-  background: rgb(from var(--color-accent) r g b / 0.12);
-  border-color: rgb(from var(--color-accent) r g b / 0.4);
-}
-
-:is(html.dark, .force-dark) .chat-mode-option.prompt-web-search[aria-pressed="true"] {
-  color: #ffffff;
-  background: rgb(from var(--color-accent) r g b / 0.28);
-}
-
-.prompt-web-search:focus-visible {
-  outline: 2px solid var(--color-indigo-500);
-  outline-offset: 2px;
-}
-
 /* Send mirrors light's filled key in negative: a white disc (the Publish
    key's fill) once there is something to send, a bare plane until then. */
 :is(html.dark, .force-dark) .prompt-input-send {

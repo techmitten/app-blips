@@ -10,10 +10,6 @@
 // `npm run dev`; the provider's API key is kept here instead (keyFile.js), so
 // the page never stores it.
 //
-// In hosted mode (below) it is a multi-user API instead, and the saved-key
-// routes are off: one key file for every visitor would let anyone spend, read
-// or replace the keys of whoever saved them.
-//
 // Only Node built-ins plus electron/server, so the Docker image ships it as
 // one bundled file (scripts/build-server.js) with no node_modules.
 import { createServer } from 'node:http';
@@ -34,12 +30,6 @@ import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
-import { handleBilling } from './electron/server/hosted/billing.js';
-import { gateChat, releaseBuild } from './electron/server/hosted/chat.js';
-import { handleWebTools } from './electron/server/hosted/webTools.js';
-import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js';
-import { isHosted } from './electron/server/hosted/mode.js';
-import { verifyClerkToken } from './electron/server/hosted/clerk.js';
 import { resolveAddresses } from './electron/server/dnsLookup.js';
 
 // A .env in the folder it starts from, when there is one. Docker passes its
@@ -64,14 +54,6 @@ const tavilyKeys = createKeyFile({ file: defaultKeyFile(process.env, 'tavily-key
 // saved, so no credential is left behind that nothing uses.
 rm(defaultKeyFile(process.env, 'credits-key.json'), { force: true }).catch(() => {});
 
-// Hosted mode turns this single-user server into a multi-user API: /api/chat
-// requires a Clerk session and an active plan, and picks the model by plan;
-// Polar takes the payments. It turns on by itself when the Clerk key and a
-// Polar token are set (mode.js), so a plain local install stays single-user.
-const hosted = isHosted(process.env);
-// The account store (plans, processed webhooks, sandbox ids) is always open.
-const store = openStore(defaultDatabasePath(process.env));
-
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });
   res.end(text);
@@ -79,23 +61,6 @@ const sendText = (res, status, text, headers = {}) => {
 const sendJson = (res, status, body) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'application/json' });
   res.end(JSON.stringify(body));
-};
-
-// The saved-key routes (Settings → AI, Publish, the key connectors) exist only
-// on a single-user install: hosted mode has accounts, and its AI is the plan's.
-const hostedOnly = (res) => {
-  if (!hosted) return false;
-  sendJson(res, 404, { error: 'Not available on this server: AppBlips runs the AI for plan users here.' });
-  return true;
-};
-
-// Hosted mode: a route that fetches on the caller's behalf needs a sign-in.
-const signedIn = async (request) => {
-  if (!hosted) return true;
-  const header = request.headers.get('authorization') || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-  if (!token) return false;
-  try { await verifyClerkToken(token, process.env); return true; } catch { return false; }
 };
 
 async function serveStatic(req, res) {
@@ -161,63 +126,21 @@ const server = createServer((req, res) => {
     else res.destroy();
   };
 
-  if (req.url === '/api/billing' || req.url.startsWith('/api/billing/') || req.url === '/api/webhooks/polar') {
-    if (!hosted) {
-      sendText(res, 404, 'Hosted billing is not enabled.');
-      return;
-    }
-    toFetchRequest(req, res)
-      .then((request) => handleBilling(request, process.env, store))
-      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[billing]'))
-      .catch(fail);
-    return;
-  }
-
-  // Plan web search (hosted/webTools.js): plan users only, so hosted only.
-  if (req.url === '/api/web' || req.url.startsWith('/api/web/')) {
-    if (!hosted) {
-      sendText(res, 404, 'Web search for plans is not enabled.');
-      return;
-    }
-    toFetchRequest(req, res)
-      .then((request) => handleWebTools(request, process.env, store))
-      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[web]'))
-      .catch(fail);
-    return;
-  }
-
   if (req.url === '/api/chat') {
     if (req.method !== 'POST') {
       sendText(res, 405, 'Method not allowed');
       return;
     }
     const handle = async () => {
-      let request = await toChatRequest(req, res);
-      let gated = null;
-      // Hosted: every request is a plan user's or is turned away by the gate
-      // (sign-in, active plan, usage). Single-user: the saved key rides along.
-      if (hosted) {
-        gated = await gateChat(request, process.env, store);
-        if (gated.response) {
-          sendWebResponse(res, gated.response, SECURITY_HEADERS, '[billing]');
-          return;
-        }
-        request = gated.request;
-      } else {
-        request = await withSavedProvider(request, keys);
-      }
-      const response = await handleChatProxy(request, process.env, { plan: Boolean(gated) });
-      // A rejected request didn't produce a build; don't charge for it.
-      if (gated && !response.ok) await releaseBuild(process.env, store, gated);
+      const request = await withSavedProvider(await toChatRequest(req, res), keys);
+      const response = await handleChatProxy(request, process.env);
       sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
     };
     handle().catch(fail);
     return;
   }
 
-
   if (req.url === '/api/provider' || req.url.startsWith('/api/provider/')) {
-    if (hostedOnly(res)) return;
     toFetchRequest(req, res)
       .then((request) => handleProviderApi(request, process.env, keys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -226,7 +149,6 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/surge' || req.url.startsWith('/api/surge/')) {
-    if (hostedOnly(res)) return;
     toFetchRequest(req, res)
       .then((request) => handleSurgeApi(request, process.env, surgeTokens))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -235,7 +157,6 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/pollinations' || req.url.startsWith('/api/pollinations/')) {
-    if (hostedOnly(res)) return;
     toFetchRequest(req, res)
       .then((request) => handlePollinationsApi(request, process.env, pollinationsKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -244,7 +165,6 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/pixabay' || req.url.startsWith('/api/pixabay/')) {
-    if (hostedOnly(res)) return;
     toFetchRequest(req, res)
       .then((request) => handlePixabayApi(request, process.env, pixabayKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -253,7 +173,6 @@ const server = createServer((req, res) => {
   }
 
   if (req.url === '/api/tavily' || req.url.startsWith('/api/tavily/')) {
-    if (hostedOnly(res)) return;
     toFetchRequest(req, res)
       .then((request) => handleTavilyApi(request, process.env, tavilyKeys))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
@@ -263,9 +182,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/seo/scan') {
     toFetchRequest(req, res)
-      .then(async (request) => (await signedIn(request)
-        ? handleSeoScanApi(request, process.env, { lookup: resolveAddresses })
-        : new Response(JSON.stringify({ error: 'Sign in to scan a site.', code: 'sign_in_required' }), { status: 401, headers: { 'content-type': 'application/json' } })))
+      .then((request) => handleSeoScanApi(request, process.env, { lookup: resolveAddresses }))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

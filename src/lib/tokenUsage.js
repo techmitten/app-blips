@@ -1,5 +1,5 @@
 // Token counts reported by the AI provider, summed per chat turn so the
-// transcript can show what a build, Ask or review cost. One turn makes many
+// transcript can show what a build or Ask cost. One turn makes many
 // AI requests (routing, refinement turns, repairs, the closing reply), all
 // through requestModelText, which tracks each one here (trackRequest).
 //

@@ -2,7 +2,6 @@
 // ../llm.js (tool calls against an in-memory copy, bounded turns) but with
 // codebase tools, and after every turn that changed files it runs a real
 // build check (the preview bundler) and feeds errors back for repair.
-import { markAutomaticRepair } from '../usage.js';
 import { asRoutedAnswerChunks, describeFileChanges, findSetupHints, generateChatReply, generateCompletionReply, isQuestionOnly, requestModelText } from '../llm.js';
 import { CODEBASE_READ_TOOLS, CODEBASE_TOOLS, describeCodebaseToolCall, executeCodebaseTool } from './tools.js';
 import { CODEBASE_ASK_PROMPT, CODEBASE_ROUTED_ASK_PROMPT, CODEBASE_SYSTEM_PROMPT, buildRepairInstruction, formatCodebaseContext } from './prompts.js';
@@ -51,12 +50,9 @@ const forwardChunks = (onChunk) => (chunk, kind) => {
 };
 
 // opts: { prompt, files, assets, meta, chatHistory, onChunk, signal, attachment,
-//   isAsk, isAutoFix, maxReadOnlyTurns, buildCheck(files, assets, { diagnostics }) -> Promise<{ errors }>,
-//   planWebSearch (plan web search switched on for this prompt: the allowance
-//   from /api/billing/me, or null) }
+//   isAsk, isAutoFix, maxReadOnlyTurns, buildCheck(files, assets, { diagnostics }) -> Promise<{ errors }> }
 // Returns { files, assets, editMode, editSummary, reply, buildErrors }.
 export async function generateCodebaseEdit(options) {
-  if (options.isAutoFix) markAutomaticRepair(options.signal);
   // A question typed in Build mode gets the read-only Ask loop instead of edits.
   const routedFromBuild = !options.isAsk && !options.isAutoFix
     && await isQuestionOnly({ prompt: options.prompt, chatHistory: options.chatHistory, signal: options.signal });
@@ -94,14 +90,11 @@ async function runCodebaseEdit({
   // Import preparation bounds reviewing before it requires an actual edit.
   // Ordinary editing and Ask mode keep their existing behavior.
   maxReadOnlyTurns = 0,
-  planWebSearch = null,
 }) {
   const status = (text) => onChunk?.(text, 'status');
   const context = formatCodebaseContext(files, assets, meta);
-  // Plan web search, switched on by the user for this prompt, works in Ask
-  // mode too; the Tavily connector only in edits.
-  const planWeb = planWebSearch && !isAutoFix ? startWebSearch({ plan: planWebSearch, signal }) : null;
-  const webSearch = planWeb || (!isAsk ? startWebSearch() : null);
+  // The Tavily connector's web search, in edits only.
+  const webSearch = !isAsk ? startWebSearch() : null;
   const basePrompt = isAsk ? (routedFromBuild ? CODEBASE_ROUTED_ASK_PROMPT : CODEBASE_ASK_PROMPT) : CODEBASE_SYSTEM_PROMPT;
   const systemPrompt = [basePrompt, webSearch?.guidance].filter(Boolean).join('\n\n');
   const messages = [

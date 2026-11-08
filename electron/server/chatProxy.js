@@ -13,18 +13,10 @@
 // Single-user hosts (the desktop app, Android, a local server.js) attach the
 // provider saved in Settings → AI themselves (withSavedProvider); the renderer
 // may also send its own `user_provider`. Anything else uses the env provider.
-//
-// Hosted mode (hosted/mode.js: a Clerk key and a Polar token are set) is plan
-// users only. The server's provider is spent only for a request that
-// hosted/chat.js gateChat let through (`plan: true`), and there is no
-// per-user key store, so a `user_provider` is refused there too. The desktop
-// and Android apps answer their own page and pass `local: true`: they stay
-// single-user whatever the process environment holds.
 
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
-import { isHosted } from './hosted/mode.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -128,8 +120,8 @@ export const smallerOutputLimit = (detail, current) => {
   return next >= MIN_RETRY_LIMIT ? next : null;
 };
 
-// A provider rejecting the user's own key must not reach the client as a 401,
-// which it reads as an expired AppBlips session.
+// A provider rejecting the user's own key is reported as a bad request that
+// names Settings → AI, not passed through as the provider's 401.
 const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} rejected the API key in Settings → AI.`);
 
 const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
@@ -139,13 +131,8 @@ const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
 // The configured model, or a role-specific one: OPENAI_LLM_VISION_MODEL for
 // requests carrying an image. Never applied to the user's own provider, whose
 // model is theirs to choose.
-const routeModel = (env, provider, payload, plan) => {
+const routeModel = (env, provider, payload) => {
   if (provider.userSupplied) return provider.model;
-  // The plan decides the model: gateChat sets this after checking the
-  // sign-in. Only honoured on a gated request, so a client can't pin a model.
-  if (plan && payload?.hosted_model_override) {
-    return String(payload.hosted_model_override);
-  }
   if (hasImageContent(payload.messages)) return llmEnv(env, 'VISION_MODEL') || provider.model;
   return provider.model;
 };
@@ -155,7 +142,7 @@ const routeModel = (env, provider, payload, plan) => {
 // answers holds the request open for good.
 export const UPSTREAM_CONNECT_MS = 120_000;
 
-export async function handleChatProxy(request, env, { plan = false, local = false, connectTimeoutMs = UPSTREAM_CONNECT_MS } = {}) {
+export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS } = {}) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -182,21 +169,12 @@ export async function handleChatProxy(request, env, { plan = false, local = fals
     return badRequest('The output token limit must be a positive whole number. Change it in Settings → AI.');
   }
 
-  // Hosted mode without the gate's say-so: no own key, no env provider. A
-  // host that forgot to gate can't spend the server's key by accident.
-  if (!local && !plan && isHosted(env)) {
-    return new Response(JSON.stringify({ error: 'Sign in to use AppBlips AI.', code: 'sign_in_required' }), {
-      status: 401,
-      headers: { 'content-type': 'application/json' },
-    });
-  }
-
   const picked = pickProvider(env, payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
   const url = toChatCompletionsUrl(provider.baseUrl);
   const apiKey = provider.apiKey;
-  const model = routeModel(env, provider, payload, plan);
+  const model = routeModel(env, provider, payload);
 
   const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix } = payload;
 

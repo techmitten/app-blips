@@ -1,4 +1,4 @@
-import { Brain, Check, Copy, Loader2, RotateCcw, ShieldCheck, Wrench } from 'lucide-react';
+import { Brain, Check, Copy, Loader2, RotateCcw } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
@@ -176,55 +176,9 @@ function ImageConfirmOffer({ matches, onApprove }) {
   );
 }
 
-// Shown under a finished build while its review offer is open. Reviews spend
-// extra tokens, so the user chooses; the choice is saved with the version.
-// The user tries the project first: screenshots are only worth their tokens
-// when something looks wrong on screen.
-function ReviewOffer({ onReview, onSkip }) {
-  return (
-    <div className="pl-13 animate-fade-in">
-      <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-3.5 py-3 space-y-2.5">
-        <p className="flex items-start gap-2 text-(length:--chat-label-text) text-slate-600 dark:text-white/70 leading-relaxed">
-          <ShieldCheck size={14} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
-          <span>Try it in the preview first. Does anything look wrong on screen? Choose <strong>Looks wrong</strong> and the AI tests it and can take a screenshot to check a problem it finds, <strong>Looks fine</strong> to have it test that everything works, without screenshots, or <strong>Looks fine but doesn't work</strong> if the screen is right but something you tried misbehaves. Then it writes a report, and you choose whether to fix what it found. Uses extra tokens. If it all looks and works fine, choose <strong>Looks and works fine</strong> to skip the review.</span>
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => onReview({ screenshots: true })}
-            className="brand-fill-text whitespace-nowrap rounded-lg px-3 py-1.5 bg-brand text-white text-(length:--chat-label-text) font-semibold hover:bg-brand-hover transition-colors"
-          >
-            Looks wrong
-          </button>
-          <button
-            type="button"
-            onClick={() => onReview({ screenshots: false })}
-            className="whitespace-nowrap rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-(length:--chat-label-text) font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
-          >
-            Looks fine
-          </button>
-          <button
-            type="button"
-            onClick={() => onReview({ screenshots: false, brokenFunction: true })}
-            className="whitespace-nowrap rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-(length:--chat-label-text) font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
-          >
-            Looks fine but doesn't work
-          </button>
-          <button
-            type="button"
-            onClick={onSkip}
-            className="whitespace-nowrap rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-(length:--chat-label-text) font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
-          >
-            Looks and works fine
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // The screenshot each problem in a review report cites, as proof of the
-// claim. Photos missing from storage (a project restored from a backup) are
+// claim. Code review was removed, but reports saved by older versions still
+// show their evidence. Photos missing from storage (a project restored from a backup) are
 // left out.
 function ReviewEvidence({ problems, projectId }) {
   const [urls, setUrls] = useState({});
@@ -282,37 +236,6 @@ function ReviewEvidence({ problems, projectId }) {
   );
 }
 
-// Shown under a review report that found problems. Nothing is changed until
-// the user says so; fixing starts a new chat whose only request is the report.
-function FixOffer({ onFix, onSkip }) {
-  return (
-    <div className="pl-13 animate-fade-in">
-      <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-3.5 py-3 space-y-2.5">
-        <p className="flex items-start gap-2 text-(length:--chat-label-text) text-slate-600 dark:text-white/70 leading-relaxed">
-          <Wrench size={14} className="shrink-0 mt-0.5 text-brand" aria-hidden="true" />
-          <span>Want the AI to fix these problems? A new chat starts with this report as its task, and the fixes are saved as a new version you can undo.</span>
-        </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onFix}
-            className="brand-fill-text rounded-lg px-3 py-1.5 bg-brand text-white text-(length:--chat-label-text) font-semibold hover:bg-brand-hover transition-colors"
-          >
-            Fix problems
-          </button>
-          <button
-            type="button"
-            onClick={onSkip}
-            className="rounded-lg border border-slate-300 dark:border-white/15 px-3 py-1.5 text-(length:--chat-label-text) font-semibold text-slate-700 dark:text-white/80 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
-          >
-            Not now
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function ChatTranscript({
   versions,
   currentVersionIndex,
@@ -327,12 +250,6 @@ export default function ChatTranscript({
   studioMode = 'app',
   chatBottomRef,
   onRewind,
-  canOfferReview = false,
-  onReview,
-  onSkipReview,
-  canOfferFix = false,
-  onFixReview,
-  onSkipFix,
   onApproveImages,
   // The project's My images ({ images, bytesVersion }), for the thumbnails
   // under image confirmations.
@@ -404,15 +321,9 @@ export default function ChatTranscript({
             {ver.editMode === 'review' && ver.qualityReview?.problems?.some((item) => item.photo) && (
               <ReviewEvidence problems={ver.qualityReview.problems} projectId={projectId} />
             )}
-            {canOfferReview && ver.reviewOffer === 'pending' && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
-              <ReviewOffer onReview={onReview} onSkip={onSkipReview} />
-            )}
             {ver.imageConfirm && <ImageConfirmThumbs matches={ver.imageConfirm.matches} images={confirmedImages} urls={thumbnailUrls} />}
             {onApproveImages && ver.imageConfirm?.allMatched && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
               <ImageConfirmOffer matches={ver.imageConfirm.matches} onApprove={onApproveImages} />
-            )}
-            {canOfferFix && ver.fixOffer === 'pending' && versionIndex === currentVersionIndex && !isGenerating && !pendingPrompt && (
-              <FixOffer onFix={onFixReview} onSkip={onSkipFix} />
             )}
           </div>
         );

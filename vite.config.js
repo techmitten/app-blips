@@ -11,15 +11,8 @@ import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
 import { handlePixabayApi } from './electron/server/pixabayApi.js'
 import { handleTavilyApi } from './electron/server/tavilyApi.js'
 import { handleSeoScanApi } from './electron/server/seoScanApi.js'
-import { openStore, defaultDatabasePath } from './electron/server/hosted/store.js'
-import { isHosted } from './electron/server/hosted/mode.js'
-import { verifyClerkToken } from './electron/server/hosted/clerk.js'
 import { resolveAddresses } from './electron/server/dnsLookup.js'
-import { handleBilling } from './electron/server/hosted/billing.js'
-import { gateChat, releaseBuild } from './electron/server/hosted/chat.js'
-import { handleWebTools } from './electron/server/hosted/webTools.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
-import { forwardToHosted } from './electron/hostedApi.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
 import { licensePlugin } from './scripts/licenses.js'
@@ -82,78 +75,15 @@ function llmProxyDevMiddleware(mode) {
       // computer (or a host in APPBLIPS_ALLOWED_HOSTS), never by another device
       // or a DNS-rebinding page.
       const keys = createKeyFile({ file: defaultKeyFile(env) })
-      // Same rule as server.js: hosted (Clerk sign-in, plans, the server's AI
-      // key) exactly when the Clerk key and Polar token are set (hosted/mode.js),
-      // so `npm run dev` behaves like `npm start` with the same .env. Hosted
-      // is plan users only: the saved-key routes answer 404 there, since one
-      // key file for every visitor is nobody's own key.
-      const hosted = isHosted(env)
-      const hostedOnly = (res) => {
-        if (!hosted) return false
-        res.statusCode = 404
-        res.setHeader('content-type', 'application/json')
-        res.end(JSON.stringify({ error: 'Not available on this server: AppBlips runs the AI for plan users here.' }))
-        return true
-      }
-      const signedIn = async (request) => {
-        if (!hosted) return true
-        const header = request.headers.get('authorization') || ''
-        const token = header.startsWith('Bearer ') ? header.slice(7).trim() : ''
-        if (!token) return false
-        try { await verifyClerkToken(token, env); return true } catch { return false }
-      }
-      // The account store is always open.
-      const store = openStore(defaultDatabasePath(env))
-      // APPBLIPS_API_URL: plans come from that AppBlips Worker instead, as in
-      // the desktop app (electron/hostedApi.js). Polar's payment notices go
-      // to the Worker, so testing sign-in and checkout at dev.appblips.com
-      // needs this to see the plans people actually bought; the local store
-      // above never hears about them.
-      const hostedApiUrl = String(env.APPBLIPS_API_URL || '').trim().replace(/\/+$/, '')
-      // Forwarded calls carry no Origin, so this server turns away other
-      // sites' pages itself: an Origin must name the address it was sent to.
-      const sameOrigin = (req) => {
-        const origin = req.headers.origin
-        if (!origin) return true
-        try { return new URL(origin).host === req.headers.host } catch { return false }
-      }
-      const forwardHosted = async (req, res) => {
-        if (!sameOrigin(req)) {
-          res.statusCode = 403
-          res.end('Requests from other sites are not allowed.')
-          return
-        }
-        const request = await toFetchRequest(req, res)
-        sendWebResponse(res, await forwardToHosted(request, new URL(request.url), null, hostedApiUrl), {}, '[hosted]')
-      }
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
           res.end('Method not allowed')
           return
         }
-        // Signed-in requests are plan users; with hosted keys everyone else is
-        // turned away by the gate, and without them they use their own key.
-        if (hostedApiUrl && req.headers.authorization) {
-          await forwardHosted(req, res)
-          return
-        }
-        if (hosted) {
-          const gated = await gateChat(await toChatRequest(req, res), env, store)
-          if (gated.response) {
-            sendWebResponse(res, gated.response, {}, '[billing]')
-            return
-          }
-          const response = await handleChatProxy(gated.request, env, { plan: true })
-          // A rejected request didn't produce a build; don't charge for it.
-          if (!response.ok) await releaseBuild(env, store, gated)
-          sendWebResponse(res, response, {}, '[dev-proxy]')
-          return
-        }
         // A DNS-rebinding page sends a matching Host and Origin, so the Host
         // allow-list decides, as in server.js: neither the saved key nor the
-        // .env provider is spent for another name. (Plan requests above are
-        // protected by their sign-in instead, so the tunnel address works.)
+        // .env provider is spent for another name.
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('AI requests are only answered for this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
@@ -162,39 +92,7 @@ function llmProxyDevMiddleware(mode) {
         const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req, res), keys), env)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
-      // Plans, checkout and Polar's payment notices. Without the hosted keys
-      // this answers 404 like server.js, which the app reads as "no accounts".
-      const billing = guarded(async (req, res) => {
-        if (hostedApiUrl && req.originalUrl?.startsWith('/api/billing')) {
-          await forwardHosted(req, res)
-          return
-        }
-        if (!hosted) {
-          res.statusCode = 404
-          res.end('Hosted billing is not enabled.')
-          return
-        }
-        const response = await handleBilling(await toFetchRequest(req, res), env, store)
-        sendWebResponse(res, response, {}, '[billing]')
-      })
-      server.middlewares.use('/api/billing', billing)
-      server.middlewares.use('/api/webhooks/polar', billing)
-      // Plan web search (hosted/webTools.js): plan users only, like billing.
-      server.middlewares.use('/api/web', guarded(async (req, res) => {
-        if (hostedApiUrl) {
-          await forwardHosted(req, res)
-          return
-        }
-        if (!hosted) {
-          res.statusCode = 404
-          res.end('Web search for plans is not enabled.')
-          return
-        }
-        const response = await handleWebTools(await toFetchRequest(req, res), env, store)
-        sendWebResponse(res, response, {}, '[web]')
-      }))
       server.middlewares.use('/api/provider', guarded(async (req, res) => {
-        if (hostedOnly(res)) return
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Settings → AI is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
@@ -206,7 +104,6 @@ function llmProxyDevMiddleware(mode) {
       // Publish to Surge, with the Surge token kept server-side the same way.
       const surgeTokens = createKeyFile({ file: defaultKeyFile(env, 'surge-token.json') })
       server.middlewares.use('/api/surge', guarded(async (req, res) => {
-        if (hostedOnly(res)) return
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Publishing is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
@@ -218,7 +115,6 @@ function llmProxyDevMiddleware(mode) {
       // The Pollinations connector's sign-in, with its key kept the same way.
       const pollinationsKeys = createKeyFile({ file: defaultKeyFile(env, 'pollinations-key.json') })
       server.middlewares.use('/api/pollinations', guarded(async (req, res) => {
-        if (hostedOnly(res)) return
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Pollinations sign-in is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
@@ -230,7 +126,6 @@ function llmProxyDevMiddleware(mode) {
       // The Pixabay connector's photo search, with the user's key kept the same way.
       const pixabayKeys = createKeyFile({ file: defaultKeyFile(env, 'pixabay-key.json') })
       server.middlewares.use('/api/pixabay', guarded(async (req, res) => {
-        if (hostedOnly(res)) return
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Pixabay search is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
@@ -242,7 +137,6 @@ function llmProxyDevMiddleware(mode) {
       // The Tavily connector's web search for the AI, with the user's key kept the same way.
       const tavilyKeys = createKeyFile({ file: defaultKeyFile(env, 'tavily-key.json') })
       server.middlewares.use('/api/tavily', guarded(async (req, res) => {
-        if (hostedOnly(res)) return
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Tavily web search is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
@@ -258,14 +152,7 @@ function llmProxyDevMiddleware(mode) {
           res.end('Scanning a site is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const request = await toFetchRequest(req, res)
-        if (!(await signedIn(request))) {
-          res.statusCode = 401
-          res.setHeader('content-type', 'application/json')
-          res.end(JSON.stringify({ error: 'Sign in to scan a site.', code: 'sign_in_required' }))
-          return
-        }
-        const response = await handleSeoScanApi(request, env, { lookup: resolveAddresses })
+        const response = await handleSeoScanApi(await toFetchRequest(req, res), env, { lookup: resolveAddresses })
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
     },
@@ -320,15 +207,10 @@ export default defineConfig(({ mode }) => ({
     // Browser mode keeps the AI provider choice in this origin's localStorage;
     // a silent hop to 5176 when 5175 is busy is a new origin with none saved.
     strictPort: true,
-    // The Cloudflare Tunnel used to test production Clerk sign-in, which
-    // refuses localhost. Only Vite's own host check: the /api routes still
-    // keep saved local keys to localhost (APPBLIPS_ALLOWED_HOSTS), since the
-    // tunnel address is reachable from the internet.
-    allowedHosts: ['dev.appblips.com'],
-    // Vite serves any file under the project to whoever reaches it, and the
-    // tunnel makes that the internet. Its defaults (the first four) cover
-    // .env and certificates; the rest are local files that aren't in the
-    // public repo: the account database and Claude Code settings.
+    // Vite serves any file under the project to whoever reaches it (with
+    // --host, the network). Its defaults (the first four) cover .env and
+    // certificates; the rest are local files that aren't in the public repo:
+    // old databases and Claude Code settings.
     fs: {
       deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '*.db', '*.db-*', '**/.claude/**', '**/pinokio/**'],
     },

@@ -124,7 +124,7 @@ export async function installAndroidApi() {
 
   // The same routes, in the same order, as server.js.
   const routes = [
-    ['/api/chat', (request) => withSavedProvider(request, keys).then((r) => handleChatProxy(r, ENV, { local: true }))],
+    ['/api/chat', (request) => withSavedProvider(request, keys).then((r) => handleChatProxy(r, ENV))],
     ['/api/provider', (request) => handleProviderApi(request, ENV, keys)],
     ['/api/surge', (request) => handleSurgeApi(request, ENV, surgeTokens, { fetch: nativeFetch })],
     ['/api/pollinations', (request) => handlePollinationsApi(request, ENV, pollinationsKeys, { fetch: nativeFetch })],

@@ -2,8 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
-import { isDesktop, desktopBridge, providerApi } from './lib/desktop';
-import { signOutAccount } from './lib/authToken';
+import { isDesktop, providerApi } from './lib/desktop';
 
 import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
@@ -22,8 +21,6 @@ import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
-import PlansNotice from './components/PlansNotice';
-import { SignInCallback } from './components/AccountDialogs';
 import DesktopOnboarding from './components/DesktopOnboarding';
 import ImportSiteDialog from './components/ImportSiteDialog';
 import ShowcaseModal from './components/ShowcaseModal';
@@ -34,10 +31,9 @@ import { forgetPixabayKey } from './lib/pixabay';
 import { forgetTavilyKey } from './lib/tavily';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
-import { generateAppCode, reviewBuild } from './lib/llm';
+import { generateAppCode } from './lib/llm';
 import { startUsageMeter } from './lib/tokenUsage';
 import { compressImageDataUrl } from './lib/attachments';
-import { storeReviewPhotos } from './lib/reviewPhotos';
 import { slugifyName } from './lib/helpers';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
 import {
@@ -63,12 +59,11 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, PREVIEW_SHUTTER_MS, STUDIO_MODES, DOCS_URL, normalizeStudioMode
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadAskToReview, ASK_TO_REVIEW_KEY, loadPromptSuggestions, PROMPT_SUGGESTIONS_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadCodeAutocomplete, CODE_AUTOCOMPLETE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isWideLayout } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadPromptSuggestions, PROMPT_SUGGESTIONS_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadCodeAutocomplete, CODE_AUTOCOMPLETE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isWideLayout } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useVisualViewport from './hooks/useVisualViewport';
 import useChatFont from './hooks/useChatFont';
-import { usePlanWebSearch } from './hooks/usePlanWebSearch';
 import useProjects from './hooks/useProjects';
 import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
@@ -85,7 +80,6 @@ import {
 } from './lib/seo';
 import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
 import { buildViteProject } from './lib/reactProject';
-import { createEmbeddedBrowser } from './lib/embeddedBrowser';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import useImageGallery from './hooks/useImageGallery';
 import useReasoningLevels from './hooks/useReasoningLevels';
@@ -102,16 +96,12 @@ import { logError, logWarn } from './lib/errorLog';
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
 
-// The user's turn shown in the chat when they accept a review offer.
-const REVIEW_PROMPT = 'Review and test this build';
-
 export default function App({ coldStart = false }) {
   useVisualViewport();
   // --- Layout / chrome state ---
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
   const [askClarifyingQuestions, setAskClarifyingQuestions] = useState(loadAskClarifyingQuestions);
-  const [askToReview, setAskToReview] = useState(loadAskToReview);
   const [promptSuggestions, setPromptSuggestions] = useState(loadPromptSuggestions);
   const [gameEngineRouter, setGameEngineRouter] = useState(loadGameEngineRouter);
   const [websiteAddonRouter, setWebsiteAddonRouter] = useState(loadWebsiteAddonRouter);
@@ -142,8 +132,6 @@ export default function App({ coldStart = false }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   // Tab to open Settings on (e.g. the hero rail's Extensions link); null = last used.
   const [settingsInitialTab, setSettingsInitialTab] = useState(null);
-  // PlansNotice's "See plans": Settings on the Plan tab (sign in, subscribe).
-  const openPlanSettings = () => { setSettingsInitialTab('plan'); setIsSettingsOpen(true); };
   // Desktop first run gets a dedicated introduction and AI setup. The main
   // process owns the durable flag so clearing a provider later does not replay
   // onboarding, while a truly fresh install still gets it.
@@ -297,13 +285,9 @@ export default function App({ coldStart = false }) {
   // generation and export paths still treat as "the app"; `activeCode` is
   // whichever page the preview/code pane is showing.
   const [files, setFiles] = useState({});
-  const [browserReview, setBrowserReview] = useState(null);
-  const browserReviewRef = useRef(null);
-  const browserTestTokensRef = useRef(new Set());
   const [activePage, setActivePage] = useState(LANDING_PAGE);
   const generatedCode = getLanding(files);
-  const browserFiles = browserReview?.files || files;
-  const pageCode = browserFiles[activePage] ?? getLanding(browserFiles);
+  const pageCode = files[activePage] ?? generatedCode;
   // Read by long-lived callbacks (reload settlement, runtime-error auto-fix).
   const filesRef = useRef(files);
   const activePageRef = useRef(activePage);
@@ -316,12 +300,6 @@ export default function App({ coldStart = false }) {
     setActivePage(LANDING_PAGE);
   }, []);
   const [chatMode, setChatMode] = useState(loadChatMode); // 'build' or 'ask'
-  // Plan web search for the next prompt only (the prompt box's globe
-  // button): offered while the signed-in plan allows it, and switched off
-  // again as soon as a prompt takes it (handleGenerate).
-  const planWebSearch = usePlanWebSearch();
-  const [webSearchOn, setWebSearchOn] = useState(false);
-  const webSearchActive = webSearchOn && Boolean(planWebSearch);
   const [error, setError] = useState(null);
   const [generationStatus, setGenerationStatus] = useState(null);
   // Date.now() when the model started reasoning, until its first output
@@ -400,7 +378,6 @@ export default function App({ coldStart = false }) {
     iframeRef.current = el;
     setPreviewFrame(el);
   }, []);
-  const browserLockRef = useRef(null);
   const handleGenerateRef = useRef(null);
   const streamingBufferRef = useRef('');
   const streamingGeneratedCodeRef = useRef('');
@@ -560,31 +537,11 @@ export default function App({ coldStart = false }) {
 
   const scheduleReloadSettlementRef = useRef(null);
 
-  // Auto-fix attempts are spent. Before reporting failure, run the full
-  // review once per build: it has many more turns, browser testing, and the
-  // whole project in view, which is what used to repair these builds when it
-  // ran after every build. Only when Review is on: the review takes
-  // screenshots and spends tokens the user opted out of. Imported codebases
-  // have no review yet.
-  const autoReviewRanRef = useRef(false);
-  const askToReviewRef = useRef(askToReview);
-  askToReviewRef.current = askToReview;
-  const handleReviewRef = useRef(null);
-  // A review that finds problems offers to hand its report to a normal build
-  // in a fresh chat. Once the user accepts, the mission waits here until state
-  // has settled; the ref marks that build so it doesn't earn another automatic
-  // review (a failing fix would otherwise review, fix and fail forever).
-  const [reviewMission, setReviewMission] = useState(null);
-  const reviewFixRef = useRef(false);
+  // Auto-fix attempts are spent: report the failure.
   const giveUpAutoFix = useCallback(() => {
     setIsAutoFixing(false);
     isAutoFixingRef.current = false;
     setAutoFixMessage(null);
-    if (askToReviewRef.current && !autoReviewRanRef.current && studioModeRef.current !== 'codebase' && handleReviewRef.current) {
-      autoReviewRanRef.current = true;
-      setTimeout(() => handleReviewRef.current?.({ automatic: true }), 0);
-      return;
-    }
     setError(AUTO_FIX_FAILURE);
   }, []);
 
@@ -683,7 +640,7 @@ export default function App({ coldStart = false }) {
     // If a preview reload is pending for the latest build/edit/auto-fix,
     // wait a settlement period after the iframe reports ready to confirm
     // that no runtime errors fire during initial mount/execution.
-    if (reloadStateRef.current.pending && !browserReviewRef.current) {
+    if (reloadStateRef.current.pending) {
       scheduleReloadSettlement(400);
     }
   }, [scheduleReloadSettlement]);
@@ -696,9 +653,6 @@ export default function App({ coldStart = false }) {
   handEditRef.current = currentVersionForHandEdit?.handEdit ? currentVersionForHandEdit.id : null;
 
   const handleRuntimeError = useCallback((payload) => {
-    // Browser-review errors are returned to that review's tool loop. Do not
-    // start a competing auto-fix run against the previously saved version.
-    if (browserReviewRef.current) return;
     // If a runtime error occurs, auto-fixing is necessary.
     // Immediately cancel any pending reload so it does not reload broken code
     // or interfere with auto-fixing.
@@ -771,14 +725,7 @@ export default function App({ coldStart = false }) {
   }, [currentProjectId]);
 
   const handleStorageChange = useCallback(
-    (type, payload, document) => {
-      if (browserReviewRef.current || browserTestTokensRef.current.has(document?.token)) {
-        if (browserReviewRef.current) {
-          browserTestTokensRef.current.add(document?.token);
-          applyStorageChange(browserReviewRef.current.storage, type, payload);
-        }
-        return;
-      }
+    (type, payload) => {
       const changed = applyStorageChange(previewStorageRef.current, type, payload);
       if (changed) {
         savePreviewStorage(currentProjectId, previewStorageRef.current);
@@ -821,7 +768,7 @@ export default function App({ coldStart = false }) {
             // Click-to-edit (Website Studio only) finds elements by the
             // source numbers this adds to the preview copy.
             sourcePositions: studioModeRef.current === 'website',
-            initialStorage: browserReviewRef.current?.storage || loadPreviewStorage(currentProjectId),
+            initialStorage: loadPreviewStorage(currentProjectId),
             // Baked into the bridge as its initial desiredEnabled so the
             // touch-scroll simulation + scrollbar hiding are live from the
             // frame's first paint. The configure push from usePreviewBridge
@@ -847,14 +794,8 @@ export default function App({ coldStart = false }) {
     // the mode current at that moment; later mode switches are delivered to
     // the already-loaded frame via usePreviewBridge's configure push.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeCode, previewReloadCount, projectStorageVersion, browserReview, activePage, previewGallery]
+    [activeCode, previewReloadCount, projectStorageVersion, activePage, previewGallery]
   );
-  useEffect(() => {
-    if (!browserReview || !previewToken) return;
-    const tokens = browserTestTokensRef.current;
-    tokens.add(previewToken);
-    if (tokens.size > 64) tokens.delete(tokens.values().next().value);
-  }, [browserReview, previewToken]);
   // Every injection (AI shim, loop-check helper, bridge) lands right after
   // <head> and loop protection adds no newlines, so the app's lines are
   // shifted by exactly the difference in line count.
@@ -915,13 +856,13 @@ export default function App({ coldStart = false }) {
     setElementEditError(null);
   }, []);
 
-  const isPreviewEditing = studioMode === 'website' && isEditMode && !browserReview;
+  const isPreviewEditing = studioMode === 'website' && isEditMode;
 
-  const pageNav = usePageNavigation({ files: browserFiles, activePage, setActivePage });
+  const pageNav = usePageNavigation({ files, activePage, setActivePage });
   pageNavRef.current = pageNav;
 
   const {
-    requestScreenshot, requestBrowserAction, selectParentElement, deselectElement, clearInsertSpot,
+    requestScreenshot, selectParentElement, deselectElement, clearInsertSpot,
     replyInlineEditResult, restoreScroll,
     formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState: frameNavState, goBack: frameGoBack, goForward: frameGoForward, scrollToHash,
@@ -1444,10 +1385,6 @@ export default function App({ coldStart = false }) {
   }, [askClarifyingQuestions]);
 
   useEffect(() => {
-    localStorage.setItem(ASK_TO_REVIEW_KEY, askToReview);
-  }, [askToReview]);
-
-  useEffect(() => {
     localStorage.setItem(PROMPT_SUGGESTIONS_KEY, promptSuggestions);
   }, [promptSuggestions]);
 
@@ -1528,61 +1465,6 @@ export default function App({ coldStart = false }) {
     if (!value) setActiveTab('preview');
   };
 
-  // The embedded browser the review drives. It shows the reviewed files in the
-  // preview pane while it runs; the review's finally block puts the user's
-  // page back.
-  const createReviewBrowser = (signal) => {
-    // Native test input and screenshots are hit-tested at the frame, so the
-    // review lock has to step aside while they run.
-    const withBrowserLockLifted = async (run) => {
-      const lock = browserLockRef.current;
-      if (lock) lock.style.pointerEvents = 'none';
-      try { return await run(); } finally { if (lock) lock.style.pointerEvents = ''; }
-    };
-    return createEmbeddedBrowser({
-      signal,
-      mount: (nextFiles) => {
-        const originalPage = browserReviewRef.current?.originalPage || activePage;
-        const originalMode = browserReviewRef.current?.originalMode || previewMode;
-        browserReviewRef.current = { files: nextFiles, storage: {}, originalPage, originalMode };
-        flushSync(() => {
-          setBrowserReview({ files: nextFiles });
-          setActivePage(LANDING_PAGE);
-          setActiveTab('preview');
-          setMobileView('preview');
-          setPreviewReloadCount((count) => count + 1);
-        });
-      },
-      inspect: (timeout) => requestBrowserAction({ action: 'inspect' }, timeout),
-      request: requestBrowserAction,
-      nativeInput: desktopBridge?.browser?.input && ((args) => withBrowserLockLifted(() => {
-        // afterAction took focus away from the frame; keys and typing need it back.
-        if (args.action !== 'click') iframeRef.current?.focus({ preventScroll: true });
-        return desktopBridge.browser.input(args);
-      })),
-      // Take keyboard focus back from the frame after each test action, so the
-      // user's keystrokes can't reach the app being reviewed.
-      afterAction: () => {
-        if (document.activeElement === iframeRef.current) browserLockRef.current?.focus({ preventScroll: true });
-      },
-      getToken: () => iframeRef.current?.dataset.browserToken,
-      // The blink plays after the capture (never in it) and the next action
-      // waits for it to end.
-      screenshot: async ({ viewportWidth } = {}) => {
-        const shot = desktopBridge?.browser?.input
-          ? await withBrowserLockLifted(() => desktopBridge.browser.input({ action: 'screenshot', token: iframeRef.current?.dataset.browserToken, viewportWidth }))
-          : await requestScreenshot();
-        await playShutter();
-        return shot;
-      },
-      getPage: () => activePageRef.current,
-      screen: previewMode,
-      navigate: (page) => flushSync(() => setActivePage(page)),
-      reload: () => flushSync(() => setPreviewReloadCount((count) => count + 1)),
-      setViewport: (mode) => flushSync(() => setPreviewMode(mode)),
-    });
-  };
-
   // The codebase edit loop's build check: the preview bundler run on the
   // edited files, plus imports missing from package.json.
   const runCodebaseBuildCheck = async (checkFiles, checkAssets, { diagnostics, verifyRuntime = false } = {}) => {
@@ -1609,14 +1491,10 @@ export default function App({ coldStart = false }) {
   const handleGenerate = async (e, overridePrompt, isAutoFix = false, autoFixError = null, { galleryCheckPrompt = null } = {}) => {
     e?.preventDefault();
     const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
-    const isReviewFix = reviewFixRef.current;
-    reviewFixRef.current = false;
     if (!currentPrompt.trim()) return;
 
     if (!isAutoFix) {
       cancelPendingReload();
-      // A new request is a new build: it gets its own automatic review.
-      if (!isReviewFix) autoReviewRanRef.current = false;
       runtimeErrorRetriesRef.current = 0;
       syntaxErrorRetriesRef.current = 0;
       autoFixRunsRef.current = 0;
@@ -1681,12 +1559,12 @@ export default function App({ coldStart = false }) {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    const shouldAskClarifyingQuestions = !isAutoFix && !isReviewFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
+    const shouldAskClarifyingQuestions = !isAutoFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
     // A request that uses My images waits for the user to confirm which image
     // each mention means (llm.js matchGalleryImages). Approving ("yes", or the
     // button) builds; any other answer is checked again as a correction.
     const answeringImageConfirm = Boolean(prevVersion?.imageConfirm);
-    const confirmGalleryImages = !isAutoFix && !isReviewFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && studioMode !== 'codebase'
+    const confirmGalleryImages = !isAutoFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && studioMode !== 'codebase'
       && !(answeringImageConfirm && isImageApproval(currentPrompt))
       && (answeringImageConfirm ? 'answer' : true);
 
@@ -1705,10 +1583,6 @@ export default function App({ coldStart = false }) {
     // attachment is ephemeral (never persisted onto the version/chat history).
     const attachmentForRequest = attachment;
     setAttachment(null);
-    // Web search is for the prompt the user sent with it switched on, never
-    // for automatic repairs or review fixes, and it's off again afterwards.
-    const webSearchForRequest = !isAutoFix && !isReviewFix && webSearchActive ? planWebSearch : null;
-    if (webSearchForRequest) setWebSearchOn(false);
     setAttachmentError(null);
     setPendingAttachment(attachmentForRequest);
 
@@ -1881,12 +1755,8 @@ export default function App({ coldStart = false }) {
             }),
             maxReadOnlyTurns: isAutoFix && codebaseMeta?.environmentResolution === 'ai' ? 3 : 0,
             reasoningEffort: effectiveReasoningEffort,
-            planWebSearch: webSearchForRequest,
           })
-        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: effectiveReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt, webSearchForRequest);
-      // The AI asked a clarifying question instead of building: the answer
-      // finishes this request, so it keeps web search switched on.
-      if (webSearchForRequest && generationResult?.editMode === 'clarify') setWebSearchOn(true);
+        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: effectiveReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       setFiles(newFiles);
@@ -1906,17 +1776,10 @@ export default function App({ coldStart = false }) {
         // The images the user is asked to confirm before the build starts.
         ...(generationResult.imageConfirm ? { imageConfirm: generationResult.imageConfirm } : {}),
         sessionId: currentChatSessionId,
-        // Marks the build a review's report started, so reviewing it again is
-        // worded as checking those fixes (see reviewBuild).
-        ...(isReviewFix ? { reviewFix: true } : {}),
         usage: usageMeter.stop(),
       };
       if (studioMode === 'codebase') newVersion.assets = generationResult.assets || currentAssets || {};
-      // Offer a review of a finished build or edit. An auto-fix keeps the
-      // offer its build was showing, since it is still the same build. The
-      // review doesn't handle imported codebases yet.
       const isBuildVersion = newVersion.editMode === 'full-generation' || newVersion.editMode === 'surgical';
-      if (isBuildVersion && studioMode !== 'codebase' && (isAutoFix ? prevVersion?.reviewOffer === 'pending' : askToReview)) newVersion.reviewOffer = 'pending';
       // Suggested next prompts come with a finished build or edit. An
       // auto-fix, an Ask answer or a clarifying question leaves the project
       // as it was, so it keeps the suggestions the version before it had.
@@ -1999,8 +1862,6 @@ export default function App({ coldStart = false }) {
       logError(isAutoFix ? 'Auto-fix failed' : 'Generation failed', err);
       setError(isAutoFix ? AUTO_FIX_FAILURE : err.message);
       if (!isAutoFix) setPrompt(currentPrompt); // Restore the user's request, never internal diagnostics
-      // ...with web search still switched on, if it was, for the retry.
-      if (webSearchForRequest) setWebSearchOn(true);
       // Clear the pending job on a hard error — user can see the error message
       // and re-submit themselves; stale job records would be confusing.
       clearPendingJob();
@@ -2035,169 +1896,11 @@ export default function App({ coldStart = false }) {
 
   handleGenerateRef.current = handleGenerate;
 
-  // Runs the opt-in review offered under a finished build. The review only
-  // screenshots, tests and reports; its report is saved as its own turn. If it
-  // found problems, the user is asked before anything changes (fixOffer, see
-  // handleFixReview), so fixes the user doesn't want never spend tokens.
-  // `automatic` is the run giveUpAutoFix starts when auto-fix couldn't repair
-  // a build; it doesn't need an offer. Screenshots are taken only when the
-  // user said something looks wrong: they cost many images' worth of tokens
-  // and add nothing to a problem that isn't visual, like an auto-fix's
-  // code errors.
-  const handleReview = async (options) => {
-    const automatic = options?.automatic === true;
-    const screenshots = options?.screenshots === true;
-    const brokenFunction = options?.brokenFunction === true;
-    if (isGeneratingRef.current) return;
-    const updatedVersions = versions.slice(0, currentVersionIndex + 1);
-    const reviewed = updatedVersions[updatedVersions.length - 1];
-    if (!reviewed || (reviewed.reviewOffer !== 'pending' && !automatic)) return;
-    // Auto-fixes carry the offer forward, so the earliest pending version in
-    // the run is the build itself: its prompt is what the user asked for.
-    let buildIndex = updatedVersions.length - 1;
-    while (buildIndex > 0 && (updatedVersions[buildIndex - 1].reviewOffer === 'pending' || isAutomaticRepair(updatedVersions[buildIndex]))) buildIndex--;
-    const before = updatedVersions[buildIndex - 1];
-    const chatHistory = updatedVersions.slice(chatContextStartIndex, buildIndex).flatMap((v) => [
-      { role: 'user', content: v.prompt },
-      { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') },
-    ]);
-
-    cancelPendingReload();
-    runtimeErrorRetriesRef.current = 0;
-    pendingRuntimeErrorRef.current = null;
-    setIsAutoFixing(false);
-    isAutoFixingRef.current = false;
-    setAutoFixMessage(null);
-    setIsGenerating(true);
-    isGeneratingRef.current = true;
-    clearStreamingState();
-    setError(null);
-    setSelectedElement(null);
-    setElementEditError(null);
-    setPendingPrompt(REVIEW_PROMPT);
-    // A reply line is what makes the transcript show the live status below it.
-    const noun = STUDIO_MODES[studioMode]?.article || 'app';
-    streamingReplyRef.current = automatic
-      ? `The automatic fixes didn't solve every problem, so I'm checking your ${noun} more thoroughly now.`
-      : `Checking your ${noun} for problems now.`;
-    setStreamingReply(streamingReplyRef.current);
-    setGenerationStatus('Starting the review…');
-    abortControllerRef.current = new AbortController();
-    const { signal } = abortControllerRef.current;
-    const usageMeter = startUsageMeter();
-    try {
-      const review = await reviewBuild({
-        files,
-        previousFiles: before ? versionFiles(before) : {},
-        prompt: updatedVersions[buildIndex].prompt,
-        fixCheck: updatedVersions[buildIndex].reviewFix === true,
-        chatHistory,
-        studioMode,
-        signal,
-        onChunk: (text, kind) => { if (kind === 'status') setGenerationStatus(text); },
-        browser: createReviewBrowser(signal),
-        screenshots,
-        brokenFunction,
-      });
-      // The screenshots each problem cites are kept as evidence for the user.
-      let { problems } = review.qualityReview;
-      try {
-        problems = await storeReviewPhotos(currentProjectId, problems, review.photos);
-      } catch (err) {
-        logWarn('Could not save the review screenshots', err);
-      }
-      const newVersion = {
-        id: Date.now(),
-        prompt: REVIEW_PROMPT,
-        files,
-        timestamp: new Date().toLocaleTimeString(),
-        editMode: 'review',
-        reply: review.reply,
-        qualityReview: { ...review.qualityReview, problems },
-        chatMode: 'build',
-        sessionId: currentChatSessionId,
-        // The fix request is saved with the report, so the offer survives
-        // reopening the project.
-        ...(review.mission ? { fixOffer: 'pending', fixMission: review.mission } : {}),
-        usage: usageMeter.stop(),
-      };
-      const finalVersions = [...updatedVersions.slice(0, -1), { ...reviewed, ...(reviewed.reviewOffer ? { reviewOffer: 'done' } : {}) }, newVersion];
-      setVersions(finalVersions);
-      setCurrentVersionIndex(updatedVersions.length);
-      saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length });
-      if (automatic && !review.mission && review.qualityReview.warning) setError(AUTO_FIX_FAILURE);
-    } catch (err) {
-      // A cancelled review leaves the offer in place so it can be run again.
-      if (err.name !== 'AbortError') {
-        logError('Code review failed', err);
-        setError(err.message);
-      }
-    } finally {
-      usageMeter.stop();
-      const reviewSession = browserReviewRef.current;
-      if (reviewSession) {
-        setActivePage(Object.hasOwn(reviewSession.files, reviewSession.originalPage) ? reviewSession.originalPage : LANDING_PAGE);
-        // The reviewer may have switched screen sizes; give the user theirs back.
-        setPreviewMode(reviewSession.originalMode);
-        browserReviewRef.current = null;
-        setBrowserReview(null);
-      }
-      setIsGenerating(false);
-      isGeneratingRef.current = false;
-      setPendingPrompt('');
-      setGenerationStatus(null);
-      clearStreamingState();
-    }
-  };
-
-  handleReviewRef.current = handleReview;
-
-  // Starts the fix once the review's state has settled, so handleGenerate
-  // sees the new chat session and the review's saved turn.
-  useEffect(() => {
-    if (!reviewMission || isGenerating) return;
-    setReviewMission(null);
-    reviewFixRef.current = true;
-    handleGenerateRef.current?.(null, reviewMission);
-  }, [reviewMission, isGenerating]);
-
-  // The user accepted a review's offer to fix what it found. Same as "New
-  // chat": the report stays in this session's history and the fix starts a
-  // session that holds nothing but the report.
-  const handleFixReview = () => {
-    const report = versions[currentVersionIndex];
-    if (isGeneratingRef.current || report?.fixOffer !== 'pending' || !report.fixMission) return;
-    const finalVersions = versions.map((v, i) => (i === currentVersionIndex ? { ...v, fixOffer: 'accepted' } : v));
-    const cutoff = currentVersionIndex + 1;
-    const nextSessionId = newChatSessionId();
-    setVersions(finalVersions);
-    setChatContextStartIndex(cutoff);
-    setCurrentChatSessionId(nextSessionId);
-    saveProject({ versionsToSave: finalVersions, indexToSave: currentVersionIndex, chatContextStartToSave: cutoff, sessionIdToSave: nextSessionId });
-    setReviewMission(report.fixMission);
-  };
-
-  const handleSkipFix = () => {
-    const report = versions[currentVersionIndex];
-    if (report?.fixOffer !== 'pending') return;
-    const finalVersions = versions.map((v, i) => (i === currentVersionIndex ? { ...v, fixOffer: 'skipped' } : v));
-    setVersions(finalVersions);
-    saveProject({ versionsToSave: finalVersions, indexToSave: currentVersionIndex });
-  };
-
   // The approve button under an image confirmation sends the approval as the
   // next request, which starts the build (see confirmGalleryImages).
   const handleApproveImages = (text) => {
     if (isGeneratingRef.current) return;
     handleGenerate(null, text);
-  };
-
-  const handleSkipReview = () => {
-    const reviewed = versions[currentVersionIndex];
-    if (reviewed?.reviewOffer !== 'pending') return;
-    const finalVersions = versions.map((v, i) => (i === currentVersionIndex ? { ...v, reviewOffer: 'skipped' } : v));
-    setVersions(finalVersions);
-    saveProject({ versionsToSave: finalVersions, indexToSave: currentVersionIndex });
   };
 
   const handleCancelGeneration = () => {
@@ -2839,25 +2542,8 @@ export default function App({ coldStart = false }) {
     // And the Tavily connector's key.
     const tavily = await forgetTavilyKey();
     if (tavily.error) logError('Could not remove the Tavily key during reset', tavily.error);
-    // And the AppBlips account (Clerk). Signing out ends the session on
-    // Clerk's server; on desktop the app's cookies are cleared as well, so
-    // the reset holds even offline. Clerk's own localStorage entries go with
-    // localStorage below.
-    try {
-      await signOutAccount();
-    } catch (err) {
-      logError('Could not sign out of the AppBlips account during reset', err);
-    }
-    if (isDesktop) {
-      try {
-        await desktopBridge.app.clearSignIns();
-      } catch (err) {
-        logError('Could not clear the desktop sign-in data during reset', err);
-      }
-    }
     localStorage.clear();
-    // This tab's leftovers too, such as setup's "reopen on the sign-in step"
-    // note (DesktopOnboarding RESUME_KEY), which would skip setup's start.
+    // This tab's leftovers too.
     try { sessionStorage.clear(); } catch { /* storage unavailable */ }
     window.location.reload();
   };
@@ -2890,11 +2576,7 @@ export default function App({ coldStart = false }) {
       {!desktopOnboarding.replay && <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} aboveSetup />}
       <DesktopOnboarding
         providerInfo={desktopOnboarding.info}
-        onComplete={(next) => {
-          setDesktopOnboarding(null);
-          // A returning plan user's sign-in ends on Settings → Account.
-          if (next?.openSettings) { setSettingsInitialTab(next.openSettings); setIsSettingsOpen(true); }
-        }}
+        onComplete={() => setDesktopOnboarding(null)}
         onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
       />
       <UpdateNotice aboveOverlay />
@@ -2975,8 +2657,6 @@ export default function App({ coldStart = false }) {
           onShowCodeViewChange={handleShowCodeViewChange}
           askClarifyingQuestions={askClarifyingQuestions}
           onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
-          askToReview={askToReview}
-          onAskToReviewChange={setAskToReview}
           promptSuggestions={promptSuggestions}
           onPromptSuggestionsChange={setPromptSuggestions}
           gameEngineRouter={gameEngineRouter}
@@ -3019,16 +2699,12 @@ export default function App({ coldStart = false }) {
           onCancel={isStudioChoiceOpen && !isProjectsListOpen && !isShowcaseOpen ? handleCancelStudioChoice : null}
           onOpenProjects={() => setIsProjectsListOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onOpenAccount={() => { setSettingsInitialTab('account'); setIsSettingsOpen(true); }}
-          onOpenPlans={openPlanSettings}
           resolvedTheme={resolvedTheme}
           onToggleTheme={handleToggleTheme}
         />
         {settingsModal}
         <DesktopStorageNotice />
         <UpdateNotice />
-        <PlansNotice onOpenPlans={openPlanSettings} />
-        <SignInCallback />
         {isProjectsListOpen && (
           <ProjectsListModal
             projects={myProjects}
@@ -3067,8 +2743,6 @@ export default function App({ coldStart = false }) {
         resolvedTheme={resolvedTheme}
         onToggleTheme={handleToggleTheme}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenAccount={() => { setSettingsInitialTab('account'); setIsSettingsOpen(true); }}
-        onOpenPlans={openPlanSettings}
         onStartTour={startTour}
         mobileView={mobileView}
         onMobileViewChange={setMobileView}
@@ -3192,8 +2866,6 @@ export default function App({ coldStart = false }) {
       )}
 
       <UpdateNotice />
-      <PlansNotice onOpenPlans={openPlanSettings} />
-      <SignInCallback />
       <DesktopStorageNotice />
 
       {isResumingProject ? null : showHero ? (
@@ -3213,9 +2885,6 @@ export default function App({ coldStart = false }) {
           onAttachScreenshot={handleAttachScreenshot}
           onAttachFile={handleAttachFile}
           onRemoveAttachment={handleRemoveAttachment}
-          planWebSearch={planWebSearch}
-          webSearch={webSearchActive}
-          onWebSearchChange={setWebSearchOn}
           starterIdeas={
             chatMode === 'ask'
               ? ASK_STARTER_PRESETS
@@ -3267,12 +2936,6 @@ export default function App({ coldStart = false }) {
               studioMode={studioMode}
               onChatModeChange={setChatMode}
               onRewind={setRewindTargetIndex}
-              canOfferReview={askToReview && chatMode === 'build'}
-              onReview={handleReview}
-              onSkipReview={handleSkipReview}
-              canOfferFix={chatMode === 'build'}
-              onFixReview={handleFixReview}
-              onSkipFix={handleSkipFix}
               onApproveImages={handleApproveImages}
               gallery={chatGallery}
               projectId={currentProjectId}
@@ -3310,9 +2973,6 @@ export default function App({ coldStart = false }) {
               onAttachScreenshot={handleAttachScreenshot}
               onAttachFile={handleAttachFile}
               onRemoveAttachment={handleRemoveAttachment}
-              planWebSearch={planWebSearch}
-              webSearch={webSearchActive}
-              onWebSearchChange={setWebSearchOn}
               onNewChat={handleStartNewChat}
               isHistoryOpen={isHistoryOpen}
               onToggleHistory={() => setIsHistoryOpen((open) => !open)}
@@ -3361,7 +3021,7 @@ export default function App({ coldStart = false }) {
               onResetZoom={resetZoom}
               onUndo={handleUndo}
               onRedo={handleRedo}
-              hasCode={Boolean(getLanding(browserFiles))}
+              hasCode={Boolean(generatedCode)}
               hasSavedCode={Boolean(generatedCode)}
               onOpenNewTab={isCodebase ? null : handleOpenInNewTab}
               onExportHtml={isCodebase ? handleExportCodebase : handleExportHtml}
@@ -3370,13 +3030,10 @@ export default function App({ coldStart = false }) {
               onPublish={isCodebase ? null : () => setIsPublishOpen(true)}
               containerRef={previewContainerRef}
               iframeRef={setPreviewFrameRef}
-              browserLockRef={browserLockRef}
               shutterCount={shutterCount}
               previewSrcDoc={previewSrcDoc}
-              browserToken={previewToken}
-              isBrowserTesting={Boolean(browserReview)}
               onReloadPreview={handleReloadPreview}
-              pages={isCodebase ? [] : pageNames(browserFiles)}
+              pages={isCodebase ? [] : pageNames(files)}
               route={isCodebase ? codebaseRoute : null}
               onNavigateRoute={isCodebase ? handleNavigateCodebaseRoute : null}
               isPreviewBuilding={isCodebase && codebaseBuild.building && !codebaseBuild.html}
