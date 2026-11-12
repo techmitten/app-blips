@@ -32,7 +32,7 @@ Run it locally with your own API key (Anthropic, OpenAI, Gemini, xAI, DeepSeek, 
 
 ## Live Demo
 
-Try AppBlips in your browser at **[web.appblips.com](https://web.appblips.com/)**, the browser edition running on [Hugging Face Spaces](https://huggingface.co/spaces) from this repo's `Dockerfile`. There is nothing to install and no account to create.
+Try AppBlips in your browser at **[web.appblips.com](https://web.appblips.com/)**. There is nothing to install and no account to create.
 
 - **Free AI, no key needed** — Pick **Free** during setup to start building right away. It is shared by everyone using the demo, so usage is limited.
 - **Or bring your own key** — Choose any supported provider in **Settings → AI** for your own models, without the demo's limits.
