@@ -477,12 +477,16 @@ export const requestModelText = async ({
       // app's own limiter is "you're sending requests too quickly".
       const errData = await response.json().catch(() => null);
       const fromProvider = errData?.source === 'provider' && typeof errData.error === 'string';
-      const err = new Error(fromProvider
+      // The Free option's limits (server freeLimits.js) say what to do next.
+      const freeLimit = errData?.source === 'free-limit' && typeof errData.error === 'string';
+      const err = new Error(fromProvider || freeLimit
         ? errData.error
         : retryAfter
           ? `You're sending requests too quickly. Please try again in about ${retryAfter}s.`
           : "You're sending requests too quickly. Please slow down and try again shortly.");
       err.isRateLimit = true;
+      // Waiting a few seconds won't lift a daily or hourly allowance.
+      if (freeLimit) err.isNonRetryable = true;
       throw err;
     }
     if (!response.ok) {

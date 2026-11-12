@@ -18,6 +18,7 @@ import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLa
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
 import { defaultModel } from './defaultModel.js';
+import { meterResponse } from './freeLimits.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -150,7 +151,9 @@ const routeModel = (env, provider, payload) => {
 // answers holds the request open for good.
 export const UPSTREAM_CONNECT_MS = 120_000;
 
-export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS } = {}) {
+// `freeLimits` (freeLimits.js) limits requests answered with the env
+// provider (the Free option) per `visitor`; server.js passes both.
+export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '' } = {}) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -180,6 +183,39 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   const picked = await pickProvider(env, payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
+
+  // The Free option: counted per visitor, and its output capped.
+  let ticket = null;
+  if (freeLimits && !provider.userSupplied) {
+    const started = freeLimits.begin(visitor);
+    if (started.refused) {
+      const { error, retryAfter } = started.refused;
+      return new Response(JSON.stringify({ error, source: 'free-limit' }), {
+        status: 429,
+        headers: { 'content-type': 'application/json', ...(retryAfter ? { 'Retry-After': String(retryAfter) } : {}) },
+      });
+    }
+    ticket = started;
+  }
+  try {
+    const response = await forward(request, env, payload, provider, maxTokens, connectTimeoutMs, ticket ? freeLimits.limits.maxOutputTokens : 0);
+    if (!ticket) return response;
+    // An error (or a cancelled request) is passed on as it is and counts
+    // toward the hourly limit only.
+    if (!response.ok) {
+      ticket.end(0);
+      return response;
+    }
+    const sentChars = JSON.stringify(payload.messages ?? '').length + JSON.stringify(payload.tools ?? '').length;
+    return meterResponse(response, { sentChars, done: (tokens) => ticket.end(tokens) });
+  } catch (err) {
+    ticket?.end(0);
+    throw err;
+  }
+}
+
+// Sends the request to `provider` and returns its answer, or an error.
+async function forward(request, env, payload, provider, maxTokens, connectTimeoutMs, outputCap) {
   const url = toChatCompletionsUrl(provider.baseUrl);
   const apiKey = provider.apiKey;
   const model = routeModel(env, provider, payload);
@@ -212,6 +248,8 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   const defaultLimit = maxTokens == null && (payload.ask !== true || provider.id === 'anthropic');
   if (maxTokens != null) bodyObj.max_tokens = maxTokens;
   else if (defaultLimit) bodyObj.max_tokens = DEFAULT_BUILD_MAX_TOKENS;
+  // The Free option's per-request cap (freeLimits.js) wins over both.
+  if (outputCap) bodyObj.max_tokens = Math.min(bodyObj.max_tokens ?? outputCap, outputCap);
 
   if (tools) bodyObj.tools = tools;
   if (tool_choice) bodyObj.tool_choice = tool_choice;

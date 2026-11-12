@@ -23,6 +23,7 @@ import { handleChatProxy } from './electron/server/chatProxy.js';
 import { describeConfig, formatConfigSummary } from './electron/server/configSummary.js';
 import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js';
 import { createBrowserKeys, removeLegacyKeyFiles } from './electron/server/browserKeys.js';
+import { createFreeLimits, freeLimitsEnabled, clientIp, visitorKey } from './electron/server/freeLimits.js';
 import { handleProviderApi } from './electron/server/providerApi.js';
 import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
@@ -48,6 +49,9 @@ const INDEX_FILE = join(DIST_DIR, 'index.html');
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
 const withKeys = createBrowserKeys();
+// Limits on the Free option (the .env provider) for a server many people can
+// reach; APPBLIPS_FREE_LIMITS=off turns them off (freeLimits.js).
+const freeLimits = freeLimitsEnabled(process.env) ? createFreeLimits(process.env) : null;
 removeLegacyKeyFiles();
 
 const sendText = (res, status, text, headers = {}) => {
@@ -129,7 +133,11 @@ const server = createServer((req, res) => {
     }
     const handle = async () => {
       const incoming = await toChatRequest(req, res);
-      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env));
+      const ip = clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress);
+      // For checking how a hosting platform forwards addresses; off by default.
+      if (process.env.APPBLIPS_DEBUG_CLIENT_IP) console.log(`[free-limits] x-forwarded-for="${req.headers['x-forwarded-for'] || ''}" peer=${req.socket.remoteAddress} -> ${ip}`);
+      const visitor = visitorKey(ip);
+      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env, { freeLimits, visitor }));
       sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
     };
     handle().catch(fail);
