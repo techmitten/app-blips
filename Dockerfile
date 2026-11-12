@@ -36,9 +36,9 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     APPBLIPS_DATA_DIR=/data
 
-# The Settings → AI key is kept here, not in the browser. docker-compose.yml
-# mounts a volume on it so the key survives rebuilding the container; the
-# volume takes this folder's owner, so the node user can write to it.
+# Saved keys now live in each visitor's browser, not here. Older versions kept
+# them in this folder, and server.mjs deletes those files at startup, so it
+# stays writable for the node user (docker-compose.yml's volume takes its owner).
 RUN mkdir -p /data && chown node:node /data && chmod 700 /data
 
 COPY --from=builder /app/dist ./dist

@@ -18,7 +18,7 @@
 // Download takes a photo id, never a URL, and looks the photo up again with
 // the saved key, so it can only ever fetch Pixabay's own image files.
 //
-// `tokens` is { describe, keyFor, save, clear }: keyFile.js in the browser
+// `tokens` is { describe, keyFor, save, clear }: browserKeys.js (kept in the visitor's browser) in the browser
 // version, electron/surgeStore.js (OS keychain) on desktop.
 import { isForeignOrigin } from './chatProxy.js';
 

@@ -7,7 +7,6 @@ import { listProviderModels } from '../electron/server/providerModels.js';
 import { USER_PROVIDER_OPTIONS } from '../electron/server/providers.js';
 import { createProviderStore } from '../electron/providerStore.js';
 import { handleProviderApi } from '../electron/server/providerApi.js';
-import { createKeyFile } from '../electron/server/keyFile.js';
 
 const catalog = () => new Response(JSON.stringify({ data: [
   { id: 'z', name: 'Zulu' }, { id: 'a', name: 'Alpha' }, { id: 'z', name: 'Zulu' }, { id: 'bare' }, { name: 'invalid' },
@@ -87,10 +86,14 @@ test('desktop discovery reuses only the matching saved key and accepts draft rep
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('browser discovery reuses the matching saved key on the server', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'appblips-keys-'));
-  t.after(() => rm(dir, { recursive: true, force: true }));
-  const keys = createKeyFile({ file: join(dir, 'provider-key.json') });
+test('browser discovery reuses the matching saved key the browser sent', async (t) => {
+  let state = { id: '', key: '' };
+  const keys = {
+    keyFor: (id) => (id && id === state.id ? state.key : ''),
+    describe: () => ({ id: state.id, hasKey: Boolean(state.key) }),
+    async save(id, key) { state = { id, key }; },
+    async clear() { state = { id: '', key: '' }; },
+  };
   await keys.save('gemini', 'saved-key');
   const list = (body) => handleProviderApi(new Request('http://localhost:3000/api/provider/models', {
     method: 'POST',

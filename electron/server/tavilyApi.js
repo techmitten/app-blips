@@ -15,7 +15,7 @@
 //   POST   /api/tavily/key     { key }                       -> { connected, hint } | { error }
 //   POST   /api/tavily/search  { query, topic, time_range }  -> { results: [...] } | { error }
 //
-// `tokens` is { describe, keyFor, save, clear }: keyFile.js in the browser
+// `tokens` is { describe, keyFor, save, clear }: browserKeys.js (kept in the visitor's browser) in the browser
 // version, electron/surgeStore.js (OS keychain) on desktop.
 import { isForeignOrigin } from './chatProxy.js';
 

@@ -1,6 +1,7 @@
 // /api/provider/* for the browser version (server.js and the Vite dev
-// server): saves the Settings → AI key server-side (keyFile.js) and lists
-// models with it, so the page never stores or reads a saved key. Fetch
+// server): checks the Settings → AI key and lists models with it. The key is
+// kept in the visitor's browser (browserKeys.js), outside the app's own
+// code, which only learns `hasKey`. Fetch
 // primitives only, like chatProxy.js. The desktop app answers the same
 // questions over IPC instead (electron/main.js).
 //

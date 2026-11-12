@@ -34,7 +34,7 @@ import { handleSeoScanApi } from '../../electron/server/seoScanApi.js';
 import { withSavedProvider } from '../../electron/server/savedProvider.js';
 import { logError } from './errorLog.js';
 
-// keyFile.js's interface (keyFor/describe sync, save/clear async), backed by
+// browserKeys.js's store interface (keyFor/describe sync, save/clear async), backed by
 // the Keystore. Read once at startup so keyFor can stay synchronous.
 async function createSecureKeyStore(name) {
   let state = { id: '', key: '' };

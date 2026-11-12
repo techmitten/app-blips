@@ -7,20 +7,22 @@
 // (the Docker image listens on 0.0.0.0 inside the container, and
 // docker-compose.yml publishes it on 127.0.0.1 only). Projects and the
 // Settings → AI provider choice live in the browser's own storage, as in
-// `npm run dev`; the provider's API key is kept here instead (keyFile.js), so
-// the page never stores it.
+// `npm run dev`, and so do the saved keys (the AI provider's, Surge's,
+// Pollinations', Pixabay's, Tavily's): each request brings its own
+// (browserKeys.js), so one server can be shared, as on a Hugging Face Space,
+// without one visitor's key reaching another.
 //
 // Only Node built-ins plus electron/server, so the Docker image ships it as
 // one bundled file (scripts/build-server.js) with no node_modules.
 import { createServer } from 'node:http';
 import { createReadStream, existsSync } from 'node:fs';
-import { rm, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleChatProxy } from './electron/server/chatProxy.js';
 import { describeConfig, formatConfigSummary } from './electron/server/configSummary.js';
 import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js';
-import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js';
+import { createBrowserKeys, removeLegacyKeyFiles } from './electron/server/browserKeys.js';
 import { handleProviderApi } from './electron/server/providerApi.js';
 import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
@@ -45,14 +47,8 @@ const DIST_DIR = fileURLToPath(new URL('./dist', import.meta.url));
 const INDEX_FILE = join(DIST_DIR, 'index.html');
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
-const keys = createKeyFile({ file: defaultKeyFile() });
-const surgeTokens = createKeyFile({ file: defaultKeyFile(process.env, 'surge-token.json') });
-const pollinationsKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pollinations-key.json') });
-const pixabayKeys = createKeyFile({ file: defaultKeyFile(process.env, 'pixabay-key.json') });
-const tavilyKeys = createKeyFile({ file: defaultKeyFile(process.env, 'tavily-key.json') });
-// AppBlips AI Credits were removed; delete the sign-in token older versions
-// saved, so no credential is left behind that nothing uses.
-rm(defaultKeyFile(process.env, 'credits-key.json'), { force: true }).catch(() => {});
+const withKeys = createBrowserKeys();
+removeLegacyKeyFiles();
 
 const sendText = (res, status, text, headers = {}) => {
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'text/plain; charset=utf-8', ...headers });
@@ -132,8 +128,8 @@ const server = createServer((req, res) => {
       return;
     }
     const handle = async () => {
-      const request = await withSavedProvider(await toChatRequest(req, res), keys);
-      const response = await handleChatProxy(request, process.env);
+      const incoming = await toChatRequest(req, res);
+      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env));
       sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
     };
     handle().catch(fail);
@@ -142,7 +138,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/provider' || req.url.startsWith('/api/provider/')) {
     toFetchRequest(req, res)
-      .then((request) => handleProviderApi(request, process.env, keys))
+      .then((request) => withKeys('provider', request, (keys) => handleProviderApi(request, process.env, keys)))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
@@ -150,7 +146,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/surge' || req.url.startsWith('/api/surge/')) {
     toFetchRequest(req, res)
-      .then((request) => handleSurgeApi(request, process.env, surgeTokens))
+      .then((request) => withKeys('surge', request, (keys) => handleSurgeApi(request, process.env, keys)))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
@@ -158,7 +154,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/pollinations' || req.url.startsWith('/api/pollinations/')) {
     toFetchRequest(req, res)
-      .then((request) => handlePollinationsApi(request, process.env, pollinationsKeys))
+      .then((request) => withKeys('pollinations', request, (keys) => handlePollinationsApi(request, process.env, keys)))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
@@ -166,7 +162,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/pixabay' || req.url.startsWith('/api/pixabay/')) {
     toFetchRequest(req, res)
-      .then((request) => handlePixabayApi(request, process.env, pixabayKeys))
+      .then((request) => withKeys('pixabay', request, (keys) => handlePixabayApi(request, process.env, keys)))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
@@ -174,7 +170,7 @@ const server = createServer((req, res) => {
 
   if (req.url === '/api/tavily' || req.url.startsWith('/api/tavily/')) {
     toFetchRequest(req, res)
-      .then((request) => handleTavilyApi(request, process.env, tavilyKeys))
+      .then((request) => withKeys('tavily', request, (keys) => handleTavilyApi(request, process.env, keys)))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

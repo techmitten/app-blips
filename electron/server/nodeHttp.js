@@ -3,6 +3,7 @@
 // server (server.js); the desktop app doesn't need it, since protocol.handle
 // already speaks Request/Response.
 import { Readable, pipeline } from 'node:stream';
+import { KEY_HEADER, SESSION_HEADER } from './browserKeys.js';
 
 // Bodies are buffered before any handler runs, so a cap stops one request
 // from taking all the memory. Chat carries a whole project's files and the
@@ -52,6 +53,15 @@ const clientSignal = (res) => {
 // content type and Origin go through. The real Host and Origin are kept so the
 // handler refuses browser requests from other sites (isForeignOrigin in
 // chatProxy.js).
+// The saved key and session id the page sends (browserKeys.js).
+const browserKeyHeaders = (req) => {
+  const out = {};
+  for (const name of [KEY_HEADER, SESSION_HEADER]) {
+    if (typeof req.headers[name] === 'string') out[name] = req.headers[name];
+  }
+  return out;
+};
+
 export async function toChatRequest(req, res = null) {
   const body = await readBody(req, MAX_CHAT_BODY_BYTES);
   const protocol = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
@@ -61,6 +71,7 @@ export async function toChatRequest(req, res = null) {
       'content-type': 'application/json',
       ...(req.headers.origin ? { origin: req.headers.origin } : {}),
       ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
+      ...browserKeyHeaders(req),
     },
     body,
     signal: clientSignal(res),
@@ -78,6 +89,7 @@ export async function toFetchRequest(req, res = null) {
     headers: {
       ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
       ...(req.headers.origin ? { origin: req.headers.origin } : {}),
+      ...browserKeyHeaders(req),
     },
     ...(hasBody ? { body } : {}),
     signal: clientSignal(res),

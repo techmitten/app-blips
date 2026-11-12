@@ -251,7 +251,7 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
           </button>
         </span>
         <p className="onboarding-key-help">
-          {isDesktop ? 'Stays on this computer.' : 'Saved by AppBlips on this computer, not in the browser.'}
+          {isDesktop ? 'Stays on this computer.' : 'Saved in this browser only, never on the server.'}
           {keyUrl && <a href={keyUrl} target="_blank" rel="noopener noreferrer">Get a key <ArrowUpRight size={15} /></a>}
         </p>
         {isDesktop && weakEncryption && (

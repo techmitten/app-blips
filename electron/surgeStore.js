@@ -3,7 +3,7 @@
 // the AI key (providerStore.js) and only decrypted in the main process for
 // surgeApi.js; the renderer learns the email and whether a token is saved.
 //
-// Same shape as keyFile.js ({ describe, keyFor, save, clear }), so
+// Same shape as browserKeys.js's stores ({ describe, keyFor, save, clear }), so
 // surgeApi.js works with either. Plain Node apart from the injected `crypto`.
 // The Pollinations sign-in (pollinationsApi.js) is stored the same way, with
 // the account name as the id; `label` names the service in log messages.

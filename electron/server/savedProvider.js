@@ -1,6 +1,6 @@
 // Attaches a saved key to /api/chat requests, so the page never has to hold
 // one. Shared by the desktop app (keys from the OS keychain, providerStore.js)
-// and the browser version (keys from keyFile.js).
+// and the browser version (keys the browser sends, browserKeys.js).
 //
 // The page sends no key: the saved one is attached here, as the same
 // `user_provider` it would otherwise carry, so chatProxy applies identical

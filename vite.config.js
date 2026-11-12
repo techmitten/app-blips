@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { handleChatProxy } from './electron/server/chatProxy.js'
 import { describeConfig, formatConfigSummary } from './electron/server/configSummary.js'
 import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js'
-import { createKeyFile, defaultKeyFile } from './electron/server/keyFile.js'
+import { createBrowserKeys } from './electron/server/browserKeys.js'
 import { handleProviderApi } from './electron/server/providerApi.js'
 import { handleSurgeApi } from './electron/server/surgeApi.js'
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
@@ -69,12 +69,12 @@ function llmProxyDevMiddleware(mode) {
     name: 'appblips-llm-proxy-dev-middleware',
     configureServer(server) {
       const env = loadEnv(mode, process.cwd(), '')
-      // The Settings → AI key, kept server-side as server.js does. These routes
-      // run before Vite's own host check, so even when the server is put on the
-      // network (`npm run dev -- --host`) the saved key is used only from this
-      // computer (or a host in APPBLIPS_ALLOWED_HOSTS), never by another device
-      // or a DNS-rebinding page.
-      const keys = createKeyFile({ file: defaultKeyFile(env) })
+      // Saved keys come from the browser with each request, as in server.js
+      // (browserKeys.js). These routes run before Vite's own host check, so
+      // even when the server is put on the network (`npm run dev -- --host`)
+      // the .env provider is used only from this computer (or a host in
+      // APPBLIPS_ALLOWED_HOSTS), never by another device or a DNS-rebinding page.
+      const withKeys = createBrowserKeys()
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
@@ -89,7 +89,8 @@ function llmProxyDevMiddleware(mode) {
           res.end('AI requests are only answered for this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleChatProxy(await withSavedProvider(await toChatRequest(req, res), keys), env)
+        const incoming = await toChatRequest(req, res)
+        const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), env))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       server.middlewares.use('/api/provider', guarded(async (req, res) => {
@@ -98,51 +99,52 @@ function llmProxyDevMiddleware(mode) {
           res.end('Settings → AI is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleProviderApi(await toFetchRequest(req, res), env, keys)
+        const request = await toFetchRequest(req, res)
+        const response = await withKeys('provider', request, (keys) => handleProviderApi(request, env, keys))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
-      // Publish to Surge, with the Surge token kept server-side the same way.
-      const surgeTokens = createKeyFile({ file: defaultKeyFile(env, 'surge-token.json') })
+      // Publish to Surge, with the Surge token from the browser.
       server.middlewares.use('/api/surge', guarded(async (req, res) => {
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Publishing is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleSurgeApi(await toFetchRequest(req, res), env, surgeTokens)
+        const request = await toFetchRequest(req, res)
+        const response = await withKeys('surge', request, (keys) => handleSurgeApi(request, env, keys))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
-      // The Pollinations connector's sign-in, with its key kept the same way.
-      const pollinationsKeys = createKeyFile({ file: defaultKeyFile(env, 'pollinations-key.json') })
+      // The Pollinations connector's sign-in, with its key from the browser.
       server.middlewares.use('/api/pollinations', guarded(async (req, res) => {
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Pollinations sign-in is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handlePollinationsApi(await toFetchRequest(req, res), env, pollinationsKeys)
+        const request = await toFetchRequest(req, res)
+        const response = await withKeys('pollinations', request, (keys) => handlePollinationsApi(request, env, keys))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
-      // The Pixabay connector's photo search, with the user's key kept the same way.
-      const pixabayKeys = createKeyFile({ file: defaultKeyFile(env, 'pixabay-key.json') })
+      // The Pixabay connector's photo search, with the user's key from the browser.
       server.middlewares.use('/api/pixabay', guarded(async (req, res) => {
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Pixabay search is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handlePixabayApi(await toFetchRequest(req, res), env, pixabayKeys)
+        const request = await toFetchRequest(req, res)
+        const response = await withKeys('pixabay', request, (keys) => handlePixabayApi(request, env, keys))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
-      // The Tavily connector's web search for the AI, with the user's key kept the same way.
-      const tavilyKeys = createKeyFile({ file: defaultKeyFile(env, 'tavily-key.json') })
+      // The Tavily connector's web search for the AI, with the user's key from the browser.
       server.middlewares.use('/api/tavily', guarded(async (req, res) => {
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('Tavily web search is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
-        const response = await handleTavilyApi(await toFetchRequest(req, res), env, tavilyKeys)
+        const request = await toFetchRequest(req, res)
+        const response = await withKeys('tavily', request, (keys) => handleTavilyApi(request, env, keys))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The SEO connector's one-time read of the user's own website.

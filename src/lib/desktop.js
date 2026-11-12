@@ -124,12 +124,11 @@ export function createAppDataStorage(prefix) {
 }
 
 // The browser version's Settings → AI (npm run dev, server.js, Docker). The
-// choice of provider, model and URL is kept in this origin's localStorage, but
-// the API key is not: localStorage is plain text that any script on this
-// origin, or anyone with the browser profile, can read. The key goes to
-// AppBlips' own server (/api/provider, electron/server/providerApi.js), which
-// keeps it in a private file and attaches it to /api/chat, as the desktop
-// app's main process does. The page only ever learns `hasKey`.
+// choice of provider and model is kept in this origin's localStorage. The API
+// key goes through AppBlips' server (/api/provider, providerApi.js), which
+// checks it and hands it back for lib/browserKeys.js to keep in this browser;
+// that attaches it to each /api request, so the server never stores it and a
+// shared server never mixes up visitors' keys. Code here only learns `hasKey`.
 const WEB_PROVIDER_KEY = 'appblips-web-provider';
 
 const readWebProvider = () => {

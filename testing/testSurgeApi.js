@@ -10,7 +10,7 @@ import { addFaviconLinks } from '../src/lib/favicon.js';
 
 const ORIGIN = 'http://localhost:5175';
 
-// The same shape as keyFile.js, in memory.
+// The same shape as browserKeys.js's stores, in memory.
 const memoryTokens = (email = '', token = '') => {
   let state = { id: email, key: token };
   return {

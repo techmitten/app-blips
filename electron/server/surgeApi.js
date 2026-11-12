@@ -25,7 +25,7 @@
 //   POST   /api/surge/unpublish -> { domain } takes that site offline
 //                                 -> { removed: true } or { error, signedOut? }
 //
-// `tokens` is { describe, keyFor, save, clear }: keyFile.js in the browser
+// `tokens` is { describe, keyFor, save, clear }: browserKeys.js (kept in the visitor's browser) in the browser
 // version, electron/surgeStore.js (OS keychain) on desktop.
 import { isForeignOrigin } from './chatProxy.js';
 import { createTar, gzip } from './tar.js';
