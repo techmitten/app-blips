@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
-import { isDesktop, providerApi } from './lib/desktop';
+import { isDesktop, providerApi, clearBrowserProjectStore } from './lib/desktop';
 
 import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
@@ -2558,6 +2558,9 @@ export default function App({ coldStart = false }) {
     // And the Tavily connector's key.
     const tavily = await forgetTavilyKey();
     if (tavily.error) logError('Could not remove the Tavily key during reset', tavily.error);
+    // The browser version's projects database (IndexedDB), once the deletes
+    // above have reached it.
+    await clearBrowserProjectStore();
     localStorage.clear();
     // This tab's leftovers too.
     try { sessionStorage.clear(); } catch { /* storage unavailable */ }

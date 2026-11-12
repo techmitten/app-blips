@@ -6,7 +6,7 @@
 // same maps are kept on disk, next to each project (lib/desktop.js).
 
 import { safeStorage } from './config.js';
-import { isDesktop, createAppDataStorage, reportStorageError } from './desktop.js';
+import { usesProjectStore, createAppDataStorage, reportStorageError } from './desktop.js';
 
 const overflowReported = new Set(); // project ids told about the 2 MB limit
 import { logError, logWarn } from './errorLog.js';
@@ -17,8 +17,8 @@ const MAX_KEY_LENGTH = 256;
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-const desktopStore = isDesktop ? createAppDataStorage(STORAGE_PREFIX) : null;
-const previewStore = () => desktopStore || safeStorage('local');
+const projectStore = createAppDataStorage(STORAGE_PREFIX);
+const previewStore = () => (usesProjectStore() ? projectStore : safeStorage('local'));
 
 export const getPreviewStorageKey = (projectId) => {
   return `${STORAGE_PREFIX}${projectId || 'draft'}`;

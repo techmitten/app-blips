@@ -32,7 +32,7 @@ let codebaseSaveChain = Promise.resolve();
 
 // Project persistence: the saved-apps list, load/save/rename/delete, the
 // auto-save-name debounce, and the resume-last-project effect. AppBlips is
-// single-user: rows live in localStorage, or on disk in the desktop app
+// single-user: rows live in IndexedDB in the browser, or on disk in the desktop app
 // (projectsStorage.js routes to lib/desktop.js there).
 //
 // The workspace state itself (versions, currentVersionIndex, projectName, …)
@@ -186,9 +186,10 @@ export default function useProjects({ workspace }) {
       loadUserProjects();
     } catch (err) {
       logError(`Could not save project ${projectId}`, err);
-      // The browser version writes every project into localStorage at once,
-      // so a full store loses the whole save: say so, instead of the work
-      // quietly vanishing on the next reload.
+      // Where projects fall back to localStorage (no IndexedDB), every
+      // project is written at once, so a full store loses the whole save:
+      // say so, instead of the work quietly vanishing on the next reload.
+      // (IndexedDB and disk saves report their own failures, desktop.js.)
       const full = err?.name === 'QuotaExceededError' || /quota|exceeded/i.test(String(err?.message || ''));
       reportStorageError(full
         ? 'This project could not be saved: the browser\'s storage for AppBlips is full. Export your projects from Settings → Data, delete some, and try again.'

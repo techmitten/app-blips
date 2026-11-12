@@ -1,14 +1,17 @@
 import { logError, logWarn } from './errorLog.js';
 import { USER_PROVIDER_IDS } from '../../electron/server/providers.js';
+import { createIdbProjectBackend, indexedDbAvailable } from './idbProjectStore.js';
 
-// Desktop (Electron) storage adapter. In the desktop app, electron/preload.cjs
-// exposes window.appblipsDesktop and project data lives on disk instead of in
-// localStorage; everywhere else this module is inert (isDesktop === false).
+// Project storage. In the desktop app, electron/preload.cjs exposes
+// window.appblipsDesktop and project data lives on disk; in the browser
+// version it lives in IndexedDB (idbProjectStore.js), which holds far more
+// than localStorage. Where neither is available (tests, a browser without
+// IndexedDB) projectsStorage.js and previewStorage.js use localStorage.
 //
 // The storage helpers callers already use (projectsStorage.js,
-// previewStorage.js) are synchronous, so main.jsx awaits initDesktopStore()
+// previewStorage.js) are synchronous, so main.jsx awaits initProjectStore()
 // once before rendering and reads are served from this in-memory copy. Writes
-// update the copy at once and go to disk over IPC in the background, only for
+// update the copy at once and go to the backend in the background, only for
 // the rows that actually changed. A failed write is logged and reported to
 // onDesktopStorageError listeners (App shows a notice); a row whose write
 // failed is sent again with the next write.
@@ -17,6 +20,39 @@ const bridge = typeof window !== 'undefined' ? window.appblipsDesktop || null : 
 
 export const isDesktop = Boolean(bridge);
 export const desktopBridge = bridge;
+
+// { list, save(row), delete(id), saveAppData(id, map | null) }.
+const desktopBackend = bridge && {
+  list: () => bridge.projects.list(),
+  save: (row) => bridge.projects.save(row),
+  delete: (id) => bridge.projects.delete(id),
+  saveAppData: (id, map) => bridge.appData.save(id, map),
+};
+let backend = desktopBackend || (typeof window !== 'undefined' && indexedDbAvailable() ? createIdbProjectBackend() : null);
+// Whether projects are served from the in-memory copy below. Turned off if
+// IndexedDB can't be opened, so the browser version falls back to localStorage.
+export const usesProjectStore = () => Boolean(backend);
+
+// Saves still on their way, so a reset can wait for them (flushProjectStore).
+const pending = new Set();
+const track = (promise) => {
+  pending.add(promise);
+  promise.finally(() => pending.delete(promise)).catch(() => {});
+  return promise;
+};
+export const flushProjectStore = () => Promise.allSettled([...pending]);
+
+// Settings → Reset in the browser version: waits for pending saves, then
+// deletes the projects database. (The desktop app keeps its folder.)
+export async function clearBrowserProjectStore() {
+  await flushProjectStore();
+  if (isDesktop || !backend?.clearAll) return;
+  try {
+    await backend.clearAll();
+  } catch (err) {
+    logError('Could not delete the projects database during reset', err);
+  }
+}
 
 // Serialized copies, so reads hand out fresh objects (like JSON.parse of
 // localStorage did) and change detection is a string compare.
@@ -47,7 +83,9 @@ export const ipcErrorMessage = (err) => String(err?.message || err || '')
 
 const report = (what) => (err) => {
   logError(`${what} failed`, err);
-  reportStorageError(`${what} failed: ${ipcErrorMessage(err)}. Your latest changes may not be saved to disk; check that the projects folder (Settings → Data) is writable.`);
+  reportStorageError(isDesktop
+    ? `${what} failed: ${ipcErrorMessage(err)}. Your latest changes may not be saved to disk; check that the projects folder (Settings → Data) is writable.`
+    : `${what} failed: ${ipcErrorMessage(err) || 'the browser refused to save it'}. The browser's storage may be full: export your projects from Settings → Data before leaving the page.`);
 };
 
 // Shows `message` in the storage notice (DesktopStorageNotice.jsx) until it
@@ -57,17 +95,23 @@ export const reportStorageError = (message) => {
   errorListeners.forEach((listener) => listener(lastError));
 };
 
-export async function initDesktopStore() {
-  if (!bridge) return;
+export async function initProjectStore() {
+  if (!backend) return;
   try {
-    const { projects, orphanAppData } = await bridge.projects.list();
+    const { projects, orphanAppData } = await backend.list();
     for (const { row, appData } of projects) {
       rowJson.set(row.id, JSON.stringify(row));
       if (appData) appDataJson.set(row.id, JSON.stringify(appData));
     }
     for (const [id, map] of Object.entries(orphanAppData || {})) appDataJson.set(id, JSON.stringify(map));
   } catch (err) {
-    report('Loading your projects')(err);
+    if (isDesktop) {
+      report('Loading your projects')(err);
+      return;
+    }
+    // IndexedDB refused (some private windows): keep using localStorage.
+    logWarn('Could not open IndexedDB for projects, keeping them in localStorage', err);
+    backend = null;
   }
 }
 
@@ -83,7 +127,7 @@ export function writeDesktopRows(rows) {
   for (const [id, json] of next) {
     if (rowJson.get(id) === json || inFlight.get(id) === json) continue;
     inFlight.set(id, json);
-    bridge.projects.save(JSON.parse(json)).then(
+    track(backend.save(JSON.parse(json))).then(
       () => { rowJson.set(id, json); },
       report('Saving a project'),
     ).finally(() => { if (inFlight.get(id) === json) inFlight.delete(id); });
@@ -92,7 +136,7 @@ export function writeDesktopRows(rows) {
     if (next.has(id)) continue;
     rowJson.delete(id);
     inFlight.delete(id);
-    bridge.projects.delete(id).catch(report('Deleting a project'));
+    track(backend.delete(id)).catch(report('Deleting a project'));
   }
 }
 
@@ -112,13 +156,13 @@ export function createAppDataStorage(prefix) {
       const id = idOf(key);
       if (id === null || appDataJson.get(id) === value) return;
       appDataJson.set(id, value);
-      bridge.appData.save(id, JSON.parse(value)).catch(report("Saving an app's data"));
+      track(backend.saveAppData(id, JSON.parse(value))).catch(report("Saving an app's data"));
     },
     removeItem(key) {
       const id = idOf(key);
       if (id === null || !appDataJson.has(id)) return;
       appDataJson.delete(id);
-      bridge.appData.save(id, null).catch(report("Clearing an app's data"));
+      track(backend.saveAppData(id, null)).catch(report("Clearing an app's data"));
     },
   };
 }

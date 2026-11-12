@@ -1,11 +1,12 @@
-// localStorage row plumbing for the projects list. Pure helpers -- no React --
-// so the projects hook and the backup importer can share them. In the desktop
-// app the same rows live on disk instead (lib/desktop.js).
-import { isDesktop, readDesktopRows, writeDesktopRows } from './desktop.js';
+// Row plumbing for the projects list. Pure helpers -- no React -- so the
+// projects hook and the backup importer can share them. The rows live on disk
+// in the desktop app and in IndexedDB in the browser (lib/desktop.js), with
+// localStorage as the fallback where neither is available.
+import { usesProjectStore, readDesktopRows, writeDesktopRows } from './desktop.js';
 import { logError } from './errorLog.js';
 
 export const readProjectRows = () => {
-  if (isDesktop) return readDesktopRows();
+  if (usesProjectStore()) return readDesktopRows();
   try {
     return JSON.parse(localStorage.getItem('orion-projects') || '[]');
   } catch (err) {
@@ -15,7 +16,7 @@ export const readProjectRows = () => {
 };
 
 export const writeProjectRows = (rows) => {
-  if (isDesktop) {
+  if (usesProjectStore()) {
     writeDesktopRows(rows);
     return;
   }

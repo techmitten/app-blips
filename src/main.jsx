@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
-import { initDesktopStore, isDesktop } from './lib/desktop'
+import { initProjectStore, isDesktop } from './lib/desktop'
 import { installBrowserKeyStorage } from './lib/browserKeys'
 import { beginAppSession } from './lib/config'
 import { installGlobalErrorLogging, logError, reactRootErrorOptions } from './lib/errorLog'
@@ -22,9 +22,9 @@ const startAndroidApi = () => (isAndroid
 // (lib/browserKeys.js). The desktop and Android apps keep their own.
 if (!isDesktop && !isAndroid) installBrowserKeyStorage()
 
-// The desktop app loads saved projects from disk before the first render, so
-// the synchronous storage helpers see them.
-Promise.all([initDesktopStore(), startAndroidApi()]).then(() => {
+// Saved projects are loaded (from disk in the desktop app, IndexedDB in the
+// browser) before the first render, so the synchronous storage helpers see them.
+Promise.all([initProjectStore(), startAndroidApi()]).then(() => {
   createRoot(document.getElementById('root'), reactRootErrorOptions).render(
     <StrictMode>
       <App coldStart={coldStart} />
