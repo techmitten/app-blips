@@ -19,6 +19,7 @@
   <a href="https://github.com/techmitten/app-blips/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/techmitten/app-blips?style=flat&color=yellow"></a>
   <a href="https://discord.gg/a7QfqbvaF9"><img alt="Discord" src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white"></a>
   <a href="https://web.appblips.com/"><img alt="Try the live demo" src="https://img.shields.io/badge/Try-Live_Demo-4F46E5?style=flat"></a>
+  <a href="https://web.appblips.com/"><img alt="Hosted on Hugging Face Spaces" src="https://img.shields.io/badge/Hugging_Face-Spaces-FFD21E?logo=huggingface&logoColor=black"></a>
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white">
   <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white">
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
@@ -29,6 +30,16 @@
 **AppBlips** lets anyone build functional apps, websites, and 2D games from natural-language descriptions—no coding required, with full code access when you want it.
 
 Run it locally with your own API key (Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter). There is no vendor lock-in: the generated code is always yours to keep.
+
+## Live Demo
+
+Try AppBlips in your browser at **[web.appblips.com](https://web.appblips.com/)**, the browser edition running on [Hugging Face Spaces](https://huggingface.co/spaces) from this repo's `Dockerfile`. There is nothing to install and no account to create.
+
+- **Free AI, no key needed** — Pick **Free** during setup to start building right away. It is shared by everyone using the demo, so it has hourly and daily limits.
+- **Or bring your own key** — Choose any supported provider in **Settings → AI** for your own models and no demo limits.
+- **Private by design** — Your projects and any API keys you save stay in your own browser. The server stores neither, so nothing is shared with other visitors.
+
+For the full experience (projects saved as folders on disk, an encrypted OS-keychain key store, and no shared limits), download the desktop app above or run your own copy with `npm start` or Docker.
 
 ## Key Features
 
