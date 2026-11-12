@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9nk9ss4v2n1k?hl=en-US&amp;gl=US"><img alt="Download for Windows" src=".github/readme/download-windows.svg" width="200" height="61"></a>
   <a href="https://github.com/TechMitten/app-blips/releases/latest"><img alt="Download for Ubuntu" src=".github/readme/download-ubuntu.svg" width="200" height="61"></a>
-  <a href="https://web.appblips.com/"><img alt="Try the live demo" src="https://img.shields.io/badge/Try-Live_Demo-4F46E5?style=for-the-badge" height="61" style="vertical-align: middle"></a>
+  <a href="https://web.appblips.com/" style="display: inline-block; padding: 19px 28px; background-color: #4F46E5; color: #FFFFFF; border-radius: 8px; font-weight: 700; font-size: 16px; line-height: 23px; text-decoration: none; vertical-align: middle;">Try the Live Demo</a>
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@ Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or Op
 ### Creation & Editing
 - **Instant Live Preview** — Watch your project render in a sandboxed view with desktop/mobile toggles and zoom controls.
 - **Visual Click-to-Edit** — Select elements directly in Website Studio to edit text, swap images, update links, or trigger targeted AI refinements from the context menu.
-- **Built-in Code Editor** — Inspect and edit code directly with syntax highlighting and local autocomplete. Manual edits are saved as new versions, and syntax errors are reported without being auto-corrected.
+- **Built-in Code Editor** — Inspect and edit code directly with syntax highlighting and local autocomplete. Manual edits are saved as new versions, and syntax errors are reported without being overwritten.
 - **Project Image Gallery ("My Images")** — Upload your own assets or pull free stock photos via Pixabay, then reference them in your prompts (e.g., *"use team-photo in the hero section"*).
 - **Local Voice Input** — Dictate prompts using a bundled Whisper model that runs entirely on your device—no audio ever leaves your machine.
 - **Automatic Versioning** — Every generation and manual edit is saved as a snapshot that you can undo or restore at any time.
@@ -98,8 +98,8 @@ src/
   components/        # UI components: Header, BuildPanel, PreviewPane, and modals
 electron/            # Desktop app: main process, preload, disk storage, and in-process API routes
 server.js            # Web server (npm start / Docker): serves dist/ and /api/* endpoints
-testing/            # Standalone Node test scripts for backend routes and preview logic
-scripts/            # Build scripts, including Whisper model fetching
+testing/             # Standalone Node test scripts for backend routes and preview logic
+scripts/             # Build scripts, including Whisper model fetching
 ```
 
 ## License
