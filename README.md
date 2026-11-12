@@ -12,13 +12,13 @@
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9nk9ss4v2n1k?hl=en-US&amp;gl=US"><img alt="Download for Windows" src=".github/readme/download-windows.svg" width="200" height="61"></a>
   <a href="https://github.com/TechMitten/app-blips/releases/latest"><img alt="Download for Ubuntu" src=".github/readme/download-ubuntu.svg" width="200" height="61"></a>
-  <a href="https://web.appblips.com/" style="display: inline-block; padding: 19px 28px; background-color: #4F46E5; color: #FFFFFF; border-radius: 8px; font-weight: 700; font-size: 16px; line-height: 23px; text-decoration: none; vertical-align: middle;">Try the Live Demo</a>
 </p>
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <a href="https://github.com/techmitten/app-blips/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/techmitten/app-blips?style=flat&color=yellow"></a>
   <a href="https://discord.gg/a7QfqbvaF9"><img alt="Discord" src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white"></a>
+  <a href="https://web.appblips.com/"><img alt="Try the live demo" src="https://img.shields.io/badge/Try-Live_Demo-4F46E5?style=flat"></a>
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white">
   <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white">
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
@@ -94,7 +94,7 @@ src/
   App.jsx            # Workspace state, undo/redo history, and composition root
   previewBridge.js   # Script injected into generated apps to communicate with the sandboxed iframe
   lib/               # Core logic: LLM requests, surgical code edits, prompts, and helpers
-  hooks/             # React hooks for project state, preview viewport, image gallery, and themes
+  hooks/              # React hooks for project state, preview viewport, image gallery, and themes
   components/        # UI components: Header, BuildPanel, PreviewPane, and modals
 electron/            # Desktop app: main process, preload, disk storage, and in-process API routes
 server.js            # Web server (npm start / Docker): serves dist/ and /api/* endpoints
