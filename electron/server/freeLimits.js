@@ -9,7 +9,8 @@
 //   APPBLIPS_FREE_CONCURRENT             per visitor, at once     (default 4)
 //   APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY  per visitor, UTC day     (default 2,000,000)
 //   APPBLIPS_FREE_TOKENS_PER_DAY         everyone together        (default 30,000,000)
-//   APPBLIPS_FREE_MAX_OUTPUT_TOKENS      per request              (default 32,000)
+//   APPBLIPS_FREE_MAX_OUTPUT_TOKENS      per request              (default none: the
+//                                        app's 64k default, or the user's setting)
 // 0 turns one limit off. A visitor is an IP address (an IPv6 /64, since one
 // connection usually holds a whole /64).
 
@@ -18,7 +19,7 @@ const DEFAULTS = {
   concurrent: ['APPBLIPS_FREE_CONCURRENT', 4],
   tokensPerIpPerDay: ['APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY', 2_000_000],
   tokensPerDay: ['APPBLIPS_FREE_TOKENS_PER_DAY', 30_000_000],
-  maxOutputTokens: ['APPBLIPS_FREE_MAX_OUTPUT_TOKENS', 32_000],
+  maxOutputTokens: ['APPBLIPS_FREE_MAX_OUTPUT_TOKENS', 0],
 };
 const HOUR_MS = 3_600_000;
 const MAX_VISITORS = 50_000;

@@ -184,7 +184,7 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   if (picked.response) return picked.response;
   const { provider } = picked;
 
-  // The Free option: counted per visitor, and its output capped.
+  // The Free option: counted per visitor (and its output capped, if set).
   let ticket = null;
   if (freeLimits && !provider.userSupplied) {
     const started = freeLimits.begin(visitor);
@@ -248,7 +248,7 @@ async function forward(request, env, payload, provider, maxTokens, connectTimeou
   const defaultLimit = maxTokens == null && (payload.ask !== true || provider.id === 'anthropic');
   if (maxTokens != null) bodyObj.max_tokens = maxTokens;
   else if (defaultLimit) bodyObj.max_tokens = DEFAULT_BUILD_MAX_TOKENS;
-  // The Free option's per-request cap (freeLimits.js) wins over both.
+  // The Free option's optional per-request cap (freeLimits.js) wins over both.
   if (outputCap) bodyObj.max_tokens = Math.min(bodyObj.max_tokens ?? outputCap, outputCap);
 
   if (tools) bodyObj.tools = tools;

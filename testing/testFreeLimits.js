@@ -135,3 +135,16 @@ test('the Free option is limited and capped; the visitor’s own key is not', as
   assert.equal(own.status, 200);
   assert.equal(sent.at(-1).max_tokens, 50000);
 });
+
+test('by default the Free option keeps the 64k build limit and the user’s own setting', async (t) => {
+  const sent = [];
+  t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    sent.push(JSON.parse(options.body));
+    return new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+  });
+  const freeLimits = createFreeLimits({});
+  assert.equal(freeLimits.limits.maxOutputTokens, 0);
+  await (await send({}, { freeLimits, visitor: 'd' })).text();
+  await (await send({ max_tokens: 90000 }, { freeLimits, visitor: 'd' })).text();
+  assert.deepEqual(sent.map((b) => b.max_tokens), [64000, 90000]);
+});
