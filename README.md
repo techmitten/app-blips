@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9nk9ss4v2n1k?hl=en-US&amp;gl=US"><img alt="Download for Windows" src=".github/readme/download-windows.svg" width="200" height="61"></a>
   <a href="https://github.com/TechMitten/app-blips/releases/latest"><img alt="Download for Ubuntu" src=".github/readme/download-ubuntu.svg" width="200" height="61"></a>
+  <a href="https://web.appblips.com/"><img alt="Try the live demo" src="https://img.shields.io/badge/Try-Live_Demo-4F46E5?style=for-the-badge" height="61"></a>
 </p>
 
 <p align="center">
@@ -27,22 +28,21 @@
 
 **AppBlips** lets anyone build functional apps, websites, and 2D games from natural-language descriptions—no coding required, with full code access when you want it.
 
-Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter) or sign in to an optional AppBlips plan. There is no vendor lock-in: the generated code is always yours to inspect, edit, export, or host anywhere.
-
+Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter) or sign in to an optional AppBlips plan. There is no vendor lock-in: the generated code is always yours to keep.
 
 ## Key Features
 
 ### Creation & Editing
 - **Instant Live Preview** — Watch your project render in a sandboxed view with desktop/mobile toggles and zoom controls.
 - **Visual Click-to-Edit** — Select elements directly in Website Studio to edit text, swap images, update links, or trigger targeted AI refinements from the context menu.
-- **Built-in Code Editor** — Inspect and edit code directly with syntax highlighting and local autocomplete. Manual edits are saved as new versions, and syntax errors are reported without being silently overwritten by the AI.
+- **Built-in Code Editor** — Inspect and edit code directly with syntax highlighting and local autocomplete. Manual edits are saved as new versions, and syntax errors are reported without being auto-corrected.
 - **Project Image Gallery ("My Images")** — Upload your own assets or pull free stock photos via Pixabay, then reference them in your prompts (e.g., *"use team-photo in the hero section"*).
 - **Local Voice Input** — Dictate prompts using a bundled Whisper model that runs entirely on your device—no audio ever leaves your machine.
 - **Automatic Versioning** — Every generation and manual edit is saved as a snapshot that you can undo or restore at any time.
 
 ### AI & Integrations
 - **Bring Your Own Key** — Connect an API key from Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter with configurable model reasoning levels.
-- **Extensions** — Easily integrate Web3Forms (contact forms), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI media & chat), Pixabay (stock photos), and Tavily (live web search for the AI).
+- **Extensions** — Easily integrate Web3Forms (contact forms), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI media & chat), Pixabay (stock photos), and Tailwind CSS.
 - **Built-in SEO** — Answer a few quick questions in **Settings → Tools** to automatically generate SEO metadata, a `sitemap.xml`, and a `robots.txt` on export or publish.
 
 ### Import, Export & Publishing
@@ -101,7 +101,6 @@ server.js            # Web server (npm start / Docker): serves dist/ and /api/* 
 testing/             # Standalone Node test scripts for backend routes and preview logic
 scripts/             # Build scripts, including Whisper model fetching
 ```
-
 
 ## License
 
