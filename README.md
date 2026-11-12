@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://apps.microsoft.com/detail/9nk9ss4v2n1k?hl=en-US&amp;gl=US"><img alt="Download for Windows" src=".github/readme/download-windows.svg" width="200" height="61"></a>
   <a href="https://github.com/TechMitten/app-blips/releases/latest"><img alt="Download for Ubuntu" src=".github/readme/download-ubuntu.svg" width="200" height="61"></a>
-  <a href="https://web.appblips.com/"><img alt="Try it in your browser" src=".github/readme/try-in-browser.svg" width="200" height="61"></a>
+  <a href="https://web.appblips.com/"><img alt="Try it in your browser" src=".github/readme/browser-demo.svg" width="200" height="61"></a>
 </p>
 
 <p align="center">
