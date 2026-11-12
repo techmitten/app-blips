@@ -209,6 +209,8 @@ server.listen(PORT, HOST, () => {
   // Inside Docker, HOST is 0.0.0.0 but the address to open is the published
   // one; localhost is right for the default compose file.
   const shown = HOST === '0.0.0.0' || HOST === '::' || HOST === '127.0.0.1' ? 'localhost' : HOST;
-  console.log(`\n${formatConfigSummary(describeConfig(process.env))}\n`);
+  // Not on a Hugging Face Space (it sets SPACE_ID): its logs can be shown to
+  // others, and the provider and model are the host's business.
+  if (!process.env.SPACE_ID) console.log(`\n${formatConfigSummary(describeConfig(process.env))}\n`);
   console.log(`AppBlips is running. Open http://${shown}:${process.env.APPBLIPS_PUBLIC_PORT || PORT} in your browser.`);
 });

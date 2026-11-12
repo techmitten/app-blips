@@ -51,7 +51,8 @@ export const defaultModel = (provider, { fetchImpl = globalThis.fetch } = {}) =>
       .then((models) => {
         const model = chooseModel(provider.id, models.map((m) => m.id));
         if (!model) throw new Error(`${provider.label} listed no models for this key.`);
-        console.log(`[llm] OPENAI_LLM_MODEL is empty; using ${provider.label}'s ${model}.`);
+        // Not on a Hugging Face Space (SPACE_ID), whose logs can be shown to others.
+        if (!globalThis.process?.env?.SPACE_ID) console.log(`[llm] OPENAI_LLM_MODEL is empty; using ${provider.label}'s ${model}.`);
         return model;
       })
       .catch((err) => {
