@@ -17,6 +17,7 @@
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
+import { defaultModel } from './defaultModel.js';
 
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
@@ -39,7 +40,7 @@ const configError = (env, detail) => new Response(
 // The provider for this request: the user's own (Settings → AI) when the
 // client sent one, otherwise the env provider. Returns { provider } or
 // { response } (an error to send back).
-const pickProvider = (env, payload) => {
+const pickProvider = async (env, payload) => {
   if (payload?.user_provider != null) {
     const provider = resolveUserProvider(payload.user_provider);
     if (provider.error) return { response: badRequest(`Your AI provider settings are incomplete: ${provider.error}`) };
@@ -54,6 +55,13 @@ const pickProvider = (env, payload) => {
         `Missing configuration: ${provider.missing.join(', ')}. Add ${provider.missing.length > 1 ? 'them' : 'it'} to your .env (or your host's environment variables) and restart.`,
       ),
     };
+  }
+  if (provider.autoModel) {
+    try {
+      provider.model = await defaultModel(provider);
+    } catch (err) {
+      return { response: configError(env, err.message) };
+    }
   }
   if (isOpenRouter(provider) && isUncensoredModel(provider.model)) return { response: configError(env, UNCENSORED_ERROR) };
   return { provider };
@@ -169,7 +177,7 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
     return badRequest('The output token limit must be a positive whole number. Change it in Settings → AI.');
   }
 
-  const picked = pickProvider(env, payload);
+  const picked = await pickProvider(env, payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
   const url = toChatCompletionsUrl(provider.baseUrl);

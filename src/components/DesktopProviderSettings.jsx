@@ -6,7 +6,7 @@ import ConfirmModal from './ConfirmModal';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
-import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
+import { ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { logError } from '../lib/errorLog';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
@@ -22,7 +22,10 @@ import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 
 const SELECT_COLORS = { backgroundColor: 'var(--color-surface)', color: 'var(--color-slate-900)' };
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
-const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
+const providerLabel = (id) => (id === FREE_PROVIDER_ID ? FREE_PROVIDER_LABEL : USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id);
+// Free is the choice in effect when the environment supplies AI and no
+// provider of the user's own is switched on.
+const usesFree = (info) => Boolean(info?.envConfigured && !info.enabled);
 // No provider until one is chosen (as in onboarding), so an unset Settings → AI
 // shows "Select a provider" rather than quietly defaulting to the first.
 const EMPTY_DRAFT = { id: '', model: '', apiKey: '' };
@@ -38,17 +41,19 @@ export default function DesktopProviderSettings({ guardRef }) {
   const [replaceKey, setReplaceKey] = useState(false);
   const keyInputRef = useRef(null);
   const [status, setStatus] = useState(null); // { kind: 'busy' | 'ok' | 'error', text }
+  const isFree = draft.id === FREE_PROVIDER_ID;
   const modelList = useProviderModels({
     ...draft,
-    // No provider: an empty key keeps the list from loading for nothing.
-    ...(draft.id ? {} : { apiKey: '' }),
+    // No provider (or Free): an empty id and key keep the list from loading for nothing.
+    ...(draft.id && !isFree ? {} : { id: '', apiKey: '' }),
     hasSavedKey: Boolean(saved?.hasKey && saved.id === draft.id),
   });
 
   useEffect(() => {
     providerApi.get().then((info) => {
       setSaved(info);
-      if (info.id) setDraft({ id: info.id, model: info.model, apiKey: '' });
+      if (usesFree(info)) setDraft({ id: FREE_PROVIDER_ID, model: '', apiKey: '' });
+      else if (info.id) setDraft({ id: info.id, model: info.model, apiKey: '' });
     }).catch((err) => {
       logError('Could not read the AI settings', err);
       setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not read the AI settings.' });
@@ -73,11 +78,13 @@ export default function DesktopProviderSettings({ guardRef }) {
     // After the dialog unmounts, so focus lands back in the field.
     requestAnimationFrame(() => keyInputRef.current?.focus());
   };
-  const complete = draft.id && draft.model.trim() && (draft.apiKey.trim() || keepsSavedKey);
-  const dirty = !saved?.enabled || saved.id !== draft.id || saved.model !== draft.model.trim() || Boolean(draft.apiKey.trim());
+  const complete = isFree || (draft.id && draft.model.trim() && (draft.apiKey.trim() || keepsSavedKey));
+  const dirty = isFree
+    ? Boolean(saved?.enabled)
+    : !saved?.enabled || saved.id !== draft.id || saved.model !== draft.model.trim() || Boolean(draft.apiKey.trim());
   const active = saved?.enabled && saved.id && saved.model && saved.hasKey;
   // Anything typed that Save hasn't stored yet.
-  const base = saved?.id ? { id: saved.id, model: saved.model } : { id: '', model: '' };
+  const base = usesFree(saved) ? { id: FREE_PROVIDER_ID, model: '' } : saved?.id ? { id: saved.id, model: saved.model } : { id: '', model: '' };
   const unsaved = Boolean(saved) && (draft.id !== base.id || draft.model.trim() !== base.model || Boolean(draft.apiKey.trim()));
 
   const summary = !saved
@@ -85,12 +92,24 @@ export default function DesktopProviderSettings({ guardRef }) {
     : active
       ? `Using ${providerLabel(saved.id)} · ${saved.model}.`
       : saved.envConfigured
-        ? 'Using the provider from your environment variables. Save one here to use it instead.'
+        ? `Using Free AI${saved.envProvider ? ` (${saved.envProvider.label}${saved.envProvider.model ? ` · ${saved.envProvider.model}` : ''})` : ''}, set up by whoever runs this copy of AppBlips. Choose a provider with your own key to use it instead.`
         : 'Not set up yet. Choose a provider and coding model to start building.';
 
   // Returns whether it saved, for the leave-with-unsaved-changes dialog.
   const onSave = async () => {
     setStatus({ kind: 'busy', text: 'Saving…' });
+    if (isFree) {
+      try {
+        await chooseFreeProvider();
+        setSaved(await providerApi.get());
+        setStatus({ kind: 'ok', text: 'Saved.' });
+        return true;
+      } catch (err) {
+        logError('Could not switch to the Free AI option', err);
+        setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not save.' });
+        return false;
+      }
+    }
     try {
       const next = await providerApi.set({
         enabled: true,
@@ -128,10 +147,11 @@ export default function DesktopProviderSettings({ guardRef }) {
         // some models to switch thinking off, which always-thinking models
         // (e.g. Z.ai glm-5.3-flash) reject, failing a working setup.
         reasoningEffort: CHAT_REASONING_EFFORT,
-        userProvider: { id: draft.id, model: draft.model.trim(), apiKey: draft.apiKey.trim() },
+        // Free is tested as saved (no provider of the user's own attached).
+        ...(isFree ? {} : { userProvider: { id: draft.id, model: draft.model.trim(), apiKey: draft.apiKey.trim() } }),
         retry: false,
       });
-      setStatus({ kind: 'ok', text: `Connected to ${providerLabel(draft.id)}.` });
+      setStatus({ kind: 'ok', text: isFree ? 'Free AI is working.' : `Connected to ${providerLabel(draft.id)}.` });
     } catch (err) {
       logError(`AI provider test request failed (${draft.id}, ${draft.model.trim()})`, err);
       setStatus({ kind: 'error', text: err?.message || 'The test request failed.' });
@@ -175,9 +195,16 @@ export default function DesktopProviderSettings({ guardRef }) {
             >
               {/* Disabled: once a provider is chosen there's no going back to none (Clear does that). */}
               <option value="" disabled style={SELECT_COLORS}>Select a provider</option>
+              {saved?.envConfigured && <option value={FREE_PROVIDER_ID} style={SELECT_COLORS}>{FREE_PROVIDER_LABEL}</option>}
               {USER_PROVIDER_OPTIONS.map((p) => <option key={p.id} value={p.id} style={SELECT_COLORS}>{p.label}</option>)}
             </select>
           </label>
+          {isFree ? (
+            <p className="text-xs text-slate-500 leading-snug">
+              Whoever runs this copy of AppBlips has set up AI for everyone using it{saved?.envProvider ? `, on ${saved.envProvider.label}${saved.envProvider.model ? ` (${saved.envProvider.model})` : ''}` : ''}. No key or model to choose. It may be slower or limited when busy; pick a provider with your own key for more control.
+              {saved?.enabled && ' Saving switches off your own provider; its key stays saved.'}
+            </p>
+          ) : (<>
           <label className="block text-sm text-slate-600">
             {draft.id ? `${providerLabel(draft.id)} API key` : 'API key'}
             <div className="relative">
@@ -221,8 +248,8 @@ export default function DesktopProviderSettings({ guardRef }) {
               ? 'Your key is encrypted with your system keychain and stored only on this computer, never in your projects.'
               : 'Your key is saved by AppBlips on this computer, in a file only you can read. It is never stored in the browser or in your projects.'}
           </p>
-          {['anthropic', 'openai', 'gemini', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
-            <ConfirmedLink why="To sign in to your provider's account and create an API key. AppBlips needs a key to send your prompts to that provider." href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : 'https://platform.deepseek.com/api_keys'} >Create a {providerLabel(draft.id)} API key</ConfirmedLink>.
+          {['anthropic', 'openai', 'gemini', 'xai', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
+            <ConfirmedLink why="To sign in to your provider's account and create an API key. AppBlips needs a key to send your prompts to that provider." href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : draft.id === 'xai' ? 'https://console.x.ai/team/default/api-keys' : 'https://platform.deepseek.com/api_keys'} >Create a {providerLabel(draft.id)} API key</ConfirmedLink>.
           </p>}
           {saved?.weakEncryption && (
             <p className="flex items-start gap-1.5 text-xs text-amber-600 leading-snug">
@@ -249,6 +276,7 @@ export default function DesktopProviderSettings({ guardRef }) {
           {draft.id === 'openai' && <p className="text-xs text-slate-500">
             Choose an OpenAI model that supports tool calling through Chat Completions.
           </p>}
+          </>)}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -258,10 +286,10 @@ export default function DesktopProviderSettings({ guardRef }) {
             >
               Save
             </button>
-            <button type="button" onClick={onTest} disabled={!complete || busy} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={onTest} disabled={!complete || busy || (isFree && dirty)} className={SECONDARY_BUTTON}>
               Test connection
             </button>
-            <button type="button" onClick={() => setConfirmClear(true)} disabled={!saved?.id || busy} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={() => setConfirmClear(true)} disabled={!saved?.id || isFree || busy} className={SECONDARY_BUTTON}>
               Clear
             </button>
             {status && (

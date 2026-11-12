@@ -28,7 +28,7 @@
 
 **AppBlips** lets anyone build functional apps, websites, and 2D games from natural-language descriptions—no coding required, with full code access when you want it.
 
-Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter). There is no vendor lock-in: the generated code is always yours to keep.
+Run it locally with your own API key (Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter). There is no vendor lock-in: the generated code is always yours to keep.
 
 ## Key Features
 
@@ -41,7 +41,7 @@ Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or Op
 - **Automatic Versioning** — Every generation and manual edit is saved as a snapshot that you can undo or restore at any time.
 
 ### AI & Integrations
-- **Bring Your Own Key** — Connect an API key from Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter with configurable model reasoning levels.
+- **Bring Your Own Key** — Connect an API key from Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter with configurable model reasoning levels.
 - **Extensions** — Easily integrate Web3Forms (contact forms), Umami/Plausible (analytics), tawk.to (live chat), Square (payments), Pollinations (AI media & chat), Pixabay (stock photos), and Tailwind CSS.
 - **Built-in SEO** — Answer a few quick questions in **Settings → Tools** to automatically generate SEO metadata, a `sitemap.xml`, and a `robots.txt` on export or publish.
 

@@ -41,7 +41,7 @@ const EFFORT_HINTS = {
   xhigh: 'Very thorough, noticeably slower',
   max: 'Deepest thinking, slowest and costliest',
 };
-const PROVIDER_NAMES = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini', deepseek: 'DeepSeek', openrouter: 'OpenRouter' };
+const PROVIDER_NAMES = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini', xai: 'xAI', deepseek: 'DeepSeek', openrouter: 'OpenRouter' };
 
 // The levels the active provider and model accept (useReasoningLevels in
 // App). The saved choice isn't overwritten when it isn't offered: the

@@ -140,7 +140,9 @@ export default function App({ coldStart = false }) {
   useEffect(() => {
     let cancelled = false;
     providerApi.get().then((info) => {
-      const ready = info.envConfigured || (info.enabled && info.id && info.model && info.hasKey);
+      // With AI from the host's environment variables onboarding still runs
+      // once, to explain the Free option it adds to the provider list.
+      const ready = info.enabled && info.id && info.model && info.hasKey;
       if (!cancelled) setDesktopOnboarding(!ready && !info.onboardingComplete ? { loading: false, info } : null);
     }).catch((err) => {
       logWarn('Could not read the AI settings; skipping first-run setup', err);

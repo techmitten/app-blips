@@ -49,7 +49,7 @@ test('requests other than AppBlips\' own /api/* go to the real fetch', async () 
 test('the provider key is kept in secure storage and attached to /api/chat', async () => {
   stored.clear();
   await install();
-  assert.deepEqual(await (await fetch('/api/provider')).json(), { id: '', hasKey: false });
+  assert.deepEqual(await (await fetch('/api/provider')).json(), { id: '', hasKey: false, envConfigured: false });
 
   const saved = await fetch('/api/provider', json('PUT', { id: 'openai', model: 'gpt-test', apiKey: 'sk-secret', enabled: true }));
   assert.equal(saved.status, 200);
@@ -59,7 +59,7 @@ test('the provider key is kept in secure storage and attached to /api/chat', asy
 
   // A fresh start reads it back.
   await install();
-  assert.deepEqual(await (await fetch('/api/provider')).json(), { id: 'openai', hasKey: true });
+  assert.deepEqual(await (await fetch('/api/provider')).json(), { id: 'openai', hasKey: true, envConfigured: false });
 
   let sent;
   upstream = async (url, init) => {

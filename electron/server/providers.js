@@ -1,5 +1,5 @@
 // LLM providers the proxies can talk to. The server-configured provider stays
-// DeepSeek; users can choose OpenRouter, Anthropic, OpenAI, Gemini or DeepSeek through Settings.
+// DeepSeek; users can choose OpenRouter, Anthropic, OpenAI, Gemini, xAI or DeepSeek through Settings.
 // Environment variables follow the OPENAI_LLM_* standard names.
 
 const PROVIDERS = {
@@ -25,6 +25,12 @@ const PROVIDERS = {
   gemini: {
     label: 'Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    reasoningParam: 'reasoning_effort',
+  },
+  // Grok. OpenAI-compatible at api.x.ai/v1, with /models; keys start xai-.
+  xai: {
+    label: 'xAI',
+    baseUrl: 'https://api.x.ai/v1',
     reasoningParam: 'reasoning_effort',
   },
   openrouter: {
@@ -109,8 +115,12 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
   let id = requested;
   let alsoConfigured = [];
   if (requested && !PROVIDERS[requested]) {
-    return { error: `Unknown ${providerVar} "${requested}". Use one of: ${PROVIDER_IDS.join(', ')}.` };
+    return { error: `Unknown ${providerVar} "${requested}". Use one of: ${Object.keys(PROVIDERS).join(', ')}.` };
   }
+  // With no provider named and no endpoint of its own, the builder's key
+  // says whose it is: an OpenAI, Anthropic, Gemini or OpenRouter key set on
+  // its own goes to that provider instead of DeepSeek.
+  if (!id && builder && !generic('BASE_URL')) id = providerForKey(generic('API_KEY'));
   if (!id) {
     const configured = PROVIDER_IDS.filter((candidate) => (candidate === DEFAULT_PROVIDER
       ? generic('API_KEY')
@@ -132,13 +142,18 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
   // own read is skipped and the generic (with the legacy fallback) answers.
   const pick = (field) => (id === DEFAULT_PROVIDER ? '' : read(env, names.own[field])) || generic(fieldKey[field]);
   const preset = PROVIDERS[id];
+  const baseUrl = pick('baseUrl') || preset.baseUrl;
+  const model = pick('model');
   const provider = {
     id,
     ...PRESET_DEFAULTS,
     ...preset,
     apiKey: pick('apiKey'),
-    model: pick('model'),
-    baseUrl: pick('baseUrl') || preset.baseUrl,
+    model,
+    // On a provider's own endpoint an empty model is chosen for the user
+    // (defaultModel.js); a custom endpoint still needs one named.
+    autoModel: !model && baseUrl === preset.baseUrl,
+    baseUrl,
     reasoningParam: preset.reasoningParam,
     alsoConfigured,
     // Where to point the user: the provider's own key variable, but the shared
@@ -151,7 +166,7 @@ export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
 
 // User-selected providers are separate from the server-owned environment provider.
 // The first entry is the default in onboarding and Settings.
-export const USER_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'deepseek', 'openrouter'];
+export const USER_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'xai', 'deepseek', 'openrouter'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
   id,
   label: PROVIDERS[id].label,
@@ -212,10 +227,30 @@ export const resolveUserProvider = (input) => {
   };
 };
 
+// Whose key this is, from the prefix each provider gives its keys, or ''
+// when it can't tell (DeepSeek's and older OpenAI keys are both plain sk-).
+export const providerForKey = (key) => {
+  if (/^sk-ant-/.test(key)) return 'anthropic';
+  if (/^sk-or-/.test(key)) return 'openrouter';
+  if (/^AIza/.test(key)) return 'gemini';
+  if (/^xai-/.test(key)) return 'xai';
+  if (/^sk-(?:proj|svcacct|admin)-/.test(key)) return 'openai';
+  return '';
+};
+
+// What the page may learn about the environment provider: whether it can
+// answer /api/chat without Settings → AI, and which provider and model it
+// uses. Never the key.
+export const envProviderStatus = (env) => {
+  const provider = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
+  if (provider.error || provider.missing.length) return { envConfigured: false };
+  return { envConfigured: true, envProvider: { id: provider.id, label: provider.label, model: provider.model } };
+};
+
 // The variables still to be filled in for `provider`.
 const missingVars = (provider) => [
   !provider.apiKey && provider.vars.apiKey,
-  !provider.model && provider.vars.model,
+  !provider.model && !provider.autoModel && provider.vars.model,
   !provider.baseUrl && provider.vars.baseUrl,
 ].filter(Boolean);
 
@@ -273,6 +308,11 @@ export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
     // Off is only accepted by Gemini 2.5 Flash / Flash-Lite (clamped above);
     // elsewhere it is omitted, which keeps the model's default.
     if (!off || rules.levels.includes('none')) bodyObj.reasoning_effort = raw;
+  } else if (provider.id === 'xai') {
+    // Only Grok models known to take reasoning_effort get it (reasoning.js);
+    // others reject the parameter, and omitting it keeps their default.
+    if (!off && rules.known && rules.levels.length) bodyObj.reasoning_effort = raw;
+    else delete bodyObj.reasoning_effort;
   } else if (provider.id === 'openrouter' && !off) {
     // Omit it when reasoning is off: some always-thinking models reject an
     // explicit "none", while omission uses the model default.

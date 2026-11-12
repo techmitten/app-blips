@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { handleChatProxy } from './server/chatProxy.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './server/staticFiles.js';
 import { describeConfig, formatConfigSummary } from './server/configSummary.js';
-import { resolveProvider } from './server/providers.js';
+import { envProviderStatus } from './server/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic, PROJECT_FILE } from './projectStore.js';
 import { HASH_RE, mimeTypeFor } from '../src/lib/codebase/paths.js';
 import { createProviderStore } from './providerStore.js';
@@ -249,7 +249,6 @@ function handle(channel, fn) {
 
 // Whether any provider is usable without Settings → AI (env vars set by a
 // power user launching from a terminal).
-const envProviderConfigured = () => !resolveProvider(process.env, 'APPBLIPS_LLM', { quiet: true }).error;
 
 function registerIpc() {
   handle('desktop:projects:list', async () => ({
@@ -263,7 +262,7 @@ function registerIpc() {
   handle('desktop:blobs:get', (id, hashes) => projectStore.getBlobs(id, hashes));
   handle('desktop:blobs:missing', (id, hashes) => projectStore.missingBlobs(id, hashes));
 
-  handle('desktop:provider:get', () => ({ ...providerStore.describe(), envConfigured: envProviderConfigured() }));
+  handle('desktop:provider:get', () => ({ ...providerStore.describe(), ...envProviderStatus(process.env) }));
   handle('desktop:provider:set', (patch) => providerStore.set(patch));
   handle('desktop:provider:clear', (options) => providerStore.clear({ resetOnboarding: options?.resetOnboarding === true }));
   handle('desktop:provider:models', (input) => providerStore.listModels(input));

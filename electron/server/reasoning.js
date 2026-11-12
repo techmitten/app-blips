@@ -12,6 +12,9 @@
 //   only 2.5 Flash / Flash-Lite can turn thinking off.
 // - DeepSeek: low/high/max ("none" turns thinking off); /models lists
 //   `effort.supported_levels` per model.
+// - xAI: OpenAI-compatible reasoning_effort, model dependent: grok-3-mini
+//   takes low/high, Grok 4.3 and later low/medium/high (reasoning always on).
+//   Other Grok models reject the parameter, so it is left out for them.
 // - OpenRouter: /models lists `reasoning.supported_efforts` and `mandatory`.
 
 // Lowest to highest. 'none' is Off.
@@ -52,6 +55,12 @@ const openaiLevels = (model) => {
   return none(NOT_A_REASONING_MODEL);
 };
 
+const xaiLevels = (model) => {
+  if (/^grok-3-mini/.test(model)) return levels(['low', 'high'], 'low');
+  if (/^grok-4\.[3-9](?!\d)|^grok-(?:[5-9]|\d{2})(?!\d)/.test(model)) return levels(['low', 'medium', 'high'], 'medium');
+  return none(NOT_A_REASONING_MODEL);
+};
+
 // Gemini's thinking table. Ids may arrive as "models/gemini-…".
 const GEMINI_TABLE = [
   [/^gemini-2\.5-flash(?:-lite)?(?:-|$)/, ['none', 'low', 'medium', 'high']],
@@ -80,6 +89,7 @@ export const staticReasoningLevels = (providerId, model = '') => {
     case 'anthropic': return anthropicLevels(id);
     case 'openai': return openaiLevels(id);
     case 'gemini': return geminiLevels(id);
+    case 'xai': return xaiLevels(id);
     case 'deepseek': return guess(['none', 'low', 'high', 'max'], 'high');
     case 'openrouter': return guess(['none', 'low', 'medium', 'high']);
     default: return guess(['none', 'low', 'medium', 'high']);

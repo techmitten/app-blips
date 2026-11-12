@@ -6,7 +6,7 @@
 // names of variables that still need filling in.
 import { resolveProvider, LLM_ENV } from './providers.js';
 
-const describeProvider = (provider) => `${provider.label} · ${provider.model} · ${provider.baseUrl}`;
+const describeProvider = (provider) => `${provider.label} · ${provider.model || 'newest model (set OPENAI_LLM_MODEL to choose)'} · ${provider.baseUrl}`;
 
 // Returns [{ level: 'info' | 'warn' | 'error', label?, text }].
 export const describeConfig = (env) => {

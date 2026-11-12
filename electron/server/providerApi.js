@@ -4,12 +4,12 @@
 // primitives only, like chatProxy.js. The desktop app answers the same
 // questions over IPC instead (electron/main.js).
 //
-//   GET    /api/provider          -> { id, hasKey }
+//   GET    /api/provider          -> { id, hasKey, envConfigured, envProvider? }
 //   PUT    /api/provider          -> save { id, model, apiKey, enabled }
 //   DELETE /api/provider          -> forget the key
 //   POST   /api/provider/models   -> [{ id, label }] for { id, apiKey? }
 import { isForeignOrigin } from './chatProxy.js';
-import { resolveUserProvider } from './providers.js';
+import { resolveUserProvider, envProviderStatus } from './providers.js';
 import { listProviderModels } from './providerModels.js';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -37,7 +37,9 @@ export async function handleProviderApi(request, env, keys) {
   };
 
   if (path === '/api/provider') {
-    if (request.method === 'GET') return json(keys.describe());
+    // envConfigured: the host's environment variables (OPENAI_API_KEY…)
+    // already provide AI, so the page needn't ask for a key.
+    if (request.method === 'GET') return json({ ...keys.describe(), ...envProviderStatus(env) });
     if (request.method === 'DELETE') {
       await keys.clear();
       return json(keys.describe());

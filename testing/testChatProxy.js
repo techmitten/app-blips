@@ -266,10 +266,44 @@ test('no filled-in provider is a clear configuration error', async (t) => {
   assert.match((await response.json()).error, /No AI provider is configured/);
 });
 
-test('a provider with a key but no model names the missing variable', async (t) => {
-  const { response } = await runWith(t, { OPENAI_API_KEY: 'k' });
+test('a custom endpoint with a key but no model names the missing variable', async (t) => {
+  const { response } = await runWith(t, { OPENAI_API_KEY: 'k', OPENAI_BASE_URL: 'https://llm.example/v1' });
   assert.equal(response.status, 500);
   assert.match((await response.json()).error, /OPENAI_LLM_MODEL/);
+});
+
+// Hosting setups (a Hugging Face Space, say) often set only OPENAI_API_KEY.
+test('an OpenAI key on its own goes to OpenAI with its newest model', async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
+    calls.push({ url: String(url), headers: options.headers, body: options.body ? JSON.parse(options.body) : null });
+    if (String(url).endsWith('/models')) {
+      return Response.json({ data: [{ id: 'gpt-4o' }, { id: 'gpt-5.5-mini' }, { id: 'gpt-5.5' }, { id: 'gpt-5' }, { id: 'gpt-6-2026-03-01' }] });
+    }
+    return new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
+  });
+  const send = () => handleChatProxy(new Request('https://app.example/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+  }), { ...noLlmEnv, OPENAI_API_KEY: 'sk-proj-abc' });
+  assert.equal((await send()).status, 200);
+  assert.equal(calls[0].url, 'https://api.openai.com/v1/models');
+  assert.equal(calls[1].url, 'https://api.openai.com/v1/chat/completions');
+  assert.equal(calls[1].headers.Authorization, 'Bearer sk-proj-abc');
+  assert.equal(calls[1].body.model, 'gpt-5.5');
+  // The choice is remembered: no second model lookup.
+  assert.equal((await send()).status, 200);
+  assert.equal(calls.length, 3);
+});
+
+test('a failed model lookup asks for OPENAI_LLM_MODEL', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('{}', { status: 401 }));
+  const response = await handleChatProxy(new Request('https://app.example/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+  }), { ...noLlmEnv, OPENAI_API_KEY: 'sk-proj-rejected' });
+  assert.equal(response.status, 500);
+  assert.match((await response.json()).error, /rejected the API key.*OPENAI_LLM_MODEL/);
 });
 
 // --- User-supplied provider (Settings → AI) --------------------------------

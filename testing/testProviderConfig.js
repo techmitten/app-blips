@@ -5,6 +5,8 @@ import {
   USER_PROVIDER_IDS, USER_PROVIDER_OPTIONS,
 } from '../electron/server/providers.js';
 import { describeConfig, formatConfigSummary } from '../electron/server/configSummary.js';
+import { envProviderStatus } from '../electron/server/providers.js';
+import { chooseModel } from '../electron/server/defaultModel.js';
 import { handleChatProxy } from '../electron/server/chatProxy.js';
 
 const builderEnv = { OPENAI_API_KEY: 'ds-key', OPENAI_LLM_MODEL: 'deepseek-v4-pro' };
@@ -26,9 +28,46 @@ test('no provider key is a configuration error', () => {
   assert.match(resolveProvider({}, 'APPBLIPS_LLM', quiet).error, /No AI provider is configured/);
 });
 
-test('a missing model names the model variable', () => {
+test('a missing model is picked automatically on a preset endpoint', () => {
   const app = resolveProvider({ OPENAI_API_KEY: 'k' }, 'APPBLIPS_LLM', quiet);
+  assert.equal(app.autoModel, true);
+  assert.deepEqual(app.missing, []);
+});
+
+test('a missing model names the model variable on a custom endpoint', () => {
+  const app = resolveProvider({ OPENAI_API_KEY: 'k', OPENAI_BASE_URL: 'https://llm.example/v1' }, 'APPBLIPS_LLM', quiet);
   assert.deepEqual(app.missing, ['OPENAI_LLM_MODEL']);
+});
+
+test('the key prefix picks the provider when none is named', () => {
+  const idFor = (key, extra = {}) => resolveProvider({ OPENAI_API_KEY: key, ...extra }, 'APPBLIPS_LLM', quiet).id;
+  assert.equal(idFor('sk-proj-x'), 'openai');
+  assert.equal(idFor('sk-svcacct-x'), 'openai');
+  assert.equal(idFor('sk-ant-api03-x'), 'anthropic');
+  assert.equal(idFor('sk-or-v1-x'), 'openrouter');
+  assert.equal(idFor('AIzaSyX'), 'gemini');
+  assert.equal(idFor('xai-abc'), 'xai');
+  assert.equal(idFor('sk-plain'), 'deepseek');
+  // A named provider or a custom endpoint wins over the guess.
+  assert.equal(idFor('sk-proj-x', { OPENAI_LLM_PROVIDER: 'deepseek' }), 'deepseek');
+  assert.equal(idFor('sk-plain', { OPENAI_LLM_PROVIDER: 'openai' }), 'openai');
+  const custom = resolveProvider({ OPENAI_API_KEY: 'sk-proj-x', OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_LLM_MODEL: 'm' }, 'APPBLIPS_LLM', quiet);
+  assert.equal(custom.baseUrl, 'https://llm.example/v1');
+});
+
+test('envProviderStatus tells the page whether the env provides AI, never the key', () => {
+  assert.deepEqual(envProviderStatus({}), { envConfigured: false });
+  assert.deepEqual(envProviderStatus({ OPENAI_API_KEY: 'k', OPENAI_BASE_URL: 'https://llm.example/v1' }), { envConfigured: false });
+  const status = envProviderStatus({ OPENAI_API_KEY: 'sk-proj-secret' });
+  assert.deepEqual(status, { envConfigured: true, envProvider: { id: 'openai', label: 'OpenAI', model: '' } });
+});
+
+test('chooseModel prefers the newest general model of each provider', () => {
+  assert.equal(chooseModel('anthropic', ['claude-haiku-5-5', 'claude-sonnet-4-6', 'claude-sonnet-5-5', 'claude-opus-5-5']), 'claude-sonnet-5-5');
+  assert.equal(chooseModel('gemini', ['models/gemini-2.5-flash', 'models/gemini-2.5-pro', 'models/gemini-3.1-pro']), 'models/gemini-3.1-pro');
+  assert.equal(chooseModel('deepseek', ['deepseek-chat', 'deepseek-v4-flash', 'deepseek-v4-pro']), 'deepseek-v4-pro');
+  assert.equal(chooseModel('xai', ['grok-3-mini', 'grok-4.3-mini', 'grok-4', 'grok-4.3', 'grok-imagine-image']), 'grok-4.3');
+  assert.equal(chooseModel('openai', []), '');
 });
 
 // --- Startup summary --------------------------------------------------------
@@ -80,7 +119,7 @@ test('resolveUserProvider accepts each preset and uses the preset endpoint', () 
 });
 
 test('self-hosted OpenRouter choices allow dynamic models', () => {
-  assert.deepEqual(USER_PROVIDER_IDS, ['anthropic', 'openai', 'gemini', 'deepseek', 'openrouter']);
+  assert.deepEqual(USER_PROVIDER_IDS, ['anthropic', 'openai', 'gemini', 'xai', 'deepseek', 'openrouter']);
   assert.equal(resolveUserProvider({
     id: 'openrouter', apiKey: 'sk-or-test', model: 'arbitrary/model',
   }).baseUrl, 'https://openrouter.ai/api/v1');
@@ -231,4 +270,20 @@ test('uncensored OpenRouter models are refused, typed in or from .env', async ()
   assert.ok(isOpenRouter({ id: 'deepseek', baseUrl: 'https://openrouter.ai/api/v1' }));
   assert.ok(!isOpenRouter({ id: 'deepseek', baseUrl: 'https://api.deepseek.com' }));
   assert.ok(isUncensoredModel('venice/uncensored'));
+});
+
+test('xAI: OpenAI-compatible endpoint, reasoning_effort only where the Grok model takes it', () => {
+  const xai = resolveUserProvider({ id: 'xai', apiKey: 'xai-k', model: 'grok-4.3' });
+  assert.equal(xai.baseUrl, 'https://api.x.ai/v1');
+  const send = (model, effort) => {
+    const body = { model, reasoning_effort: 'stale' };
+    applyProviderSettings(body, { ...xai, model }, { effort });
+    return body.reasoning_effort;
+  };
+  assert.equal(send('grok-4.3', 'high'), 'high');
+  assert.equal(send('grok-3-mini', 'medium'), 'high');
+  assert.equal(send('grok-4', 'high'), undefined);
+  assert.equal(send('grok-4.20-0309-reasoning', 'high'), undefined);
+  // Reasoning is always on for Grok 4.3, so Off becomes its lowest level.
+  assert.equal(send('grok-4.3', 'none'), 'low');
 });
