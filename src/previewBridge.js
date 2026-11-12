@@ -1,6 +1,7 @@
 import { injectLoopProtection } from './lib/loopProtection.js';
 import { compileJsxScripts } from './lib/jsxCompile.js';
 import { injectPollinationsHelper } from './lib/pollinationsHelper.js';
+import { injectSheetsHelper } from './lib/sheetsHelper.js';
 import { sourceFingerprint, stampSourcePositions } from './lib/sourcePositions.js';
 import { rewriteGalleryRefs } from './lib/galleryImages.js';
 
@@ -3485,6 +3486,8 @@ const buildTag = (token, initialStorage, touchEnabled, projectMode, sourceFp) =>
  *   (lib/sourcePositions.js); preview only, like everything injected here.
  *   `pollinations` says how the Pollinations helper pays for AI features
  *   (lib/pollinationsHelper.js, getPollinationsHelperOptions in connectors.js).
+ *   `sheets` is the Google Sheets web app URL the SheetDB helper calls
+ *   (lib/sheetsHelper.js, getSheetsScriptUrl in connectors.js).
  *   `gallery` turns images/<name> paths of the user's uploaded images into
  *   URLs the opaque-origin frame can load (lib/galleryImages.js).
  * @returns {{ srcDoc: string, token: string }}
@@ -3505,7 +3508,7 @@ export const injectPreviewBridge = (code, options = {}) => {
   // The Pollinations helper is AppBlips' own code, so it goes in after loop
   // protection, which only guards the app's loops. The bridge tag below lands
   // ahead of it, so the storage shim is ready when it reads sessionStorage.
-  code = injectPollinationsHelper(injectLoopProtection(compileJsxScripts(code)), options?.pollinations);
+  code = injectSheetsHelper(injectPollinationsHelper(injectLoopProtection(compileJsxScripts(code)), options?.pollinations), options?.sheets);
 
   const initialStorage = options?.initialStorage;
   const tag = buildTag(token, initialStorage, options?.touchEnabled === true, options?.projectMode === true, sourceFp);

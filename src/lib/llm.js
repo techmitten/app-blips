@@ -33,6 +33,8 @@ import {
   GAME_ENGINE_ROUTER_SYSTEM_PROMPT,
   BUILD_INTENT_SYSTEM_PROMPT,
   GALLERY_MATCH_SYSTEM_PROMPT,
+  SCREENSHOT_ACK_NOTE,
+  IMAGE_DESCRIPTION_SYSTEM_PROMPT,
   buildGalleryMatchTool,
   parseBuildIntent,
   parseGameEngineChoice,
@@ -48,7 +50,8 @@ import {
   buildInitialGenerationPrompt,
   buildWebsiteInitialGenerationPrompt,
   buildGameInitialGenerationPrompt,
-  buildSyntaxRepairInstruction
+  buildSyntaxRepairInstruction,
+  PUBLIC_WRITING_REPLY_NOTE,
 } from './prompts';
 
 // The studio's lowercase noun, used in prompts, labels and error copy. Games
@@ -258,6 +261,28 @@ export const matchGalleryImages = async ({ prompt, chatHistory = [], images, sig
   }
 };
 
+// A text description of an image the user sent, saved with that chat turn
+// and sent instead of the image on later requests (see
+// IMAGE_DESCRIPTION_SYSTEM_PROMPT). Runs alongside the build. Never throws:
+// any failure or cancel returns '' and the turn is saved without one.
+export const describeAttachment = async ({ attachment, prompt = '', signal = null }) => {
+  if (!attachment?.dataUrl) return '';
+  try {
+    const message = await requestModelText({
+      messages: [
+        { role: 'system', content: IMAGE_DESCRIPTION_SYSTEM_PROMPT },
+        { role: 'user', content: buildUserContent(`The user's message with this image: ${prompt}`, attachment) },
+      ],
+      reasoningEffort: CHAT_REASONING_EFFORT,
+      signal,
+    });
+    return String(message?.content ?? message ?? '').trim().slice(0, 2000);
+  } catch (err) {
+    if (!(err?.name === 'AbortError' || signal?.aborted)) logWarn('Image description failed, saving the turn without one', err);
+    return '';
+  }
+};
+
 // Ask answers stream as 'content'; a question routed out of Build mode streams
 // as 'reply' instead, which the Build-mode chat shows as prose rather than
 // treating it as incoming app code.
@@ -274,7 +299,15 @@ export const generateChatReply = async ({
   currentCode = null,
   onChunk = null,
   signal = null,
-  studioMode = 'app'
+  studioMode = 'app',
+  // The request's attachment. A preview screenshot (the build pane's camera
+  // button) goes along so the reply can acknowledge it and say what it shows.
+  attachment = null,
+  // Google Sheets Backend is connected: the reply may stop the build and ask
+  // instead (PUBLIC_WRITING_REPLY_NOTE), and then returns { question } rather
+  // than text. `chatHistory` lets it read the user's answer to that question.
+  checkPublicWriting = false,
+  chatHistory = [],
 }) => {
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
@@ -282,27 +315,48 @@ export const generateChatReply = async ({
   const replyPrompt = isWebsite
     ? WEBSITE_CHAT_REPLY_SYSTEM_PROMPT
     : isGame ? GAME_CHAT_REPLY_SYSTEM_PROMPT : CHAT_REPLY_SYSTEM_PROMPT;
+  const screenshot = attachment?.source === 'screenshot' && attachment.dataUrl ? attachment : null;
+  const recent = checkPublicWriting
+    ? chatHistory
+      .filter((m) => typeof m.content === 'string' && m.content.trim())
+      .slice(-4)
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 600)}`)
+      .join('\n')
+    : '';
   const messages = [
-    { role: 'system', content: replyPrompt },
+    { role: 'system', content: replyPrompt + (screenshot ? SCREENSHOT_ACK_NOTE : '') + (checkPublicWriting ? PUBLIC_WRITING_REPLY_NOTE : '') },
     {
       role: 'user',
-      content: currentCode
+      content: buildUserContent(`${recent ? `Recent conversation:\n${recent}\n\n` : ''}${currentCode
         ? `The user is refining an existing ${noun}. Request: ${prompt}`
-        : `The user wants a new ${noun}. Request: ${prompt}`
+        : `The user wants a new ${noun}. Request: ${prompt}`}`, screenshot)
     }
   ];
 
   let streamed = '';
   const message = await requestModelText({
     messages,
+    ...(checkPublicWriting ? { tools: [ASK_CLARIFYING_QUESTIONS_TOOL], tool_choice: 'auto' } : {}),
     reasoningEffort: CHAT_REASONING_EFFORT,
     signal,
     onChunk: (delta, kind) => {
+      // The model chose to ask: drop any reply text it streamed first.
+      if (kind === 'clear_reply') {
+        streamed = '';
+        if (onChunk) onChunk('', 'clear_reply');
+        return;
+      }
       if (kind !== 'content') return;
       streamed += delta;
       if (onChunk) onChunk(delta, 'reply');
     }
   });
+
+  const ask = checkPublicWriting && message.tool_calls?.find((t) => t.function?.name === 'ask_clarifying_questions');
+  if (ask) {
+    if (streamed && onChunk) onChunk('', 'clear_reply');
+    return { question: parseClarifyingQuestionArgs(ask.function.arguments).question };
+  }
 
   const text = (streamed || message.content || '').trim();
   return text.replace(/^["'“”]+|["'“”]+$/g, '').trim();
@@ -963,10 +1017,18 @@ const generateAppCodeCore = async (
   // transcript shows the assistant responding before the model's hidden
   // reasoning and code generation begin. A failure here is non-fatal -- the
   // main generation still contributes its own in-stream reply as a fallback.
+  // With Google Sheets Backend connected, this reply also decides whether the
+  // request needs visitors to write to the public; if so it asks instead, and
+  // the build stops here, before anything is routed, researched or written.
   let introReply = '';
-  if (onChunk) {
+  const checkPublicWriting = !isAutoFix && getActiveConnectors().some(({ id }) => id === 'sheets');
+  if (onChunk || checkPublicWriting) {
     try {
-      introReply = await generateChatReply({ prompt, currentCode, onChunk, signal, studioMode });
+      const intro = await generateChatReply({ prompt, currentCode, onChunk, signal, studioMode, attachment, checkPublicWriting, chatHistory });
+      if (intro && typeof intro === 'object') {
+        return { code: currentCode || '', editMode: 'clarify', editSummary: prompt, reply: intro.question };
+      }
+      introReply = onChunk ? intro : '';
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
       logWarn('Intro reply failed, continuing with generation', err);

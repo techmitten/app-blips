@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="public/blackblipsbg.webp" />
-    <img src="docs/logo-light.png" alt="AppBlips — Text to App and Website Generator" width="320" />
+    <img src=".github/readme/logo-light.png" alt="AppBlips — Text to App and Website Generator" width="320" />
   </picture>
 </p>
 
@@ -28,7 +28,7 @@
 
 **AppBlips** lets anyone build functional apps, websites, and 2D games from natural-language descriptions—no coding required, with full code access when you want it.
 
-Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter) or sign in to an optional AppBlips plan. There is no vendor lock-in: the generated code is always yours to keep.
+Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or OpenRouter). There is no vendor lock-in: the generated code is always yours to keep.
 
 ## Key Features
 
@@ -60,7 +60,7 @@ Run it locally with your own API key (Anthropic, OpenAI, Gemini, DeepSeek, or Op
 - **Linux:** Download the `.AppImage` or `.deb` package from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**.
 - **macOS:** Install via **[Pinokio](https://pinokio.co/apps/github-com-techmitten-app-blips-pinokio)** to run the local browser edition with your own API key, or use Docker / source below.
 
-> **First run:** Pick a folder for your projects, then either enter an API key (encrypted via your OS keychain) or sign in to an AppBlips plan.
+> **First run:** Pick a folder for your projects, then enter an API key (encrypted via your OS keychain).
 
 ### 2. Docker (All Platforms)
 With [Docker Compose v2](https://docs.docker.com/get-docker/) installed, run:

@@ -19,6 +19,7 @@
     "lint": "eslint .",
     "typecheck": "node scripts/typecheck.js",
     "check": "npm run typecheck && npm run lint",
+    "test": "node --test $(ls testing/test*.js | grep -vE '/test(GuidedTour|ImportEnvironmentUI|OutputTokenSettingsUI|ProviderModelsUI|ResponsiveLayout)\\.js$')",
     "preview": "vite preview",
     "start": "vite build --mode desktop && node server.js",
     "build:server": "node scripts/build-server.js",

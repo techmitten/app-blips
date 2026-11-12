@@ -18,7 +18,7 @@ const {
 const { buildHtmlSystemPrompt, buildConnectorDirective, buildAskConnectorNote, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, pixabay: { enabled: false, key: '', keyHint: '' }, tavily: { enabled: false, key: '', keyHint: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, sheets: { enabled: false, key: '' }, pixabay: { enabled: false, key: '', keyHint: '' }, tavily: { enabled: false, key: '', keyHint: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -224,7 +224,9 @@ for (const id of CONNECTOR_IDS) {
     assert.ok(typeof page?.[field] === 'string' && page[field], `${id}: page.${field}`);
   }
   assert.ok(typeof about?.what === 'string' && about.what, `${id}: about.what`);
-  assert.ok(Array.isArray(about.steps) && about.steps.length > 0, `${id}: about.steps`);
+  // Google Sheets Backend lists its steps on its own page (SheetsConnector.jsx) instead.
+  if (id === 'sheets') assert.equal(about.steps, undefined, 'sheets: steps live on its page');
+  else assert.ok(Array.isArray(about.steps) && about.steps.length > 0, `${id}: about.steps`);
   assert.ok(!about.notes || Array.isArray(about.notes), `${id}: about.notes`);
 }
 

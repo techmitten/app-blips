@@ -57,7 +57,7 @@ assert.ok(srcDoc.includes('\\u003c/script>'));
 // 4. In-frame execution test using node:vm
 import vm from 'node:vm';
 
-const scriptMatch = /<script>([\s\S]*?)<\/script>/i.exec(srcDoc);
+const scriptMatch = /<script data-orion-bridge="true">([\s\S]*?)<\/script>/i.exec(srcDoc);
 assert.ok(scriptMatch, 'Bridge script must be present in srcDoc');
 const bridgeJs = scriptMatch[1];
 
@@ -83,6 +83,7 @@ const sandbox = {
   Document: function Document() {},
   parent: fakeParent,
   console: console,
+  MutationObserver: function MutationObserver() { this.observe = () => {}; this.disconnect = () => {}; },
   addEventListener: () => {},
   removeEventListener: () => {},
 };

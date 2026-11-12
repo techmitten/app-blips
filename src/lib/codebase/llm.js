@@ -144,7 +144,7 @@ async function runCodebaseEdit({
   let intro = '';
   if (!isAutoFix) {
     try {
-      intro = await generateChatReply({ prompt, currentCode: 'codebase', onChunk, signal, studioMode: 'codebase' });
+      intro = await generateChatReply({ prompt, currentCode: 'codebase', onChunk, signal, studioMode: 'codebase', attachment });
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
       diagnostics.warn('Acknowledgement failed; continuing edits', { error: err });

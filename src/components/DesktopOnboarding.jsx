@@ -533,7 +533,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
         <div className="onboarding-stage" key={step} data-dir={slide.dir}>
           <section className="onboarding-copy has-panel">
             <span className="onboarding-eyebrow"><Sparkles size={14} /> {isName ? 'Welcome to AppBlips' : `Step ${stepNumber} of ${stepCount}`}</span>
-            {!isName && cleanName(name) && (
+            {/* Greeted once, right after they give their name, not again on the AI step. */}
+            {isAvatar && cleanName(name) && (
               <div className="onboarding-greeting">
                 <ProfileAvatar avatar={avatar} size={22} />
                 <span>Hi, {cleanName(name)}!</span>

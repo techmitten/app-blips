@@ -2,7 +2,7 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, Sparkles,
+  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, Sheet, Sparkles,
 } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
@@ -11,6 +11,7 @@ import PollinationsConnector from './PollinationsConnector';
 import PixabayConnector from './PixabayConnector';
 import ServerKeyConnector from './ServerKeyConnector';
 import SeoConnector from './SeoConnector';
+import SheetsConnector from './SheetsConnector';
 import ImagesConnector from './ImagesConnector';
 import PublishDialog from './PublishDialog';
 import {
@@ -40,7 +41,8 @@ import { forgetTavilyKey, saveTavilyKey, tavilyStatus } from '../lib/tavily';
 // its own page too (PixabayConnector.jsx); its photo search adds to the same
 // gallery, and is also offered on the My images page. Tavily keeps its key the
 // same way and uses the plain server-key page (ServerKeyConnector.jsx); the AI
-// searches with it (lib/webSearch.js).
+// searches with it (lib/webSearch.js). Google Sheets Backend has its own page
+// too (SheetsConnector.jsx): its setup steps come before the URL box.
 // Service logos are used as masks so they take the text colour like the
 // lucide icons beside them, and stay visible in both themes.
 const logoIcon = (src) => function LogoIcon({ size }) {
@@ -61,7 +63,7 @@ const TAVILY_API = { status: tavilyStatus, save: saveTavilyKey, forget: forgetTa
 
 const ICONS = {
   web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
-  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), pixabay: Camera, tavily: Globe, seo: Search, images: Images,
+  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), sheets: Sheet, pixabay: Camera, tavily: Globe, seo: Search, images: Images,
 };
 
 const STATUS_BADGE = {
@@ -251,11 +253,16 @@ const TAB_NAMES = { services: 'Extensions', tools: 'Tools' };
 // they read as something other than a connector.
 const DASHED_TILE = 'flex flex-col items-start gap-3 rounded-xl border border-dashed border-slate-300 bg-surface p-4 text-left dark:border-white/20 dark:bg-[#1f1f1f]';
 
-export default function ConnectorsSettings({ kind = 'services', seoProject = null, galleryProject = null }) {
+// `pageStack` / `onPageStackChange` let SettingsModal keep the open page while
+// another settings tab is shown (this component unmounts then); without them
+// the stack is local and resets each time the tab opens.
+export default function ConnectorsSettings({ kind = 'services', seoProject = null, galleryProject = null, pageStack: heldStack, onPageStackChange }) {
   const [connectors, setConnectors] = useState(loadConnectors);
   // The open pages, newest last. My images links to Pixabay (a service, from
   // the Tools tab), so Back returns to the page it came from, not the grid.
-  const [pageStack, setPageStack] = useState([]);
+  const [localStack, setLocalStack] = useState([]);
+  const pageStack = heldStack ?? localStack;
+  const setPageStack = (update) => (onPageStackChange ?? setLocalStack)(update);
   const openId = pageStack.at(-1) ?? null;
   const setOpenId = (id) => setPageStack((stack) => (id ? [...stack, id] : []));
   const goBack = () => setPageStack((stack) => stack.slice(0, -1));
@@ -352,7 +359,9 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
                     onEnableImages={() => update('images', { enabled: true })}
                   />
                 )
-                : <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />}
+                : CONNECTOR_DEFINITIONS[openId].sheetsSetup
+                  ? <SheetsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
+                  : <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />}
           {CONNECTOR_DEFINITIONS[openId].prompts?.length > 0 && (
             <ConnectorPrompts
               key={`${openId}-prompts`}

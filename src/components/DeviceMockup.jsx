@@ -258,7 +258,9 @@ const PeekLine = memo(function PeekLine({ text }) {
   return <span className="peek-line" dangerouslySetInnerHTML={{ __html: syntaxHighlightHtml(text || ' ') }} />;
 });
 
-function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '' }) {
+// `bare` drops the card (border, header and footer) so the code sits straight
+// on the build screen, as in the blueprint's Show code view.
+function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '', bare = false }) {
   const [view, setView] = useState({ start: 0, lines: [] });
   // Flips one frame after the first lines exist so the entrance transitions
   // from the hidden state instead of appearing already visible.
@@ -343,12 +345,12 @@ function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '' }) 
   }, [codeRef]);
 
   return (
-    <div className={`live-code-peek w-[min(600px,92%)] text-left ${(reasoning || entered) ? 'is-visible' : ''} ${className}`}>
-      <div className="live-code-peek-bar">
+    <div className={`live-code-peek ${bare ? 'is-bare' : 'w-[min(600px,92%)]'} text-left ${(reasoning || entered) ? 'is-visible' : ''} ${className}`}>
+      {!bare && <div className="live-code-peek-bar">
         <Loader2 className="live-code-peek-spinner animate-spin motion-reduce:animate-none" size={13} aria-hidden="true" />
         <span className="live-code-peek-label">Building</span>
         {page?.page && <span key={page.page} className="live-code-peek-page">{page.page}</span>}
-      </div>
+      </div>}
       {hasLines && (
         <pre ref={bodyRef} className={`live-code-peek-body ${scrolledOff ? 'is-scrolled' : ''}`}>
           <code>
@@ -364,12 +366,14 @@ function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '' }) 
           <span className="live-code-peek-reasoning-text"><span>{visibleReasoning}</span></span>
         </div>
       )}
-      <div className="live-code-peek-footer">
-        <span className="live-code-peek-activity" aria-hidden="true">
-          <i /><i /><i /><i /><i /><i /><i /><i />
-        </span>
-        <span className="live-code-peek-footer-label">Writing code...</span>
-      </div>
+      {!bare && (
+        <div className="live-code-peek-footer">
+          <span className="live-code-peek-activity" aria-hidden="true">
+            <i /><i /><i /><i /><i /><i /><i /><i />
+          </span>
+          <span className="live-code-peek-footer-label">Writing code...</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -652,17 +656,22 @@ export default function DeviceMockup({
             )}
           </div>
           {(isGenerating || isErrorAutoFix) && (
-            <div className="building-overlay absolute inset-0 flex flex-col items-center justify-center z-10 p-6 text-center">
+            <div className={`building-overlay is-${mode}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' is-landscape' : ''} absolute inset-0 flex flex-col items-center justify-center z-10 p-6 text-center`}>
               <div className="building-device-status" aria-hidden="true">
                 <SystemClock />
                 <span className="building-device-title">{tabTitle?.trim() || 'Your Workspace'}</span>
                 <span className="building-device-icons">
                   <span className="building-signal"><i /><i /><i /><i /></span>
-                  <span className="building-wifi"><i /><i /></span>
+                  <svg className="building-wifi" viewBox="0 0 16 12" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+                    <path d="M1.2 4.4a9.6 9.6 0 0 1 13.6 0" />
+                    <path d="M3.9 7.2a5.8 5.8 0 0 1 8.2 0" />
+                    <circle cx="8" cy="10.1" r="1.25" fill="currentColor" stroke="none" />
+                  </svg>
                   <span className="building-battery"><i /></span>
                 </span>
               </div>
-              {PREVIEW_MODES[mode].isTouchChrome && (
+              {/* Only a phone held upright has the camera island at the top. */}
+              {mode === 'mobile' && orientation !== 'landscape' && (
                 <div className="building-device-notch" aria-hidden="true"><span /></div>
               )}
               {showBuildStatus && (
@@ -743,7 +752,7 @@ export default function DeviceMockup({
                   page={liveCodePage}
                   codeRef={liveCodeRef}
                   codeSlot={liveCodeRef ? (
-                    <LiveCodePeek codeRef={liveCodeRef} page={liveCodePage} reasoning={streamingReasoning} />
+                    <LiveCodePeek bare codeRef={liveCodeRef} page={liveCodePage} reasoning={streamingReasoning} />
                   ) : null}
                 />
               )}

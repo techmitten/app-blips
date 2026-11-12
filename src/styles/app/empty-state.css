@@ -674,7 +674,9 @@
   --peek-comet-3: rgb(57 135 208 / 0.44);
   --peek-comet-4: rgb(184 211 234 / 0.48);
 
-  container-type: inline-size;
+  /* Sized in both directions so the blueprint can fit itself to short
+     (landscape) screens as well as narrow ones. */
+  container-type: size;
   isolation: isolate;
   overflow: hidden;
   background: var(--build-bg);
@@ -728,11 +730,18 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 60%;
+  max-width: 52%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
+
+/* An upright phone's camera island sits where the title would go, so the
+   title is left out there. Desktop windows have no cellular signal. */
+.building-overlay.is-mobile:not(.is-landscape) .building-device-title { display: none; }
+.building-overlay:is(.is-desktop, .is-fill) .building-signal { display: none; }
 
 .building-signal {
   display: inline-flex;
@@ -756,30 +765,11 @@
 .building-signal i:nth-child(4) { height: 11px; }
 
 .building-wifi {
-  position: relative;
   display: block;
-  width: 17px;
-  height: 13px;
-  overflow: hidden;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 12px;
 }
-
-.building-wifi::before,
-.building-wifi::after,
-.building-wifi i {
-  content: '';
-  position: absolute;
-  left: 50%;
-  border: 1.5px solid currentColor;
-  border-left-color: transparent;
-  border-right-color: transparent;
-  border-bottom-color: transparent;
-  border-radius: 50%;
-  transform: translateX(-50%);
-}
-
-.building-wifi::before { top: -9px; width: 21px; height: 21px; }
-.building-wifi::after { top: -5px; width: 14px; height: 14px; }
-.building-wifi i { top: 7px; width: 3px; height: 3px; border: 0; border-radius: 50%; background: currentColor; }
 
 .building-battery {
   position: relative;

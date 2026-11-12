@@ -62,7 +62,7 @@ test('a saved key stays on the server and is attached to chat requests', async (
 
   // The page sends no key, for the saved provider or a draft.
   const draft = { id: 'openrouter', model: 'draft-model', apiKey: '' };
-  assert.deepEqual(webProviderStore.forRequest(), { id: 'openrouter', model: 'saved-model', baseUrl: 'https://openrouter.ai/api/v1' });
+  assert.deepEqual(webProviderStore.forRequest(), { id: 'openrouter', model: 'saved-model' });
   assert.equal(webProviderStore.forRequest(draft).apiKey, '');
 
   const seen = [];

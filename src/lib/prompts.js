@@ -75,6 +75,21 @@ Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowl
 export const WEBSITE_CHAT_REPLY_SYSTEM_PROMPT = `You are the assistant in a website-building chat. The user has just asked to build a new website or change an existing one.
 Reply with ONE short, friendly sentence (roughly 15 words or fewer) that acknowledges the request and says what you are about to do. Write in the first person. Plain text only: no markdown, no bullet points, no code, no HTML, no quotation marks, and no questions back to the user. The website itself is generated separately after your reply, so never include or describe code.`;
 
+// Added to the chat reply's instructions when the user sent a screenshot of
+// the preview (the build pane's camera button) with the request, so the chat
+// acknowledges it before the build starts (llm.js generateChatReply).
+export const SCREENSHOT_ACK_NOTE = `
+
+The user also took a screenshot of the preview and sent it with this request. It is attached. Before that sentence, acknowledge the screenshot in ONE short sentence that starts with "I can see your screenshot" and says what it shows that matters for the request (for example: I can see your screenshot, the Sign up button is cut off on the right). Describe only what is really in the image. If you can't make it out, say so in that sentence instead. You may use up to two sentences in total for this reply.`;
+
+// Images the user sends (a preview screenshot or an upload) go to the AI with
+// that one request only. A text description of each is saved with the chat
+// turn and sent in its place on every later request, so the AI keeps knowing
+// what the image showed without the cost of resending it (llm.js
+// describeAttachment, App.jsx chat history).
+export const IMAGE_DESCRIPTION_SYSTEM_PROMPT = `You describe an image a user sent to the AI in a no-code app, website and game builder, so the AI can refer back to it later in the conversation without seeing it again. It is usually a screenshot of the user's own project, sometimes a design, mockup or photo to copy from.
+Write a factual description in plain text, at most about 150 words. Cover what the image is, its layout from top to bottom, the visible text (quote short labels and headings exactly), colours, and anything that looks broken, cut off, misaligned or empty. Give most detail to what the user's message is about. Describe only what is really in the image. Don't give opinions or suggestions, and don't repeat the user's request.`;
+
 // Smart engine router for the Games Studio. Left to itself the build model
 // picks an engine per build, so similar requests drift between a ~1 MB Phaser
 // download and a tiny canvas game. A small reasoning-free call reads the
@@ -635,8 +650,42 @@ const pollinationsDirective = (mode, studioMode) => `- Pollinations (AI images a
   IMAGES: write each image as a complete literal URL in quotes, in an <img src>, a CSS url() or a JavaScript string: https://gen.pollinations.ai/image/{prompt}?model=${POLLINATIONS_IMAGE_MODEL}&width={w}&height={h}&seed={n}, where {prompt} is a detailed description of the picture, URL-encoded with %20 for spaces (no other spaces, quotes, parentheses or braces), {w} and {h} suit the layout (at most 1920), and {n} is any whole number. Never add a key parameter and never build these URLs in code at run time. After you finish, AppBlips generates each image and replaces the URL with a permanent https://media.pollinations.ai/... address. Keep those addresses exactly as they are; to change a picture, write a new gen.pollinations.ai URL in its place. At most ${MAX_IMAGES_PER_BUILD} new images per request. Give every image meaningful alt text.${studioMode === 'game' ? POLLINATIONS_GAME_EXCEPTION : ''}
 ${POLLINATIONS_AI_FEATURES[mode] || POLLINATIONS_AI_FEATURES.visitors}`;
 
+// Google Sheets (sheetsHelper.js): the AI only calls window.SheetDB, which
+// AppBlips adds at preview/export time with the user's web app URL. One Sheet
+// serves all the user's sites, so table names start with the site's name.
+// It replaces the website prompt's "forms have no backend" and "websites are
+// informational" rules for shared data; games get it for leaderboards only.
+const SHEETS_GAME_EXCEPTION = `
+  In this game, Google Sheets is the one exception to the "no network requests" rule, and only for a shared online leaderboard: keep the local high score in localStorage too, offer to submit a score with a player name after a game, and keep the game fully playable when the leaderboard can't load.`;
+
+// Google Sheets Backend can't remove spam yet, so with it connected AppBlips
+// doesn't build features that let visitors write to the public. The quick
+// reply that opens every build and edit (llm.js generateChatReply) gets this
+// note and the ask tool, so it can stop and ask before anything is built.
+// No word list: the model judges what the feature does.
+export const PUBLIC_WRITING_REPLY_NOTE = `
+
+GOOGLE SHEETS BACKEND RULE: the user's sites save shared data with Google Sheets Backend, which can't remove spam yet. So AppBlips doesn't build features that let visitors write to the public: anything a visitor types that other visitors can see, such as a guestbook, comments, visitor reviews, a message wall, a lost-and-found board, recipe sharing, a forum or chat. Content the user writes themselves, RSVPs, sign-ups, polls, leaderboards and private messages to the user are fine.
+- If the latest request needs visitors to write to the public, do NOT write the usual reply. Call ask_clarifying_questions instead, with a short, friendly message in plain words for a non-technical person: say you haven't built anything yet; explain that letting visitors post publicly isn't supported yet because there's no way to remove spam, and that supported extensions (such as a Guestbook) are planned. If a private version would still be useful (what visitors send is saved privately for the user, and the site only shows how many there are), offer it and ask if they'd like it built that way; if it wouldn't be useful, ask what they'd like to do instead.
+- If the recent conversation shows you already offered the private version and the user agreed, write the usual reply.
+- If you already explained and the user says no or insists on public posts, call ask_clarifying_questions with a short, polite message saying you can't build that yet, that a supported extension is planned, and that you're happy to build the private version or anything else. Never agree to build a public version.`;
+
+const sheetsDirective = (_url, studioMode) => `- Google Sheets Backend (shared data, saved as rows in the owner's own Google Sheet). Use it whenever what visitors send must be kept: RSVPs and sign-ups, polls and votes, shared leaderboards, waitlists, requests and feedback, and private messages for the owner. This replaces any rule above that says forms have no backend or that websites don't keep data. Keep localStorage for each visitor's own private data (settings, drafts, their own lists). A form that only sends the owner a message (contact, enquiry) uses Web3Forms when it is connected; otherwise save it here too, in a table such as '<Site> Messages'.
+  AppBlips adds a ready-made window.SheetDB object to the page. Never write your own fetch, Google API or Apps Script code, and never put a URL or key for it in the code. Use only:
+    const table = SheetDB.table('<Site name> RSVPs')  // one tab in the owner's Sheet
+    await table.add({ guests: 2, _name: 'Ana', _email: 'ana@example.com' }) -> { id }
+    await table.list({ sortBy: 'score', order: 'desc', limit: 10 }) -> rows [{ id, created, ...fields }], newest first by default, at most 500
+    await table.count() -> the number of rows;  await table.count('choice') -> { [value]: number of rows }
+  TABLE NAMES: one Sheet holds all the owner's sites, so every table name starts with this site's name, e.g. 'Bella Bistro Bookings' (at most 60 characters, none of [ ] * ? / \\ :). Keep the same names in later edits, or the saved rows seem to disappear.
+  FIELDS: short plain names; values are text, numbers or true/false. A field whose name starts with _ (_email, _phone, _message) is saved for the owner but never returned by list(): put every personal detail there and never show personal details on the page. id and created are set automatically: never send them.
+  NEVER LET VISITORS WRITE TO THE PUBLIC: there is no way to remove spam yet, so text a visitor types (names, messages, comments, reviews, free-text answers) is never displayed on the page. Save it in _ fields and show only safe things: counts and totals (table.count()), numbers, dates, choices you defined yourself (when showing count(column) results, render only your own choices and ignore any other value), and leaderboard initials (exactly 3 letters A-Z; skip any row whose name doesn't match /^[A-Z]{3}$/). Guestbooks, comments, visitor reviews, message walls, forums and chat are not supported: when the conversation shows the user agreed to a private version, build a message box whose messages are saved privately (_name, _message) with a thank-you after sending, and show only how many messages there are. Never build a public version, even if asked. If a request needs it and the conversation doesn't show the user agreed to a private version, leave that part out and say so in your reply.
+  The owner never opens or edits the Sheet, so nothing is moderated.
+  Visitors can only add entries and read them: there is no update or delete, so never build admin screens, logins or edit/delete buttons for this data. If the user asks for them, explain in your reply that entries can't be changed or removed from the site. To stop casual double votes or sign-ups, remember in localStorage that this visitor already sent one.
+  Every call can throw an Error with a friendly .message: catch it and show it inline (never alert()). Show a loading state while reading, disable the button and show "Saving..." while adding, show an empty state when there are no rows, and reload the rows after a successful add. Calls write real rows to the owner's Sheet, so never submit test entries when testing.${studioMode === 'game' ? SHEETS_GAME_EXCEPTION : ''}`;
+
 const CONNECTOR_DIRECTIVES = {
   pollinations: pollinationsDirective,
+  sheets: sheetsDirective,
   umami: (key) => analyticsDirective('Umami', embedSnippet('umami', key)),
   plausible: (key) => analyticsDirective('Plausible', embedSnippet('plausible', key)),
   tawkto: (key) => `- tawk.to (live chat with the site owner). Put this exact widget code just before </body> of EVERY HTML page, once, character for character:
@@ -664,7 +713,7 @@ export const buildConnectorDirective = (connectors, studioMode = 'app') => {
 // Questions (Ask mode, or a question routed out of Build mode) are answered
 // without the build prompt, so without this the model doesn't know about the
 // user's connectors and tells them, wrongly, that it can't use Pollinations.
-const CONNECTOR_NAMES = { pollinations: 'Pollinations', umami: 'Umami', plausible: 'Plausible', tawkto: 'tawk.to', square: 'Square', web3forms: 'Web3Forms' };
+const CONNECTOR_NAMES = { pollinations: 'Pollinations', umami: 'Umami', plausible: 'Plausible', tawkto: 'tawk.to', square: 'Square', web3forms: 'Web3Forms', sheets: 'Google Sheets Backend' };
 
 export const buildAskConnectorNote = (connectors, studioMode = 'app', canOfferBuild = false) => {
   const ids = (connectors || []).map(({ id }) => id)
@@ -677,7 +726,10 @@ export const buildAskConnectorNote = (connectors, studioMode = 'app', canOfferBu
   const pollinations = ids.includes('pollinations')
     ? ` With Pollinations connected, a build can add AI-generated images (AppBlips makes them with the user's Pollinations account after the build, so they appear in the ${noun} automatically) and AI features such as a chatbot. Never say Pollinations can't be used, and never ask the user to paste image URLs or code in by hand.`
     : '';
-  return `\n\nThe user has connected these services in Settings → Extensions, and AppBlips uses them when it builds or changes the ${noun}: ${ids.map((id) => CONNECTOR_NAMES[id]).join(', ')}.${pollinations} You can't change the project while answering a question, so if they want something that uses one of these services, ${next}.`;
+  const sheets = ids.includes('sheets')
+    ? ` With Google Sheets Backend connected, a build can save what visitors send (RSVPs, sign-ups, votes, scores, private messages) in the user's own Google Sheet and show counts, results and leaderboards in the ${noun}. Public posts that visitors write, like guestbooks, comments or reviews, aren't supported yet because spam can't be removed; a supported extension is planned. Visitors can only add entries and read them; nothing can be changed or removed from the site.`
+    : '';
+  return `\n\nThe user has connected these services in Settings → Extensions, and AppBlips uses them when it builds or changes the ${noun}: ${ids.map((id) => CONNECTOR_NAMES[id]).join(', ')}.${pollinations}${sheets} You can't change the project while answering a question, so if they want something that uses one of these services, ${next}.`;
 };
 
 // The user's own uploaded images ("My images", lib/galleryImages.js). The AI

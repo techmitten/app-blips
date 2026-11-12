@@ -24,7 +24,10 @@ jobs:
       - run: npm run build
       # The browser version (npm start, Docker) on top of that build.
       - run: npm run build:server
-      - run: node --test testing/testServer.js
+      # Unit and server tests. The browser tests (testing/*.mjs and the five
+      # dev-server UI tests that package.json leaves out) need Playwright and
+      # a running app, so they are not run here.
+      - run: npm test
 
   docker:
     runs-on: ubuntu-latest

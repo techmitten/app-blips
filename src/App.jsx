@@ -31,7 +31,7 @@ import { forgetPixabayKey } from './lib/pixabay';
 import { forgetTavilyKey } from './lib/tavily';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
-import { generateAppCode } from './lib/llm';
+import { describeAttachment, generateAppCode } from './lib/llm';
 import { startUsageMeter } from './lib/tokenUsage';
 import { compressImageDataUrl } from './lib/attachments';
 import { slugifyName } from './lib/helpers';
@@ -73,8 +73,9 @@ import { buildNewTabShell } from './lib/newTabShell';
 import { createZip } from './lib/zip';
 import { injectLoopProtection } from './lib/loopProtection';
 import { injectPollinationsHelper } from './lib/pollinationsHelper';
+import { injectSheetsHelper } from './lib/sheetsHelper';
 import { collectSiteImages, inlineImages, pointAtCopies } from './lib/siteImages';
-import { getPollinationsHelperOptions } from './lib/connectors';
+import { getPollinationsHelperOptions, getSheetsScriptUrl } from './lib/connectors';
 import {
   SEO_APPLY_PROMPT, buildSeoNote, hashSeoForm, crawlExtraFiles, isSeoEnabled, normalizeSeoForm, seoExtraFiles, seoPending,
 } from './lib/seo';
@@ -783,6 +784,7 @@ export default function App({ coldStart = false }) {
             // predates AppBlips), and the helper carries the person's
             // Pollinations site key into whatever the repo's pages do.
             pollinations: isCodebase ? undefined : getPollinationsHelperOptions(),
+            sheets: isCodebase ? undefined : getSheetsScriptUrl(),
             gallery: isCodebase ? undefined : previewGallery,
           })
         : { srcDoc: '', token: '' },
@@ -1587,7 +1589,9 @@ export default function App({ coldStart = false }) {
     setPendingAttachment(attachmentForRequest);
 
     const chatHistory = updatedVersions.slice(chatContextStartIndex).flatMap(v => [
-      { role: 'user', content: v.prompt },
+      // An image sent with an earlier turn is remembered as its saved
+      // description (llm.js describeAttachment), not sent again.
+      { role: 'user', content: v.imageNote ? `${v.prompt}\n\n[The user attached an image to this message. Description of it: ${v.imageNote}]` : v.prompt },
       { role: 'assistant', content: v.reply || (v.editMode === 'clarify' ? '' : 'I have updated the code.') }
     ]);
 
@@ -1603,6 +1607,11 @@ export default function App({ coldStart = false }) {
 
     // Every AI request this turn makes, shown under its reply.
     const usageMeter = startUsageMeter();
+    // Described alongside the build and saved with this turn, so later turns
+    // still know what the image showed. Never rejects.
+    const imageNotePromise = attachmentForRequest && !isAutoFix
+      ? describeAttachment({ attachment: attachmentForRequest, prompt: currentPrompt, signal: abortControllerRef.current.signal })
+      : null;
     try {
       const handleChunk = (chunk, kind = 'content') => {
         // Repair details and model explanations remain internal. Code stream
@@ -1762,9 +1771,12 @@ export default function App({ coldStart = false }) {
       setFiles(newFiles);
       if (!(activePage in newFiles)) setActivePage(LANDING_PAGE);
 
+      const imageNote = imageNotePromise ? await imageNotePromise : '';
       const newVersion = {
         id: Date.now(),
         prompt: currentPrompt,
+        // What the image sent with this turn showed, for later turns' history.
+        ...(imageNote ? { imageNote } : {}),
         files: newFiles,
         timestamp: new Date().toLocaleTimeString(),
         editMode: generationResult.editMode,
@@ -1965,7 +1977,8 @@ export default function App({ coldStart = false }) {
   // added per page here, never stored in `files`.
   const buildExportFiles = () => {
     const pollinations = getPollinationsHelperOptions();
-    return mapPages(files, (html) => injectPollinationsHelper(injectLoopProtection(compileJsxScripts(html)), pollinations));
+    const sheets = getSheetsScriptUrl();
+    return mapPages(files, (html) => injectSheetsHelper(injectPollinationsHelper(injectLoopProtection(compileJsxScripts(html)), pollinations), sheets));
   };
 
   // sitemap.xml and robots.txt from the SEO connector (lib/seo.js), made from
@@ -1986,6 +1999,7 @@ export default function App({ coldStart = false }) {
       title: projectName || 'Preview',
       initialStorage: { ...previewStorageRef.current },
       pollinations: getPollinationsHelperOptions(),
+      sheets: getSheetsScriptUrl(),
       gallery: previewGallery,
     });
     const url = URL.createObjectURL(new Blob([shellHtml], { type: 'text/html' }));
@@ -2034,7 +2048,7 @@ export default function App({ coldStart = false }) {
   const handleExportReactProject = () => {
     const baseName = slugifyName(projectName) || 'app';
     // The Pollinations helper stays in index.html like the rest of the page.
-    const entries = buildViteProject(injectPollinationsHelper(generatedCode, getPollinationsHelperOptions()), { name: baseName, title: projectName || 'My App' });
+    const entries = buildViteProject(injectSheetsHelper(injectPollinationsHelper(generatedCode, getPollinationsHelperOptions()), getSheetsScriptUrl()), { name: baseName, title: projectName || 'My App' });
     if (!entries) return;
     // Vite serves public/ at the site root, so images/<name> keeps working.
     for (const { path, bytes } of galleryExportFiles(files, galleryImages, blobBytes)) {

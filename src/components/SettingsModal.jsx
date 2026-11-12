@@ -140,7 +140,7 @@ export default function SettingsModal({
   onLiveCodePreviewChange,
   buildPaneSide,
   onBuildPaneSideChange,
-  buildReasoningEffort = 'low',
+  buildReasoningEffort = 'medium',
   onBuildReasoningEffortChange,
   reasoningLevels = GENERIC_REASONING,
   onDeleteAllProjects,
@@ -154,6 +154,16 @@ export default function SettingsModal({
   const tabs = TABS;
   const [tab, setTab] = useState(() => (tabs.some((t) => t.id === initialTab) ? initialTab : loadTab(tabs)));
   const [checkUpdates, setCheckUpdates] = useState(loadCheckUpdates);
+  // The extension page open on the Extensions and Tools tabs, kept here so
+  // switching to another tab and back returns to it.
+  const [connectorPages, setConnectorPages] = useState({ services: [], tools: [] });
+  const connectorPagesFor = (kind) => ({
+    pageStack: connectorPages[kind],
+    onPageStackChange: (update) => setConnectorPages((pages) => ({
+      ...pages,
+      [kind]: typeof update === 'function' ? update(pages[kind]) : update,
+    })),
+  });
   const onCheckUpdatesChange = (enabled) => {
     setCheckUpdates(enabled);
     saveCheckUpdates(enabled);
@@ -402,9 +412,9 @@ export default function SettingsModal({
             </>
           )}
 
-          {tab === 'connectors' && <ConnectorsSettings key="services" seoProject={seoProject} galleryProject={galleryProject} />}
+          {tab === 'connectors' && <ConnectorsSettings key="services" seoProject={seoProject} galleryProject={galleryProject} {...connectorPagesFor('services')} />}
 
-          {tab === 'tools' && <ConnectorsSettings key="tools" kind="tools" seoProject={seoProject} galleryProject={galleryProject} />}
+          {tab === 'tools' && <ConnectorsSettings key="tools" kind="tools" seoProject={seoProject} galleryProject={galleryProject} {...connectorPagesFor('tools')} />}
 
         </div>
       </div>

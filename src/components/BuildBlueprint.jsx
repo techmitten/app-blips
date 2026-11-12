@@ -112,7 +112,7 @@ export default function BuildBlueprint({
   };
 
   return (
-    <div className="build-blueprint" role="status" aria-live="polite">
+    <div className={`build-blueprint${showCode && codeSlot ? ' is-code' : ''}`} role="status" aria-live="polite">
       {showCode && codeSlot ? (
         <div className="build-blueprint-code">{codeSlot}</div>
       ) : (

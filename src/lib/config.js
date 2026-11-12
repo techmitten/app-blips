@@ -273,7 +273,7 @@ export const REASONING_EFFORT_KEY = 'orion-reasoning-effort';
 // in EFFORT_SCALE (electron/server/reasoning.js), where Off is 'none'.
 // Settings only offers the levels the active provider and model accept, and
 // builds use the nearest of those, so the saved choice survives switching
-// providers. Low is the default. Chat-only calls (clarifying questions,
+// providers. Medium is the default. Chat-only calls (clarifying questions,
 // replies, Ask mode) always run with reasoning off.
 export const BUILD_REASONING_EFFORT_KEY = 'orion-reasoning-effort-build';
 export const REASONING_EFFORT_OPTIONS = EFFORT_SCALE;
@@ -324,14 +324,14 @@ export const saveChatMode = (mode) => {
 
 // The reasoning setting. Falls back to the legacy single setting, so users who
 // had already picked an effort keep it; missing or unrecognised values
-// default to Low.
+// default to Medium.
 export const loadReasoningEffort = () => {
   try {
     const storage = safeStorage('local');
     const stored = storage?.getItem(BUILD_REASONING_EFFORT_KEY) ?? storage?.getItem(REASONING_EFFORT_KEY);
-    return EFFORT_SCALE.includes(stored) ? stored : 'low';
+    return EFFORT_SCALE.includes(stored) ? stored : 'medium';
   } catch {
-    return 'low';
+    return 'medium';
   }
 };
 

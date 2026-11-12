@@ -25,6 +25,7 @@
 // instructions, so it isn't in CONNECTOR_DIRECTIVES either.
 import { safeStorage } from './config.js';
 import { POLLINATIONS_EARNINGS, POLLINATIONS_FEE_NOTE } from './pollinationsApp.js';
+import { isSheetsScriptUrl } from './sheetsHelper.js';
 
 export const CONNECTORS_KEY = 'orion-connectors';
 
@@ -398,6 +399,99 @@ export const CONNECTOR_DEFINITIONS = {
       ],
     },
   },
+  // Google Sheets: the user's own Sheet, with AppBlips' Apps Script deployed
+  // as a web app (lib/sheetsHelper.js). The key is the web app's URL, which
+  // pages call anyway, so it is public like Web3Forms' key. It reaches pages
+  // through the SheetDB helper at preview/export time, not the AI.
+  sheets: {
+    id: 'sheets',
+    name: 'Google Sheets Backend',
+    tagline: 'Save visitors’ entries in your own Google Sheet',
+    description: 'A free database for your projects.',
+    // New and not yet tried by many users: a Beta pill on its card and page.
+    beta: true,
+    keyLabel: 'Web app URL',
+    keyPlaceholder: 'https://script.google.com/macros/s/…/exec',
+    keyUrl: 'https://sheets.new',
+    isValidKey: isSheetsScriptUrl,
+    // Has its own page, with the setup steps before the URL box (SheetsConnector.jsx).
+    sheetsSetup: true,
+    page: {
+      enableDescription: 'Websites, apps and games the AI builds can save what visitors send to your Google Sheet, and show it on the page.',
+      keyHelp: 'Click Test connection to check that it works.',
+      keyLinkLabel: 'Create a new Google Sheet',
+      invalid: 'That doesn’t look like a web app URL. It starts with https://script.google.com/ and ends with /exec. Copy it from Deploy, then Manage deployments, in Apps Script.',
+      connected: 'Connected. Websites, apps and games you build or edit from now on can save to your Sheet.',
+      needsKey: 'Add your web app URL to finish setting up.',
+    },
+    prompts: [
+      'Add an RSVP form that saves each reply to my Google Sheet and shows how many people are coming.',
+      'Add a sign-up form for my event that saves each sign-up to my Google Sheet and shows how many people have signed up.',
+      'Add a poll and show the live results, saved in my Google Sheet.',
+      'Add an online top 10 leaderboard saved in my Google Sheet.',
+    ],
+    about: {
+      // Background for users who don't know what a backend is
+      // (ConnectorInfoModal.jsx shows them before the steps).
+      sections: [
+        {
+          title: 'What is a backend?',
+          icon: 'server',
+          text: 'A site has two parts. The front end is what visitors see and click, and it runs in each visitor’s own browser. The backend is a computer somewhere else that keeps information and shares it between visitors. Without one, whatever a visitor does stays in their own browser: nobody else sees it, and it is gone if they switch devices or clear their browser.',
+        },
+        {
+          title: 'What a backend lets your sites do',
+          icon: 'can',
+          items: [
+            'Collect RSVPs, sign-ups and waitlists, and see every reply in one place.',
+            'Let visitors send you private messages, kept together in one place.',
+            'Run polls with live results from everyone, not just one person.',
+            'Keep a shared high-score leaderboard for a game.',
+          ],
+        },
+        {
+          title: 'What you can’t do without one',
+          icon: 'cannot',
+          items: [
+            'An RSVP form can say “Thanks!”, but the reply isn’t saved anywhere you can see.',
+            'A poll only counts the votes made on that one device.',
+            'A leaderboard only shows scores from the visitor’s own browser.',
+            'A message a visitor sends you isn’t kept anywhere you can read it.',
+          ],
+        },
+        {
+          title: 'How Google Sheets solves it',
+          icon: 'sheet',
+          text: 'Google runs the computer for you, for free. A short script you add to your Sheet becomes your backend: it checks what visitors send, saves it, and hands back what your sites are allowed to show. Each thing a visitor sends, like one RSVP or one vote, becomes an entry in your Sheet. Everything is kept in your own Google account, with no server to set up or pay for, and you never need to open the Sheet: your sites do all the saving and showing.',
+        },
+        {
+          title: 'Why it isn’t the best solution',
+          icon: 'tradeoffs',
+          text: 'It is a quick, free way to start, made for small sites. A dedicated backend, such as Firebase or Supabase, does more but takes more setup.',
+          // Its own line above the list.
+          lead: 'Google Sheets Backend:',
+          items: [
+            'Only has basic protection: anyone who can open your site can add entries. Spam limits help, but don’t use it for passwords, payments or sensitive personal information.',
+            'Can’t show what visitors write: guestbooks, comments and reviews written by visitors aren’t supported yet, because there is no way to remove spam from them. Your sites only show counts, results and leaderboards. Supported extensions for these, like a Guestbook, are planned.',
+            'Is for small sites: Google limits how much a free script can do each day, which is plenty for a party RSVP or a club site but not for thousands of visitors an hour.',
+            'Is slower: each save or load takes a second or two.',
+            'Has no visitor accounts: visitors can’t sign in, so they can’t edit or delete what they sent, and there is no private data for each visitor.',
+            'Isn’t a real database: there are no advanced searches, and a Sheet gets slow once it holds tens of thousands of entries.',
+          ],
+        },
+      ],
+      what: 'Google Sheets Backend turns a spreadsheet you own into a small backend for your websites, apps and games. What visitors send (RSVPs, sign-ups, votes, scores, private messages) is saved in your Sheet, and your sites show it back. There is no server for you to run or pay for: a short script you add to the Sheet once runs on Google’s servers and checks everything before it is saved. After setup you never need to open the Sheet again.',
+      // No `steps`: its page lists them (SheetsConnector.jsx).
+      notes: [
+        'This is a beta feature, so it may change and some things may not work smoothly yet.',
+        'Private details, like email addresses and phone numbers, are saved but never shown on your sites. The AI keeps personal details that way.',
+        'Entries are real, also from the preview: anything you send while trying out a site is saved and counted like a visitor’s.',
+        'One Sheet serves all your sites. Each site keeps its entries separate, so they don’t mix.',
+        'Projects built before you connected don’t change on their own. Copy a prompt from this page into the builder chat to use your Sheet in one.',
+        'Imported codebases don’t use it.',
+      ],
+    },
+  },
   pixabay: {
     id: 'pixabay',
     name: 'Pixabay',
@@ -631,6 +725,12 @@ export const SITE_KEY_RE = /^sk_[A-Za-z0-9_-]{8,200}$/;
 // The key the user's sites spend on AI features, or ''. Only when chosen and
 // accepted, and only while Pollinations is on: switching it off stops the
 // key being written into anything new.
+// The Google Sheets web app URL that pages' SheetDB helper calls
+// (sheetsHelper.js), or '' while the connector isn't connected.
+export const getSheetsScriptUrl = (connectors = loadConnectors()) => (
+  connectorStatus('sheets', connectors) === 'connected' ? connectors.sheets.key.trim() : ''
+);
+
 export const getPollinationsSiteKey = (connectors = loadConnectors()) => {
   const { enabled, aiPayer, siteKey = '', siteKeyAccepted } = connectors.pollinations || {};
   const key = siteKey.trim();
