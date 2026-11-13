@@ -998,37 +998,111 @@ const BRIDGE_SOURCE = `(function () {
   // moment the element becomes editable. The internal pre-wrap cannot be
   // overridden by an author white-space value, so the whitespace itself is
   // what has to go: every text node in the subtree is collapsed to normal
-  // white-space semantics (runs -> one space, document-order leading and
-  // trailing runs removed), which renders identically to the static view
-  // under BOTH normal and pre-wrap. Preformatted subtrees keep their
-  // significant whitespace. The original markup is safe in entry.origHtml
-  // (restored on cancel/failure), and the parent's match snapshot was taken
-  // before any of this runs.
-  var WS_SKIP_TAGS = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, PRE: 1 };
+  // white-space semantics, which renders identically to the static view
+  // under BOTH normal and pre-wrap. That means more than trimming the
+  // element's first and last text: a space is also dropped where a line
+  // starts or ends -- next to a <br>, a nested block (a hero title's
+  // "display:block" second line), or each item of a flex/grid host -- and
+  // where it follows another space across an inline boundary
+  // ("Build " followed by a span holding " amazing"). Any of those survives pre-wrap as a
+  // visible space and nudges that line right or off-center. Non-breaking
+  // spaces are content, not collapsible whitespace, and stay. Preformatted
+  // subtrees keep their significant whitespace. The original markup is safe
+  // in entry.origHtml (restored on cancel/failure), and the parent's match
+  // snapshot was taken before any of this runs.
+  var WS_SKIP_TAGS = { SCRIPT: 1, STYLE: 1, TEMPLATE: 1, NOSCRIPT: 1 };
+  var WS_ATOM_TAGS = { TEXTAREA: 1, PRE: 1, IMG: 1, SVG: 1, svg: 1, VIDEO: 1, CANVAS: 1, IFRAME: 1, INPUT: 1, SELECT: 1, BUTTON: 1, OBJECT: 1, EMBED: 1 };
+  var WS_BREAK = { wsBreak: true };
+  var WS_ATOM = { wsAtom: true };
 
+  function wsIsPreformatted(ws) {
+    return ws === 'pre' || ws === 'pre-wrap' || ws === 'break-spaces' || ws === 'pre-line';
+  }
+
+  function wsIsFlexOrGrid(display) {
+    return /(^|\\s|-)(flex|grid)(\\s|$)/.test(display || '');
+  }
+
+  // Returns the subtree as runs (one per formatting context) of text nodes,
+  // WS_BREAK (a line starts/ends here) and WS_ATOM (non-space inline content
+  // such as an image or an inline-block).
   function collectEditingTextNodes(root) {
-    var out = [];
-    var walk = function (node) {
+    var runs = [];
+    var rootDisplay = '';
+    try { rootDisplay = window.getComputedStyle(root).display || ''; } catch (rdErr) { rootDisplay = ''; }
+    var visit = function (node, run, itemized) {
       for (var child = node.firstChild; child; child = child.nextSibling) {
         if (child.nodeType === 3) {
-          out.push(child);
-        } else if (child.nodeType === 1 && !WS_SKIP_TAGS[child.nodeName]) {
-          var ws = '';
-          try { ws = window.getComputedStyle(child).whiteSpace || ''; } catch (wsErr) { ws = ''; }
-          if (ws !== 'pre' && ws !== 'pre-wrap' && ws !== 'break-spaces') walk(child);
+          run.push(child);
+          continue;
         }
+        if (child.nodeType !== 1 || WS_SKIP_TAGS[child.nodeName]) continue;
+        if (child.nodeName === 'BR') { run.push(WS_BREAK); continue; }
+        var cs = null;
+        try { cs = window.getComputedStyle(child); } catch (csErr) { cs = null; }
+        var display = (cs && cs.display) || 'inline';
+        if (display === 'none') continue;
+        var isInline = display === 'inline' || display === 'contents';
+        var isInlineLevel = isInline || display.indexOf('inline') === 0;
+        // Flex/grid items are blockified: each child starts its own line.
+        var boundary = itemized || !isInlineLevel;
+        if (boundary) run.push(WS_BREAK);
+        if (WS_ATOM_TAGS[child.nodeName] || (cs && wsIsPreformatted(cs.whiteSpace))) {
+          run.push(WS_ATOM);
+        } else if (isInline && !itemized) {
+          visit(child, run, false);
+        } else if (isInlineLevel && !itemized) {
+          // inline-block & co: content on the outer line, own lines inside.
+          run.push(WS_ATOM);
+          var inner = [];
+          runs.push(inner);
+          visit(child, inner, wsIsFlexOrGrid(display));
+        } else {
+          visit(child, run, wsIsFlexOrGrid(display));
+        }
+        if (boundary) run.push(WS_BREAK);
       }
     };
-    walk(root);
-    return out;
+    var outer = [];
+    runs.push(outer);
+    visit(root, outer, wsIsFlexOrGrid(rootDisplay));
+    return runs;
+  }
+
+  // Collapses one run the way CSS phase-I white-space processing would.
+  function collapseEditingRun(run) {
+    var dropLeading = true; // line start, or the previous text ended in a space
+    var pending = null; // last kept text node ending in a space
+    var trimPending = function () {
+      if (!pending) return;
+      var v = pending.nodeValue.replace(/ $/, '');
+      if (v === '' && pending.parentNode) pending.parentNode.removeChild(pending);
+      else pending.nodeValue = v;
+      pending = null;
+    };
+    for (var i = 0; i <= run.length; i++) {
+      var item = i < run.length ? run[i] : WS_BREAK;
+      if (item === WS_BREAK) { trimPending(); dropLeading = true; continue; }
+      if (item === WS_ATOM) { pending = null; dropLeading = false; continue; }
+      var value = item.nodeValue;
+      var collapsed = value.replace(/[ \\t\\n\\r\\f]+/g, ' ');
+      if (dropLeading) collapsed = collapsed.replace(/^ /, '');
+      if (collapsed === '') {
+        if (item.parentNode) item.parentNode.removeChild(item);
+        continue;
+      }
+      if (collapsed !== value) item.nodeValue = collapsed;
+      // A following space collapses into this one, and a line end trims it.
+      dropLeading = collapsed.charAt(collapsed.length - 1) === ' ';
+      pending = dropLeading ? item : null;
+    }
   }
 
   // The text nodes must be collected BEFORE the element becomes a contenteditable
   // host: afterwards every descendant inherits the host's pre-wrap, so
-  // collectEditingTextNodes would skip nested inline elements as
-  // "preformatted" and the first/last trims would eat real spaces (the space
-  // in a "Ray's " text node followed by an inline element).
-  function stabilizeInlineHost(el, hostWhiteSpace, nodes) {
+  // collectEditingTextNodes would treat nested inline elements as
+  // "preformatted" and leave their whitespace alone.
+  function stabilizeInlineHost(el, hostWhiteSpace, runs) {
     // The caller reads this BEFORE entering edit mode: once the element is a
     // contenteditable host, Blink's UA style already reports pre-wrap, so
     // reading it here would always look preformatted and skip the fix.
@@ -1037,15 +1111,7 @@ const BRIDGE_SOURCE = `(function () {
     // an author value, which is exactly why the DOM is normalized below.
     el.style.whiteSpace = hostWhiteSpace;
     try {
-      for (var i = 0; i < nodes.length; i++) {
-        var value = nodes[i].nodeValue;
-        var collapsed = value.replace(/\\s+/g, ' ');
-        if (i === 0) collapsed = collapsed.replace(/^ /, '');
-        if (i === nodes.length - 1) collapsed = collapsed.replace(/ $/, '');
-        if (collapsed === value) continue;
-        if (collapsed === '' && nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]);
-        else nodes[i].nodeValue = collapsed;
-      }
+      for (var r = 0; r < runs.length; r++) collapseEditingRun(runs[r]);
     } catch (trimErr) { /* worst case is the pre-fix shift, never a crash */ }
   }
 
@@ -1234,8 +1300,8 @@ const BRIDGE_SOURCE = `(function () {
     // (see stabilizeInlineHost).
     var hostWhiteSpace = '';
     try { hostWhiteSpace = window.getComputedStyle(el).whiteSpace || ''; } catch (wsErr) { hostWhiteSpace = ''; }
-    var editTextNodes = [];
-    if (hostWhiteSpace === 'normal' || hostWhiteSpace === 'nowrap') editTextNodes = collectEditingTextNodes(el);
+    var editTextRuns = [];
+    if (hostWhiteSpace === 'normal' || hostWhiteSpace === 'nowrap') editTextRuns = collectEditingTextNodes(el);
 
     var entry = {
       el: el,
@@ -1267,7 +1333,7 @@ const BRIDGE_SOURCE = `(function () {
     el.setAttribute('spellcheck', 'false');
     // Before focusing: the caret and hint chip should be placed against the
     // stabilized layout, not the pre-edit one.
-    stabilizeInlineHost(el, hostWhiteSpace, editTextNodes);
+    stabilizeInlineHost(el, hostWhiteSpace, editTextRuns);
     // After stabilizing: that collapses source newlines in normal-flow text
     // nodes, which inlineEditText would otherwise count as typed breaks.
     entry.startText = inlineEditText(el);
