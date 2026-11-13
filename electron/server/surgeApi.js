@@ -1,5 +1,6 @@
 // /api/surge/*: publishes a project to Surge (surge.sh), free static hosting
-// with HTTPS on every <name>.surge.sh address. Used by all three hosts
+// with HTTPS on every <name>.surge.sh address, or on a domain the user owns
+// once its DNS points at Surge (src/lib/siteAddress.js). Used by all three hosts
 // (electron/main.js, server.js, the Vite dev server), so Fetch primitives
 // only, like chatProxy.js. The calls to Surge happen here rather than in the
 // page because Surge's API doesn't allow cross-origin requests, and so the
@@ -10,14 +11,17 @@
 //   POST   /api/surge/login    -> { email, password } signs in (a new email
 //                                 creates a free account); only the token is kept
 //   DELETE /api/surge          -> sign out
-//   POST   /api/surge/publish  -> { domain, files: { 'index.html': html },
+//   POST   /api/surge/publish  -> { domain ('my-site' or 'www.shop.com'),
+//                                   files: { 'index.html': html },
 //                                   images?: { 'images/<name>.jpg': base64,
 //                                              'favicon.png': base64 },
 //                                   password?: string  (lock the site, see
 //                                              src/lib/passwordGate.js),
 //                                   extras?: { 'sitemap.xml': text,
 //                                              'robots.txt': text } }
-//                                 -> { url } or { error, signedOut? }
+//                                 -> { url, domain, custom?, dns? } or
+//                                    { error, signedOut? }  (dns: the record
+//                                    a custom domain needs, see dnsRecordFor)
 //                                 (images: Pollinations images copied into the
 //                                 site, see src/lib/siteImages.js, and the site
 //                                 icon, see src/lib/favicon.js; extras: the SEO
@@ -33,14 +37,14 @@ import { MAX_FILES_BYTES, MAX_PAGES, validatePageName } from '../../src/lib/page
 import { MAX_SITE_IMAGES_BYTES, SITE_IMAGE_PATH_RE } from '../../src/lib/siteImages.js';
 import { FAVICON_PATH, MAX_FAVICON_BYTES, addFaviconLinks } from '../../src/lib/favicon.js';
 import { checkGatePassword, inlineGateImages, protectPages } from '../../src/lib/passwordGate.js';
+import { SURGE_SUFFIX, dnsRecordFor, normalizeSiteHost } from '../../src/lib/siteAddress.js';
 
 export const SURGE_API = 'https://surge.surge.sh';
-export const SURGE_SUFFIX = '.surge.sh';
+export { SURGE_SUFFIX, normalizeSiteHost };
 // Surge's API expects a CLI version with every publish.
 const SURGE_CLIENT_VERSION = '0.46.0';
 const MAX_EMAIL = 254;
 const MAX_PASSWORD = 256;
-const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -49,14 +53,13 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 
 const basicAuth = (user, pass) => 'Basic ' + btoa(String.fromCharCode(...new TextEncoder().encode(`${user}:${pass}`)));
 
-// "my-site" or "my-site.surge.sh" -> "my-site.surge.sh", else null. Custom
-// domains need DNS set up first, so only Surge's own addresses for now.
-export function normalizeSurgeDomain(input) {
-  let name = String(input ?? '').trim().toLowerCase()
-    .replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-  if (name.endsWith(SURGE_SUFFIX)) name = name.slice(0, -SURGE_SUFFIX.length);
-  return LABEL_RE.test(name) ? name + SURGE_SUFFIX : null;
-}
+const BAD_ADDRESS = 'Use only lowercase letters, numbers and dashes for the address, and start and end with a letter or number.';
+const BAD_DOMAIN = 'Type a domain you own, like www.example.com.';
+// Which complaint fits: a typed domain (has a dot, not surge.sh) or a name.
+const addressProblem = (domain) => {
+  const typed = String(domain ?? '').trim().toLowerCase();
+  return typed.includes('.') && !typed.endsWith(SURGE_SUFFIX) ? BAD_DOMAIN : BAD_ADDRESS;
+};
 
 // Surge explains refusals in a `reason` header, or a JSON body with
 // `messages`/`errors`.
@@ -169,10 +172,9 @@ async function publish({ domain, files, images, extras, password }, tokens, fetc
   const { id: email, hasKey } = tokens.describe();
   const token = hasKey ? tokens.keyFor(email) : '';
   if (!token) return json({ error: 'Sign in to Surge first.', signedOut: true }, 401);
-  const host = normalizeSurgeDomain(domain);
-  if (!host) {
-    return json({ error: 'Use only lowercase letters, numbers and dashes for the address, and start and end with a letter or number.' }, 400);
-  }
+  const site = normalizeSiteHost(domain);
+  if (!site) return json({ error: addressProblem(domain) }, 400);
+  const { host, custom } = site;
   const problem = checkFiles(files);
   if (problem) return json({ error: problem }, 400);
 
@@ -234,7 +236,11 @@ async function publish({ domain, files, images, extras, password }, tokens, fetc
   }
   if (response.status === 403) {
     const reason = await surgeReason(response);
-    return json({ error: reason || `${host} belongs to another Surge account. Pick a different address.` }, 400);
+    return json({
+      error: reason || (custom
+        ? `${host} is already used by another Surge account. If it's yours, remove it there first.`
+        : `${host} belongs to another Surge account. Pick a different address.`),
+    }, 400);
   }
   if (response.status === 422) {
     const reason = await surgeReason(response);
@@ -260,9 +266,15 @@ async function publish({ domain, files, images, extras, password }, tokens, fetc
       return null;
     }
   }).filter(Boolean);
-  if (events.some((event) => event.type === 'info')) return json({ url: `https://${host}`, domain: host });
+  if (events.some((event) => event.type === 'info')) {
+    return json({ url: `https://${host}`, domain: host, ...(custom ? { custom: true, dns: dnsRecordFor(host) } : {}) });
+  }
   if (events.some((event) => event.type === 'collect')) {
-    return json({ error: 'Surge asked for payment to publish this. Free addresses ending in .surge.sh shouldn’t need it; try a different address.' }, 400);
+    return json({
+      error: custom
+        ? 'Surge asked for payment to publish to this domain. Check your Surge account, or publish to a free .surge.sh address instead.'
+        : 'Surge asked for payment to publish this. Free addresses ending in .surge.sh shouldn’t need it; try a different address.',
+    }, 400);
   }
   const failure = events.find((event) => event.type === 'error' || event.messages || event.errors);
   const message = failure && [failure.message, ...(failure.messages || []), ...(failure.errors || [])].filter((m) => typeof m === 'string').join(' ');
@@ -273,8 +285,9 @@ async function unpublish({ domain }, tokens, fetchImpl) {
   const { id: email, hasKey } = tokens.describe();
   const token = hasKey ? tokens.keyFor(email) : '';
   if (!token) return json({ error: 'Sign in to Surge first.', signedOut: true }, 401);
-  const host = normalizeSurgeDomain(domain);
-  if (!host) return json({ error: 'That isn’t a surge.sh address.' }, 400);
+  const site = normalizeSiteHost(domain);
+  if (!site) return json({ error: 'That isn’t an address AppBlips can unpublish.' }, 400);
+  const { host } = site;
   let response;
   try {
     response = await fetchImpl(`${SURGE_API}/${host}`, {

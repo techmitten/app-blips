@@ -5,7 +5,7 @@
 import { safeStorage } from './config.js';
 import { slugifyName } from './helpers.js';
 
-export const SURGE_SUFFIX = '.surge.sh';
+export { MAX_HOST_LENGTH, SURGE_A_RECORD, SURGE_CNAME_TARGET, SURGE_SUFFIX, dnsRecordFor, isCustomHost, normalizeSiteHost, siteHost, siteUrl } from './siteAddress.js';
 const DOMAINS_KEY = 'orion-surge-domains';
 
 async function call(path, { method = 'GET', body } = {}) {
@@ -40,8 +40,9 @@ export function suggestSurgeName(projectName) {
   return `${base}-${tail}`;
 }
 
-// The address each project was last published to (just the name, without
-// .surge.sh), so publishing again updates the same site.
+// The address each project was last published to, so publishing again
+// updates the same site: a surge.sh name without .surge.sh, or a custom
+// domain in full (see siteHost in siteAddress.js).
 const loadDomains = () => {
   try {
     const parsed = JSON.parse(safeStorage('local')?.getItem(DOMAINS_KEY) || '{}');

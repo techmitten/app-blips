@@ -1,7 +1,7 @@
 ---
 title: "Publish to the web"
 sidebarTitle: "Publishing"
-description: "Put your app, website or game online at a free surge.sh web address with HTTPS, straight from AppBlips."
+description: "Put your app, website or game online at a free surge.sh web address, or a domain you own, with HTTPS, straight from AppBlips."
 ---
 
 **Publish** puts your project online so anyone can open it. AppBlips uses [Surge](https://surge.sh), a free hosting service, and gives your project its own web address, such as `https://my-bakery.surge.sh`. Every address uses HTTPS, the padlock in the address bar that keeps the connection secure.
@@ -22,6 +22,8 @@ You need a free Surge account. You can create one inside AppBlips.
   </Step>
   <Step title="Choose the web address">
     Under **Web address**, AppBlips suggests a name. Keep it or type your own, using only lowercase letters, numbers and dashes. The address ends in `.surge.sh`.
+
+    To use a domain you've bought instead, click **Use a domain I own** and type it, such as `www.mybakery.com`. See [Use your own domain](#use-your-own-domain).
   </Step>
   <Step title="Choose the options you want">
     All of these are optional. AppBlips remembers your choices for each project.
@@ -57,6 +59,25 @@ After you change your project, click **Publish** again. For a project that's alr
 
 It can take a minute for the new version to appear everywhere.
 
+## Use your own domain
+
+If you own a domain, such as `mybakery.com`, you can publish to it instead of a `.surge.sh` address. Surge hosts custom domains for free and adds HTTPS by itself.
+
+1. In the Publish window, click **Use a domain I own** next to **Web address**.
+2. Type your domain, such as `www.mybakery.com` or `mybakery.com`, then click **Publish**.
+3. The window shows the one DNS record to add. Open the DNS settings at the company you bought the domain from and add it:
+
+| Your address | Type | Name | Value |
+| --- | --- | --- | --- |
+| `www.mybakery.com` (with a prefix) | CNAME | `www` | `geo.surge.world` |
+| `mybakery.com` (no prefix) | A | `@` | `138.197.235.123` |
+
+For a domain with no prefix, you can use an ALIAS or ANAME record pointing at `geo.surge.world` instead, if your provider offers one. Surge sends the `www` and plain versions of your domain to the same site, as long as both point at Surge.
+
+DNS changes can take up to a day to work everywhere. Until then, your domain won't open the site. To see the record again later, click **Publish** and open **Domain not working yet? DNS setup**.
+
+To go back to a free address, click **Publish to a different address**, then **Use a free .surge.sh address**.
+
 ## Search engines
 
 **Let search engines find this site** is unticked at first.
@@ -87,7 +108,7 @@ AppBlips locks every page on your device before uploading anything, so what goes
 2. Click **Unpublish**.
 3. Click **Unpublish** again to confirm, or **Keep it online** to change your mind.
 
-The site goes offline and the link stops working. Your project stays in AppBlips, so you can click **Publish again** later. Someone else could take the address in the meantime.
+The site goes offline and the link stops working. Your project stays in AppBlips, so you can click **Publish again** later. Someone else could take a `.surge.sh` address in the meantime. A domain you own stays yours, and you can remove its DNS record for Surge.
 
 AppBlips only remembers the last address each project was published to. To remove an older address, install [Node.js](https://nodejs.org), open a terminal and run `npx surge teardown old-name.surge.sh` with your own address, then sign in with your Surge email and password.
 
@@ -103,7 +124,7 @@ AppBlips only remembers the last address each project was published to. To remov
 ## Limits
 
 - Surge addresses are first come, first served. If the name you chose belongs to someone else, type a different one and click **Publish** again.
-- Custom domains, such as `www.mybakery.com`, aren't supported in AppBlips.
+- A custom domain can only be on one Surge account. If it's already on another account, remove it there first.
 - Surge limits how often you can publish in a short time. If Surge refuses, wait a few minutes and try again.
 - A site's images can be at most 60 MB in total. Only the [My images](/features/tools#my-images-beta) pictures your pages use are uploaded.
 - Images made with [Pollinations](/features/connectors#pollinations) are copied into your site, so they stay online as long as it does. Publish again after the AI changes an image.

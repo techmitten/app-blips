@@ -4,7 +4,7 @@ import { Check, CircleAlert, Copy, ExternalLink, Globe, ImagePlus, Loader2, Lock
 import Modal, { ModalCloseButton } from './Modal';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import {
-  SURGE_SUFFIX, loadFavicon, loadProtected, loadPublishedName, loadPwa, loadSearchable, saveFavicon, saveProtected, savePublishedName, savePwa, saveSearchable, suggestSurgeName,
+  MAX_HOST_LENGTH, SURGE_A_RECORD, SURGE_CNAME_TARGET, SURGE_SUFFIX, dnsRecordFor, isCustomHost, normalizeSiteHost, siteHost, siteUrl, loadFavicon, loadProtected, loadPublishedName, loadPwa, loadSearchable, saveFavicon, saveProtected, savePublishedName, savePwa, saveSearchable, suggestSurgeName,
   surgeLogin, surgePublish, surgeSignOut, surgeStatus, surgeUnpublish,
 } from '../lib/surge';
 import { addNoIndex } from '../lib/seo';
@@ -138,6 +138,62 @@ function PasswordField({ on, onToggle, password, onPassword, confirm, onConfirm,
   );
 }
 
+// Copies one DNS value, showing "Copied" for a moment.
+function CopyValueButton({ value, label }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked: the value is still on screen */ }
+  };
+  return (
+    <button type="button" onClick={copy} aria-label={`Copy ${label}`} title="Copy" className="shrink-0 rounded p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800">
+      {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+    </button>
+  );
+}
+
+// The one DNS record a custom domain needs before it works (siteAddress.js).
+// Surge publishes right away; visitors reach it once the record is in place.
+function DnsSetup({ host }) {
+  const record = dnsRecordFor(host);
+  const cell = 'px-2.5 py-1.5 align-middle';
+  return (
+    <div className="space-y-2 text-xs leading-snug text-slate-600">
+      <p>
+        At the company you bought <strong className="text-slate-800">{host}</strong> from, open its DNS settings and add this record:
+      </p>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr><th className={cell}>Type</th><th className={cell}>Name</th><th className={cell}>Value</th></tr>
+          </thead>
+          <tbody className="font-mono text-slate-900">
+            <tr className="border-t border-slate-200">
+              <td className={cell}>{record.type}</td>
+              <td className={cell}>{record.name}</td>
+              <td className={cell}>
+                <span className="flex items-center gap-1">
+                  <span className="break-all">{record.value}</span>
+                  <CopyValueButton value={record.value} label="DNS value" />
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        {record.root
+          ? <>If your provider offers an ALIAS or ANAME record, you can point <span className="font-mono">@</span> at <span className="font-mono">{SURGE_CNAME_TARGET}</span> instead.</>
+          : <>For a domain without a prefix (like example.com), add an A record for <span className="font-mono">@</span> with <span className="font-mono">{SURGE_A_RECORD}</span> instead.</>}
+        {' '}It can take up to a day to start working. Surge adds HTTPS by itself and sends the www and plain versions of the domain to the same site.
+      </p>
+    </div>
+  );
+}
+
 function SiteIconField({ icon, onChange, disabled }) {
   const input = useRef(null);
   const [error, setError] = useState('');
@@ -197,7 +253,8 @@ function SiteIconField({ icon, onChange, disabled }) {
 }
 
 // Publish: puts the current pages on Surge (surge.sh) at a free
-// <name>.surge.sh address with HTTPS. The first time it asks for a Surge sign-in
+// <name>.surge.sh address with HTTPS, or at a domain the user owns ("Use a
+// domain I own"), which then needs one DNS record (DnsSetup). The first time it asks for a Surge sign-in
 // (a new email creates the account); the server keeps the token
 // (lib/surge.js). `buildFiles` returns the same pages Export downloads.
 // Images made with Pollinations are copied into the site (lib/siteImages.js)
@@ -221,6 +278,9 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
   const [confirm, setConfirm] = useState('');
   const [account, setAccount] = useState('');
   const [name, setName] = useState(() => suggestSurgeName(projectName));
+  // "Use a domain I own": publish to customDomain instead of <name>.surge.sh.
+  const [ownDomain, setOwnDomain] = useState(false);
+  const [customDomain, setCustomDomain] = useState('');
   const [favicon, setFavicon] = useState(() => loadFavicon(projectId));
   const [searchable, setSearchable] = useState(() => loadSearchable(projectId));
   const [pwaPrompt, setPwaPrompt] = useState(() => loadPwa(projectId));
@@ -345,7 +405,10 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
       setStep(result.signedOut ? 'signin' : from);
       return;
     }
-    savePublishedName(projectId, clean);
+    // A surge.sh address is kept as just its name, a custom domain in full.
+    const site = normalizeSiteHost(clean);
+    const stored = site?.custom ? site.host : (site?.host.slice(0, -SURGE_SUFFIX.length) || clean);
+    savePublishedName(projectId, stored);
     // Stored even when left at its default: once the site has an address, an
     // unstored choice reads as off (see loadSearchable).
     saveSearchable(projectId, searchable);
@@ -353,7 +416,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     savePwa(projectId, pwaPrompt);
     setSitePassword('');
     setSiteConfirm('');
-    setPublished(clean);
+    setPublished(stored);
     setUrl(result.url);
     setStep('done');
   };
@@ -375,7 +438,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
 
   const publish = (event) => {
     event.preventDefault();
-    publishTo(name, 'ready');
+    publishTo(ownDomain ? customDomain : name, 'ready');
   };
 
   const unpublish = async () => {
@@ -394,7 +457,9 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     setStep('removed');
   };
 
-  const publishedUrl = published ? `https://${published}${SURGE_SUFFIX}` : '';
+  const publishedUrl = siteUrl(published);
+  const publishedHost = siteHost(published);
+  const publishedCustom = isCustomHost(published);
 
   const copy = async () => {
     try {
@@ -540,6 +605,12 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
                 <a href={publishedUrl} target="_blank" rel="noopener noreferrer" className={`min-w-0 flex-1 truncate ${LINK_CLASS}`}>{publishedUrl}</a>
                 <ExternalLink size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
               </div>
+              {publishedCustom && (
+                <details className="pt-1">
+                  <summary className="cursor-pointer text-xs font-semibold text-indigo-600 hover:underline">Domain not working yet? DNS setup</summary>
+                  <div className="pt-2"><DnsSetup host={publishedHost} /></div>
+                </details>
+              )}
             </div>
             <p className="text-xs leading-snug text-slate-600">
               <strong className="text-slate-800">Update site</strong> replaces what&rsquo;s online with your latest version.{' '}
@@ -596,10 +667,12 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
       {step === 'unpublish' && (
         <>
           <div className="p-6 space-y-3 text-sm text-slate-700">
-            <p className="font-semibold text-slate-900">Unpublish {published}{SURGE_SUFFIX}?</p>
+            <p className="font-semibold text-slate-900">Unpublish {publishedHost}?</p>
             <p className="text-xs leading-snug text-slate-600">
               The site goes offline right away and the link stops working. Your project stays in AppBlips, so you can publish it again later.
-              Someone else could take this address in the meantime.
+              {publishedCustom
+                ? ' Your domain stays yours; you can also remove its DNS record for Surge.'
+                : ' Someone else could take this address in the meantime.'}
             </p>
             {errorLine}
           </div>
@@ -622,14 +695,23 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
         <>
           <div className="p-6 space-y-2 text-sm text-slate-700">
             <p role="status" className="flex items-center gap-2 font-semibold text-slate-900">
-              <Check size={18} aria-hidden="true" />{published}{SURGE_SUFFIX} is offline
+              <Check size={18} aria-hidden="true" />{publishedHost} is offline
             </p>
             <p className="text-xs leading-snug text-slate-600">It can take a minute for the old version to disappear everywhere.</p>
           </div>
           <div className="shrink-0 bg-slate-50 px-6 py-4 flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => { setName(published); setPublished(''); setStep('ready'); }}
+              onClick={() => {
+                if (publishedCustom) {
+                  setOwnDomain(true);
+                  setCustomDomain(published);
+                } else {
+                  setName(published);
+                }
+                setPublished('');
+                setStep('ready');
+              }}
               className={SECONDARY_BUTTON}
             >
               Publish again
@@ -643,27 +725,61 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
         <form onSubmit={publish} className="flex min-h-0 flex-col">
           <div className="p-6 space-y-4 overflow-y-auto text-sm text-slate-700">
             <div className="space-y-1.5">
-              <label htmlFor="surge-name" className={LABEL_CLASS}>Web address</label>
+              <div className="flex items-baseline justify-between gap-3">
+                <label htmlFor="surge-name" className={LABEL_CLASS}>Web address</label>
+                <button
+                  type="button"
+                  onClick={() => { setOwnDomain(!ownDomain); setError(''); }}
+                  aria-pressed={ownDomain}
+                  disabled={busy}
+                  className={`text-xs ${LINK_CLASS}`}
+                >
+                  {ownDomain ? 'Use a free .surge.sh address' : 'Use a domain I own'}
+                </button>
+              </div>
               <div className="flex items-center rounded-lg border border-slate-300 focus-within:ring-2 focus-within:ring-indigo-500">
                 <span className="pl-3 text-sm text-slate-500" aria-hidden="true">https://</span>
-                <input
-                  id="surge-name"
-                  type="text"
-                  value={name}
-                  onChange={(event) => setName(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  maxLength={63}
-                  autoFocus
-                  spellCheck={false}
-                  disabled={busy}
-                  aria-describedby="surge-name-help"
-                  className="min-w-0 flex-1 bg-transparent px-0.5 py-2 text-sm font-semibold text-slate-900 outline-none"
-                />
-                <span className="pr-3 text-sm text-slate-500">{SURGE_SUFFIX}</span>
+                {ownDomain ? (
+                  <input
+                    key="custom"
+                    id="surge-name"
+                    type="text"
+                    inputMode="url"
+                    value={customDomain}
+                    onChange={(event) => setCustomDomain(event.target.value.toLowerCase().replace(/^https?:\/\//, '').replace(/[^a-z0-9.-]/g, ''))}
+                    maxLength={MAX_HOST_LENGTH}
+                    placeholder="www.example.com"
+                    autoFocus
+                    spellCheck={false}
+                    autoCapitalize="none"
+                    disabled={busy}
+                    aria-describedby="surge-name-help"
+                    className="min-w-0 flex-1 bg-transparent px-0.5 py-2 pr-3 text-sm font-semibold text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400"
+                  />
+                ) : (
+                  <>
+                    <input
+                      key="surge"
+                      id="surge-name"
+                      type="text"
+                      value={name}
+                      onChange={(event) => setName(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      maxLength={63}
+                      autoFocus
+                      spellCheck={false}
+                      disabled={busy}
+                      aria-describedby="surge-name-help"
+                      className="min-w-0 flex-1 bg-transparent px-0.5 py-2 text-sm font-semibold text-slate-900 outline-none"
+                    />
+                    <span className="pr-3 text-sm text-slate-500">{SURGE_SUFFIX}</span>
+                  </>
+                )}
               </div>
               <p id="surge-name-help" className="text-xs leading-snug text-slate-500">
-                {published
-                  ? `This makes a second copy. ${published}${SURGE_SUFFIX} stays online until you unpublish it.`
+                {ownDomain
+                  ? 'A domain you’ve bought, like example.com or www.example.com. After publishing, AppBlips shows the one DNS record to add where you bought it.'
                   : 'Letters, numbers and dashes. If someone else already uses the name, pick another.'}
+                {published && ` This makes a second copy. ${publishedHost} stays online until you unpublish it.`}
               </p>
             </div>
             <SiteIconField icon={favicon} onChange={changeFavicon} disabled={busy} />
@@ -689,7 +805,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
             <button type="button" onClick={published ? () => { setError(''); setStep('manage'); } : onClose} disabled={busy} className={SECONDARY_BUTTON}>
               {published ? 'Back' : 'Cancel'}
             </button>
-            <button type="submit" disabled={busy || !name} className={PRIMARY_BUTTON}>
+            <button type="submit" disabled={busy || !(ownDomain ? customDomain : name)} className={PRIMARY_BUTTON}>
               {busy ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Globe size={16} aria-hidden="true" />}
               {busy ? 'Publishing…' : 'Publish'}
             </button>
@@ -730,9 +846,16 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
                 ))}
               </div>
             </div>
-            <p className="text-xs leading-snug text-slate-500">
-              It can take a minute to appear everywhere. After you make changes, click Publish again to update it.
-            </p>
+            {publishedCustom ? (
+              <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                <p className="text-xs font-semibold text-slate-800">One more step: point your domain at Surge</p>
+                <DnsSetup host={publishedHost} />
+              </div>
+            ) : (
+              <p className="text-xs leading-snug text-slate-500">
+                It can take a minute to appear everywhere. After you make changes, click Publish again to update it.
+              </p>
+            )}
             <ShowcaseSubmitLink onClick={() => setSubmitUrl(url)} />
           </div>
           <div className="shrink-0 bg-slate-50 px-6 py-4 flex justify-end gap-3">

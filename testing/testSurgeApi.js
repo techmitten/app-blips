@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { gunzipSync } from 'node:zlib';
 import { createTar, gzip } from '../electron/server/tar.js';
-import { handleSurgeApi, normalizeSurgeDomain } from '../electron/server/surgeApi.js';
+import { handleSurgeApi } from '../electron/server/surgeApi.js';
+import { dnsRecordFor, normalizeSiteHost, siteHost, siteUrl } from '../src/lib/siteAddress.js';
 import { addFaviconLinks } from '../src/lib/favicon.js';
 
 const ORIGIN = 'http://localhost:5175';
@@ -54,13 +55,32 @@ test('tar round-trips names and contents, gzip is real gzip', async () => {
   assert.deepEqual(files, entries.map(({ name, data }) => ({ name, text: data })));
 });
 
-test('addresses: names become <name>.surge.sh, anything else is refused', () => {
-  assert.equal(normalizeSurgeDomain('my-site'), 'my-site.surge.sh');
-  assert.equal(normalizeSurgeDomain(' My-Site.surge.sh '), 'my-site.surge.sh');
-  assert.equal(normalizeSurgeDomain('https://my-site.surge.sh/'), 'my-site.surge.sh');
-  for (const bad of ['', '-site', 'site-', 'my_site', 'a.b', 'example.com', 'x'.repeat(64)]) {
-    assert.equal(normalizeSurgeDomain(bad), null, bad);
+test('addresses: names become <name>.surge.sh, domains stay custom, anything else is refused', () => {
+  const surge = (host) => ({ host, custom: false });
+  const custom = (host) => ({ host, custom: true });
+  assert.deepEqual(normalizeSiteHost('my-site'), surge('my-site.surge.sh'));
+  assert.deepEqual(normalizeSiteHost(' My-Site.surge.sh '), surge('my-site.surge.sh'));
+  assert.deepEqual(normalizeSiteHost('https://my-site.surge.sh/'), surge('my-site.surge.sh'));
+  assert.deepEqual(normalizeSiteHost('example.com'), custom('example.com'));
+  assert.deepEqual(normalizeSiteHost('https://WWW.My-Shop.co.uk/about'), custom('www.my-shop.co.uk'));
+  assert.deepEqual(normalizeSiteHost('shop.example.'), custom('shop.example'));
+  const long = `${'a'.repeat(63)}.${'b'.repeat(63)}.${'c'.repeat(63)}.${'d'.repeat(59)}.com`;
+  assert.equal(long.length, 255);
+  for (const bad of ['', '-site', 'site-', 'my_site', 'x'.repeat(64), 'a.b.surge.sh', '.surge.sh',
+    '1.2.3.4', '-x.com', 'x-.com', 'x..com', 'x.c0m', 'x.c', 'my shop.com', long]) {
+    assert.equal(normalizeSiteHost(bad), null, bad);
   }
+});
+
+test('custom domains: the DNS record to add, and stored names read back as addresses', () => {
+  assert.deepEqual(dnsRecordFor('example.com'), { type: 'A', name: '@', value: '138.197.235.123', root: true });
+  assert.deepEqual(dnsRecordFor('www.example.com'), { type: 'CNAME', name: 'www', value: 'geo.surge.world', root: false });
+  assert.deepEqual(dnsRecordFor('a.b.example.com').name, 'a.b');
+  assert.equal(siteHost('my-site'), 'my-site.surge.sh');
+  assert.equal(siteUrl('my-site'), 'https://my-site.surge.sh');
+  assert.equal(siteHost('www.example.com'), 'www.example.com');
+  assert.equal(siteUrl('www.example.com'), 'https://www.example.com');
+  assert.equal(siteUrl(''), '');
 });
 
 test('other sites may not use the saved sign-in', async () => {
@@ -114,6 +134,35 @@ test('publish uploads site/<page> to the address and returns the https link', as
   assert.equal(seen.init.headers['file-count'], '2');
   const names = readTar(gunzipSync(seen.init.body)).map((f) => f.name).sort();
   assert.deepEqual(names, ['site/about.html', 'site/index.html']);
+});
+
+test('publish to a custom domain returns its link and the DNS record it needs', async () => {
+  let seen;
+  const fetch = async (url) => {
+    seen = url;
+    return new Response('{"type":"info"}\n', { status: 200 });
+  };
+  const publishTo = async (domain) => (await handleSurgeApi(
+    request('/api/surge/publish', { method: 'POST', body: { domain, files: { 'index.html': 'x' } } }),
+    {}, memoryTokens('a@b.co', 'tok'), { fetch },
+  )).json();
+  assert.deepEqual(await publishTo('www.example.com'), {
+    url: 'https://www.example.com', domain: 'www.example.com', custom: true,
+    dns: { type: 'CNAME', name: 'www', value: 'geo.surge.world', root: false },
+  });
+  assert.equal(seen, 'https://surge.surge.sh/www.example.com');
+  assert.equal((await publishTo('example.com')).dns.type, 'A');
+  assert.match((await publishTo('bad..com')).error, /domain you own/);
+  assert.match((await publishTo('my_site')).error, /lowercase letters/);
+});
+
+test('a custom domain on another account is explained', async () => {
+  const fetch = async () => new Response('', { status: 403 });
+  const response = await handleSurgeApi(
+    request('/api/surge/publish', { method: 'POST', body: { domain: 'example.com', files: { 'index.html': 'x' } } }),
+    {}, memoryTokens('a@b.co', 'tok'), { fetch },
+  );
+  assert.match((await response.json()).error, /example\.com is already used by another Surge account/);
 });
 
 test('publish uploads copied Pollinations images next to the pages, and refuses other paths', async () => {
@@ -252,6 +301,16 @@ test('unpublish deletes the address with the saved token', async () => {
   assert.equal(seen.init.headers.authorization, 'Basic ' + btoa('token:tok'));
 });
 
+test('unpublish takes a custom domain offline too', async () => {
+  let seen;
+  const fetch = async (url) => {
+    seen = url;
+    return new Response('{}', { status: 200 });
+  };
+  assert.deepEqual(await (await handleSurgeApi(unpublishRequest('www.example.com'), {}, memoryTokens('a@b.co', 'tok'), { fetch })).json(), { removed: true });
+  assert.equal(seen, 'https://surge.surge.sh/www.example.com');
+});
+
 test('unpublishing a site that is already gone counts as done', async () => {
   const fetch = async () => new Response('', { status: 404 });
   assert.deepEqual(await (await handleSurgeApi(unpublishRequest(), {}, memoryTokens('a@b.co', 'tok'), { fetch })).json(), { removed: true });
@@ -259,7 +318,7 @@ test('unpublishing a site that is already gone counts as done', async () => {
 
 test('unpublish refuses bad addresses, someone else’s site and a missing sign-in', async () => {
   const noFetch = () => assert.fail('no request');
-  assert.equal((await handleSurgeApi(unpublishRequest('example.com'), {}, memoryTokens('a@b.co', 'tok'), { fetch: noFetch })).status, 400);
+  assert.equal((await handleSurgeApi(unpublishRequest('a.b.surge.sh'), {}, memoryTokens('a@b.co', 'tok'), { fetch: noFetch })).status, 400);
   assert.equal((await (await handleSurgeApi(unpublishRequest(), {}, memoryTokens(), { fetch: noFetch })).json()).signedOut, true);
   const taken = async () => new Response('', { status: 403 });
   assert.match((await (await handleSurgeApi(unpublishRequest(), {}, memoryTokens('a@b.co', 'tok'), { fetch: taken })).json()).error, /another Surge account/);

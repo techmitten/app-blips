@@ -406,7 +406,8 @@ export default function PreviewPane({
 
           {hasSavedCode && onPublish && <span className="chrome-divider preview-actions-divider" aria-hidden="true" />}
 
-          {/* Puts the site online at a free surge.sh address (PublishDialog).
+          {/* Puts the site online at a free surge.sh address or the user's own
+              domain (PublishDialog).
               The one brand-filled key, alone at the end of the row. */}
           {hasSavedCode && onPublish && (
             <button
@@ -414,7 +415,7 @@ export default function PreviewPane({
               onClick={onPublish}
               className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
               aria-label="Publish to the web"
-              data-tip="Publish to the web (free surge.sh address)"
+              data-tip="Publish to the web (free surge.sh address or your own domain)"
               data-tip-align="end"
             >
               <Globe size={16} />
