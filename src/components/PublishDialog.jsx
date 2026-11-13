@@ -31,7 +31,7 @@ function ShowcaseSubmitLink({ onClick, disabled = false }) {
   );
 }
 
-// Unticked (the default) tells search engines to stay away.
+// Ticked by default. Unticked tells search engines to stay away.
 function SearchableField({ checked, onChange, disabled }) {
   return (
     <label className="flex items-start gap-2.5 text-sm text-slate-700">
@@ -346,6 +346,9 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
       return;
     }
     savePublishedName(projectId, clean);
+    // Stored even when left at its default: once the site has an address, an
+    // unstored choice reads as off (see loadSearchable).
+    saveSearchable(projectId, searchable);
     saveProtected(projectId, locked);
     savePwa(projectId, pwaPrompt);
     setSitePassword('');
