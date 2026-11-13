@@ -6,7 +6,12 @@ name: Desktop
 # first). Publishing that draft is what rolls the update out: installed
 # AppImage builds check the latest published release, using the latest*.yml
 # file uploaded alongside. Windows is distributed only through the Microsoft
-# Store, built by hand (see RELEASING.md) — this workflow never touches it.
+# Store, built by hand (see RELEASING.md) — this workflow never builds it. It
+# does attach build/windows/AppBlips-Windows-Installer.exe, the small installer
+# Microsoft generates for the Store listing: it holds no app, just AppBlips'
+# Store ID (stamped into its signature, so renaming it is safe), and installs
+# whatever version the Store currently serves. It never needs replacing per
+# release.
 
 on:
   workflow_dispatch:
@@ -27,11 +32,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run desktop:dist
+      - name: Add the Microsoft Store installer
+        run: cp build/windows/AppBlips-Windows-Installer.exe dist-desktop/
       - name: Write SHA-256 checksums
         run: |
           cd dist-desktop
           : > SHA256SUMS.txt
-          for f in *.AppImage *.deb; do
+          for f in *.AppImage *.deb *.exe; do
             [ -e "$f" ] || continue
             sha256sum "$f" >> SHA256SUMS.txt
           done
@@ -44,6 +51,7 @@ jobs:
           files: |
             dist-desktop/*.AppImage
             dist-desktop/*.deb
+            dist-desktop/AppBlips-Windows-Installer.exe
             dist-desktop/*.blockmap
             dist-desktop/latest*.yml
             dist-desktop/SHA256SUMS.txt

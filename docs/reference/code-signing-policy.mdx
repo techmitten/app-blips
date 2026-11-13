@@ -8,7 +8,7 @@ Code signing adds a digital signature to a program, so your computer can tell wh
 
 ## What's signed
 
-- **Windows, Microsoft Store:** signed by Microsoft. Windows installs it without warnings, and the Store keeps it up to date. The [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) is the only way to install AppBlips on Windows.
+- **Windows, Microsoft Store:** signed by Microsoft. Windows installs it without warnings, and the Store keeps it up to date. The [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) is the only way to install AppBlips on Windows. The `AppBlips-Windows-Installer.exe` attached to each GitHub release is Microsoft's own Store installer, signed by Microsoft. It installs the Store version, not a separate build.
 - **Linux, AppImage and `.deb` from GitHub:** the files themselves aren't code-signed. Linux doesn't warn about that the way Windows does. You can check them against their fingerprints (see below).
 - **Linux, AppBlips package source:** if you install and update the `.deb` through AppBlips' package source with `apt`, the package lists are signed with AppBlips' own key, and `apt` checks the signature for you on every update.
 

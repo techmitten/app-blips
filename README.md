@@ -67,7 +67,7 @@ For the full experience (projects saved as folders on disk, and an encrypted OS-
 ## Quick Start
 
 ### 1. Desktop App (Windows, Linux, macOS)
-- **Windows:** Install from the **[Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** (includes automatic updates).
+- **Windows:** Install from the **[Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k)** (includes automatic updates). Each [GitHub release](https://github.com/TechMitten/app-blips/releases/latest) also has `AppBlips-Windows-Installer.exe`, Microsoft's small Store installer, which installs the same Store version.
 - **Linux:** Download the `.AppImage` or `.deb` package from **[GitHub Releases](https://github.com/TechMitten/app-blips/releases/latest)**.
 - **macOS:** Install via **[Pinokio](https://pinokio.co/apps/github-com-techmitten-app-blips-pinokio)** to run the local browser edition with your own API key, or use Docker / source below.
 
