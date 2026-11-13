@@ -52,6 +52,10 @@ export default function BuildPanel({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
+  webSearchAvailable = false,
+  webSearchProvider = '',
+  webSearch = false,
+  onWebSearchChange,
   side = 'left',
   isCollapsed = false,
   suggestions = null,
@@ -291,6 +295,10 @@ export default function BuildPanel({
           onAttachScreenshot={onAttachScreenshot}
           onAttachFile={onAttachFile}
           onRemoveAttachment={onRemoveAttachment}
+          webSearchAvailable={webSearchAvailable}
+          webSearchProvider={webSearchProvider}
+          webSearch={webSearch}
+          onWebSearchChange={onWebSearchChange}
         />
       </div>
     </div>

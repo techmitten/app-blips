@@ -10,6 +10,8 @@ import { handleSurgeApi } from './electron/server/surgeApi.js'
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js'
 import { handlePixabayApi } from './electron/server/pixabayApi.js'
 import { handleTavilyApi } from './electron/server/tavilyApi.js'
+import { handleWebToolsApi } from './electron/server/webToolsApi.js'
+import { createUnsplashApi } from './electron/server/unsplashApi.js'
 import { handleSeoScanApi } from './electron/server/seoScanApi.js'
 import { resolveAddresses } from './electron/server/dnsLookup.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
@@ -145,6 +147,28 @@ function llmProxyDevMiddleware(mode) {
         }
         const request = await toFetchRequest(req, res)
         const response = await withKeys('tavily', request, (keys) => handleTavilyApi(request, env, keys))
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      // DeepSeek web search for the AI, paid by the same key as /api/chat.
+      server.middlewares.use('/api/web', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('Web search is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const request = await toFetchRequest(req, res)
+        const response = await withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env))
+        sendWebResponse(res, response, {}, '[dev-proxy]')
+      }))
+      // The built-in photo library, with the .env's Unsplash key.
+      const handleUnsplashApi = createUnsplashApi()
+      server.middlewares.use('/api/unsplash', guarded(async (req, res) => {
+        if (!hostAllowed(req.headers.host || '', env)) {
+          res.statusCode = 403
+          res.end('The photo library is only available on this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
+          return
+        }
+        const response = await handleUnsplashApi(await toFetchRequest(req, res), env)
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The SEO connector's one-time read of the user's own website.

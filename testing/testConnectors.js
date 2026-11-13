@@ -14,11 +14,12 @@ const {
   squareLinks, loadConnectors, saveConnectors, connectorStatus, getActiveConnectors, CONNECTORS_KEY, CONNECTOR_DEFINITIONS, CONNECTOR_IDS,
   savePollinationsAccount,
   saveTavilyKeyHint,
+  PROVIDER_SEARCH_CONNECTORS, providerSearchEnabled, providerSearchConnectorFor, onConnectorsChange,
 } = await import('../src/lib/connectors.js');
 const { buildHtmlSystemPrompt, buildConnectorDirective, buildAskConnectorNote, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, sheets: { enabled: false, key: '' }, pixabay: { enabled: false, key: '', keyHint: '' }, tavily: { enabled: false, key: '', keyHint: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, sheets: { enabled: false, key: '' }, pixabay: { enabled: false, key: '', keyHint: '' }, tavily: { enabled: false, key: '', keyHint: '' }, deepseekSearch: { enabled: true, key: '' }, claudeSearch: { enabled: true, key: '' }, openaiSearch: { enabled: true, key: '' }, geminiSearch: { enabled: true, key: '' }, grokSearch: { enabled: true, key: '' }, openrouterSearch: { enabled: true, key: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -213,7 +214,7 @@ for (const id of CONNECTOR_IDS) {
   // Sign-in connectors (Pollinations) have no key box, so no key wording,
   // native ones (SEO) have no service to connect to, and server-key ones
   // (Pixabay) have their key checked by the service, not a local pattern.
-  const fields = CONNECTOR_DEFINITIONS[id].native
+  const fields = CONNECTOR_DEFINITIONS[id].native || CONNECTOR_DEFINITIONS[id].providerSearch
     ? ['enableDescription']
     : CONNECTOR_DEFINITIONS[id].signIn
       ? ['enableDescription', 'signInHelp', 'connected', 'needsSignIn']
@@ -292,3 +293,26 @@ assert.equal(buildConnectorDirective([{ id: 'seo', key: '' }]), '');
 saveConnectors({ seo: { enabled: false } });
 assert.equal(connectorStatus('seo'), 'off');
 console.log('SEO connector checks passed');
+
+// Provider web search: one extension per Settings → AI provider, all on by
+// default (they only show the globe), switched off one by one, never sent to
+// the AI as a connector directive.
+{
+  saveConnectors({});
+  assert.deepEqual(PROVIDER_SEARCH_CONNECTORS.map((def) => def.providerSearch).sort(), ['anthropic', 'deepseek', 'gemini', 'openai', 'openrouter', 'xai']);
+  for (const def of PROVIDER_SEARCH_CONNECTORS) {
+    assert.equal(providerSearchConnectorFor(def.providerSearch).id, def.id);
+    assert.equal(providerSearchEnabled(def.providerSearch), true, `${def.id} starts on`);
+    assert.equal(connectorStatus(def.id), 'connected');
+  }
+  assert.equal(providerSearchEnabled(''), false);
+  assert.equal(providerSearchEnabled('mistral'), false);
+  let changes = 0;
+  const off = onConnectorsChange(() => { changes++; });
+  saveConnectors({ ...loadConnectors(), claudeSearch: { enabled: false, key: '' } });
+  off();
+  assert.equal(changes, 1);
+  assert.equal(providerSearchEnabled('anthropic'), false);
+  assert.equal(providerSearchEnabled('deepseek'), true);
+  assert.deepEqual(getActiveConnectors(), []);
+}

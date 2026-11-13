@@ -89,6 +89,19 @@ export const loadPromptSuggestions = () => {
   }
 };
 
+export const WEB_SEARCH_KEY = 'orion-web-search';
+
+// Boolean: whether the AI may search the web through the AI provider's own
+// search (lib/providerWeb.js), switched with the globe under the chat box.
+// Each search has a small cost on the same provider key, so it is off by default; only an explicit 'true' turns it on.
+export const loadWebSearch = () => {
+  try {
+    return safeStorage('local')?.getItem(WEB_SEARCH_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 export const GAME_ENGINE_ROUTER_KEY = 'orion-game-engine-router';
 
 // Boolean: whether new games get an engine (Phaser, Three.js or none) picked

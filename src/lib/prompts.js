@@ -2,12 +2,13 @@ import { REACT_IMPORTS, REACT_VERSION } from './jsxCompile.js';
 import { embedSnippet, squareLinks } from './connectors.js';
 import { MAX_IMAGES_PER_BUILD, POLLINATIONS_IMAGE_MODEL } from './pollinationsApp.js';
 import { galleryPath, getActiveGallery } from './galleryImages.js';
+import { photoLibraryAvailable } from './unsplash.js';
 
 export const SURGICAL_EDIT_TOOL = {
   type: 'function',
   function: {
     name: 'apply_surgical_edits',
-    description: 'Applies precise search-and-replace edits to the current code. Each search block must match exactly one location unless replace_all is set. If a search string could match more than once, set occurrence to pick which match (1-based, in document order) or replace_all to true. Prefer fewer, larger edits over many tiny ones.',
+    description: 'Applies precise search-and-replace edits to the current code. Each search block must match exactly one location unless replace_all is set. If a search string could match more than once, set occurrence to pick which match (1-based, in document order) or replace_all to true. Combine related changes into one call, but keep each search block small.',
     parameters: {
       type: 'object',
       properties: {
@@ -16,7 +17,7 @@ export const SURGICAL_EDIT_TOOL = {
           items: {
             type: 'object',
             properties: {
-              search: { type: 'string', description: 'Exact code to find. Include 5+ lines of unique surrounding context — not just the changed lines.' },
+              search: { type: 'string', description: 'Exact code to find, copied from the current code: enough whole lines to match exactly one place (usually 3-10), or a shorter string together with occurrence or replace_all. Never a whole section.' },
               replace: { type: 'string', description: 'Replacement code. Preserve surrounding context and indentation.' },
               occurrence: { type: ['integer', 'null'], description: '1-based index of which match to replace, only if search is ambiguous (matches more than once). Null if search is unique.' },
               replace_all: { type: ['boolean', 'null'], description: 'If true, replace every occurrence of search. Null otherwise.' }
@@ -99,7 +100,7 @@ export const GAME_ENGINE_ROUTER_SYSTEM_PROMPT = `You choose the engine for a bro
 - phaser: 2D games with many sprites, animations, tilemaps, scrolling levels, arcade physics or lots of moving actors -- platformers, side-scrollers, top-down RPGs and adventures, dungeon crawlers, shoot-em-ups, bullet hell, tower defense, beat-em-ups, survivor-likes, physics launchers.
 - three: anything that should be 3D -- 3D racing, first- or third-person games, flight, voxel or Minecraft-like worlds, 3D mazes, open worlds.
 - canvas: simple 2D games that need no engine -- single-screen arcade classics (snake, pong, breakout, flappy), slicing, tapping and reaction games, puzzles (2048, tetris, match-3, sudoku, minesweeper), card, board, word, quiz, clicker and idle games. When in doubt, choose canvas: it has nothing extra to download.
-- user: the user already named an engine or library (Phaser, Three.js, Pixi, Babylon, Kaboom, p5, ...) or asked for none (plain canvas, vanilla JS, no engine). Their choice stands.
+- user: the user already named an engine or library (Phaser, Three.js, Pixi, Babylon, Kaboom, KAPLAY, p5, ...) or asked for none (plain canvas, vanilla JS, no engine). Their choice stands.
 Reply with that single word only: no punctuation, no explanation.`;
 
 // Build mode sends every message to the code writer, so a question typed there
@@ -276,7 +277,7 @@ export const LIST_SECTIONS_TOOL = {
   type: 'function',
   function: {
     name: 'list_sections',
-    description: "Lists every @section landmark actually present in the current code -- both the HTML form (<!-- @section: name -->) and the JavaScript form (// @section: name) -- in document order, with each one's line range. Ground truth — call this before assuming a section exists.",
+    description: "Lists every @section landmark actually present in the current code -- the HTML form (<!-- @section: name -->), the JavaScript form (// @section: name) and the JSX form ({/* @section: name */}) -- in document order, with each one's line range. Ground truth — call this before assuming a section exists.",
     parameters: {
       type: 'object',
       properties: {},
@@ -409,16 +410,16 @@ CRITICAL RULES:
 2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
 3. Follow the platform-targeting instructions in the user request exactly.
 4. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling.
-5. Reach for a real library whenever the task calls for one -- proactively, without waiting for the user to name a library or ask for it explicitly. Load libraries as ES modules from https://esm.sh via an import map; there is no build step. The bar is "would a library do this better than me reimplementing it from scratch", not "did the user ask for it by name". Never fake with hand-rolled DOM what one of these does properly -- no div-and-CSS bar charts, no manual tween loops, no hand-written drag handlers. The one exception: a genuinely trivial app (a single static view, a calculator, a unit converter) should stay dependency-free -- do not add a library that has nothing to do.
+5. Reach for a real library whenever the task calls for one -- proactively, without waiting for the user to name a library or ask for it explicitly. Load libraries as ES modules from https://esm.sh via an import map; there is no build step. The bar is "would a library do this better than me reimplementing it from scratch", not "did the user ask for it by name". Never fake with hand-rolled DOM what one of these does properly -- no div-and-CSS bar charts, no hand-written drag-to-reorder handlers. UI animation needs no library: use CSS transitions and keyframes (Tailwind's transition-*, duration-*, animate-* classes or a small <style> block), not JavaScript loops that tween styles by hand. The one exception: a genuinely trivial app (a single static view, a calculator, a unit converter) should stay dependency-free -- do not add a library that has nothing to do.
    Defaults, unless the user's request points elsewhere:
    - Real component state (multiple interacting views, forms, filtered or re-rendering lists) -> React with JSX (see REACT APPS below), rather than hand-rolled DOM manipulation.
    - Charts, graphs, stats dashboards -> Chart.js.
    - 3D scenes -> Three.js.
-   - Physics, particles, simulations -> Matter.js.
+   - Rigid-body physics (things that fall, collide, bounce, stack) -> Matter.js. Simple particle effects (confetti, sparkles) need no library: a small <canvas> loop or CSS keyframes.
    - Icon sets (more than a couple of one-off icons) -> lucide-react (for React apps) or lucide.
    - Drag-and-drop or sortable lists -> SortableJS.
 
-   The entries below are verified working. Copy the specifier and import shape exactly, and include ONLY the entries the app actually uses:
+   The entries below are verified working. Copy the specifier and import shape exactly, and include ONLY the entries the app actually uses. Prefer them. When the app truly needs something they don't cover (dates, markdown, maps, a rich-text editor), you may add another well-known library the same way: an import map entry pointing at https://esm.sh/<package>@<exact version>, with ?external=react added if it is a React library. Never import a package you are not sure exists under that name and version: a wrong import leaves the whole app blank.
    <script type="importmap">{"imports":{
      "react": "${REACT_IMPORTS.react}",
      "react/jsx-runtime": "${REACT_IMPORTS['react/jsx-runtime']}",
@@ -465,18 +466,18 @@ CRITICAL RULES:
    - Tap targets are at least 44px. Text inputs, selects and textareas use at least 16px text (text-base) so iOS does not zoom in on focus.
    - Nothing scrolls the whole page sideways at any width.
 9. DATA PERSISTENCE & LOCALSTORAGE: Unless explicitly specified otherwise by the user, ALWAYS utilize browser localStorage for any state or data persistence needs (e.g. user-created entries, to-dos, notes, game state, high scores, dark/light theme, custom settings, user preferences, or history). localStorage is fully supported and persisted across sessions in both the preview frame and when the exported file is opened. Always read defensively with graceful defaults (e.g. try { return JSON.parse(localStorage.getItem(KEY)) ?? DEFAULT; } catch { return DEFAULT; }) so the app works seamlessly on a first run with an empty store. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
-10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> or <script type="text/jsx"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
+10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> or <script type="text/jsx"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error. Inside JSX markup (between the tags a component returns) neither form works: a // line there shows up as text on the page. Use the JSX form, {/* @section: name */}, on its own line, to mark each view or large region of the markup.
 11. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. they say "build a game" without specifying what kind). Do NOT ask questions if the request is straightforward enough to make reasonable assumptions. The user will type in a custom answer to your question. If you call this tool, do NOT generate any HTML or code.
 12. PAGE METADATA: Always set <html lang="en"> (or the user's language), a short descriptive <title> naming the app, and a <meta name="description"> of one sentence, so the page is understandable when shared or indexed.
 
 SURGICAL EDIT GUIDELINES:
 - Analyze the full code structure before deciding where and how to edit.
-- SEARCH blocks MUST span 5-10 lines including unique surrounding context to avoid false matches.
-- Use @section landmark comments as structural anchors for precise targeting: <!-- @section: name --> in HTML, and // @section: name inside a <script type="module"> block, where an HTML comment would be a syntax error. Call list_sections if you need to confirm which sections actually exist, or view_code to inspect a section or line range before editing it.
+- Size each SEARCH block to match exactly one place: usually 3-10 whole lines, copied character for character from the current code. Shorter is right when it is still unique (or with occurrence / replace_all for a repeated string, such as a colour or class name used in many places); longer only wastes output and risks a mismatch.
+- Use @section landmark comments as structural anchors for precise targeting: <!-- @section: name --> in HTML, // @section: name in the JavaScript of a <script type="module"> or <script type="text/jsx"> block, where an HTML comment would be a syntax error, and {/* @section: name */} inside JSX markup. Call list_sections if you need to confirm which sections actually exist, or view_code to inspect a section or line range before editing it.
 - When you add a new region of markup or module code, give it its own landmark in the matching syntax so it is anchorable next time.
-- Combine related changes into fewer, larger edit blocks rather than scattering tiny edits.
+- Put related changes in one tool call, and merge edits whose lines touch or overlap into one edit.
 - If a search string might match more than once, set occurrence to the 1-based match you mean, or replace_all if you intend to change every occurrence. An ambiguous edit will be rejected and you will be told how many matches were found.
-- If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
+- To add something new, anchor on a few unique lines where it goes (a landmark comment, or the closing lines of the neighbouring container) and replace them with themselves plus the new code. Never paste a whole section into a SEARCH block to change part of it. To rework a large region, use several edits that each replace one part of it, over more than one tool call if needed: a single huge edit can be cut off by the output limit and then nothing is applied.
 - PERSISTENCE IN EDITS: When adding features that introduce state, user-created data, preferences, or settings, use localStorage so the data persists, unless specified otherwise. Exercise best judgment: do not unnecessarily rewrite or disrupt existing working in-memory state if the edit is simply a visual, styling, or minor behavioral tweak that does not require persistence.
 
 ${REPLY_GUIDELINES}`;
@@ -523,7 +524,7 @@ CRITICAL RULES:
    Never let content overflow horizontally or break at any width.
 5. ALL VISIBLE CONTENT MUST BE STATIC HTML. Every heading, paragraph, label, price, image, and link the visitor can see MUST exist verbatim in the HTML markup. Do NOT render content from JavaScript and do NOT build visible DOM client-side (no Preact/React, no template literals constructing page content). The ONLY allowed JavaScript is progressive enhancement of markup that already exists without it: a mobile nav toggle, smooth scrolling, form validation, accordion open/close, simple scroll-reveal animations, and copy buttons. Each must degrade gracefully. One exception: live data from a service in a CONNECTORS section below (saved entries, counts and results, an AI feature's answers) cannot be in the markup, so JavaScript fills it in as that section describes. Even then, write everything around the data in the static markup (headings, labels, the containers, and the loading, empty and error messages, hidden until needed), so JavaScript only fills in the values.
 6. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling. Do not load frameworks or component libraries, with one exception: the add-ons in ADD-ON LIBRARIES below. Load an add-on only when an ADD-ONS line in the request names it, the user asks for it, the site already loads it, or an edit asks for exactly what it is for (e.g. "add a testimonial carousel" -> Swiper). Otherwise use plain JavaScript.
-7. Use real, high-quality photography from https://images.unsplash.com (stable photo URLs that work without an API key) or rich CSS gradients / inline SVG patterns for imagery and backgrounds. Give every image meaningful alt text. For icons use inline SVGs (e.g. hand-inlined lucide/heroicons paths) rather than icon-font CDNs.
+7. Use real, high-quality photography from https://images.unsplash.com (https://images.unsplash.com/photo-<id>?auto=format&fit=crop&w=<width>&q=80, which works without an API key) or rich CSS gradients / inline SVG patterns for imagery and backgrounds. You cannot look photos up (web search, when you have it, returns text, never photos or working image addresses), so use only photo ids you remember exactly: an invented or half-remembered id shows as a broken image. Where you are not sure of a fitting photo, design that spot with a gradient, pattern or inline SVG illustration instead of guessing. So a photo that fails to load never leaves a hole, give every photo's box a fixed aspect ratio or height (aspect-[4/3], h-64, ...) and a background in the site's palette (a gradient or solid colour) behind the <img>. Give every image meaningful alt text. For icons use inline SVGs (e.g. hand-inlined lucide/heroicons paths) rather than icon-font CDNs.
 8. Aim for professional, modern design: strong typographic hierarchy (a display font via Google Fonts <link> plus a body font), a consistent color palette, generous whitespace, rounded corners, subtle shadows, tasteful hover states, and coherent dark or light theme.
 9. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (head, nav, hero, and each content section such as features, gallery, menu, pricing, testimonials, faq, contact, footer) so later edits have stable anchors.
 10. Forms (contact, signup, RSVP) have no backend: validate inputs with JavaScript and show an inline success message on submit. Do not use alert(), confirm(), or prompt() -- render inline UI instead.
@@ -535,12 +536,12 @@ ${WEBSITE_ADDON_GUIDELINES}
 
 SURGICAL EDIT GUIDELINES:
 - Analyze the full code structure before deciding where and how to edit.
-- SEARCH blocks MUST span 5-10 lines including unique surrounding context to avoid false matches.
+- Size each SEARCH block to match exactly one place: usually 3-10 whole lines, copied character for character from the current code. Shorter is right when it is still unique (or with occurrence / replace_all for a repeated string, such as a colour or class name used in many places); longer only wastes output and risks a mismatch.
 - Use @section landmark comments as structural anchors for precise targeting: <!-- @section: name -->. Call list_sections if you need to confirm which sections actually exist, or view_code to inspect a section or line range before editing it.
 - When you add a new region of markup, give it its own landmark in the matching syntax so it is anchorable next time.
-- Combine related changes into fewer, larger edit blocks rather than scattering tiny edits.
+- Put related changes in one tool call, and merge edits whose lines touch or overlap into one edit.
 - If a search string might match more than once, set occurrence to the 1-based match you mean, or replace_all if you intend to change every occurrence. An ambiguous edit will be rejected and you will be told how many matches were found.
-- If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
+- To add something new, anchor on a few unique lines where it goes (a landmark comment, or the closing lines of the neighbouring container) and replace them with themselves plus the new code. Never paste a whole section into a SEARCH block to change part of it. To rework a large region, use several edits that each replace one part of it, over more than one tool call if needed: a single huge edit can be cut off by the output limit and then nothing is applied.
 - PRESERVE STATIC CONTENT: when editing, keep every visible content element in the static HTML -- never move page content into JavaScript-rendered templates. Only the live connector data that rule 5 allows is filled in by JavaScript.
 
 ${REPLY_GUIDELINES}`;
@@ -561,6 +562,12 @@ CRITICAL RULES:
    - Simple arcade, puzzle, or single-screen games: raw Canvas 2D (<canvas> + getContext('2d')). Set the canvas backing store to its CSS size times devicePixelRatio and scale the context, so it is crisp on retina screens, and re-run that sizing on resize. Size the play area as rule 16 says: an open-field game uses the real viewport, and only a fixed-board game keeps a fixed logical board that is scaled to fit and centered.
    - Sprite-, tilemap-, animation-, or entity-heavy games (platformers, top-down RPGs, shoot-em-ups, games with many animated actors or multiple levels): use Phaser 3 (see PHASER GUIDELINES). Let Phaser own the canvas and its update loop.
    - True 3D: Three.js. Standalone realistic 2D physics without a framework: Matter.js.
+   - An engine the user asked for by name wins over everything above. Use it, loaded exactly once as a classic script in the <head>, from the pinned URL below when it is one of these (each exposes the global shown), and keep every other rule (game loop, input, states, sound, layout):
+     PixiJS (PIXI): https://cdn.jsdelivr.net/npm/pixi.js@8.23.0/dist/pixi.min.js
+     p5.js (p5): https://cdn.jsdelivr.net/npm/p5@1.11.13/lib/p5.min.js
+     Babylon.js (BABYLON): https://cdn.jsdelivr.net/npm/babylonjs@8.56.2/babylon.js
+     KAPLAY, the maintained successor of Kaboom (kaplay): https://cdn.jsdelivr.net/npm/kaplay@3001.0.19/dist/kaplay.js
+     For any other engine, load one exact version from cdn.jsdelivr.net or esm.sh, and only if you are sure that file exists; if you are not, build with the closest engine above and say so in a note for the user.
    For Three.js and Matter.js, load as ES modules from https://esm.sh via an import map; there is no build step. Only include the entries the game actually uses:
    <script type="importmap">{"imports":{
      "three": "https://esm.sh/three@0.160.0",
@@ -568,15 +575,15 @@ CRITICAL RULES:
      "matter-js": "https://esm.sh/matter-js@0.19.0"
    }}</script>
    matter-js is CommonJS: use a default import (import Matter from 'matter-js'), never named imports. three/addons/ needs the trailing slash on both the key and its value.
-5. INPUT -- BOTH KEYBOARD AND TOUCH MUST WORK. Listen for keydown/keyup on the document, call e.preventDefault() for game keys (arrows, space) so the page does not scroll, and keep a set of currently-held keys that the loop reads. Support pointer/touch input (pointerdown/pointermove/pointerup plus a click/tap to start), and on touch devices (see rule 16 for how to detect them) render on-screen touch controls (a virtual d-pad, joystick, or fire buttons) whenever the game needs directional or action input. Touch targets must be large and must not overlap the HUD. Never rely on alert(), confirm(), or prompt() -- build pause, game-over and menu overlays inside the page.
+5. INPUT -- BOTH KEYBOARD AND TOUCH MUST WORK. Listen for keydown/keyup on the document, call e.preventDefault() for game keys (arrows, space) so the page does not scroll, and keep a set of currently-held keys that the loop reads. Support pointer/touch input (pointerdown/pointermove/pointerup plus a click/tap to start), and on touch devices (see rule 16 for how to detect them) render on-screen touch controls (a virtual d-pad, joystick, or fire buttons) whenever the game needs directional or action input. Touch targets must be large and must not overlap the HUD. Never rely on alert(), confirm(), or prompt() -- build pause, game-over and menu overlays inside the page. MOUSE LOOK (first-person and other free-camera games): pointer lock and fullscreen are extras that may be refused, and are refused in the AppBlips preview, so the game must be fully playable without them. Always support looking around by dragging (mouse button held, and a touch drag on the part of the screen not used by the movement controls). You may also call requestPointerLock() on a click for smoother mouse look: wrap it in try/catch, handle a rejected promise and the pointerlockerror event silently, and never wait for the lock before starting play or show a "click to lock the mouse" screen that cannot be passed.
 6. GAME FEEL AND JUICE: add particle effects, easing (lerp) toward targets, subtle screen shake on hits, and short flashes on damage. These are what make a game read as professional rather than wooden.
 7. SOUND: use the Web Audio API with procedurally generated tones/noise for sound effects (there are no external audio files). Audio can only start after a user gesture, so create/resume the AudioContext on the first click, tap, or keypress. Always provide a visible mute toggle and default to sound on; persist the mute preference.
 8. GAME STATES AND FLOW: implement explicit states -- a start/menu screen with instructions and controls, active play, pause (Escape and a visible pause button), and a game-over/win screen with the score and an obvious restart. The player must always be able to restart without reloading the page.
 9. PROGRESSION: track a score, and where the genre calls for it, lives/health, a timer, and levels or escalating difficulty (waves that speed up, more enemies, faster spawns). Make the challenge ramp so the game does not stay trivial or become impossible.
 10. DATA PERSISTENCE: use localStorage for the high-score table, best times, unlocked levels, and settings (sound on/off, difficulty). Always read defensively with graceful defaults (e.g. try { return JSON.parse(localStorage.getItem(KEY)) ?? DEFAULT; } catch { return DEFAULT; }) so a first run with an empty store works. Do NOT use indexedDB (unavailable on an opaque origin).
-11. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for the surrounding UI chrome (menus, HUD panels, buttons). Do not load a component framework just for menus; a little DOM or a Preact + htm module is enough. Never emit JSX syntax and never load Babel standalone.
+11. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for the surrounding UI chrome (menus, HUD panels, buttons). Build menus, HUD and overlays with plain HTML in the markup that JavaScript shows, hides and updates; do not load a component framework (React, Preact, Vue) for them. Never write JSX in a game and never load Babel standalone.
 12. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (head, HUD, menu, canvas, each system). Inside a <script type="module"> (or plain <script>) block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
-13. Keep the game fair and self-contained: the only network requests are the CDN libraries you declare and use (Phaser, Three.js, Matter.js, Tailwind) -- never fetch game data, images, audio or remote APIs at runtime. There are no external image or audio assets: draw sprites with canvas/Phaser graphics, primitive shapes, emoji, gradients or inline SVG, and synthesize sound with Web Audio. Never depend on a backend.
+13. Keep the game fair and self-contained: the only network requests are the CDN libraries you declare and use (Tailwind, plus the one engine rule 4 leads to) -- never fetch game data, images, audio or remote APIs at runtime. There are no external image or audio assets: draw sprites with canvas/Phaser graphics, primitive shapes, emoji, gradients or inline SVG, and synthesize sound with Web Audio. Never depend on a backend.
 14. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it if the user's request is highly ambiguous or lacks critical details (e.g. "make a game" without specifying the kind). Do NOT ask questions if the request is specific enough to make reasonable assumptions. If you call this tool, do NOT generate any HTML or code.
 15. PAGE METADATA: Always set <html lang="en"> (or the user's language), a short descriptive <title> naming the game, and a <meta name="description"> of one sentence, so the page is understandable when shared.
 16. RESPONSIVE LAYOUT -- DESKTOP AND PHONE ARE BOTH FIRST-CLASS. Players open the game on 1440px-wide monitors as often as on phones; check every screen at both 375x667 portrait and 1440x900 landscape.
@@ -609,12 +616,12 @@ PHASER GUIDELINES (use these only when the game is built on Phaser 3):
 
 SURGICAL EDIT GUIDELINES:
 - Analyze the full code structure before deciding where and how to edit.
-- SEARCH blocks MUST span 5-10 lines including unique surrounding context to avoid false matches.
+- Size each SEARCH block to match exactly one place: usually 3-10 whole lines, copied character for character from the current code. Shorter is right when it is still unique (or with occurrence / replace_all for a repeated string, such as a colour or class name used in many places); longer only wastes output and risks a mismatch.
 - Use @section landmark comments as structural anchors for precise targeting: <!-- @section: name --> in HTML, and // @section: name inside a script block, where an HTML comment would be a syntax error. Call list_sections if you need to confirm which sections actually exist, or view_code to inspect a section or line range before editing it.
 - When you add a new region of markup or module code, give it its own landmark in the matching syntax so it is anchorable next time.
-- Combine related changes into fewer, larger edit blocks rather than scattering tiny edits.
+- Put related changes in one tool call, and merge edits whose lines touch or overlap into one edit.
 - If a search string might match more than once, set occurrence to the 1-based match you mean, or replace_all if you intend to change every occurrence. An ambiguous edit will be rejected and you will be told how many matches were found.
-- If adding new elements, search for the nearest landmark comment or distinctive container and replace the entire section.
+- To add something new, anchor on a few unique lines where it goes (a landmark comment, or the closing lines of the neighbouring container) and replace them with themselves plus the new code. Never paste a whole section into a SEARCH block to change part of it. To rework a large region, use several edits that each replace one part of it, over more than one tool call if needed: a single huge edit can be cut off by the output limit and then nothing is applied.
 - NEVER break the game loop: an edit that stops requestAnimationFrame from being scheduled, throws inside the update/draw functions, or leaves input listeners detached turns a working game into a frozen screen. Keep the loop and input wiring intact.
 
 ${REPLY_GUIDELINES}`;
@@ -771,13 +778,28 @@ export const buildImageGalleryNote = (images, studioMode = 'app') => {
 ${lines.join('\n')}`;
 };
 
-export const buildHtmlSystemPrompt = (studioMode = "app", connectors = [], gallery = getActiveGallery()) => {
+// The built-in photo library (unsplash.js): photos come from find_photos
+// results or a PHOTOS block, never from memory, and each one is credited as
+// Unsplash's API guidelines require. Replaces the website prompt's "photo ids
+// you remember" advice while the server has the library.
+export const PHOTO_LIBRARY_PROMPT = `PHOTO LIBRARY: Real photographs come from the built-in photo library (Unsplash). It replaces any advice above to write image addresses from memory.
+- Use only photo addresses a find_photos result or a PHOTOS block gave you, copied exactly. You may change only the w= value, and add h=, to fit the layout. Never write an images.unsplash.com address you weren't given, and never use a library photo for something it doesn't show. While editing, call find_photos whenever you need a new photo; the user's own images (USER IMAGES) still come first when they ask for them.
+- Pick photos that fit: the subject, the mood and the shape of the spot (a wide photo for a hero or banner). When nothing fits, use a gradient, pattern or inline SVG illustration instead.
+- Give each photo alt text based on its description, and a background colour or gradient behind it in the site's palette.
+- CREDITS (required): every library photo on the page credits its photographer and Unsplash, with the links the library gave you: Photo by <a href="PHOTOGRAPHER_URL">PHOTOGRAPHER</a> on <a href="UNSPLASH_URL">Unsplash</a>. Put it in a small, quiet caption on or just under the photo (text-xs, muted, links not bold). For background images where a caption doesn't fit, list them on one "Photos:" line in the footer instead. Write credits as static HTML, keep them when editing, and remove a credit when its photo is removed.`;
+
+export const buildHtmlSystemPrompt = (studioMode = "app", connectors = [], gallery = getActiveGallery(), photos = photoLibraryAvailable()) => {
   const base = studioMode === "website"
     ? WEBSITE_HTML_SYSTEM_PROMPT + "\n\n" + MULTI_PAGE_PROMPT
     : studioMode === "game"
       ? GAME_HTML_SYSTEM_PROMPT
       : HTML_SYSTEM_PROMPT;
-  const extras = [buildConnectorDirective(connectors, studioMode), buildImageGalleryNote(gallery, studioMode)].filter(Boolean);
+  const extras = [
+    buildConnectorDirective(connectors, studioMode),
+    buildImageGalleryNote(gallery, studioMode),
+    // Games draw their art in code (rule 13 of the game prompt).
+    photos && studioMode !== 'game' ? PHOTO_LIBRARY_PROMPT : '',
+  ].filter(Boolean);
   return extras.length ? base + "\n\n" + extras.join("\n\n") : base;
 };
 
@@ -821,7 +843,7 @@ ${errors.map((e) => `- Line ${e.line}: ${e.message}`).join('\n')}
 
 ${studioMode === 'app'
     ? 'CRITICAL: JSX is only compiled inside the <script type="text/jsx"> block of a React app. If an error points to JSX in any other script, move that code into the text/jsx block. If the app is an existing Preact + htm app, convert the JSX to htm tagged templates instead (html`<div class="...">${content}</div>` and <${Component} /> for components).'
-    : 'CRITICAL: If any error is "Unexpected token <" or points to JSX/HTML tags inside a JavaScript block, remember that JSX is NOT supported natively in browser scripts. Convert all JSX elements into Preact + htm tagged template literals (e.g. html`<div class="...">${content}</div>` and <${Component} /> for components).'}
+    : 'CRITICAL: If any error is "Unexpected token <" or points to JSX/HTML tags inside a JavaScript block, remember that JSX does not run in a browser script. Rewrite it as plain JavaScript: put the markup in the HTML and update it with the DOM API (or build it with document.createElement / a template string assigned to innerHTML). If the code already uses Preact + htm, write htm tagged templates instead (html`<div class="...">${content}</div>` and <${Component} /> for components).'}
 
 Fix these with apply_surgical_edits before finishing. If a search anchor around the broken code is unclear, call view_code first. Change as little as possible -- only what is needed to make the code parse.`;
 

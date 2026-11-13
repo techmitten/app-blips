@@ -15,6 +15,7 @@ globalThis.window = { localStorage: {
 const { saveConnectors, connectorStatus } = await import('../src/lib/connectors.js');
 const {
   WEB_SEARCH_TOOL, UNTRUSTED_NOTE, createWebSearchBudget, executeWebSearch, formatWebResearch, isWebSearchCall, isWebSearchEnabled,
+  PROVIDER_WEB_SEARCH_TOOL, WEB_FETCH_TOOL, executeWebFetch, isWebToolCall, researchPage,
 } = await import('../src/lib/webSearch.js');
 
 const toolCall = (args) => ({ id: 'c1', type: 'function', function: { name: 'web_search', arguments: typeof args === 'string' ? args : JSON.stringify(args) } });
@@ -106,4 +107,114 @@ test('the session is Tavily when connected and nothing otherwise', () => {
   const web = startWebSearch();
   assert.equal(web.kind, 'tavily');
   assert.deepEqual(web.tools(), [WEB_SEARCH_TOOL]);
+});
+
+// ---- Web search through the AI provider (the globe) ----
+
+const fetchCall = (args) => ({ id: 'c2', type: 'function', function: { name: 'web_fetch', arguments: typeof args === 'string' ? args : JSON.stringify(args) } });
+const OFFERED = { available: true, paidBy: 'own', enabled: true, fetch: true, searches: 5 };
+const tavilyOff = { tavily: { enabled: false, key: '', keyHint: '' } };
+const tavilyOn = { tavily: { enabled: true, key: '', keyHint: '0e1f' } };
+
+test('the provider tools are strict function tools', () => {
+  for (const tool of [PROVIDER_WEB_SEARCH_TOOL, WEB_FETCH_TOOL]) {
+    const { parameters, strict } = tool.function;
+    assert.equal(strict, true);
+    assert.deepEqual(parameters.required.sort(), Object.keys(parameters.properties).sort());
+  }
+  assert.equal(isWebToolCall(fetchCall({})), true);
+  assert.equal(isWebToolCall(toolCall({})), true);
+  assert.equal(isWebToolCall({ function: { name: 'view_code' } }), false);
+});
+
+test('the session is DeepSeek only when it is offered and Tavily is not connected', () => {
+  assert.equal(startWebSearch({ connectors: tavilyOff, provider: { available: false } }), null);
+  assert.equal(startWebSearch({ connectors: tavilyOff, provider: OFFERED }).kind, 'provider');
+  // Offered, but the globe is off.
+  assert.equal(startWebSearch({ connectors: tavilyOff, provider: { ...OFFERED, enabled: false } }), null);
+  assert.equal(startWebSearch({ connectors: tavilyOn, provider: OFFERED }).kind, 'tavily');
+  const session = startWebSearch({ connectors: tavilyOff, provider: OFFERED });
+  assert.deepEqual(session.tools().map((t) => t.function.name), ['web_search', 'web_fetch']);
+  assert.match(session.guidance, /web_fetch/);
+  assert.match(session.researchPrompt, /DONE/);
+});
+
+test('DeepSeek searches and page reads have separate budgets', async () => {
+  const searched = [];
+  const read = [];
+  const session = startWebSearch({
+    connectors: tavilyOff, provider: OFFERED, searches: 1,
+    searchImpl: async (args) => { searched.push(args); return { query: args.query, results: [RESULT] }; },
+    fetchImpl: async (args) => { read.push(args); return { url: args.url, title: 'Menu', content: '# Menu' }; },
+  });
+  const found = await session.execute(toolCall({ query: `café ${'x'.repeat(200)}` }));
+  assert.equal(found.success, true);
+  assert.equal(searched[0].query.length, 128);
+  assert.equal((await session.execute(toolCall({ query: 'again' }))).success, false);
+  assert.deepEqual(session.tools().map((t) => t.function.name), ['web_fetch']);
+
+  const page = await session.execute(fetchCall({ url: ' https://bluedoor.example/menu ' }));
+  assert.deepEqual(read[0], { url: 'https://bluedoor.example/menu' });
+  assert.equal(page.note, UNTRUSTED_NOTE);
+  assert.equal(page.content, '# Menu');
+  assert.equal(session.canCall(), true);
+  await session.execute(fetchCall({ url: 'https://a.example/' }));
+  await session.execute(fetchCall({ url: 'https://b.example/' }));
+  assert.equal(session.canCall(), false);
+  assert.equal((await session.execute(fetchCall({ url: 'https://c.example/' }))).success, false);
+  assert.equal(read.length, 3);
+});
+
+test('a page read needs a full web address and reports failures', async () => {
+  let read = 0;
+  const fetchPage = async () => { read++; return { error: 'That page couldn’t be read.' }; };
+  assert.equal((await executeWebFetch(fetchCall({ url: 'bluedoor.example' }), createWebSearchBudget(), { fetchPage })).success, false);
+  assert.equal((await executeWebFetch(fetchCall('{"url": "cut'), createWebSearchBudget(), { fetchPage })).success, false);
+  assert.equal(read, 0);
+  const failed = await executeWebFetch(fetchCall({ url: 'https://bluedoor.example/' }), createWebSearchBudget(), { fetchPage });
+  assert.equal(failed.success, false);
+  assert.match(failed.error, /couldn’t be read/);
+});
+
+test('an answer that rules out later calls stops both DeepSeek tools', async () => {
+  const session = startWebSearch({
+    connectors: tavilyOff, provider: OFFERED,
+    searchImpl: async () => ({ error: 'DeepSeek rejected the API key in Settings → AI.', stop: true }),
+    fetchImpl: async () => ({ url: 'x', title: '', content: 'x' }),
+  });
+  const result = await session.execute(toolCall({ query: 'x' }));
+  assert.equal(result.success, false);
+  assert.equal(session.canCall(), false);
+  assert.deepEqual(session.tools(), []);
+});
+
+test('a page read during research becomes a research entry', () => {
+  const entry = researchPage({ url: 'https://bluedoor.example/menu', title: 'Menu', content: `Soup\n\n${'y'.repeat(9000)}` });
+  assert.equal(entry.query, 'Page: https://bluedoor.example/menu');
+  assert.equal(entry.results[0].content.length, 4000);
+  assert.match(formatWebResearch([entry]), /Menu \(https:\/\/bluedoor\.example\/menu\)/);
+});
+
+test('a provider without page reading gets web_search only, with its own search budget', async () => {
+  let searched = 0;
+  const session = startWebSearch({
+    connectors: tavilyOff, provider: { available: true, enabled: true, fetch: false, searches: 3 },
+    searchImpl: async ({ query }) => { searched++; return { query, answer: 'Open 8am to 4pm.', results: [RESULT] }; },
+  });
+  assert.deepEqual(session.tools().map((t) => t.function.name), ['web_search']);
+  assert.doesNotMatch(session.guidance, /web_fetch/);
+  assert.match(session.guidance, /at most 3 searches for this request/);
+  const found = await session.execute(toolCall({ query: 'blue door café hours' }));
+  assert.equal(found.answer, 'Open 8am to 4pm.');
+  await session.execute(toolCall({ query: 'b' }));
+  await session.execute(toolCall({ query: 'c' }));
+  assert.equal((await session.execute(toolCall({ query: 'd' }))).success, false);
+  assert.equal(searched, 3);
+  // The research step's smaller budget never exceeds what the provider allows.
+  const research = startWebSearch({ connectors: tavilyOff, searches: 10, provider: { available: true, enabled: true, fetch: false, searches: 3 } });
+  assert.match(research.researchPrompt, /at most 3 specific searches/);
+});
+
+test('a search report becomes part of the research block', () => {
+  assert.match(formatWebResearch([{ query: 'hours', answer: 'Open\n8am to 4pm.', results: [] }]), /Found: Open 8am to 4pm\./);
 });

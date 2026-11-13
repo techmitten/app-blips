@@ -29,6 +29,8 @@ import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
 import { handlePixabayApi } from './electron/server/pixabayApi.js';
 import { handleTavilyApi } from './electron/server/tavilyApi.js';
+import { handleWebToolsApi } from './electron/server/webToolsApi.js';
+import { createUnsplashApi } from './electron/server/unsplashApi.js';
 import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
@@ -49,6 +51,8 @@ const INDEX_FILE = join(DIST_DIR, 'index.html');
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
 const withKeys = createBrowserKeys();
+// The built-in photo library, with this server's Unsplash key (unsplashApi.js).
+const handleUnsplashApi = createUnsplashApi();
 // Limits on the Free option (the .env provider) for a server many people can
 // reach; APPBLIPS_FREE_LIMITS=off turns them off (freeLimits.js).
 const freeLimits = freeLimitsEnabled(process.env) ? createFreeLimits(process.env) : null;
@@ -179,6 +183,27 @@ const server = createServer((req, res) => {
   if (req.url === '/api/tavily' || req.url.startsWith('/api/tavily/')) {
     toFetchRequest(req, res)
       .then((request) => withKeys('tavily', request, (keys) => handleTavilyApi(request, process.env, keys)))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  // DeepSeek web search for the AI, paid by the same key as /api/chat: the
+  // visitor's own DeepSeek key, or the Free option's (then counted against
+  // the visitor's free allowance).
+  if (req.url.startsWith('/api/web/')) {
+    const visitor = visitorKey(clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress));
+    toFetchRequest(req, res)
+      .then((request) => withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), process.env, { freeLimits, visitor })))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url.startsWith('/api/unsplash/')) {
+    const visitor = visitorKey(clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress));
+    toFetchRequest(req, res)
+      .then((request) => handleUnsplashApi(request, process.env, { visitor }))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

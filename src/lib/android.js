@@ -30,6 +30,8 @@ import { handleSurgeApi } from '../../electron/server/surgeApi.js';
 import { handlePollinationsApi } from '../../electron/server/pollinationsApi.js';
 import { handlePixabayApi } from '../../electron/server/pixabayApi.js';
 import { handleTavilyApi } from '../../electron/server/tavilyApi.js';
+import { handleWebToolsApi } from '../../electron/server/webToolsApi.js';
+import { createAppUnsplashApi } from '../../electron/server/unsplashApi.js';
 import { handleSeoScanApi } from '../../electron/server/seoScanApi.js';
 import { withSavedProvider } from '../../electron/server/savedProvider.js';
 import { logError } from './errorLog.js';
@@ -122,6 +124,8 @@ export async function installAndroidApi() {
     createSecureKeyStore('tavily-key'),
   ]);
 
+  const unsplashApi = createAppUnsplashApi({ fetch: nativeFetch });
+
   // The same routes, in the same order, as server.js.
   const routes = [
     ['/api/chat', (request) => withSavedProvider(request, keys).then((r) => handleChatProxy(r, ENV))],
@@ -130,6 +134,9 @@ export async function installAndroidApi() {
     ['/api/pollinations', (request) => handlePollinationsApi(request, ENV, pollinationsKeys, { fetch: nativeFetch })],
     ['/api/pixabay', (request) => handlePixabayApi(request, ENV, pixabayKeys, { fetch: nativeFetch })],
     ['/api/tavily', (request) => handleTavilyApi(request, ENV, tavilyKeys, { fetch: nativeFetch })],
+    ['/api/web', (request) => withSavedProvider(request, keys).then((r) => handleWebToolsApi(r, ENV, { fetch: nativeFetch }))],
+    // The photo library, through AppBlips' hosted server (unsplashApi.js).
+    ['/api/unsplash', (request) => unsplashApi(request, ENV)],
     ['/api/seo/scan', (request) => handleSeoScanApi(request, ENV, { fetch: nativeFetch })],
   ];
   const routeFor = (url) => (url.origin === window.location.origin

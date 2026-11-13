@@ -93,8 +93,9 @@ async function runCodebaseEdit({
 }) {
   const status = (text) => onChunk?.(text, 'status');
   const context = formatCodebaseContext(files, assets, meta);
-  // The Tavily connector's web search, in edits only.
-  const webSearch = !isAsk ? startWebSearch() : null;
+  // Web search (the Tavily connector, or the AI provider's own search when
+  // the globe is on), in edits only.
+  const webSearch = !isAsk ? startWebSearch({ signal }) : null;
   const basePrompt = isAsk ? (routedFromBuild ? CODEBASE_ROUTED_ASK_PROMPT : CODEBASE_ASK_PROMPT) : CODEBASE_SYSTEM_PROMPT;
   const systemPrompt = [basePrompt, webSearch?.guidance].filter(Boolean).join('\n\n');
   const messages = [

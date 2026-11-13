@@ -98,6 +98,16 @@ When someone reaches a limit, AppBlips tells them when they can build again and 
   The longest reply, in tokens, that one Free request may get. Leave it empty to keep the app's own limit: 64,000 tokens, or whatever the person set under **Settings → AI → Output tokens: building**.
 </ParamField>
 
+## Photo library
+
+<ParamField body="UNSPLASH_ACCESS_KEY" type="string">
+  The Access Key of an Unsplash app you register at [unsplash.com/developers](https://unsplash.com/developers). With it, the AI picks real photos from Unsplash for websites and apps, through a search the server signs with this key, instead of writing image addresses from memory. Every photo it uses is shown from Unsplash, credited to its photographer with a link, and reported to Unsplash as used, as Unsplash's API guidelines require. Nobody using AppBlips needs an Unsplash account. Everyone on the server shares the key's hourly limit: 50 requests for a new (demo) app, 1,000 once Unsplash approves it for production. Searches are cached for an hour, and each visitor can make 30 an hour. The Secret Key isn't needed. Games don't use it.
+</ParamField>
+
+<ParamField body="APPBLIPS_PHOTO_LIBRARY_URL" type="string" default="https://web.appblips.com">
+  For the desktop and Android apps, which hold no Unsplash key: the AppBlips server their photo searches go to. That server's `UNSPLASH_ACCESS_KEY` signs them, and its cache and per-visitor limits apply. Set `off` to turn the photo library off, or start the app with `UNSPLASH_ACCESS_KEY` set to search with your own key.
+</ParamField>
+
 ## Server
 
 <ParamField body="PORT" type="number" default="3000">

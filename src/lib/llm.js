@@ -8,12 +8,16 @@ import { MAX_IMAGES_PER_BUILD } from './pollinationsApp';
 import {
   buildImageConfirmReply, getActiveGallery, getProjectGallery, mightMentionGalleryImage, normalizeGalleryRefs, unmatchedGalleryRefs,
 } from './galleryImages';
+import { findNewStockPhotos, findBrokenStockPhotos, brokenStockPhotosNote } from './remoteImages';
+import {
+  MAX_PHOTO_SEARCHES_BEFORE_BUILD, formatPhotoPicks, isFindPhotosCall, startPhotoSearch, trackUsedPhotos,
+} from './unsplash';
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
 import { trackRequest } from './tokenUsage';
 import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
 import {
-  MAX_RESEARCH_SEARCHES, formatWebResearch, isWebSearchCall, startWebSearch,
+  MAX_RESEARCH_SEARCHES, formatWebResearch, isWebFetchCall, isWebToolCall, researchPage, startWebSearch,
 } from './webSearch';
 import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
@@ -745,18 +749,23 @@ export const MAX_REFINEMENT_TURNS = 8;
 // Multi-page edits touch several files (one tool call per page), so give them more turns.
 export const MAX_WEBSITE_REFINEMENT_TURNS = 14;
 // Before a new project's first build (one streamed reply with no tools), let
-// the model search the web for facts the request depends on, when the Tavily
-// connector is on (`web`, webSearch.js startWebSearch). Returns a WEB RESEARCH block for the
+// the model search the web for facts the request depends on, when web search
+// is on (`web`, webSearch.js startWebSearch: the Tavily connector, or
+// the AI provider's own search). Returns a WEB RESEARCH block for the
 // build request, or '' when nothing was found. Failures leave the build to go
 // ahead without it.
 const MAX_RESEARCH_TURNS = 2;
+// Reading a page takes a turn after the search that found it.
+const MAX_RESEARCH_TURNS_WITH_FETCH = 3;
 const researchForBuild = async ({ requestText, signal, onChunk, web }) => {
   const messages = [
     { role: 'system', content: web.researchPrompt },
     { role: 'user', content: `Request:\n${requestText}` },
   ];
   const found = [];
-  for (let turn = 1; turn <= MAX_RESEARCH_TURNS && web.canCall(); turn++) {
+  const canRead = web.tools().some((tool) => tool.function?.name === 'web_fetch');
+  const maxTurns = canRead ? MAX_RESEARCH_TURNS_WITH_FETCH : MAX_RESEARCH_TURNS;
+  for (let turn = 1; turn <= maxTurns && web.canCall(); turn++) {
     const message = await requestModelText({
       messages,
       tools: web.tools(),
@@ -774,11 +783,43 @@ const researchForBuild = async ({ requestText, signal, onChunk, web }) => {
       }
       if (onChunk) onChunk(describeToolCall(toolCall), 'status');
       const result = await web.execute(toolCall);
-      if (result.success) found.push({ query: result.query, results: result.results });
+      if (result.success) found.push(isWebFetchCall(toolCall) ? researchPage(result) : { query: result.query, answer: result.answer, results: result.results });
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
   }
   return formatWebResearch(found, web.researchChars);
+};
+
+// Before a new website's or app's first build, when this server has the
+// photo library (unsplash.js), let the model pick real photos for the spots
+// the request needs, so the build uses working, credited photos instead of
+// addresses written from memory. Returns a PHOTOS block for the build
+// request, or ''. Failures leave the build to go ahead without it.
+const PHOTO_PICK_TURNS = 2;
+const photoPickPrompt = (noun) => `You pick photos for a new ${noun} before it is built. Read the request and decide which spots need real photographs: a hero or banner, section images, products, dishes, rooms, people, a gallery. Call find_photos for them: at most ${MAX_PHOTO_SEARCHES_BEFORE_BUILD} searches in total, several at once if you can, each a few plain words describing one picture, with the orientation the spot needs. If the ${noun} needs no photographs (a calculator, a tool, a dashboard, a game), reply with just the word DONE and call no tool. When you have enough, reply DONE. Never write any code.`;
+const photosForBuild = async ({ requestText, signal, onChunk, photos, noun }) => {
+  const messages = [
+    { role: 'system', content: photoPickPrompt(noun) },
+    { role: 'user', content: `Request:\n${requestText}` },
+  ];
+  const found = [];
+  for (let turn = 1; turn <= PHOTO_PICK_TURNS && photos.canCall(); turn++) {
+    const message = await requestModelText({ messages, tools: photos.tools(), tool_choice: 'auto', reasoningEffort: CHAT_REASONING_EFFORT, signal });
+    const calls = (message.tool_calls || []).filter(isFindPhotosCall);
+    if (!calls.length) break;
+    messages.push(assistantTurn(message));
+    for (const toolCall of message.tool_calls) {
+      if (!isFindPhotosCall(toolCall)) {
+        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: false, error: 'Only find_photos is available.' }) });
+        continue;
+      }
+      if (onChunk) onChunk(describeToolCall(toolCall), 'status');
+      const result = await photos.execute(toolCall);
+      if (result.success) found.push({ query: result.query, photos: result.photos });
+      messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
+    }
+  }
+  return formatPhotoPicks(found);
 };
 
 export const MAX_LINK_REPAIR_ATTEMPTS = 2;
@@ -789,6 +830,8 @@ export const MAX_EMPTY_GENERATION_RETRIES = 2;
 export const describeToolCall = (toolCall) => {
   const name = toolCall.function?.name;
   if (name === 'web_search') return 'Searching the web…';
+  if (name === 'web_fetch') return 'Reading a web page…';
+  if (name === 'find_photos') return 'Finding photos…';
   if (['list_sections', 'view_code', 'list_pages'].includes(name)) return 'Reviewing your build…';
   if (name === 'apply_surgical_edits') return 'Applying your changes…';
   if (name === 'create_page') return 'Adding a page…';
@@ -1079,7 +1122,7 @@ const generateAppCodeCore = async (
 
   if (!currentCode) {
     let research = '';
-    const researchWeb = isAutoFix ? null : startWebSearch({ searches: MAX_RESEARCH_SEARCHES });
+    const researchWeb = isAutoFix ? null : startWebSearch({ searches: MAX_RESEARCH_SEARCHES, signal });
     if (researchWeb) {
       try {
         research = await researchForBuild({
@@ -1091,6 +1134,24 @@ const generateAppCodeCore = async (
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         logWarn('Web research before the build failed, building without it', err);
+      }
+    }
+    // Real photos from the photo library, for websites and apps (games draw
+    // their art in code).
+    let photoPicks = '';
+    const pickPhotos = !isAutoFix && !isGame ? startPhotoSearch({ searches: MAX_PHOTO_SEARCHES_BEFORE_BUILD, signal }) : null;
+    if (pickPhotos) {
+      try {
+        photoPicks = await photosForBuild({
+          requestText: [...chatHistory.filter((m) => m.role === 'user' && typeof m.content === 'string').map((m) => m.content), prompt].join('\n'),
+          signal,
+          onChunk,
+          photos: pickPhotos,
+          noun,
+        });
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err;
+        logWarn('Picking photos before the build failed, building without them', err);
       }
     }
     const formattedChatHistory = chatHistory.map((msg, idx) => {
@@ -1106,7 +1167,7 @@ const generateAppCodeCore = async (
       {
         role: 'user',
         content: buildUserContent(
-          withSeoNote([chatHistory.length > 0 ? prompt : buildInitialPrompt(prompt), research].filter(Boolean).join('\n\n'), seoNote),
+          withSeoNote([chatHistory.length > 0 ? prompt : buildInitialPrompt(prompt), research, photoPicks].filter(Boolean).join('\n\n'), seoNote),
           attachment
         )
       }
@@ -1211,7 +1272,7 @@ const generateAppCodeCore = async (
     let files = makeFiles(code);
     if (isWebsite) {
       // The extra pages (a menu, a contact page) need the same facts.
-      files = await createMissingPages({ files, request: research ? `${prompt}\n\n${research}` : prompt, signal, onChunk, projectName, reasoningEffort: buildEffort });
+      files = await createMissingPages({ files, request: [prompt, research, photoPicks].filter(Boolean).join('\n\n'), signal, onChunk, projectName, reasoningEffort: buildEffort });
     }
 
     return {
@@ -1239,8 +1300,11 @@ const generateAppCodeCore = async (
     return msg;
   });
 
-  // With the Tavily connector on, the model can also search the web.
-  const webSearch = startWebSearch();
+  // With the Tavily connector on, or the globe switched on, the model can
+  // also search the web.
+  const webSearch = startWebSearch({ signal });
+  // The photo library, for websites and apps.
+  const photoSearch = isGame ? null : startPhotoSearch({ signal });
   const systemPrompt = buildHtmlSystemPrompt(studioMode, getActiveConnectors());
   const fullSystemPrompt = [systemPrompt, webSearch?.guidance].filter(Boolean).join('\n\n');
   const messages = [
@@ -1300,6 +1364,7 @@ const generateAppCodeCore = async (
     const currentTools = [
       ...getRefinementTools(studioMode),
       ...(webSearch ? webSearch.tools() : []),
+      ...(photoSearch ? photoSearch.tools() : []),
     ];
 
     // Once edits have applied cleanly, the next turn is normally just the model
@@ -1373,10 +1438,17 @@ const generateAppCodeCore = async (
       }
 
       if (onChunk) onChunk(describeToolCall(toolCall), 'status');
-      if (isWebSearchCall(toolCall)) {
+      if (isWebToolCall(toolCall)) {
         const result = webSearch?.isCall(toolCall)
           ? await webSearch.execute(toolCall)
           : { success: false, error: 'Web search is not available.' };
+        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
+        continue;
+      }
+      if (isFindPhotosCall(toolCall)) {
+        const result = photoSearch
+          ? await photoSearch.execute(toolCall)
+          : { success: false, error: 'The photo library is not available.' };
         messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
         continue;
       }
@@ -1386,7 +1458,8 @@ const generateAppCodeCore = async (
       messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
     reportChangedPages(onChunk, turnStartFiles, workingFiles);
-    if (message.tool_calls.every(isWebSearchCall) && turnLimit < maxTurns + MAX_WEB_SEARCH_TURNS) turnLimit++;
+    // Turns spent only searching (the web or for photos) don't use up edit turns.
+    if (message.tool_calls.every((call) => isWebToolCall(call) || isFindPhotosCall(call)) && turnLimit < maxTurns + MAX_WEB_SEARCH_TURNS) turnLimit++;
 
     // After every edit-applying turn, parse the working code; if it no longer
     // parses, inject the errors as corrective context and let the model fix
@@ -1608,7 +1681,31 @@ const generateAppCodeWithSummary = async (...args) => {
   const [prompt, currentCode, chatHistory, onChunk, , signal, , , , isAutoFix, , studioMode, currentFiles] = args;
   const isBuildResult = result?.editMode === 'full-generation' || result?.editMode === 'surgical';
   const galleryNote = isBuildResult ? fixGalleryRefs(result, onChunk) : '';
-  const imageNote = [galleryNote, isBuildResult ? await resolvePollinationsImages(result, { onChunk, signal }) : ''].filter(Boolean).join('\n\n');
+  // Stock photos new in this build that don't load (the AI writes their
+  // addresses from memory). Checked alongside the Pollinations images.
+  const checkStockPhotos = async () => {
+    if (!isBuildResult || isAutoFix) return '';
+    const before = currentFiles && Object.keys(currentFiles).length ? currentFiles : currentCode ? makeFiles(currentCode) : {};
+    const urls = findNewStockPhotos(before, result.files || makeFiles(result.code));
+    if (!urls.length) return '';
+    try {
+      return brokenStockPhotosNote(await findBrokenStockPhotos(urls, { signal }));
+    } catch (err) {
+      logWarn('Could not check the stock photos in this build', err);
+      return '';
+    }
+  };
+  const [pollinationsNote, stockPhotoNote] = await Promise.all([
+    isBuildResult ? resolvePollinationsImages(result, { onChunk, signal }) : '',
+    checkStockPhotos(),
+  ]);
+  const imageNote = [galleryNote, pollinationsNote, stockPhotoNote].filter(Boolean).join('\n\n');
+  // Photos from the library that this build started using: their downloads
+  // are reported to Unsplash, as its guidelines ask. Not awaited.
+  if (isBuildResult) {
+    const before = currentFiles && Object.keys(currentFiles).length ? currentFiles : currentCode ? makeFiles(currentCode) : {};
+    trackUsedPhotos(before, result.files || makeFiles(result.code));
+  }
   // Auto-fix passes stay silent: they repair a build the user already got
   // messages for.
   if (isBuildResult && !isAutoFix) {

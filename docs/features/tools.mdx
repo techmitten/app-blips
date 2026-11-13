@@ -1,15 +1,16 @@
 ---
 title: "Tools"
 sidebarTitle: "Tools"
-description: "SEO and My images are built into AppBlips. Turn them on in Settings → Tools, with no account or key to set up."
+description: "SEO, My images and web search are built into AppBlips. Turn them on in Settings → Tools, with no account or key to set up."
 ---
 
 Tools are features built into AppBlips that the AI uses in your projects. Unlike [extensions](/features/connectors), they don't connect to an outside service, so there's nothing to sign up for and no key to paste.
 
-There are two tools:
+These are the tools:
 
 - **[SEO](#seo):** answer a few questions and the AI helps search engines find your site.
 - **[My images](#my-images-beta) (beta):** upload your own photos and logos for the AI to use.
+- **[Web search with your AI provider](#web-search-with-your-ai-provider):** DeepSeek Web Search, Claude Web Search, OpenAI Web Search, Gemini Google Search, Grok Web Search and OpenRouter Web Search. The one for your AI provider is in use automatically and adds a web search globe to the chat box.
 
 ## Turn on a tool
 
@@ -104,6 +105,28 @@ My images lets you add your own photos and logos to a project, so the AI builds 
 - **Exports and published sites** include only the images your pages use.
 
 Imported sites don't use My images: they keep their own image files.
+
+## Web search with your AI provider
+
+Each AI provider in **Settings → AI** has its own web search tool: **DeepSeek Web Search**, **Claude Web Search**, **OpenAI Web Search**, **Gemini Google Search**, **Grok Web Search** and **OpenRouter Web Search**. They have no key of their own: the AI searches with your provider's search, using the same key that writes your projects.
+
+<Steps>
+  <Step title="Check which one is in use">
+    Open **Settings**, then the **Tools** tab. The tool for the provider you chose in **Settings → AI** says **In use**: AppBlips switches it on by itself. The others say **Off**, and switch on by themselves if you change to their provider.
+  </Step>
+  <Step title="Turn web search on in the chat">
+    A tool that's in use adds a globe button under the chat box. **It doesn't turn web search on.** Click the globe to turn search on; it turns red while it's on, and stays on until you click it again.
+  </Step>
+  <Step title="Build as usual">
+    When a request needs real or up-to-date facts, the AI searches first, and the chat shows **Searching the web…**.
+  </Step>
+</Steps>
+
+- Searches are charged by your provider on top of the usual tokens, from a fraction of a cent (DeepSeek) to about a cent (Anthropic, OpenAI, Gemini). See [Let the AI search the web](/ai-providers#let-the-ai-search-the-web) for each provider's price and limits.
+- Your model must support web search. If it doesn't, the chat says so and the AI carries on without searching.
+- To remove the globe from the chat box, switch off the tool that's in use. It stays off for that provider until you switch it back on.
+- If the [Tavily](/features/connectors#tavily) extension is connected, the AI searches with Tavily instead.
+- It doesn't work with a custom endpoint.
 
 ## Privacy
 

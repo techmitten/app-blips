@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, X, Paperclip, Camera, Send, Mic } from 'lucide-react';
+import { Loader2, X, Paperclip, Camera, Send, Mic, Globe } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 
 // The mode control is one slot-machine reel with two stops; clicking it
 // advances Build -> Ask -> Build.
+// Names for the web search tooltip, by provider id (lib/providerWeb.js).
+const WEB_SEARCH_PROVIDERS = { deepseek: 'DeepSeek', anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini', xai: 'xAI', openrouter: 'OpenRouter' };
+
 const MODE_SEQUENCE = ['build', 'ask'];
 const STOPS = MODE_SEQUENCE.length;
 const MODE_LABELS = { build: 'Build', ask: 'Ask' };
@@ -39,6 +42,13 @@ export default function PromptInput({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
+  // Web search through the AI provider (lib/providerWeb.js): the globe is
+  // shown only while the provider in use offers it, and stays on or off
+  // until clicked again. `webSearchProvider` is its id, for the tooltip.
+  webSearchAvailable = false,
+  webSearchProvider = '',
+  webSearch = false,
+  onWebSearchChange,
   voiceInput = false,
 }) {
   const textareaRef = useRef(null);
@@ -154,6 +164,12 @@ export default function PromptInput({
     onAttachFile(named);
   };
 
+  // Builds only: Ask mode answers without searching.
+  const showWebSearch = Boolean(webSearchAvailable && onWebSearchChange && chatMode !== 'ask');
+  const webSearchTitle = webSearch
+    ? 'Web search is on: the AI searches the web when a request needs real facts. Click to turn it off.'
+    : `Let the AI search the web for real facts. Each search has a small cost on your ${WEB_SEARCH_PROVIDERS[webSearchProvider] || 'AI provider'} key, usually about a cent or less.`;
+
   const isWebsite = studioMode === 'website';
   const noun = isWebsite ? 'Website' : studioMode === 'game' ? 'Game' : studioMode === 'codebase' ? 'Site' : 'App';
 
@@ -268,6 +284,18 @@ export default function PromptInput({
                     className="chat-mode-option min-w-(--composer-key-size)! p-0!"
                   >
                     {isCapturingScreenshot ? <Loader2 className="animate-spin" size={18} /> : <Camera size={18} aria-hidden="true" />}
+                  </button>
+                )}
+                {showWebSearch && (
+                  <button
+                    type="button"
+                    onClick={() => onWebSearchChange(!webSearch)}
+                    aria-pressed={webSearch}
+                    aria-label={webSearchTitle}
+                    title={webSearchTitle}
+                    className="chat-mode-option prompt-web-search min-w-(--composer-key-size)! p-0!"
+                  >
+                    <Globe size={18} aria-hidden="true" />
                   </button>
                 )}
               </div>

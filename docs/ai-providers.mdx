@@ -114,4 +114,18 @@ For every setting, see the [Settings reference](/reference/settings).
 
 ## Let the AI search the web
 
-The AI only knows what it learned during training. To let it look up real, current facts while it builds, such as a business's opening hours or how to use a service, add a free [Tavily](/features/connectors#tavily) key in **Settings → Extensions**. It works with any provider.
+The AI only knows what it learned during training. There are two ways to let it look up real, current facts while it builds, such as a business's opening hours or how to use a service:
+
+- **With your provider's own search.** Each provider has a web search tool in **Settings → Tools** (see [Web search with your AI provider](/features/tools#web-search-with-your-ai-provider)). The one for your provider is in use automatically and adds a globe button to the chat box; that doesn't turn search on by itself. Click it to turn web search on; it turns red while it's on and stays on until you click it again. The AI then searches the web with your provider's own search, using the same key that writes your project, and only when a request needs real facts. Searches are charged by your provider, on top of the usual tokens:
+
+  | Provider | Search used | Cost per search (provider's price) | Per request |
+  |---|---|---|---|
+  | DeepSeek | DeepSeek Search, plus reading whole pages | $0.00075 | 5 searches, 3 page reads |
+  | Anthropic | Claude's web search tool | $0.01 | 3 searches |
+  | OpenAI | OpenAI web search (Responses API) | about $0.01 | 3 searches |
+  | Gemini | Grounding with Google Search | $0.014 after a free monthly allowance | 3 searches |
+  | xAI | Grok web search (Responses API) | see xAI's pricing | 3 searches |
+  | OpenRouter | OpenRouter web search | from $0.007 | 3 searches |
+
+  Apart from DeepSeek, each search is a short request to the same model with search switched on, which reports what it found and its sources. The model must support web search: if it doesn't, the chat says so and the AI carries on without searching. The globe doesn't appear with a custom endpoint. It also appears on the **Free** option, where searches count toward your free allowance.
+- **With any provider, add a free [Tavily](/features/connectors#tavily) key** in **Settings → Extensions**. When Tavily is connected, it is used for searching instead.

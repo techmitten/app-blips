@@ -21,6 +21,8 @@ const SESSION_KEY = 'appblips-key-session';
 const SLOTS = [
   ['/api/chat', 'provider'],
   ['/api/provider', 'provider'],
+  // DeepSeek web search is paid by the AI provider's key (webToolsApi.js).
+  ['/api/web', 'provider'],
   ['/api/surge', 'surge'],
   ['/api/pollinations', 'pollinations'],
   ['/api/pixabay', 'pixabay'],

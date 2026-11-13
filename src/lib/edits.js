@@ -246,15 +246,18 @@ export const applySurgicalEdits = (currentCode, edits, { conservative = false } 
 // classic scripts as a legacy quirk). The JS form is anchored to the start of
 // the line so a `@section:` appearing mid-expression or inside a URL cannot be
 // mistaken for a landmark.
+//
+// A third form, `{/* @section: x */}` on its own line, marks regions inside
+// JSX markup (React apps), where the other two would render as page text.
 export const SECTION_LANDMARK_RE =
-  /<!--\s*@section:\s*([^\s][^\n]*?)\s*-->|^\s*\/\/\s*@section:\s*([^\s][^\n]*?)\s*$/;
+  /<!--\s*@section:\s*([^\s][^\n]*?)\s*-->|^\s*\/\/\s*@section:\s*([^\s][^\n]*?)\s*$|^\s*\{\s*\/\*\s*@section:\s*([^\s][^\n]*?)\s*\*\/\s*\}\s*$/;
 
 export const listSections = (code) => {
   const lines = code.split(/\r?\n/);
   const marks = [];
   lines.forEach((line, i) => {
     const m = line.match(SECTION_LANDMARK_RE);
-    if (m) marks.push({ name: (m[1] ?? m[2]).trim(), line: i + 1 });
+    if (m) marks.push({ name: (m[1] ?? m[2] ?? m[3]).trim(), line: i + 1 });
   });
   return marks.map((m, i) => ({
     name: m.name,

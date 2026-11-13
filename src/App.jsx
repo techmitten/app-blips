@@ -60,9 +60,11 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, PREVIEW_SHUTTER_MS, STUDIO_MODES, DOCS_URL, normalizeStudioMode
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadPromptSuggestions, PROMPT_SUGGESTIONS_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadCodeAutocomplete, CODE_AUTOCOMPLETE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isWideLayout } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadPromptSuggestions, PROMPT_SUGGESTIONS_KEY, loadWebSearch, WEB_SEARCH_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadCodeAutocomplete, CODE_AUTOCOMPLETE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isWideLayout } from './lib/config';
 
 import useTheme from './hooks/useTheme';
+import useProviderWeb from './hooks/useProviderWeb';
+import { refreshPhotoLibrary } from './lib/unsplash';
 import useVisualViewport from './hooks/useVisualViewport';
 import useChatFont from './hooks/useChatFont';
 import useProjects from './hooks/useProjects';
@@ -107,6 +109,7 @@ export default function App({ coldStart = false }) {
   const [promptSuggestions, setPromptSuggestions] = useState(loadPromptSuggestions);
   const [gameEngineRouter, setGameEngineRouter] = useState(loadGameEngineRouter);
   const [websiteAddonRouter, setWebsiteAddonRouter] = useState(loadWebsiteAddonRouter);
+  const [webSearchOn, setWebSearchOn] = useState(loadWebSearch);
   const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
   // Once per launch: the first screen shown plays it (setup on a new desktop
   // install, otherwise the studio picker or workspace), and the screens
@@ -1400,6 +1403,13 @@ export default function App({ coldStart = false }) {
   useEffect(() => {
     localStorage.setItem(WEBSITE_ADDON_ROUTER_KEY, websiteAddonRouter);
   }, [websiteAddonRouter]);
+
+  useEffect(() => {
+    localStorage.setItem(WEB_SEARCH_KEY, webSearchOn);
+  }, [webSearchOn]);
+  const providerWeb = useProviderWeb();
+  // Whether this server has the built-in photo library (lib/unsplash.js).
+  useEffect(() => { refreshPhotoLibrary(); }, []);
 
   useEffect(() => {
     localStorage.setItem(AUTO_FOLLOW_CODE_KEY, autoFollowCode);
@@ -2907,6 +2917,10 @@ export default function App({ coldStart = false }) {
           onAttachScreenshot={handleAttachScreenshot}
           onAttachFile={handleAttachFile}
           onRemoveAttachment={handleRemoveAttachment}
+          webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
+          webSearchProvider={providerWeb.provider}
+          webSearch={webSearchOn}
+          onWebSearchChange={setWebSearchOn}
           starterIdeas={
             chatMode === 'ask'
               ? ASK_STARTER_PRESETS
@@ -2995,6 +3009,10 @@ export default function App({ coldStart = false }) {
               onAttachScreenshot={handleAttachScreenshot}
               onAttachFile={handleAttachFile}
               onRemoveAttachment={handleRemoveAttachment}
+              webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
+              webSearchProvider={providerWeb.provider}
+              webSearch={webSearchOn}
+              onWebSearchChange={setWebSearchOn}
               onNewChat={handleStartNewChat}
               isHistoryOpen={isHistoryOpen}
               onToggleHistory={() => setIsHistoryOpen((open) => !open)}

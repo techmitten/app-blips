@@ -48,6 +48,10 @@ export default function HeroLanding({
   onAttachScreenshot,
   onAttachFile,
   onRemoveAttachment,
+  webSearchAvailable = false,
+  webSearchProvider = '',
+  webSearch = false,
+  onWebSearchChange,
   starterIdeas,
   starterSampleSize,
   onPickStarter,
@@ -105,6 +109,10 @@ export default function HeroLanding({
                 onAttachScreenshot={onAttachScreenshot}
                 onAttachFile={onAttachFile}
                 onRemoveAttachment={onRemoveAttachment}
+                webSearchAvailable={webSearchAvailable}
+                webSearchProvider={webSearchProvider}
+                webSearch={webSearch}
+                onWebSearchChange={onWebSearchChange}
                 voiceInput
               />
             </div>

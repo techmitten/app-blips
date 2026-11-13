@@ -10,12 +10,14 @@ import ConnectorRequestModal from './ConnectorRequestModal';
 import PollinationsConnector from './PollinationsConnector';
 import PixabayConnector from './PixabayConnector';
 import ServerKeyConnector from './ServerKeyConnector';
+import ProviderSearchConnector from './ProviderSearchConnector';
+import { useProviderInUse } from '../hooks/useProviderWeb';
 import SeoConnector from './SeoConnector';
 import SheetsConnector from './SheetsConnector';
 import ImagesConnector from './ImagesConnector';
 import PublishDialog from './PublishDialog';
 import {
-  CONNECTOR_DEFINITIONS, CONNECTOR_IDS, connectorStatus, loadConnectors, saveConnectors,
+  CONNECTOR_DEFINITIONS, CONNECTOR_IDS, PROVIDER_SEARCH_CONNECTORS, connectorStatus, loadConnectors, saveConnectors,
 } from '../lib/connectors';
 import { surgeStatus } from '../lib/surge';
 import { galleryNameForms } from '../lib/galleryImages';
@@ -61,9 +63,32 @@ const SurgeIcon = colourIcon('/surge-logo.svg');
 
 const TAVILY_API = { status: tavilyStatus, save: saveTavilyKey, forget: forgetTavilyKey };
 
+// The provider web search tools show each provider's own logo, from Lobe
+// Icons (@lobehub/icons-static-svg 1.102.0, MIT; the marks are the
+// providers' trademarks, used to name them), in public/provider-logos.
+// DeepSeek, Claude and Gemini have colour marks and keep their colours. The
+// single-colour marks (OpenAI, Grok, OpenRouter) are black, or white on
+// dark, as the brands draw them, rather than the indigo the other icons
+// take: they use the title colour, which the dark theme turns white.
+// Globe for any provider without one.
+const brandMonoIcon = (src) => function BrandMonoIcon({ size }) {
+  const mask = `url(${src}) center / contain no-repeat`;
+  return <span aria-hidden="true" className="inline-block bg-current text-slate-900" style={{ width: size, height: size, mask, WebkitMask: mask }} />;
+};
+const PROVIDER_LOGOS = {
+  deepseek: colourIcon('/provider-logos/deepseek-color.svg'),
+  anthropic: colourIcon('/provider-logos/claude-color.svg'),
+  gemini: colourIcon('/provider-logos/gemini-color.svg'),
+  openai: brandMonoIcon('/provider-logos/openai.svg'),
+  xai: brandMonoIcon('/provider-logos/grok.svg'),
+  openrouter: brandMonoIcon('/provider-logos/openrouter.svg'),
+};
+const PROVIDER_SEARCH_ICONS = Object.fromEntries(PROVIDER_SEARCH_CONNECTORS.map(({ id, providerSearch }) => [id, PROVIDER_LOGOS[providerSearch] || Globe]));
+
 const ICONS = {
   web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
   square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), sheets: Sheet, pixabay: Camera, tavily: Globe, seo: Search, images: Images,
+  ...PROVIDER_SEARCH_ICONS,
 };
 
 const STATUS_BADGE = {
@@ -71,12 +96,18 @@ const STATUS_BADGE = {
   'needs-key': { label: 'Needs key', className: 'bg-amber-500/15 text-amber-700' },
   'needs-sign-in': { label: 'Needs sign-in', className: 'bg-amber-500/15 text-amber-700' },
   off: { label: 'Not connected', className: 'bg-slate-500/10 text-slate-600' },
+  // Provider web search: In use (its provider is the one in Settings → AI,
+  // and it isn't switched off) or Off.
+  'in-use': { label: 'In use', className: 'bg-emerald-500/15 text-emerald-700' },
+  'switched-off': { label: 'Off', className: 'bg-slate-500/10 text-slate-600' },
 };
 
 // Tools have nothing to connect, so their cards only say whether they're on.
 const TOOL_BADGE = {
   connected: { label: 'On', className: STATUS_BADGE.connected.className },
   off: { label: 'Off', className: STATUS_BADGE.off.className },
+  'in-use': STATUS_BADGE['in-use'],
+  'switched-off': STATUS_BADGE['switched-off'],
 };
 
 function StatusBadge({ status, tool = false }) {
@@ -178,7 +209,7 @@ const SAMPLE_IMAGE_NAME = 'team-photo.jpg';
 // the name without extension and a few words of one of `images` (the
 // visible ones), or of a sample name when there are none.
 function ConnectorPrompts({ id, connected, images = [] }) {
-  const { name, native, prompts: rawPrompts } = CONNECTOR_DEFINITIONS[id];
+  const { name, native, providerSearch, prompts: rawPrompts } = CONNECTOR_DEFINITIONS[id];
   const usesImage = rawPrompts.some((prompt) => /\{(?:image|stem|partial)\}/.test(prompt));
   const imageName = images[0]?.name || '';
   const forms = galleryNameForms(imageName || SAMPLE_IMAGE_NAME, images);
@@ -209,8 +240,10 @@ function ConnectorPrompts({ id, connected, images = [] }) {
     <div className="py-4 space-y-2">
       <h4 className="text-sm font-semibold text-slate-900">Prompts to try</h4>
       <p className="text-xs leading-snug text-slate-600">
-        Copy a prompt and paste it into the builder chat to add {name} to the project you have open.
-        {!connected && ` They work once ${name} is ${native ? 'turned on' : 'connected'}.`}
+        {providerSearch
+          ? 'Click the globe under the chat box to turn web search on, then copy a prompt into the builder chat.'
+          : <>Copy a prompt and paste it into the builder chat to add {name} to the project you have open.
+            {!connected && ` They work once ${name} is ${native ? 'turned on' : 'connected'}.`}</>}
       </p>
       {usesImage && (
         <p className="text-xs leading-snug text-slate-600">
@@ -269,8 +302,21 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
   const backLabel = pageStack.length > 1 ? CONNECTOR_DEFINITIONS[pageStack.at(-2)].name : TAB_NAMES[kind];
   // SEO is switched on per project, so its state is the open project's, not
   // the shared connector settings (always Off with no project open).
-  const statusOf = (id) => (id === 'seo' ? (seoProject?.enabled ? 'connected' : 'off') : connectorStatus(id, connectors));
-  const ids = CONNECTOR_IDS.filter((id) => Boolean(CONNECTOR_DEFINITIONS[id].native) === (kind === 'tools'));
+  // Provider web search says whether it is the one in use rather than
+  // "Connected": it has nothing to connect.
+  const inUse = useProviderInUse();
+  const statusOf = (id) => {
+    if (id === 'seo') return seoProject?.enabled ? 'connected' : 'off';
+    const provider = CONNECTOR_DEFINITIONS[id].providerSearch;
+    // In use only for the provider the AI runs on, and only while not
+    // switched off; every other provider's shows as Off.
+    if (provider) return connectors[id].enabled && inUse.available && inUse.provider === provider ? 'in-use' : 'switched-off';
+    return connectorStatus(id, connectors);
+  };
+  // Tools: the native connectors and the provider web searches (built in,
+  // nothing to connect).
+  const isTool = (id) => Boolean(CONNECTOR_DEFINITIONS[id].native || CONNECTOR_DEFINITIONS[id].providerSearch);
+  const ids = CONNECTOR_IDS.filter((id) => isTool(id) === (kind === 'tools'));
   const [infoOpen, setInfoOpen] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   // Surge isn't an AI connector: it's the account Publish uses, so its card
@@ -346,6 +392,8 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
             ? <SeoConnector key={openId} seoProject={seoProject} />
             : CONNECTOR_DEFINITIONS[openId].signIn
               ? <PollinationsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
+              : CONNECTOR_DEFINITIONS[openId].providerSearch
+                ? <ProviderSearchConnector key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} inUse={inUse.available ? inUse.provider : ''} connectors={connectors} />
               : openId === 'tavily'
                 ? <ServerKeyConnector key={openId} id={openId} api={TAVILY_API} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
               : CONNECTOR_DEFINITIONS[openId].serverKey
@@ -385,7 +433,7 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
     <div>
       <p className="mb-4 text-xs leading-snug text-slate-600">
         {kind === 'tools'
-          ? 'Built into AppBlips, with no account or key to set up. Turn one on and the AI uses it in your projects.'
+          ? 'Built into AppBlips, with no account or key to set up. Turn one on and the AI uses it in your projects. The web search tools use your AI provider’s key: the one for your provider says “In use”.'
           : 'Connect services and the AI will wire them into your projects. Pick one to set it up.'}
       </p>
       {/* The cards and the modal are both bg-surface, so they sit on a recessed

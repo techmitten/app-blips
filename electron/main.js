@@ -27,6 +27,13 @@ import { handleSurgeApi } from './server/surgeApi.js';
 import { handlePollinationsApi } from './server/pollinationsApi.js';
 import { handlePixabayApi } from './server/pixabayApi.js';
 import { handleTavilyApi } from './server/tavilyApi.js';
+import { handleWebToolsApi } from './server/webToolsApi.js';
+import { createAppUnsplashApi } from './server/unsplashApi.js';
+
+// The built-in photo library: searches go to AppBlips' hosted server, which
+// has the Unsplash key (or use UNSPLASH_ACCESS_KEY when the app is started
+// with one).
+const handleUnsplashApi = createAppUnsplashApi();
 import { handleSeoScanApi } from './server/seoScanApi.js';
 import { resolveAddresses } from './server/dnsLookup.js';
 import { withSavedProvider } from './server/savedProvider.js';
@@ -108,7 +115,8 @@ async function writeSettings(patch) {
 // withSavedProvider); the env is read for a terminal-launched fallback provider.
 // /api/surge/* (Publish) uses the Surge token from surgeStore.js the same way,
 // /api/pollinations/* the Pollinations key, /api/pixabay/* the Pixabay key and
-// /api/tavily/* the Tavily key.
+// /api/tavily/* the Tavily key. /api/web/* (DeepSeek web search) uses the
+// same provider as /api/chat.
 
 const withSecurityHeaders = (response) => {
   const headers = new Headers(response.headers);
@@ -216,6 +224,15 @@ async function handleAppRequest(request) {
       case '/api/tavily/key':
       case '/api/tavily/search':
         return withSecurityHeaders(await handleTavilyApi(request, process.env, tavilyStore));
+      // DeepSeek web search for the AI, with the same saved key as /api/chat.
+      case '/api/web/status':
+      case '/api/web/search':
+      case '/api/web/fetch':
+        return withSecurityHeaders(await handleWebToolsApi(await withSavedProvider(request, providerStore), process.env));
+      case '/api/unsplash/status':
+      case '/api/unsplash/search':
+      case '/api/unsplash/track':
+        return withSecurityHeaders(await handleUnsplashApi(request, process.env));
       case '/api/seo/scan':
         return withSecurityHeaders(await handleSeoScanApi(request, process.env, { lookup: resolveAddresses }));
       default:

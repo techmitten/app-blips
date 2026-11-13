@@ -29,6 +29,61 @@ import { isSheetsScriptUrl } from './sheetsHelper.js';
 
 export const CONNECTORS_KEY = 'orion-connectors';
 
+// Web search through the AI provider's own search (lib/providerWeb.js,
+// electron/server/webToolsApi.js): one tool (Settings → Tools) per provider
+// (`providerSearch` is the provider's id in Settings → AI). They have no key:
+// they use the AI provider's. Only the one whose provider is in use can be
+// on; it is on by default unless the user switched it off (`enabled`, kept
+// per provider), and the others show as Off. Being on only adds the globe to
+// the chat box; the globe is what turns web search on for prompts. Read by the globe and by
+// webSearch.js, never by CONNECTOR_DIRECTIVES, so getActiveConnectors leaves
+// them out.
+const providerSearchConnector = ({ id, provider, providerName, name, engine, price, pageReads = false, homeUrl, notes = [] }) => ({
+  id,
+  name,
+  tagline: `Adds a web search globe to the chat box while you use ${providerName}. Search stays off until you click it.`,
+  description: `While ${providerName} is your AI provider, the AI can search the web with ${engine} for real facts, such as a business’s opening hours or current news, instead of guessing. It uses the same ${providerName} key as your builds.`,
+  providerSearch: provider,
+  homeUrl,
+  homeLinkLabel: `Read about ${engine}`,
+  prompts: [
+    'Search the web for the address, opening hours and phone number of my business and add them to the contact section.',
+    'Look up the latest news about this topic and add a short “What’s new” section.',
+    'Search the web for the current way to embed a Google Map and add one with my address to the contact section.',
+  ],
+  page: {
+    enableDescription: `Adds the web search globe to the chat box while ${providerName} is your AI provider. It doesn’t turn web search on: the AI only searches after you click the globe.`,
+  },
+  about: {
+    what: `${engine} lets the AI look things up on the web while it builds${pageReads ? ' and read whole pages' : ''}, using your ${providerName} key. It works only while ${providerName} is your AI provider in Settings → AI (or the host’s Free option runs on ${providerName}).`,
+    steps: [
+      `Choose ${providerName} in Settings → AI. AppBlips detects it and switches this tool on, and its card says “In use”. While you use another provider, it shows as Off.`,
+      'Being in use only adds the globe button to the chat box. Web search is still off at this point.',
+      'Click the globe to turn web search on. It turns red while it’s on and stays on until you click it again.',
+      'To remove the globe from the chat box, switch this tool off. It stays off for this provider until you switch it on again.',
+      'Ask for something that needs real or current facts, for example “add the opening hours of Blue Door Café in Portland”. The chat shows “Searching the web…” while the AI looks it up.',
+    ],
+    notes: [
+      `Each search costs ${price}, charged by ${providerName} to the same key, on top of the usual tokens. The AI searches only when a request needs it, at most ${pageReads ? '5 times and 3 page reads' : '3 times'} per request.`,
+      ...notes,
+      'Only the AI’s search words go to the search, never your project’s code.',
+      'Search results can be wrong or out of date. Check important facts, like prices and opening hours, before you publish.',
+      'If the Tavily extension is connected, it is used for searching instead.',
+      'It doesn’t work with a custom endpoint, only with the provider’s own.',
+    ],
+  },
+});
+
+export const PROVIDER_SEARCH_CONNECTORS = [
+  providerSearchConnector({ id: 'deepseekSearch', provider: 'deepseek', providerName: 'DeepSeek', name: 'DeepSeek Web Search', engine: 'DeepSeek Search', price: 'a fraction of a cent ($0.75 per 1,000)', pageReads: true, homeUrl: 'https://api-docs.deepseek.com/', notes: ['The AI can also read a whole web page, for example one the user names, at the same price.'] }),
+  providerSearchConnector({ id: 'claudeSearch', provider: 'anthropic', providerName: 'Anthropic', name: 'Claude Web Search', engine: 'Claude’s web search tool', price: 'about a cent ($10 per 1,000)', homeUrl: 'https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool', notes: ['Your Claude model must support web search (Claude 4.5 and later do). An organization admin can also switch web search off in the Claude Console.'] }),
+  providerSearchConnector({ id: 'openaiSearch', provider: 'openai', providerName: 'OpenAI', name: 'OpenAI Web Search', engine: 'OpenAI web search', price: 'about a cent', homeUrl: 'https://developers.openai.com/api/docs/guides/tools-web-search', notes: ['Your OpenAI model must support web search in the Responses API (GPT-5 models do).'] }),
+  providerSearchConnector({ id: 'geminiSearch', provider: 'gemini', providerName: 'Gemini', name: 'Gemini Google Search', engine: 'Grounding with Google Search', price: 'about $0.014 after Google’s free monthly allowance', homeUrl: 'https://aistudio.google.com/docs/google-search', notes: ['Your Gemini model must support Google Search grounding (Gemini 2.5 and later do).'] }),
+  providerSearchConnector({ id: 'grokSearch', provider: 'xai', providerName: 'xAI', name: 'Grok Web Search', engine: 'Grok web search', price: 'xAI’s web search price', homeUrl: 'https://docs.x.ai/docs/guides/tools/search-tools', notes: ['Your Grok model must support web search (Grok 4 and later do).'] }),
+  providerSearchConnector({ id: 'openrouterSearch', provider: 'openrouter', providerName: 'OpenRouter', name: 'OpenRouter Web Search', engine: 'OpenRouter web search', price: 'from $0.007, depending on the model', homeUrl: 'https://openrouter.ai/docs/guides/features/web-search' }),
+];
+
+
 // The key Web3Forms emails to the user, and an Umami website ID: both UUIDs.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // A comma-separated list of hostnames (Plausible's data-domain, Umami's data-domains).
@@ -577,6 +632,7 @@ export const CONNECTOR_DEFINITIONS = {
       ],
     },
   },
+  ...Object.fromEntries(PROVIDER_SEARCH_CONNECTORS.map((def) => [def.id, def])),
   // The one native connector (`native: true`): no service and no key. Only the
   // on/off switch is global; the answers are per project (lib/seo.js) and reach
   // the AI once after they are saved or changed, not through
@@ -670,7 +726,9 @@ export const loadConnectors = () => {
     if (parsed && typeof parsed === 'object') stored = parsed;
   } catch { /* unreadable: treat as nothing connected */ }
   return Object.fromEntries(CONNECTOR_IDS.map((id) => [id, {
-    enabled: stored[id]?.enabled === true,
+    // Provider web search starts on (it only shows the globe); everything
+    // else starts off.
+    enabled: CONNECTOR_DEFINITIONS[id].providerSearch ? stored[id]?.enabled !== false : stored[id]?.enabled === true,
     key: typeof stored[id]?.key === 'string' ? stored[id].key : '',
     ...(CONNECTOR_DEFINITIONS[id].signIn ? {
       account: typeof stored[id]?.account === 'string' ? stored[id].account : '',
@@ -686,10 +744,29 @@ export const loadConnectors = () => {
   }]));
 };
 
+const listeners = new Set();
+// Called after the connector settings are saved, so things that show them
+// outside Settings (the web search globe) update at once.
+export const onConnectorsChange = (listener) => {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+};
+
 export const saveConnectors = (connectors) => {
   try {
     safeStorage('local')?.setItem(CONNECTORS_KEY, JSON.stringify(connectors));
   } catch { /* storage blocked: the setting just won't persist */ }
+  for (const listener of listeners) listener();
+};
+
+// The provider web search extension for a provider id ('deepseek', ...), or null.
+export const providerSearchConnectorFor = (provider) => PROVIDER_SEARCH_CONNECTORS.find((def) => def.providerSearch === provider) || null;
+
+// Whether the extension for `provider` (the one in use) is on, so the globe
+// may be shown.
+export const providerSearchEnabled = (provider, connectors = loadConnectors()) => {
+  const def = providerSearchConnectorFor(provider);
+  return Boolean(def && connectors[def.id]?.enabled);
 };
 
 // 'connected' (on, valid key or signed in: used by the AI; native connectors
@@ -698,7 +775,7 @@ export const saveConnectors = (connectors) => {
 export const connectorStatus = (id, connectors = loadConnectors()) => {
   const { enabled, key = '', account, keyHint } = connectors[id] || {};
   if (!enabled) return 'off';
-  if (CONNECTOR_DEFINITIONS[id].native) return 'connected';
+  if (CONNECTOR_DEFINITIONS[id].native || CONNECTOR_DEFINITIONS[id].providerSearch) return 'connected';
   if (CONNECTOR_DEFINITIONS[id].serverKey) return keyHint ? 'connected' : 'needs-key';
   if (CONNECTOR_DEFINITIONS[id].signIn) return account ? 'connected' : 'needs-sign-in';
   return CONNECTOR_DEFINITIONS[id].isValidKey(key.trim()) ? 'connected' : 'needs-key';
@@ -710,7 +787,7 @@ export const connectorStatus = (id, connectors = loadConnectors()) => {
 // how AI features are paid for, so the AI builds them to match: 'visitors',
 // 'site', or 'none' (site key chosen but not added yet: no AI features).
 export const getActiveConnectors = (connectors = loadConnectors()) => CONNECTOR_IDS
-  .filter((id) => !CONNECTOR_DEFINITIONS[id].native && !CONNECTOR_DEFINITIONS[id].serverKey
+  .filter((id) => !CONNECTOR_DEFINITIONS[id].native && !CONNECTOR_DEFINITIONS[id].serverKey && !CONNECTOR_DEFINITIONS[id].providerSearch
     && connectorStatus(id, connectors) === 'connected')
   .map((id) => ({ id, key: id === 'pollinations' ? pollinationsAiMode(connectors) : connectors[id].key.trim() }));
 
