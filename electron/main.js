@@ -200,6 +200,7 @@ async function handleAppRequest(request) {
       case '/api/surge/login':
       case '/api/surge/publish':
       case '/api/surge/unpublish':
+      case '/api/surge/dns':
         return withSecurityHeaders(await handleSurgeApi(request, process.env, surgeStore));
       case '/api/pollinations':
       case '/api/pollinations/login':

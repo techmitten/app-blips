@@ -31,6 +31,8 @@ export const surgeLogin = (email, password) => call('/api/surge/login', { method
 export const surgeSignOut = () => call('/api/surge', { method: 'DELETE' });
 export const surgePublish = (domain, files, images, extras, password) => call('/api/surge/publish', { method: 'POST', body: { domain, files, ...(images ? { images } : {}), ...(extras ? { extras } : {}), ...(password ? { password } : {}) } });
 export const surgeUnpublish = (domain) => call('/api/surge/unpublish', { method: 'POST', body: { domain } });
+// Whether a custom domain's DNS points at Surge yet (see checkDns in surgeApi.js).
+export const surgeCheckDns = (domain) => call('/api/surge/dns', { method: 'POST', body: { domain } });
 
 // "My Bakery Site" -> "my-bakery-site-x7k2": a random tail makes it unlikely
 // that someone else on Surge already has the address.

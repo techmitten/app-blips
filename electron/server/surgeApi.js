@@ -28,6 +28,10 @@
 //                                 connector's files, see src/lib/seo.js)
 //   POST   /api/surge/unpublish -> { domain } takes that site offline
 //                                 -> { removed: true } or { error, signedOut? }
+//   POST   /api/surge/dns      -> { domain } whether a custom domain's public
+//                                 DNS points at Surge yet (checkDns)
+//                                 -> { status: 'connected' | 'missing' |
+//                                      'elsewhere' | 'unknown', cname, ips }
 //
 // `tokens` is { describe, keyFor, save, clear }: browserKeys.js (kept in the visitor's browser) in the browser
 // version, electron/surgeStore.js (OS keychain) on desktop.
@@ -37,7 +41,7 @@ import { MAX_FILES_BYTES, MAX_PAGES, validatePageName } from '../../src/lib/page
 import { MAX_SITE_IMAGES_BYTES, SITE_IMAGE_PATH_RE } from '../../src/lib/siteImages.js';
 import { FAVICON_PATH, MAX_FAVICON_BYTES, addFaviconLinks } from '../../src/lib/favicon.js';
 import { checkGatePassword, inlineGateImages, protectPages } from '../../src/lib/passwordGate.js';
-import { SURGE_SUFFIX, dnsRecordFor, normalizeSiteHost } from '../../src/lib/siteAddress.js';
+import { SURGE_A_RECORD, SURGE_CNAME_TARGET, SURGE_SUFFIX, dnsRecordFor, normalizeSiteHost } from '../../src/lib/siteAddress.js';
 
 export const SURGE_API = 'https://surge.surge.sh';
 export { SURGE_SUFFIX, normalizeSiteHost };
@@ -311,6 +315,76 @@ async function unpublish({ domain }, tokens, fetchImpl) {
   return json({ error: reason || `Surge couldn’t remove the site (error ${response.status}). Try again in a minute.` }, 502);
 }
 
+// Public DNS lookups over HTTPS (DNS-over-HTTPS, JSON form), so the check
+// works the same in every host, Android included: Cloudflare's resolver,
+// then Google's if that one can't be reached. Only the domain name is sent.
+export const DOH_RESOLVERS = ['https://cloudflare-dns.com/dns-query', 'https://dns.google/resolve'];
+const DNS_A = 1;
+const DNS_NS = 2;
+const DNS_CNAME = 5;
+
+// { Status, Answer: [{ type, data }] } from the first resolver that answers,
+// or null when none can be reached.
+async function resolve(name, type, fetchImpl) {
+  for (const base of DOH_RESOLVERS) {
+    try {
+      const response = await fetchImpl(`${base}?name=${encodeURIComponent(name)}&type=${type}`, {
+        headers: { accept: 'application/dns-json' },
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!response.ok) continue;
+      const body = await response.json();
+      if (body && typeof body.Status === 'number') return body;
+    } catch { /* try the next resolver */ }
+  }
+  return null;
+}
+
+const answers = (reply, type) => (Array.isArray(reply?.Answer) ? reply.Answer : [])
+  .filter((record) => record?.type === type && typeof record.data === 'string')
+  .map((record) => record.data.trim().toLowerCase().replace(/\.$/, ''));
+
+// Surge's own names: geo.surge.world now, na-west1.surge.sh / geo.surge.sh
+// from older instructions, and the ns*.surge.world name servers.
+const isSurgeName = (name) => name === SURGE_CNAME_TARGET || name.endsWith('.surge.world') || name.endsWith(SURGE_SUFFIX);
+
+// Whether `host` reaches Surge: a CNAME to one of Surge's names, an A record
+// with one of Surge's addresses, or the domain handed to Surge's name
+// servers. 'missing' means no records yet; 'elsewhere' means it points
+// somewhere else (the old host, a parking page), which the page shows so
+// people know which record to replace.
+export async function checkDns(host, fetchImpl) {
+  const reply = await resolve(host, 'A', fetchImpl);
+  if (!reply) return { status: 'unknown', cname: [], ips: [] };
+  const cname = answers(reply, DNS_CNAME);
+  const ips = answers(reply, DNS_A);
+  const result = (status) => ({ status, cname, ips });
+  if (cname.some(isSurgeName) || ips.includes(SURGE_A_RECORD)) return result('connected');
+
+  // A flattened CNAME / ALIAS, or Surge's own name servers, show up only as
+  // addresses: compare them with where Surge's name resolves right now.
+  if (ips.length) {
+    const surge = answers(await resolve(SURGE_CNAME_TARGET, 'A', fetchImpl), DNS_A);
+    if (ips.some((ip) => surge.includes(ip))) return result('connected');
+  }
+  const labels = host.split('.');
+  for (let i = 0; i < labels.length - 1; i++) {
+    const servers = answers(await resolve(labels.slice(i).join('.'), 'NS', fetchImpl), DNS_NS);
+    if (servers.length) {
+      if (servers.some(isSurgeName)) return result('connected');
+      break;
+    }
+  }
+  return result(cname.length || ips.length ? 'elsewhere' : 'missing');
+}
+
+async function dns({ domain }, tokens, fetchImpl) {
+  const site = normalizeSiteHost(domain);
+  if (!site) return json({ error: addressProblem(domain) }, 400);
+  if (!site.custom) return json({ status: 'connected', cname: [], ips: [] });
+  return json(await checkDns(site.host, fetchImpl));
+}
+
 export async function handleSurgeApi(request, env, tokens, { fetch: fetchImpl = globalThis.fetch } = {}) {
   // Only AppBlips' own page may publish with the saved token. A JSON body
   // also forces a CORS preflight, which other sites can't pass.
@@ -338,7 +412,7 @@ export async function handleSurgeApi(request, env, tokens, { fetch: fetchImpl = 
     }
     return json({ error: 'Method not allowed.' }, 405);
   }
-  const actions = { '/api/surge/login': login, '/api/surge/publish': publish, '/api/surge/unpublish': unpublish };
+  const actions = { '/api/surge/login': login, '/api/surge/publish': publish, '/api/surge/unpublish': unpublish, '/api/surge/dns': dns };
   if (actions[path]) {
     if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
     const body = await readBody();

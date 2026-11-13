@@ -323,3 +323,53 @@ test('unpublish refuses bad addresses, someone else’s site and a missing sign-
   const taken = async () => new Response('', { status: 403 });
   assert.match((await (await handleSurgeApi(unpublishRequest(), {}, memoryTokens('a@b.co', 'tok'), { fetch: taken })).json()).error, /another Surge account/);
 });
+
+// DNS check (checkDns): a stubbed DNS-over-HTTPS resolver. `zone` maps
+// "name type" to the Answer records it returns.
+const dohFetch = (zone, { failCloudflare = false } = {}) => {
+  const seen = [];
+  const fetch = async (url) => {
+    const { hostname, searchParams } = new URL(url);
+    seen.push(hostname);
+    if (failCloudflare && hostname === 'cloudflare-dns.com') throw new Error('offline');
+    const Answer = zone[`${searchParams.get('name')} ${searchParams.get('type')}`];
+    return new Response(JSON.stringify({ Status: Answer ? 0 : 3, ...(Answer ? { Answer } : {}) }), { status: 200 });
+  };
+  return { fetch, seen };
+};
+const dnsRequest = (domain) => request('/api/surge/dns', { method: 'POST', body: { domain } });
+const checkWith = async (domain, zone, options) => (await handleSurgeApi(dnsRequest(domain), {}, memoryTokens(), dohFetch(zone, options))).json();
+
+test('DNS check: a CNAME or A record to Surge counts as connected', async () => {
+  assert.equal((await checkWith('www.shop.com', { 'www.shop.com A': [{ type: 5, data: 'geo.surge.world.' }, { type: 1, data: '1.1.1.9' }] })).status, 'connected');
+  assert.equal((await checkWith('www.shop.com', { 'www.shop.com A': [{ type: 5, data: 'na-west1.surge.sh.' }] })).status, 'connected');
+  assert.equal((await checkWith('shop.com', { 'shop.com A': [{ type: 1, data: '138.197.235.123' }] })).status, 'connected');
+});
+
+test('DNS check: a flattened CNAME or Surge name servers count as connected', async () => {
+  const flattened = { 'shop.com A': [{ type: 1, data: '1.2.3.4' }], 'geo.surge.world A': [{ type: 1, data: '1.2.3.4' }] };
+  assert.equal((await checkWith('shop.com', flattened)).status, 'connected');
+  const delegated = { 'www.shop.com A': [{ type: 1, data: '5.6.7.8' }], 'shop.com NS': [{ type: 2, data: 'ns1.surge.world.' }] };
+  assert.equal((await checkWith('www.shop.com', delegated)).status, 'connected');
+});
+
+test('DNS check: no records is missing, another host is elsewhere and says where', async () => {
+  assert.deepEqual(await checkWith('shop.com', {}), { status: 'missing', cname: [], ips: [] });
+  const parked = { 'shop.com A': [{ type: 1, data: '9.9.9.9' }], 'geo.surge.world A': [{ type: 1, data: '1.2.3.4' }], 'shop.com NS': [{ type: 2, data: 'ns1.registrar.example.' }] };
+  assert.deepEqual(await checkWith('shop.com', parked), { status: 'elsewhere', cname: [], ips: ['9.9.9.9'] });
+});
+
+test('DNS check: falls back to the second resolver, and says unknown when none answers', async () => {
+  const zone = { 'shop.com A': [{ type: 1, data: '138.197.235.123' }] };
+  const { fetch, seen } = dohFetch(zone, { failCloudflare: true });
+  assert.equal((await (await handleSurgeApi(dnsRequest('shop.com'), {}, memoryTokens(), { fetch })).json()).status, 'connected');
+  assert.deepEqual(seen, ['cloudflare-dns.com', 'dns.google']);
+  const offline = async () => { throw new Error('offline'); };
+  assert.equal((await (await handleSurgeApi(dnsRequest('shop.com'), {}, memoryTokens(), { fetch: offline })).json()).status, 'unknown');
+});
+
+test('DNS check: surge.sh addresses need no check, bad names are refused', async () => {
+  assert.equal((await checkWith('my-site', {})).status, 'connected');
+  const bad = await handleSurgeApi(dnsRequest('bad..com'), {}, memoryTokens(), { fetch: () => assert.fail('no lookup') });
+  assert.equal(bad.status, 400);
+});
