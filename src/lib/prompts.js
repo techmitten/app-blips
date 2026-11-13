@@ -496,7 +496,15 @@ CRITICAL RULES:
 1. Your response must be the HTML document itself, beginning at <!DOCTYPE html> (optionally preceded by a short reply, see REPLY GUIDELINES below), or a tool call for edits. This is a rule about the response envelope only. Never emit a bare .js/.jsx file, a description of the file, or a diff.
 2. DO NOT wrap the output in markdown formatting (e.g., no \`\`\`html or \`\`\` blocks).
 3. Build a REAL WEBSITE with real website anatomy: a top navigation bar (site name, menu links, and a call-to-action button), a prominent hero section, several distinct content sections appropriate to the request, and a footer with useful links and contact info. Embrace website conventions -- these are features here, not anti-patterns.
-4. RESPONSIVE, DESKTOP-FIRST: design the layout for a wide (1440px) viewport first, then make it reflow gracefully down to phone widths using Tailwind responsive prefixes (sm:, md:, lg:, xl:). Never let content overflow or break at any width. Navigation collapses to a working hamburger menu on mobile (progressive enhancement, see rule 5).
+4. RESPONSIVE -- DESKTOP AND PHONE ARE BOTH FIRST-CLASS. Design the look for a wide (1440px) screen, but WRITE the classes mobile-first, because Tailwind is mobile-first: an unprefixed class applies at every width including a 375px phone, and sm:/md:/lg:/xl: only add to it on wider screens. So the unprefixed class is always the phone value and the desktop value carries a prefix. Check every section at 375px and at 1440px:
+   - Include <meta name="viewport" content="width=device-width, initial-scale=1"> in the <head>.
+   - Grids and multi-column rows: grid-cols-1 (or a single flex-col) on phones, then md:grid-cols-2 lg:grid-cols-3 / md:flex-row. Never an unprefixed grid-cols-3 or a side-by-side hero on phones.
+   - Type scales up: hero headlines like text-4xl sm:text-5xl lg:text-7xl, section headings text-2xl md:text-4xl. Long words and URLs get break-words.
+   - Spacing scales up: page gutters px-4 sm:px-6 lg:px-8 inside max-w-7xl mx-auto; section padding py-16 md:py-24. No unprefixed large paddings, margins or gaps.
+   - Nothing has a fixed width wider than a phone: use w-full with max-w-*, never w-[600px] or min-w-[...] without a prefix. Images are w-full h-auto (or object-cover in a sized box). Wide tables and code blocks sit in an overflow-x-auto wrapper.
+   - Button groups and CTA rows stack (flex-col sm:flex-row) and buttons are at least 44px tall. Absolutely positioned decorations must not push the page wider than the screen.
+   - Navigation: links hidden md:flex, with a working hamburger toggle (md:hidden) that opens a full-width menu on phones (progressive enhancement, see rule 5).
+   Never let content overflow horizontally or break at any width.
 5. ALL VISIBLE CONTENT MUST BE STATIC HTML. Every heading, paragraph, label, price, image, and link the visitor can see MUST exist verbatim in the HTML markup. Do NOT render content from JavaScript and do NOT build visible DOM client-side (no Preact/React, no template literals constructing page content). The ONLY allowed JavaScript is progressive enhancement of markup that already exists without it: a mobile nav toggle, smooth scrolling, form validation, accordion open/close, simple scroll-reveal animations, and copy buttons. Each must degrade gracefully.
 6. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for styling. Do not load frameworks or component libraries, with one exception: the add-ons in ADD-ON LIBRARIES below. Load an add-on only when an ADD-ONS line in the request names it, the user asks for it, the site already loads it, or an edit asks for exactly what it is for (e.g. "add a testimonial carousel" -> Swiper). Otherwise use plain JavaScript.
 7. Use real, high-quality photography from https://images.unsplash.com (stable photo URLs that work without an API key) or rich CSS gradients / inline SVG patterns for imagery and backgrounds. Give every image meaningful alt text. For icons use inline SVGs (e.g. hand-inlined lucide/heroicons paths) rather than icon-font CDNs.
@@ -805,7 +813,8 @@ Fix these with apply_surgical_edits before finishing. If a search anchor around 
 
 // The Website Studio's initial-generation instruction. Websites skip the app
 // prompt's layout-target switch (mobile/desktop/both): the site is always
-// desktop-first responsive, so one instruction covers it.
+// responsive (designed for desktop, coded mobile-first), so one instruction
+// covers it.
 export const buildWebsiteInitialGenerationPrompt = (prompt, projectName, addonDirective = '') => {
   const trimmedPrompt = prompt.trim();
   const nameInstruction = buildProjectNameInstruction(projectName, 'website');
@@ -813,7 +822,7 @@ export const buildWebsiteInitialGenerationPrompt = (prompt, projectName, addonDi
 
   return `Create a complete, polished, responsive website based on this request: ${trimmedPrompt}.${addonLine}
 
-Structure it like a professional website: a top navigation bar with the site name, menu links, and a call-to-action button; a hero section with a strong headline and supporting imagery; several distinct content sections appropriate to the request; and an informative footer. Design desktop-first for a 1440px viewport and reflow down to phone widths. All content (headings, paragraphs, images, links) must be present as static HTML in the markup.${nameInstruction}`;
+Structure it like a professional website: a top navigation bar with the site name, menu links, and a call-to-action button; a hero section with a strong headline and supporting imagery; several distinct content sections appropriate to the request; and an informative footer. It must look designed on both a 1440px desktop and a 375px phone: write the Tailwind classes mobile-first (unprefixed classes are the phone layout, md:/lg: add the desktop layout) so columns stack, type and spacing shrink, and nothing overflows on phones. All content (headings, paragraphs, images, links) must be present as static HTML in the markup.${nameInstruction}`;
 };
 
 // The Games Studio's initial-generation instruction. Games are single-file like
