@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
+import { playBlip, unlockUiSound } from '../lib/uiSound';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
 // invite/widget assets), drawn to match the lucide icons' ~17px box.
@@ -53,6 +54,15 @@ const STUDIOS = [
 // The heading's rotating word ("Build an app", "Build a website", ...). Same
 // order as STUDIOS: hovering a studio row jumps the title to its index.
 const ROTATING_STUDIOS = ['an app', 'a website', 'a game'];
+// Hover blip pitch (semitones) per studio row: a rising major triad, so moving
+// down the list climbs. The secondary chips share one lower note.
+const ROW_PITCHES = [0, 4, 7];
+const CHIP_PITCH = -5;
+// Mouse only: a tap on a touch screen also fires pointerenter, and it would
+// blip just as the studio opens.
+const blipOnHover = (event, pitch) => {
+  if (event.pointerType === 'mouse') playBlip(pitch);
+};
 
 // Colours come from the studio-* classes (studio-choice.css), not Tailwind's
 // white/black utilities, so each one has a dark and a light value.
@@ -85,6 +95,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
     if (event.pointerType === 'mouse') setTitleHeld(false);
   };
   const rowRefs = useRef({});
+  // Audio stays locked until the first click or key press (browser rule), so
+  // hover blips start after that.
+  useEffect(() => unlockUiSound(), []);
   const [indicator, setIndicator] = useState(null);
 
   // The highlight is one element that slides to the active row. It is
@@ -310,7 +323,10 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                       aria-keyshortcuts={String(index + 1)}
                       onClick={() => onSelectStudio(key)}
                       onMouseEnter={() => setActive(key)}
-                      onPointerEnter={(event) => holdTitle(event, index)}
+                      onPointerEnter={(event) => {
+                        holdTitle(event, index);
+                        blipOnHover(event, ROW_PITCHES[index]);
+                      }}
                       onFocus={() => setActive(key)}
                       aria-label={`${cta}: ${title}`}
                       data-studio={key}
@@ -339,6 +355,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                     key={key}
                     type="button"
                     onClick={onClick}
+                    onPointerEnter={(event) => blipOnHover(event, CHIP_PITCH)}
                     aria-label={label}
                     title={description}
                     data-studio={key}
