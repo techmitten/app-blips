@@ -1,4 +1,4 @@
-import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply, invalidArgumentsError } from './edits';
+import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply, extractUserNotes, invalidArgumentsError } from './edits';
 import { isDesktop, webProviderStore } from './desktop';
 import { loadOutputTokenLimit, loadPromptSuggestions } from './config';
 import { describeProjectForSuggestions, recentRequests, parseSuggestions, MAX_SUGGESTIONS } from './promptSuggestions';
@@ -1147,7 +1147,12 @@ const generateAppCodeCore = async (
       throw new Error(`The model did not return any ${noun} code. Please try again.`);
     }
 
-    const reply = [introReply || extractLeadingReply(rawText), routerNote].filter(Boolean).join('\n\n') || undefined;
+    // The model's own text before the HTML: normally nothing, or a note for
+    // the user (prompts.js REPLY_GUIDELINES), which the caller adds to the
+    // reply. Any other text only stands in for a missing intro reply.
+    const leadingText = extractLeadingReply(rawText);
+    const userNote = extractUserNotes(leadingText);
+    const reply = [introReply || (userNote ? '' : leadingText), routerNote].filter(Boolean).join('\n\n') || undefined;
 
     // End-of-generation syntax gate: parse the finished document, and if it
     // doesn't parse, feed the errors back for correction. Repair requests use
@@ -1215,6 +1220,7 @@ const generateAppCodeCore = async (
       editMode: 'full-generation',
       editSummary: `Initial ${noun} generation.`,
       reply,
+      ...(userNote ? { userNote } : {}),
       syntaxAutoFixAttempted,
       syntaxAutoFixSuccess: syntaxAutoFixAttempted ? check.errors.length === 0 : undefined,
       ...(check.errors.length ? { syntaxErrors: check.errors } : {}),
@@ -1268,6 +1274,18 @@ const generateAppCodeCore = async (
 
   const syntaxResultFields = () =>
     syntaxErrors.length ? { syntaxErrors } : {};
+
+  // The reply for a finished edit. The model's own text is normally nothing,
+  // or notes for the user (prompts.js REPLY_GUIDELINES), which the caller
+  // adds to the reply; a note repeated on a later turn is kept once. Any
+  // other text only stands in for a missing intro reply.
+  const replyResultFields = () => {
+    const userNote = extractUserNotes(replyParts.join('\n\n'));
+    return {
+      reply: introReply || (userNote ? '' : replyParts.join(' ').trim()) || undefined,
+      ...(userNote ? { userNote } : {}),
+    };
+  };
 
   // Progress line for the UI. Auto-fix passes keep their own "Fixing ..." status.
   const reportStatus = (text) => {
@@ -1325,7 +1343,7 @@ const generateAppCodeCore = async (
           ...filesResult(),
           editMode: 'surgical',
           editSummary: prompt,
-          reply: introReply || replyParts.join(' ').trim() || undefined,
+          ...replyResultFields(),
           syntaxAutoFixAttempted: syntaxRepairCycles > 0,
           syntaxAutoFixSuccess: syntaxRepairCycles > 0 ? syntaxErrors.length === 0 : undefined,
           ...syntaxResultFields()
@@ -1402,7 +1420,7 @@ const generateAppCodeCore = async (
       ...filesResult(),
       editMode: 'surgical',
       editSummary: prompt,
-      reply: introReply || replyParts.join(' ').trim() || undefined,
+      ...replyResultFields(),
       syntaxAutoFixAttempted: syntaxRepairCycles > 0,
       syntaxAutoFixSuccess: syntaxRepairCycles > 0 ? syntaxErrors.length === 0 : undefined,
       ...syntaxResultFields()
@@ -1616,6 +1634,14 @@ const generateAppCodeWithSummary = async (...args) => {
     // version (appended to the opening acknowledgement when there is one).
     if (onChunk) onChunk(`${separator}${completion}`, 'reply');
     result.reply = `${result.reply || ''}${separator}${completion}`;
+  }
+  // What the build model had to tell the user (a part it left out, a choice it
+  // made, a setup step). Auto-fix passes stay silent.
+  const userNote = isBuildResult && !isAutoFix ? result.userNote : '';
+  if (result) delete result.userNote;
+  if (userNote) {
+    if (onChunk) onChunk(`${result.reply ? '\n\n' : ''}${userNote}`, 'reply');
+    result.reply = `${result.reply || ''}\n\n${userNote}`.trim();
   }
   if (imageNote) {
     if (onChunk) onChunk(`\n\n${imageNote}`, 'reply');

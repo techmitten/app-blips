@@ -98,6 +98,21 @@ export const extractLeadingReply = (text) => {
   return '';
 };
 
+// The build model writes no chat text of its own except notes for the user
+// (prompts.js REPLY_GUIDELINES): paragraphs that start with "Note:". Returns
+// them as one string ('' when there are none), ready to add to the reply.
+const USER_NOTE_RE = /^\*{0,2}note\s*:\*{0,2}\s*([\s\S]+)/i;
+const MAX_USER_NOTE_CHARS = 1200;
+
+export const extractUserNotes = (text) => {
+  const notes = new Set();
+  for (const paragraph of String(text || '').split(/\n\s*\n/)) {
+    const body = paragraph.trim().match(USER_NOTE_RE)?.[1].replace(/\s+/g, ' ').trim();
+    if (body) notes.add(`Note: ${body}`);
+  }
+  return [...notes].join('\n\n').slice(0, MAX_USER_NOTE_CHARS);
+};
+
 export const normalizeLine = (line) => line.trim().replace(/\s+/g, ' ');
 
 // Every line-window in codeLines that matches searchLines under whitespace-normalized comparison.
