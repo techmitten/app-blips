@@ -896,26 +896,23 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
                     />
                   ) : (
                     <>
-                      {/* The hidden copy sizes the field to its text, so
-                          .surge.sh sits right after the name. */}
-                      <span className="inline-grid min-w-[3ch] max-w-full overflow-hidden">
-                        <span className="invisible col-start-1 row-start-1 whitespace-pre font-semibold" aria-hidden="true">{name || ' '}</span>
-                        <input
-                          key="surge"
-                          id="surge-name"
-                          type="text"
-                          value={name}
-                          onChange={(event) => setName(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                          maxLength={63}
-                          size={1}
-                          autoFocus
-                          spellCheck={false}
-                          disabled={busy}
-                          aria-describedby="surge-name-help"
-                          className="col-start-1 row-start-1 w-full min-w-0 bg-transparent font-semibold text-slate-900 outline-none"
-                        />
-                      </span>
-                      <span className="shrink-0 text-slate-500">{SURGE_SUFFIX}</span>
+                      <input
+                        key="surge"
+                        id="surge-name"
+                        type="text"
+                        value={name}
+                        onChange={(event) => setName(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                        maxLength={63}
+                        size={1}
+                        autoFocus
+                        spellCheck={false}
+                        disabled={busy}
+                        aria-describedby="surge-name-help"
+                        className="min-w-0 flex-1 bg-transparent font-semibold text-slate-900 outline-none"
+                      />
+                      {/* Pinned to the far edge behind a divider, away from
+                          the caret, so it doesn't read as editable text. */}
+                      <span className="ml-3 shrink-0 select-none border-l border-slate-200 pl-3 text-slate-500">{SURGE_SUFFIX}</span>
                     </>
                   )}
                 </span>
