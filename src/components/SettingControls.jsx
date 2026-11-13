@@ -30,13 +30,14 @@ export function SettingRow({ id, title, description, children, details, headingL
   );
 }
 
-export function Switch({ checked, onChange, labelledBy, disabled = false }) {
+export function Switch({ checked, onChange, labelledBy, describedBy, disabled = false }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed ${

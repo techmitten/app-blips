@@ -28,8 +28,8 @@ You need a free Surge account. You can create one inside AppBlips.
   <Step title="Choose the options you want">
     All of these are optional. AppBlips remembers your choices for each project.
 
-    - **Site icon:** click **Choose image…** and pick a picture (PNG, JPEG, WebP, GIF, SVG or ICO). It's the small picture in the browser tab, in bookmarks and on a phone's home screen. A square image works best.
-    - **Let search engines find this site:** tick it if you want Google and others to list your site. See [Search engines](#search-engines).
+    - **Site icon:** click **Add icon…** and pick a picture (PNG, JPEG, WebP, GIF, SVG or ICO). It's the small picture in the browser tab, in bookmarks and on a phone's home screen. A square image works best.
+    - **Let search engines find this site:** on at first, so Google and others can list your site. Turn it off to keep the site out of search results. See [Search engines](#search-engines).
     - **Prompt visitors to install as an app:** visitors see a notice inviting them to add your site to their phone or computer like an app, with its own icon. This makes your site a PWA (progressive web app). Without a site icon, AppBlips makes a simple one from your project's name.
     - **Password protect this site:** visitors must type a password before they see anything. See [Password protection](#password-protection).
   </Step>
@@ -72,31 +72,37 @@ If you own a domain, such as `mybakery.com`, you can publish to it instead of a 
 | `www.mybakery.com` (with a prefix) | CNAME | `www` | `geo.surge.world` |
 | `mybakery.com` (no prefix) | A | `@` | `138.197.235.123` |
 
+Not sure where to add it? Under the record, click **Not sure how? Guides for GoDaddy, Namecheap and other providers** and pick the company you bought the domain from. Its own step-by-step guide opens in your browser.
+
 For a domain with no prefix, you can use an ALIAS or ANAME record pointing at `geo.surge.world` instead, if your provider offers one. Surge sends the `www` and plain versions of your domain to the same site, as long as both point at Surge.
 
-DNS changes can take up to a day to work everywhere. Until then, your domain won't open the site. To see the record again later, click **Publish** and open **Domain not working yet? DNS setup**.
+After publishing, the window says **Uploaded to Surge** and keeps checking your domain's DNS every 30 seconds while it's open. Click **Check now** to check straight away. If your domain still points somewhere else, such as a parking page from the company you bought it from, the window shows where, so you know which record to change. When the record is in place, the window says **Your site is live**.
+
+DNS changes can take up to a day to work everywhere. Until then, your domain won't open the site. To check again later, click **Publish**: the window shows **Waiting for DNS** or **Live** next to your domain, and **DNS setup** shows the record again.
+
+To check, AppBlips looks up your domain's public DNS records with Cloudflare's DNS service (or Google's, if Cloudflare's can't be reached). Only the domain name is sent.
 
 To go back to a free address, click **Publish to a different address**, then **Use a free .surge.sh address**.
 
 ## Search engines
 
-**Let search engines find this site** is unticked at first.
+**Let search engines find this site** is on for new sites. A site you published while it was off stays off until you turn it on.
 
-- **Unticked:** AppBlips adds a `robots.txt` file and a "noindex" tag that ask search engines to leave your site out of their results. Well-behaved search engines respect that, but it isn't a lock: anyone with the link can still open the site.
-- **Ticked:** your site can show up in search results. If the [SEO tool](/features/tools#seo) is on and has your website address, AppBlips also publishes a `sitemap.xml` and `robots.txt` to help search engines find your pages. This box decides, whatever the SEO tool's own setting says.
+- **Off:** AppBlips adds a `robots.txt` file and a "noindex" tag that ask search engines to leave your site out of their results. Well-behaved search engines respect that, but it isn't a lock: anyone with the link can still open the site.
+- **On:** your site can show up in search results. If the [SEO tool](/features/tools#seo) is on and has your website address, AppBlips also publishes a `sitemap.xml` and `robots.txt` to help search engines find your pages. This switch decides, whatever the SEO tool's own setting says.
 
 A password-protected site is always kept out of search results.
 
 ## Password protection
 
-Tick **Password protect this site**, type a password of at least 10 characters under **Site password**, and type it again under **Type it again**. Visitors then see a lock screen and need the password to get in.
+Turn on **Password protect this site**, type a password of at least 10 characters under **Site password**, and type it again under **Type it again**. Visitors then see a lock screen and need the password to get in.
 
 AppBlips locks every page on your device before uploading anything, so what goes online is the lock screen with the pages scrambled inside it.
 
 - **Your password is never uploaded or saved**, by AppBlips or in the published files.
 - **Everything stays hidden until the password is typed**, including your pictures. Only the site icon stays public, because the lock screen shows it.
 - **Visitors unlock once per tab.** The site's other pages then open without asking again. Closing the tab locks it again.
-- **Updating asks for the password again**, because AppBlips doesn't keep it. Type the same one to keep it, or a new one to change it. Untick the box and click **Update site** to remove the password.
+- **Updating asks for the password again**, because AppBlips doesn't keep it. Type the same one to keep it, or a new one to change it. Turn the switch off and click **Update site** to remove the password.
 
 <Warning>
   A static host can't count wrong guesses or lock anyone out. Someone who downloads the locked pages could try many passwords on their own computer. AppBlips makes each guess slow, but a short or common password can still be guessed. Use a long password, such as four random words, and don't reuse one from elsewhere.
