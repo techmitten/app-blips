@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="public/blackblipsbg.webp" />
-    <img src=".github/readme/logo-light.png" alt="AppBlips — Text to App and Website Generator" width="320" />
+    <source media="(prefers-color-scheme: dark)" srcset=".github/readme/logo-framed-dark.png" />
+    <img src=".github/readme/logo-framed-light.png" alt="AppBlips — Text to App and Website Generator" width="440" />
   </picture>
 </p>
 
