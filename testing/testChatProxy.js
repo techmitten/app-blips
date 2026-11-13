@@ -456,3 +456,14 @@ test('only the headers the app reads are relayed from the provider', async (t) =
   assert.equal(response.headers.get('x-request-id'), 'req_1');
   for (const name of ['set-cookie', 'access-control-allow-origin', 'content-encoding']) assert.equal(response.headers.get(name), null, name);
 });
+
+test('temperature defaults to 0.0; OPENAI_LLM_TEMPERATURE changes it', async (t) => {
+  const plain = await runWith(t, { OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', OPENAI_BASE_URL: 'https://llm.example/v1' });
+  assert.equal(plain.upstream.body.temperature, 0);
+  t.mock.restoreAll();
+  const set = await runWith(t, { OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_LLM_TEMPERATURE: '0.7' });
+  assert.equal(set.upstream.body.temperature, 0.7);
+  t.mock.restoreAll();
+  const user = await runWith(t, {}, { user_provider: { id: 'openrouter', apiKey: 'u', model: 'x' } });
+  assert.equal(user.upstream.body.temperature, 0);
+});

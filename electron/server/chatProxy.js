@@ -20,6 +20,8 @@ import { callAnthropic } from './anthropic.js';
 import { defaultModel } from './defaultModel.js';
 import { meterResponse } from './freeLimits.js';
 
+export const DEFAULT_TEMPERATURE = 0;
+
 const toChatCompletionsUrl = (baseUrl) => {
   const trimmed = (baseUrl || '').trim().replace(/\/+$/, '');
   if (!trimmed) return '';
@@ -222,7 +224,10 @@ async function forward(request, env, payload, provider, maxTokens, connectTimeou
 
   const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix } = payload;
 
-  let temperature = 0.2;
+  // 0.0 everywhere (desktop, browser, Docker, Android) unless
+  // OPENAI_LLM_TEMPERATURE sets another; reasoning models, which reject a
+  // temperature, have it removed (providers.js).
+  let temperature = DEFAULT_TEMPERATURE;
   if (auto_fix === true) {
     // Error auto-fix requests (runtime or syntax) must be deterministic, so
     // pin temperature to 0.0 regardless of OPENAI_LLM_TEMPERATURE.
