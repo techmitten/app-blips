@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
-  Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, X,
+  Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, Volume2, VolumeX, X,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
-import { playBlip, unlockUiSound } from '../lib/uiSound';
+import { isUiSoundMuted, playBlip, setUiSoundMuted, unlockUiSound } from '../lib/uiSound';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
 // invite/widget assets), drawn to match the lucide icons' ~17px box.
@@ -98,6 +98,13 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
   // Audio stays locked until the first click or key press (browser rule), so
   // hover blips start after that.
   useEffect(() => unlockUiSound(), []);
+  const [soundMuted, setSoundMuted] = useState(isUiSoundMuted);
+  const toggleSound = () => {
+    const next = !soundMuted;
+    setUiSoundMuted(next);
+    setSoundMuted(next);
+  };
+  const soundLabel = soundMuted ? 'Turn sounds on' : 'Mute sounds';
   const [indicator, setIndicator] = useState(null);
 
   // The highlight is one element that slides to the active row. It is
@@ -221,6 +228,16 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                 >
                   <CircleHelp size={17} aria-hidden="true" />
                 </a>
+                <button
+                  type="button"
+                  onClick={toggleSound}
+                  aria-label="Mute sounds"
+                  aria-pressed={soundMuted}
+                  title={soundLabel}
+                  className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
+                >
+                  {soundMuted ? <VolumeX size={17} aria-hidden="true" /> : <Volume2 size={17} aria-hidden="true" />}
+                </button>
                 {onToggleTheme && (
                   <button
                     type="button"
@@ -340,7 +357,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                         <span className="studio-row-title studio-text-strong">{title}</span>
                         <span className="studio-row-desc studio-text-soft">{description}</span>
                       </span>
-                      <kbd className="studio-kbd" aria-hidden="true">{index + 1}</kbd>
                       <ArrowRight size={18} className="studio-row-arrow shrink-0" aria-hidden="true" />
                     </button>
                   ))}
@@ -454,6 +470,10 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                 {isDark ? 'Light theme' : 'Dark theme'}
               </button>
             )}
+            <button type="button" className={MENU_ITEM} onClick={toggleSound}>
+              {soundMuted ? <VolumeX size={18} aria-hidden="true" /> : <Volume2 size={18} aria-hidden="true" />}
+              {soundMuted ? 'Turn sounds on' : 'Mute sounds'}
+            </button>
             <div className="studio-menu-sep" role="separator" />
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
               <Github size={18} aria-hidden="true" /> GitHub

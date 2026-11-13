@@ -9,6 +9,20 @@
 let context = null;
 let lastPlayed = 0;
 
+// Muting is remembered across visits. Storage can throw (private windows,
+// blocked site data); sound then just stays on for the session.
+export const UI_SOUND_MUTED_KEY = 'orion-ui-sound-muted';
+let muted = (() => {
+  try { return localStorage.getItem(UI_SOUND_MUTED_KEY) === 'true'; } catch { return false; }
+})();
+
+export const isUiSoundMuted = () => muted;
+
+export function setUiSoundMuted(value) {
+  muted = Boolean(value);
+  try { localStorage.setItem(UI_SOUND_MUTED_KEY, String(muted)); } catch { /* keep the in-memory value */ }
+}
+
 function getContext() {
   if (context) return context;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -36,6 +50,7 @@ export function unlockUiSound() {
 // A short, quiet sine blip. `pitch` shifts it in semitones so neighbouring
 // options can sound slightly different.
 export function playBlip(pitch = 0) {
+  if (muted) return;
   const ctx = getContext();
   if (!ctx || ctx.state !== 'running') return;
   // Sweeping the mouse across several rows shouldn't machine-gun.
