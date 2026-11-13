@@ -19,8 +19,11 @@ export const UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-source#upd
 // .deb installs can't update themselves (it needs the user's password), so
 // their notice spells out the steps and links here for the long version.
 export const DESKTOP_UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-desktop#updates';
-// Settings → "Check now" on a Microsoft Store install links here.
-export const STORE_URL = 'https://apps.microsoft.com/detail/9nk9ss4v2n1k';
+// Settings → "Check now" on a Microsoft Store install opens AppBlips' page in
+// the Store app itself (not apps.microsoft.com in the browser). The desktop
+// main process allows exactly this URL through its window-open handler
+// (electron/main.js, STORE_APP_URL), so keep the two in step.
+export const STORE_URL = 'ms-windows-store://pdp/?productid=9NK9SS4V2N1K';
 // Hourly, so a new release reaches people soon after it is published. One
 // request an hour per install stays far below the API limit above.
 export const CHECK_INTERVAL_MS = 60 * 60 * 1000;

@@ -13,8 +13,17 @@ import { logWarn } from '../lib/errorLog';
 // releases go out before the Store approves them), everything else links to
 // the release.
 // A dismissed notice doesn't hide the answer here, since the user asked.
+//
+// `checking` is kept apart from `result` so a repeat check leaves the last
+// answer on screen until the new one replaces it, and the checking state is
+// held for at least MIN_CHECKING_MS: the Microsoft Store answer is instant, and
+// without both the row blinked (answer gone, "Checking…" for one frame, answer
+// back) and the modal jumped height on every click.
+const MIN_CHECKING_MS = 600;
+
 export function useUpdateCheck() {
   const [result, setResult] = useState(null); // { status, version?, url?, deb?, apt? }
+  const [checking, setChecking] = useState(false);
 
   // A self-updating build finishes downloading after the check returns.
   useEffect(() => (isDesktop ? desktopBridge.updates.onStatus((state) => {
@@ -22,37 +31,42 @@ export function useUpdateCheck() {
   }) : undefined), []);
 
   const check = async () => {
-    setResult({ status: 'checking' });
-    try {
-      if (isDesktop) {
-        const desktop = await desktopBridge.updates.check({ force: true }).catch((err) => {
-          logWarn('Desktop update check failed; checking GitHub releases instead', err);
-          return null;
-        });
-        if (desktop?.store) {
-          setResult({ status: 'store', url: STORE_URL });
-          return;
-        }
-        if (desktop?.auto) {
-          const state = desktop.state || {};
-          setResult(state.status === 'downloading' || state.status === 'ready'
-            ? { status: state.status, version: state.version }
-            : { status: 'current' });
-          return;
-        }
-        const release = await checkForUpdate({ storage: safeStorage('local'), force: true });
-        setResult(release
-          ? { status: 'available', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) }
-          : { status: 'current' });
-        return;
-      }
-      const release = await checkForUpdate({ storage: safeStorage('local'), force: true });
-      setResult(release ? { status: 'available', ...release } : { status: 'current' });
-    } catch (err) {
-      logWarn('Manual update check failed', err);
-      setResult({ status: 'failed' });
-    }
+    if (checking) return;
+    setChecking(true);
+    const started = Date.now();
+    const answer = await askForUpdate();
+    const wait = MIN_CHECKING_MS - (Date.now() - started);
+    if (wait > 0) await new Promise((resolve) => { setTimeout(resolve, wait); });
+    setResult(answer);
+    setChecking(false);
   };
 
-  return { result, check };
+  return { result, checking, check };
+}
+
+async function askForUpdate() {
+  try {
+    if (isDesktop) {
+      const desktop = await desktopBridge.updates.check({ force: true }).catch((err) => {
+        logWarn('Desktop update check failed; checking GitHub releases instead', err);
+        return null;
+      });
+      if (desktop?.store) return { status: 'store', url: STORE_URL };
+      if (desktop?.auto) {
+        const state = desktop.state || {};
+        return state.status === 'downloading' || state.status === 'ready'
+          ? { status: state.status, version: state.version }
+          : { status: 'current' };
+      }
+      const release = await checkForUpdate({ storage: safeStorage('local'), force: true });
+      return release
+        ? { status: 'available', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) }
+        : { status: 'current' };
+    }
+    const release = await checkForUpdate({ storage: safeStorage('local'), force: true });
+    return release ? { status: 'available', ...release } : { status: 'current' };
+  } catch (err) {
+    logWarn('Manual update check failed', err);
+    return { status: 'failed' };
+  }
 }

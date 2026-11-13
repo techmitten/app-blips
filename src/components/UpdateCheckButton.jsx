@@ -13,7 +13,11 @@ export function UpdateCheckButton({ checking, onCheck }) {
   return (
     <button type="button" onClick={onCheck} disabled={checking} className={SECONDARY_BUTTON}>
       <RefreshCw size={14} aria-hidden="true" className={checking ? 'animate-spin' : ''} />
-      {checking ? 'Checking…' : 'Check now'}
+      {/* Both labels share one grid cell so the button keeps its width. */}
+      <span className="grid">
+        <span className={`col-start-1 row-start-1 ${checking ? 'invisible' : ''}`}>Check now</span>
+        <span className={`col-start-1 row-start-1 ${checking ? '' : 'invisible'}`} aria-hidden={!checking}>Checking…</span>
+      </span>
     </button>
   );
 }
@@ -21,7 +25,7 @@ export function UpdateCheckButton({ checking, onCheck }) {
 export function UpdateCheckResult({ result }) {
   const [installing, setInstalling] = useState(false);
   const [installFailed, setInstallFailed] = useState(false);
-  if (!result || result.status === 'checking') return null;
+  if (!result) return null;
 
   const install = () => {
     setInstalling(true);
@@ -31,6 +35,10 @@ export function UpdateCheckResult({ result }) {
       setInstalling(false);
       setInstallFailed(true);
     });
+  };
+
+  const openStore = () => {
+    try { window.open(result.url, '_blank', 'noopener,noreferrer'); } catch { /* blocked */ }
   };
 
   const text = {
@@ -64,9 +72,11 @@ export function UpdateCheckResult({ result }) {
       )}
       {result.status === 'store' && (
         <div className="mt-2">
-          <ConfirmedLink href={result.url} why="To check for a new version of AppBlips in the Microsoft Store." className={SECONDARY_BUTTON}>
+          {/* Opens the Store app, not a website, so it skips the "leaves
+              AppBlips for this website" confirm: the label says where it goes. */}
+          <button type="button" onClick={openStore} className={SECONDARY_BUTTON}>
             Open Microsoft Store
-          </ConfirmedLink>
+          </button>
         </div>
       )}
       {result.status === 'available' && !(isDesktop && result.deb) && (

@@ -328,10 +328,10 @@ export default function SettingsModal({
                 id="set-updates"
                 title="Check for updates"
                 description={`You're on AppBlips ${CURRENT_VERSION}. When on, AppBlips asks GitHub about new versions${isDesktop ? ' and downloads them in the background where it can' : ''}. GitHub sees your IP address. Takes effect on the next launch. Check now asks once, even with this off.`}
-                details={updateCheck.result && updateCheck.result.status !== 'checking' ? <UpdateCheckResult result={updateCheck.result} /> : null}
+                details={updateCheck.result ? <UpdateCheckResult result={updateCheck.result} /> : null}
               >
                 <div className="flex items-center gap-3">
-                  <UpdateCheckButton checking={updateCheck.result?.status === 'checking'} onCheck={updateCheck.check} />
+                  <UpdateCheckButton checking={updateCheck.checking} onCheck={updateCheck.check} />
                   <Switch checked={checkUpdates} onChange={onCheckUpdatesChange} labelledBy="set-updates" />
                 </div>
               </SettingRow>
