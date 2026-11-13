@@ -91,6 +91,17 @@
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
   animation-name: tour-sheet-in;
 }
+/* Docked on top when a bottom sheet would cover the anchor (the prompt dock). */
+.tour-card-sheet[data-placement='sheet-top'] {
+  top: 0; bottom: auto;
+  border-radius: 0 0 22px 22px;
+  border-bottom: 1px solid var(--tour-card-border);
+  border-top: 0;
+  padding-top: calc(18px + env(safe-area-inset-top));
+  padding-bottom: 16px;
+  animation-name: tour-sheet-drop;
+}
+.tour-card-sheet[data-placement='sheet-top']::before { display: none; }
 .tour-card-sheet::before {
   content: '';
   display: block;
@@ -134,6 +145,7 @@
 
 @keyframes tour-card-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes tour-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes tour-sheet-drop { from { transform: translateY(-100%); } to { transform: none; } }
 @keyframes tour-step-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
 @keyframes tour-shake {
   20%, 60% { transform: translateX(-5px); }
@@ -172,6 +184,6 @@
 @media (prefers-reduced-motion: reduce) {
   .tour-spotlight, .tour-card, .tour-dot-mark, .tour-button { transition: none; }
   .tour-spotlight::after { animation: none; }
-  .tour-card, .tour-card-sheet, .tour-step-body, .tour-card-shake, .tour-invite { animation: none; }
+  .tour-card, .tour-card-sheet, .tour-card-sheet[data-placement='sheet-top'], .tour-step-body, .tour-card-shake, .tour-invite { animation: none; }
   .tour-invite.is-leaving { animation: none; opacity: 0; }
 }

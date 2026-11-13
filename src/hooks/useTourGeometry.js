@@ -63,9 +63,18 @@ function computeGeometry(element, card, preferred) {
     target = { left: Math.round(left), top: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) };
   }
 
-  // Phones: the card docks as a bottom sheet, so only the spotlight moves.
+  // Phones: the card docks as a full-width sheet, so only the spotlight moves.
+  // It sits at the bottom unless that would cover the anchor (the prompt dock
+  // and mode key live at the bottom of a phone screen) and docking on top
+  // leaves it fully clear. A screen-filling anchor (the preview) keeps the
+  // bottom sheet, so its toolbar and the Chat/Preview switch stay visible.
   if (sheet) {
-    return { target, sheet: true, placement: 'sheet', arrow: null, left: 0, top: 0, width: cardWidth, maxHeight: Math.round(vp.height * 0.6) };
+    const maxHeight = Math.round(vp.height * 0.6);
+    const sheetHeight = Math.min(cardHeight, maxHeight);
+    const coversBottom = target && target.top + target.height > vp.y + vp.height - sheetHeight;
+    const clearOnTop = target && target.top >= vp.y + sheetHeight;
+    const placement = coversBottom && clearOnTop ? 'sheet-top' : 'sheet';
+    return { target, sheet: true, placement, arrow: null, left: 0, top: 0, width: cardWidth, maxHeight };
   }
 
   const maxHeight = Math.round(vp.height - MARGIN * 2);
