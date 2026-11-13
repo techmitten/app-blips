@@ -21,6 +21,7 @@ import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
+import GitHubStarNotice from './components/GitHubStarNotice';
 import DesktopOnboarding from './components/DesktopOnboarding';
 import ImportSiteDialog from './components/ImportSiteDialog';
 import ShowcaseModal from './components/ShowcaseModal';
@@ -441,7 +442,7 @@ export default function App({ coldStart = false }) {
 
   // --- Projects (list / persistence) ---
   const {
-    myProjects, isProjectsListOpen, setIsProjectsListOpen,
+    myProjects, isProjectsListOpen, setIsProjectsListOpen, showStarPrompt, dismissGitHubStarPrompt,
     loadProject, saveProject, renameProject, deleteProject, deleteAllProjects,
   } = useProjects({
     workspace: {
@@ -2724,6 +2725,7 @@ export default function App({ coldStart = false }) {
         {settingsModal}
         <DesktopStorageNotice />
         <UpdateNotice />
+        {showStarPrompt && !isGenerating && <GitHubStarNotice onDismiss={dismissGitHubStarPrompt} />}
         {isProjectsListOpen && (
           <ProjectsListModal
             projects={myProjects}
@@ -2885,6 +2887,7 @@ export default function App({ coldStart = false }) {
       )}
 
       <UpdateNotice />
+      {showStarPrompt && !isGenerating && <GitHubStarNotice onDismiss={dismissGitHubStarPrompt} />}
       <DesktopStorageNotice />
 
       {isResumingProject ? null : showHero ? (

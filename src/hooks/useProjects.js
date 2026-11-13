@@ -13,6 +13,7 @@ import { blobBytes, blobText, ensureBlobs, putBlobs } from '../lib/blobStore';
 import { normalizeGallery } from '../lib/galleryImages';
 import { normalizeSeoProfile } from '../lib/seo';
 import { logError, logWarn } from '../lib/errorLog';
+import { trackStarPromptProjects, dismissStarPrompt } from '../lib/githubStarPrompt';
 
 // Imported codebases save versions as file-hash trees with the text in the
 // blob store (lib/codebase/versions.js). Loading one fills the blob cache
@@ -64,11 +65,17 @@ export default function useProjects({ workspace }) {
   seoRef.current = seoProfile;
 
   const [myProjects, setMyProjects] = useState([]);
+  const [showStarPrompt, setShowStarPrompt] = useState(false);
+  const dismissGitHubStarPrompt = () => {
+    dismissStarPrompt();
+    setShowStarPrompt(false);
+  };
   const [isProjectsListOpen, setIsProjectsListOpen] = useState(false);
 
   const loadUserProjects = useCallback(async () => {
     const projects = localRowsToProjects(readProjectRows());
     setMyProjects(projects);
+    setShowStarPrompt(trackStarPromptProjects(projects));
     return projects;
   }, []);
 
@@ -352,6 +359,8 @@ export default function useProjects({ workspace }) {
 
   return {
     myProjects,
+    showStarPrompt,
+    dismissGitHubStarPrompt,
     isProjectsListOpen,
     setIsProjectsListOpen,
     loadUserProjects,
