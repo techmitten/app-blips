@@ -8,8 +8,8 @@ const PROVIDER_NAMES = { deepseek: 'DeepSeek', anthropic: 'Anthropic', openai: '
 // PROVIDER_SEARCH_CONNECTORS). Only the tool for the provider the AI runs on
 // (`inUse`, lib/providerWeb.js; '' when it has no web search) can be on: it
 // is on unless the user switched it off. The others show Off with a disabled
-// switch. Being on only adds the globe to the chat box; the globe turns
-// search on.
+// switch. Being on adds the globe to the chat box; the globe (on by
+// default, config.js loadWebSearch) turns search on and off.
 export default function ProviderSearchConnector({ id, state, onChange, inUse, connectors }) {
   const def = CONNECTOR_DEFINITIONS[id];
   const providerName = PROVIDER_NAMES[def.providerSearch];
@@ -42,8 +42,8 @@ export default function ProviderSearchConnector({ id, state, onChange, inUse, co
         <div className="flex items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <Globe size={16} className="mt-0.5 shrink-0 text-slate-600" aria-hidden="true" />
           <p className="text-xs leading-snug text-slate-700">
-            <strong className="font-semibold text-slate-900">This adds the globe, it doesn’t turn search on.</strong>{' '}
-            The AI only searches the web after you click the globe under the chat box. It turns red while search is on, and you can click it again at any time to turn search off.
+            <strong className="font-semibold text-slate-900">The globe under the chat box turns search on and off.</strong>{' '}
+            Search starts on, and the globe is red while it is. Even then, the AI only searches when a request needs real or current facts. Click the globe to turn search off for your prompts; switch this tool off to remove the globe altogether.
           </p>
         </div>
       </div>

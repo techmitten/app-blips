@@ -17,6 +17,7 @@
 //   - navigate-page: swaps in another page of a multi-page site (the frame
 //     never navigates itself), then scrolls to the link's #hash.
 //   - open-youtube: opens a YouTube video the preview shows as a poster.
+//   - open-link: opens an outside link clicked in the app, unsandboxed.
 // Everything else the bridge posts (editing, nav-state, screenshots) is
 // ignored here.
 //
@@ -120,6 +121,14 @@ const SHELL_SOURCE = `(function () {
       var url = p.kind === 'video' && /^[A-Za-z0-9_-]{11}$/.test(id) ? 'https://www.youtube.com/watch?v=' + id
         : p.kind === 'list' && /^[A-Za-z0-9_-]{2,64}$/.test(id) ? 'https://www.youtube.com/playlist?list=' + id : '';
       if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    } else if (d.type === 'open-link') {
+      // Same as externalLinkUrl in previewBridge.js: the payload is untrusted.
+      var link = null;
+      try {
+        var u = typeof p.url === 'string' && p.url.length <= 4096 ? new URL(p.url) : null;
+        if (u && (u.protocol === 'https:' || u.protocol === 'http:') && !u.username && !u.password) link = u.href;
+      } catch (err) { link = null; }
+      if (link) window.open(link, '_blank', 'noopener,noreferrer');
     }
   });
 

@@ -41,7 +41,7 @@ export const CONNECTORS_KEY = 'orion-connectors';
 const providerSearchConnector = ({ id, provider, providerName, name, engine, price, pageReads = false, homeUrl, notes = [] }) => ({
   id,
   name,
-  tagline: `Adds a web search globe to the chat box while you use ${providerName}. Search stays off until you click it.`,
+  tagline: `Adds a web search globe to the chat box while you use ${providerName}. Search starts on; click the globe to turn it off.`,
   description: `While ${providerName} is your AI provider, the AI can search the web with ${engine} for real facts, such as a business’s opening hours or current news, instead of guessing. It uses the same ${providerName} key as your builds.`,
   providerSearch: provider,
   homeUrl,
@@ -52,14 +52,14 @@ const providerSearchConnector = ({ id, provider, providerName, name, engine, pri
     'Search the web for the current way to embed a Google Map and add one with my address to the contact section.',
   ],
   page: {
-    enableDescription: `Adds the web search globe to the chat box while ${providerName} is your AI provider. It doesn’t turn web search on: the AI only searches after you click the globe.`,
+    enableDescription: `Adds the web search globe to the chat box while ${providerName} is your AI provider. Search starts on (the globe is red); click the globe to turn it off for your prompts. Switch this tool off to remove the globe and turn search off completely.`,
   },
   about: {
     what: `${engine} lets the AI look things up on the web while it builds${pageReads ? ' and read whole pages' : ''}, using your ${providerName} key. It works only while ${providerName} is your AI provider in Settings → AI (or the host’s Free option runs on ${providerName}).`,
     steps: [
       `Choose ${providerName} in Settings → AI. AppBlips detects it and switches this tool on, and its card says “In use”. While you use another provider, it shows as Off.`,
-      'Being in use only adds the globe button to the chat box. Web search is still off at this point.',
-      'Click the globe to turn web search on. It turns red while it’s on and stays on until you click it again.',
+      'Being in use adds the globe button to the chat box. Web search starts on, and the globe is red while it is.',
+      'Click the globe to turn web search off for your prompts, and again to turn it back on. It stays the way you leave it.',
       'To remove the globe from the chat box, switch this tool off. It stays off for this provider until you switch it on again.',
       'Ask for something that needs real or current facts, for example “add the opening hours of Blue Door Café in Portland”. The chat shows “Searching the web…” while the AI looks it up.',
     ],

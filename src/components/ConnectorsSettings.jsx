@@ -241,7 +241,7 @@ function ConnectorPrompts({ id, connected, images = [] }) {
       <h4 className="text-sm font-semibold text-slate-900">Prompts to try</h4>
       <p className="text-xs leading-snug text-slate-600">
         {providerSearch
-          ? 'Click the globe under the chat box to turn web search on, then copy a prompt into the builder chat.'
+          ? 'Web search starts on (the globe under the chat box is red). Copy a prompt into the builder chat to try it.'
           : <>Copy a prompt and paste it into the builder chat to add {name} to the project you have open.
             {!connected && ` They work once ${name} is ${native ? 'turned on' : 'connected'}.`}</>}
       </p>

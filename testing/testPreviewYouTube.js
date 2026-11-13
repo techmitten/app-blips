@@ -4,7 +4,7 @@
 // generated page, so only a YouTube-alphabet id may reach the fixed URL.
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { injectPreviewBridge, youTubeWatchUrl, PREVIEW_BRIDGE_SCRIPT } from '../src/previewBridge.js';
+import { injectPreviewBridge, youTubeWatchUrl, externalLinkUrl, PREVIEW_BRIDGE_SCRIPT } from '../src/previewBridge.js';
 
 assert.equal(youTubeWatchUrl({ kind: 'video', id: 'dQw4w9WgXcQ' }), 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
 assert.equal(youTubeWatchUrl({ kind: 'list', id: 'PL1234abcd_-' }), 'https://www.youtube.com/playlist?list=PL1234abcd_-');
@@ -55,3 +55,14 @@ for (const url of [
 ]) assert.equal(sandbox.youTubeTarget(url), null, url);
 
 console.log('testPreviewYouTube: ok');
+
+// Outside links clicked in the preview are opened by the parent, unsandboxed,
+// so pages like Google Maps load ("blocked" otherwise). Untrusted payload.
+assert.equal(externalLinkUrl({ url: 'https://www.google.com/maps/place/Smokers' }), 'https://www.google.com/maps/place/Smokers');
+assert.equal(externalLinkUrl({ url: 'http://example.com/a?b=1' }), 'http://example.com/a?b=1');
+for (const bad of ['javascript:alert(1)', 'data:text/html,x', 'file:///etc/passwd', 'https://user:pw@example.com/', 'not a url', '', 'https://x.com/' + 'a'.repeat(5000)]) {
+  assert.equal(externalLinkUrl({ url: bad }), null, bad);
+}
+assert.equal(externalLinkUrl(null), null);
+assert.match(PREVIEW_BRIDGE_SCRIPT, /post\('open-link'/);
+console.log('external link checks passed');

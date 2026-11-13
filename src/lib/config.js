@@ -89,16 +89,18 @@ export const loadPromptSuggestions = () => {
   }
 };
 
-export const WEB_SEARCH_KEY = 'orion-web-search';
-
 // Boolean: whether the AI may search the web through the AI provider's own
 // search (lib/providerWeb.js), switched with the globe under the chat box.
-// Each search has a small cost on the same provider key, so it is off by default; only an explicit 'true' turns it on.
+// On by default: the AI searches only when a request needs real facts, and
+// each search costs about a cent or less on the provider's key. Only an
+// explicit 'false' turns it off. (A new key: the first version started off
+// and saved 'false' for everyone who opened the app.)
+export const WEB_SEARCH_KEY = 'orion-web-search-on';
 export const loadWebSearch = () => {
   try {
-    return safeStorage('local')?.getItem(WEB_SEARCH_KEY) === 'true';
+    return safeStorage('local')?.getItem(WEB_SEARCH_KEY) !== 'false';
   } catch {
-    return false;
+    return true;
   }
 };
 

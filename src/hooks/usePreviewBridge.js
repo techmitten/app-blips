@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION, youTubeWatchUrl } from '../previewBridge';
+import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION, externalLinkUrl, youTubeWatchUrl } from '../previewBridge';
 import { PREVIEW_MODES } from '../lib/constants';
 import { rasterizeDomSnapshot } from '../lib/attachments';
 import { logWarn } from '../lib/errorLog';
@@ -235,6 +235,13 @@ export default function usePreviewBridge({
         // opened by the frame would inherit its sandbox and break YouTube too.
         // Untrusted payload, so only a validated id goes into a fixed URL.
         const url = youTubeWatchUrl(data.payload);
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      else if (data.type === 'open-link') {
+        // An outside link clicked in the preview, opened from here for the
+        // same reason: a tab opened by the sandboxed frame is sandboxed too,
+        // and Google Maps and the like refuse to load in it.
+        const url = externalLinkUrl(data.payload);
         if (url) window.open(url, '_blank', 'noopener,noreferrer');
       }
       else if (data.type === "error") logWarn('Preview bridge reported an error', data.payload?.message);
