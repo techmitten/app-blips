@@ -1,0 +1,56 @@
+---
+title: "Export your project"
+sidebarTitle: "Exporting"
+description: "Download any AppBlips project as a single HTML file or a .zip of pages, or an app as a React project, and host it anywhere."
+---
+
+Exporting downloads your project as files you keep. They work without AppBlips: open them in a web browser, send them to someone, or upload them to any web host.
+
+To put a project online without downloading anything, use [Publish](/features/publishing) instead.
+
+## Download your project
+
+1. Open the project.
+2. In the preview toolbar, click the download key (an arrow pointing down into a tray), just left of **Publish**. Its tooltip says **Download this app as an HTML file**.
+3. Save the file. The desktop app asks where to save it; a web browser usually puts it in your **Downloads** folder.
+
+What you get depends on the project:
+
+- **A one-page app, website or game** downloads as a single `.html` file. Double-click it to open it in your web browser.
+- **A website with several pages** downloads as a `.zip` file with one `.html` file per page. Unzip it first, then open `index.html`, the home page.
+- **An app from the App studio** opens a small **Download as** menu first. See [Apps: HTML file or React project](#apps-html-file-or-react-project).
+- **An imported site** has an **Export** button instead, and downloads the whole project as a `.zip`. See [Export an imported site](/features/importing-sites#export-the-project).
+
+### What comes along
+
+- **Your own pictures** from [My images](/features/tools#my-images-beta), and **images made with [Pollinations](/features/connectors#pollinations)**. In a `.zip`, they're in an `images` folder. In a single `.html` file, they're built into the page.
+- **`sitemap.xml` and `robots.txt`**, if the [SEO tool](/features/tools#seo) is on and has your website address. Because these are separate files, the download becomes a `.zip`, even for one page.
+- **Your extensions.** Anything an [extension](/features/connectors) needs in the page, such as a form key or tracking code, is already written in.
+
+## Apps: HTML file or React project
+
+Apps from the App studio are built with React, a popular way to write web apps. For these, the download key's tooltip says **Download as an HTML file or a React project**, and clicking it opens a **Download as** menu:
+
+- **HTML file:** opens in any browser, ready to upload or share. Pick this if you just want to use or host the app.
+- **React project (.zip):** a ready-made Vite project for you or a developer to keep working on with normal coding tools. Your pictures from My images are in its `public/images` folder. Pollinations images keep their web addresses.
+
+The React project needs [Node.js](https://nodejs.org) to run:
+
+1. Unzip the file.
+2. Open a terminal in the unzipped folder.
+3. Run `npm install`.
+4. Run `npm run dev` to try it, or `npm run build` to build it for hosting.
+
+## Put your files online
+
+Any host that serves plain files works, with no server or build step. Some free options:
+
+- **[Publish](/features/publishing)** from inside AppBlips, with nothing to download.
+- **[Netlify Drop](https://app.netlify.com/drop):** drag your `.html` file or unzipped folder onto the page and get a public web address in seconds.
+- **[GitHub Pages](https://pages.github.com/)** or **[Cloudflare Pages](https://pages.cloudflare.com/)**, if you'd like the files in a repository.
+
+## Good to know
+
+- Some pages load shared code libraries, such as React, Tailwind CSS or the Phaser game engine, from a CDN: a free public server for code. Those pages need an internet connection to open.
+- Exported files never contain your AI provider key, or the keys and sign-ins AppBlips keeps for Pollinations, Pixabay, Tavily and Surge. They do contain the public values your extensions use, which is how those services are designed to work, and your Pollinations site key if you chose **My key pays**.
+- To back up every project at once, with its version history, use **Settings → Data → Export all apps**. That backup is for restoring into AppBlips, not for hosting.

@@ -1,0 +1,128 @@
+---
+title: "Install the desktop app"
+sidebarTitle: "Desktop App"
+description: "Install AppBlips on Windows or Linux, set it up in a few steps, and learn where your projects are saved, how to back them up and how updates work. Includes Mac setup with Pinokio."
+---
+
+The desktop app is the best way to use AppBlips every day. It installs like any other program, saves each project as a folder on your computer, and keeps your API key protected by your computer's keychain. There's no account to create.
+
+## Install
+
+<Tabs>
+  <Tab title="Windows">
+    1. Open [AppBlips in the Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k).
+    2. Click **Get** (or **Install**).
+    3. When it finishes, open AppBlips from the Start menu.
+
+    The Microsoft Store version is the only way to install AppBlips on Windows. Microsoft signs it, so Windows trusts it, and the Store keeps it up to date for you.
+  </Tab>
+  <Tab title="Linux">
+    Go to the [Releases page](https://github.com/TechMitten/app-blips/releases/latest) and download one of these files:
+
+    - **`.deb`** for Ubuntu, Debian, Linux Mint and similar systems. Double-click it to install it with your software center, or run `sudo apt install ./AppBlips-*.deb` in a terminal in your downloads folder.
+    - **AppImage** for any other Linux system. Make it runnable with `chmod +x AppBlips-*.AppImage`, then double-click it or run `./AppBlips-*.AppImage`.
+
+    When you install the `.deb` in a terminal, it asks **Get AppBlips updates through apt?** Choose yes to get future versions through your normal system updates. If you installed from a software center, or said no, you can turn this on later. See [Updates](#updates).
+  </Tab>
+</Tabs>
+
+### On a Mac
+
+There's no Mac installer yet. Instead, use [Pinokio](https://pinokio.co), a free app that installs and runs projects like AppBlips for you:
+
+1. Install Pinokio from [pinokio.co](https://pinokio.co).
+2. Open the [AppBlips page in Pinokio](https://pinokio.co/apps/github-com-techmitten-app-blips-pinokio) and download it.
+3. Click **Install**, and wait until Pinokio says AppBlips is installed.
+4. Click **Start**, then **Open AppBlips**.
+
+Pinokio runs the browser version of AppBlips, so it works like the [browser version](/quickstart-browser#things-to-know-about-the-browser-version): your projects and API key are saved in your web browser, not as folders. To get a newer version later, click **Update** in Pinokio. You can also [run AppBlips from source](/quickstart-source) on a Mac.
+
+## Set up AppBlips
+
+The first time you open AppBlips, it asks a few questions. It takes about a minute.
+
+<Steps>
+  <Step title="Your name">
+    On **First, what should we call you?**, type your name or a nickname. It appears next to your messages in the chat. Click **Continue**.
+  </Step>
+  <Step title="Your avatar and projects folder">
+    On **Now pick your avatar.**, click a picture for your chat messages.
+
+    **Save projects in** shows the folder where AppBlips will keep your projects. The usual folder is fine for most people. To pick a different one, click **Change**. Click **Continue**.
+  </Step>
+  <Step title="Your AI provider">
+    On **Choose the AI that builds with you.**, connect the AI that will write your code:
+
+    1. **Provider:** click **Select a provider** and choose one. Anthropic is marked **(recommended)**.
+    2. **API key:** paste your key. Don't have one yet? Click **Get a key** to open your provider's website, then see [Choose an AI provider](/ai-providers) for step-by-step help.
+    3. **Model:** pick a model from the list. AppBlips loads the list from your provider, so paste your key first.
+    4. Optional: click **Test connection**. **Connected** means everything works. **Connection failed** means the key or model didn't work.
+    5. Click **Start building**.
+  </Step>
+</Steps>
+
+Want to look around first? Click **Skip for now** on any setup screen, and set up the AI later in **Settings → AI**.
+
+To go through these screens again, for example to change your name or avatar, open **Settings → Workspace** and click **Replay** next to **Replay onboarding**. Your projects and AI setup are kept.
+
+<Note>
+  Your API key is encrypted with your computer's keychain and stays on this computer. Only AppBlips' background process uses it. Your projects and the apps you build never see it. On Linux without a keychain, AppBlips warns that the key is stored with weak encryption. Install GNOME Keyring or KWallet to protect it properly.
+</Note>
+
+## Build your first project
+
+1. Click a studio: **Mobile & Web App**, **Responsive Website** or **Browser Game**.
+2. Describe what you want, for example "a habit tracker with a checkbox for each day and a weekly progress bar".
+3. Press Enter.
+
+Your project appears in the preview when it's built. To change it, type what you'd like to be different and press Enter again. For tips, see [Build apps](/features/building-apps).
+
+## Where your projects are saved
+
+Each project is a folder inside AppBlips' own data folder:
+
+- **Windows:** `C:\Users\<your name>\AppData\Roaming\AppBlips\Projects`
+- **Linux:** `~/.config/AppBlips/Projects`
+
+These folders are hidden by default. To open yours, go to **Settings → Data**, find **Projects folder** and click **Open**. If you used AppBlips before version 0.1.9 and have projects in `Documents/AppBlips/Projects`, AppBlips keeps using that folder.
+
+Each project folder holds the whole project (every version and the chat) and a `site` folder with plain `.html` copies of its current pages. You can open or share the files in `site`, but changes you make to them aren't read back into AppBlips. Renaming a project renames its folder, and deleting a project moves its folder to your computer's trash.
+
+To keep your projects somewhere else, go to **Settings → Data → Projects folder** and click **Change…**. AppBlips offers to move your existing projects to the new folder.
+
+<Warning>
+  On Windows, uninstalling the Microsoft Store version, or clicking **Reset** for it in Windows Settings, deletes the usual projects folder and everything in it. Updates don't. Before you uninstall, [back up your projects](#back-up-or-move-your-projects) or choose a folder of your own with **Change…**.
+</Warning>
+
+## Back up or move your projects
+
+1. Open **Settings → Data**.
+2. Next to **Export all apps**, click **Export**. AppBlips downloads one backup file with every project, its versions and its saved app data.
+3. To restore it, on the same or another computer, open **Settings → Data**, click **Import…** next to **Import apps**, and choose the backup file.
+
+If a project in the backup already exists, AppBlips only replaces it when the backup's copy is newer. You can also import a backup made in the browser version.
+
+Imported sites (React + Vite projects) aren't included in the backup. Download each one as a `.zip` instead. See [Import a site](/features/importing-sites).
+
+## Updates
+
+How you get updates depends on how you installed AppBlips.
+
+- **Microsoft Store:** the Store updates AppBlips for you. To look for an update straight away, open **Settings → Workspace**, click **Check now** next to **Check for updates**, then click **Open Microsoft Store**.
+- **AppImage:** AppBlips downloads new versions in the background. When one is ready, click **Restart to update**. If you click **Later**, it installs the next time you close AppBlips.
+- **`.deb`:** AppBlips tells you when a new version is out and shows how to install it, with a command you can copy. It can't install the update itself, because that needs your password.
+
+For the `.deb`, the easiest way to stay up to date is to add the AppBlips package source once. Then updates arrive with your normal system updates (in your software center, or with `sudo apt update && sudo apt upgrade`). If you didn't say yes when the installer asked, run these commands in a terminal:
+
+```bash
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://techmitten.github.io/app-blips/appblips.gpg | sudo tee /etc/apt/keyrings/appblips.gpg > /dev/null
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/appblips.gpg] https://techmitten.github.io/app-blips stable main" | sudo tee /etc/apt/sources.list.d/appblips.list
+sudo apt update && sudo apt install appblips
+```
+
+A new version can take a little while to reach the package source after it's announced. If it isn't offered yet, try again later, or click **Download installer** in AppBlips' update notice and open the downloaded file.
+
+Updates never touch your projects or settings.
+
+The AppImage and `.deb` versions check for updates when AppBlips starts and then about once an hour. To check right away, open **Settings → Workspace** and click **Check now** next to **Check for updates**. Use the switch next to it to turn automatic checks off. Checks go to GitHub, where new versions are published, so GitHub sees your IP address.

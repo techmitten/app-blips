@@ -1,0 +1,146 @@
+---
+title: "Run AppBlips from source"
+sidebarTitle: "Run from Source"
+description: "Download AppBlips' code and run it yourself with Node.js: in your web browser on Windows, macOS or Linux, or as the desktop app."
+---
+
+<Tip>
+  You don't need this page to use AppBlips. To try it, [open it in your browser](/quickstart-browser). To install it, use the [desktop app](/quickstart-desktop) on Windows or Linux, or Pinokio on a Mac. Prefer containers? See [Docker](/self-hosting/docker).
+</Tip>
+
+Running from source means downloading AppBlips' code and starting it yourself with a free tool called Node.js. Choose this if you're on a Mac and prefer a terminal to Pinokio, if you want to run your own copy for yourself, or if you want to change AppBlips itself.
+
+You can start it in two ways:
+
+- **Browser version** (`npm start`): AppBlips runs in your web browser at `http://localhost:3000`. It works on Windows, macOS and Linux. Your projects and API key are saved in your browser.
+- **Desktop app** (`npm run desktop`): AppBlips opens in its own window, just like the installed app. Projects are saved as folders and your key is protected by your computer's keychain. It works on Windows and Linux; macOS hasn't been tested.
+
+## Before you start
+
+You need:
+
+- **Node.js 22.12 or newer.** Download the **LTS** version from [nodejs.org](https://nodejs.org/) and install it. It includes npm, which installs AppBlips' parts.
+- **Git** (optional). It makes updating easier. Get it from [git-scm.com](https://git-scm.com/downloads). Without Git, you can download the code as a `.zip` file instead.
+
+A terminal is a window where you type commands. On Windows, open **PowerShell** from the Start menu. On a Mac, open **Terminal** from Applications → Utilities. To check that Node.js is installed, type this and press Enter:
+
+```bash
+node --version
+```
+
+You should see a version number such as `v22.12.0` or higher.
+
+## Get the code
+
+<Tabs>
+  <Tab title="With Git">
+    In your terminal, run:
+
+    ```bash
+    git clone https://github.com/techmitten/app-blips.git
+    cd app-blips
+    ```
+  </Tab>
+  <Tab title="Without Git">
+    1. Open the [AppBlips page on GitHub](https://github.com/techmitten/app-blips).
+    2. Click the green **Code** button, then **Download ZIP**.
+    3. Unzip the file somewhere easy to find, such as your `Documents` folder.
+    4. In your terminal, go into the unzipped folder, for example: `cd Documents/app-blips-master`
+  </Tab>
+</Tabs>
+
+Then install AppBlips' parts. This takes a minute or two the first time:
+
+```bash
+npm install
+```
+
+## Run it in your browser
+
+<Steps>
+  <Step title="Start AppBlips">
+    ```bash
+    npm start
+    ```
+
+    The first time, this also downloads the speech model used for voice input. When AppBlips is ready, the terminal shows `AppBlips is running. Open http://localhost:3000 in your browser.`
+  </Step>
+  <Step title="Open it">
+    Go to [http://localhost:3000](http://localhost:3000) in your web browser.
+  </Step>
+  <Step title="Set it up">
+    Type your name and pick an avatar, clicking **Continue** after each. Then choose your AI provider, paste your API key and pick a model, just like in the [desktop app](/quickstart-desktop#set-up-appblips). Need a key? See [Choose an AI provider](/ai-providers).
+  </Step>
+  <Step title="Build something">
+    Click a studio, such as **Mobile & Web App**, describe what you want, and press Enter.
+  </Step>
+</Steps>
+
+To stop AppBlips, click in the terminal window and press `Ctrl+C`. To start it again later, open a terminal in the same folder and run `npm start`.
+
+Is port 3000 already in use by another program? Start AppBlips on a different port instead. On macOS or Linux, run `PORT=3001 npm start`. On Windows (PowerShell), run `$env:PORT=3001; npm start`. Then open `http://localhost:3001`.
+
+### Things to know about the browser version
+
+- **Your projects are saved in your browser,** for the exact address you opened. A different browser, a private window or a different port starts empty. Clearing your browser's data for the site deletes them, so make a backup now and then with **Settings → Data → Export**.
+- **Your API key is saved in your browser too.** AppBlips sends it to its own server on your computer with each request, so the server can pass your request to your AI provider. The server doesn't store it, and it's never put into your projects.
+- **Only your computer can open it.** Other devices on your network can't reach it. Read [Security](/self-hosting/security) before changing that.
+- **You can give it an AI provider instead.** If you set a provider and key in a `.env` file, setup offers a **Free (no key needed)** option that uses it. See the [Configuration reference](/self-hosting/configuration).
+
+## Run the desktop app from source
+
+The same code also runs as the desktop app:
+
+```bash
+npm run desktop
+```
+
+AppBlips builds and opens in its own window. Set it up the same way as the [installed desktop app](/quickstart-desktop#set-up-appblips).
+
+<Accordion title="Linux: the window doesn't open and the terminal mentions chrome-sandbox">
+  Ubuntu 24.04 and some other Linux systems need one part of Electron (the framework the desktop app is built on) to be owned by the system. In the AppBlips folder, run these two commands once, then run `npm run desktop` again:
+
+  ```bash
+  sudo chown root:root node_modules/electron/dist/chrome-sandbox
+  sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+  ```
+
+  Run them again whenever `npm install` updates Electron. Don't use `--no-sandbox` to get around it: the sandbox is what keeps the apps you build away from your files.
+</Accordion>
+
+### Build your own Linux installers
+
+To make the same Linux files that are on the Releases page:
+
+```bash
+npm run desktop:dist
+```
+
+When it finishes, you'll find an `.AppImage` and a `.deb` file in the `dist-desktop` folder. There's no Windows installer to build: on Windows, AppBlips comes only from the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k).
+
+## Update
+
+AppBlips tells you when a new version is out. To update your copy:
+
+<Steps>
+  <Step title="Stop AppBlips">
+    Press `Ctrl+C` in its terminal, or close the desktop app's window.
+  </Step>
+  <Step title="Get the new code">
+    With Git, run `git pull` in the AppBlips folder. Without Git, download the `.zip` again and unzip it over the old folder.
+  </Step>
+  <Step title="Install and start again">
+    ```bash
+    npm install
+    npm start
+    ```
+
+    For the desktop app, run `npm run desktop` instead of `npm start`.
+  </Step>
+</Steps>
+
+Updating doesn't touch your projects. The browser version keeps them in your browser, and the desktop app keeps them in your projects folder.
+
+## For contributors
+
+To work on AppBlips itself, see the [repository on GitHub](https://github.com/techmitten/app-blips). Issues and pull requests are welcome.

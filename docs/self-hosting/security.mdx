@@ -1,0 +1,76 @@
+---
+title: "Security"
+sidebarTitle: "Security"
+description: "How AppBlips protects your API key, keeps generated apps sandboxed, and stays private on your computer, in the desktop app and the browser version."
+---
+
+This page explains what keeps AppBlips and your API key safe, and what to watch out for if you run your own copy.
+
+## Your API key
+
+An API key is a secret code that lets AppBlips use your account with an AI provider. Wherever you keep it, AppBlips never writes it into the apps you build, your saved projects or anything you export.
+
+- **Desktop app:** your key is encrypted with your computer's keychain (the system's built-in password store) and saved only on your computer. Only the app's background process reads it, and it never reaches the app's own screen. On Linux without GNOME Keyring or KWallet, AppBlips warns you that it can only use weak encryption.
+- **Browser version** ([web.appblips.com](/quickstart-browser), [from source](/quickstart-source) or [Docker](/self-hosting/docker)): your key is saved in your web browser, for that address only. Each request sends it to the AppBlips server, which passes it to your provider and doesn't store it. The same goes for your Surge sign-in for [Publish](/features/publishing), your [Pollinations](/features/connectors#pollinations) sign-in, and your [Pixabay](/features/connectors#pixabay) and [Tavily](/features/connectors#tavily) keys. One person's keys never reach another person using the same server.
+
+Clearing your browser's data for AppBlips removes keys saved there. So does **Settings → Danger Zone → Factory Reset**, in either version.
+
+## Generated apps run in a sandbox
+
+The apps you build never run inside AppBlips itself. Each one runs in an isolated preview frame, a sandbox, so:
+
+- An app can't read AppBlips' page, its cookies or its browser storage, which is where the browser version keeps your keys.
+- An app can't call your AI provider through AppBlips or use your key.
+- AppBlips doesn't reach into the app either.
+
+**Open in new tab** uses the same isolation: the tab shows a small AppBlips page with your app inside an isolated frame.
+
+This isolation is the main protection against generated code that is buggy or harmful.
+
+### Open exported apps separately
+
+An exported app is an ordinary HTML file with full permission to run scripts. Open it as a local file or host it on its own website. Don't serve it from the same address as the browser version of AppBlips, where it could read what AppBlips keeps in the browser.
+
+## The desktop app stays on your computer
+
+- The desktop app opens no network port, so other devices can't reach it or use your key.
+- The apps you build, and websites you visit, can't use the desktop app to call your AI provider.
+- AppBlips doesn't limit how many requests it sends with your own key. Set a spending limit in your provider's dashboard, so a mistake can't run up a large bill.
+
+## The browser version on your computer
+
+When you run the browser version from source or with Docker, a small web server runs on your computer. It has no sign-in, so it's set up to answer only you:
+
+- It listens only on your own computer (`127.0.0.1`). Docker publishes it the same way, as `127.0.0.1:3000`. Other devices on your network can't connect.
+- It only answers when opened as `localhost`, `127.0.0.1` or `[::1]`. This stops a website from pointing its own domain name at your computer to reach AppBlips.
+- It refuses AI requests from other websites and from the apps you build.
+- It refuses requests larger than 32 MB for building and 72 MB for anything else, such as publishing, so one request can't use up its memory.
+- The [SEO](/features/tools#seo) site scan only visits addresses on the public internet, on the normal web ports (80 and 443). It checks where a name points before visiting, so it can't be used to read pages on your own network.
+
+### If you open AppBlips to other devices
+
+You make AppBlips reachable from other devices if you change `HOST`, remove `127.0.0.1:` from `docker-compose.yml`, or add names to `APPBLIPS_ALLOWED_HOSTS`. Then anyone who can reach it can use it. If you gave the server its own AI provider in `.env`, they can build with that key, and your provider bills you.
+
+<Warning>
+  Before you open AppBlips to other devices, put your own sign-in in front of it, for example a reverse proxy with a password.
+</Warning>
+
+If you deliberately share a server with other people, AppBlips helps in two ways:
+
+- Each person's own keys stay in their own browser, so nobody can use anyone else's.
+- The **Free** option, which uses the server's own provider, is limited per visitor and per day. See [Limits on the Free option](/self-hosting/configuration#limits-on-the-free-option).
+
+## Microphone
+
+Voice input listens only while you have it switched on with the microphone key. It turns your speech into text on your computer. The recording is never uploaded or saved.
+
+- In the desktop app, only AppBlips' own screen may use the microphone, and only for sound. The preview, where generated apps run, is refused, and nothing may use the camera.
+- In the browser version, the preview has no permission to use the microphone either.
+
+### The speech model
+
+The speech model, OpenAI's Whisper base, is part of AppBlips itself:
+
+- The desktop app includes it in the installer.
+- When you build AppBlips from source or with Docker, the build downloads it once from Hugging Face. It always downloads the same fixed version and checks every file against a fingerprint (a SHA-256 hash) stored in AppBlips' code. If a file doesn't match, the build stops with `does not match its pinned sha256` instead of using it.
+- While AppBlips runs, it loads the model only from its own files. If they're missing, voice input shows an error instead of downloading a model from the internet.

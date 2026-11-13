@@ -1,0 +1,151 @@
+---
+title: "Configuration reference"
+sidebarTitle: "Configuration"
+description: "Every .env setting for the browser version of AppBlips, from source or Docker: an AI provider for the server, the Free option and its limits, ports and allowed addresses."
+---
+
+<Note>
+  Using the [desktop app](/quickstart-desktop)? You can skip this page. The desktop app doesn't read a `.env` file: you set everything in the app, under **Settings → AI**.
+</Note>
+
+When you run the browser version of AppBlips, [from source](/quickstart-source) or with [Docker](/self-hosting/docker), you can change how its server behaves with a `.env` file. A `.env` file is a plain text file of settings, one per line, in the form `NAME=value`.
+
+**Every setting is optional.** The easiest setup has no `.env` file at all: open AppBlips and choose your AI provider, API key and model under **Settings → AI**.
+
+## Create the file
+
+1. Open the AppBlips folder.
+2. Make a copy of `.env.example` and name the copy `.env`.
+3. Open `.env` in any text editor, such as Notepad or TextEdit.
+4. Fill in only the lines you need, and leave the rest empty.
+5. Save the file.
+6. Restart AppBlips so it reads the new values:
+   - **From source:** in the terminal running AppBlips, press `Ctrl+C`, then run `npm start` again.
+   - **Docker:** run `docker compose up -d` in the AppBlips folder.
+
+When the server starts, it prints the AI provider and model it found in `.env`. It never prints your key.
+
+## AI provider for the server
+
+These settings give the server an AI provider of its own. When they're set, the provider list in onboarding and in **Settings → AI** gains a **Free (no key needed)** option, so anyone using this copy of AppBlips can build without an API key. A provider someone picks in **Settings → AI** with their own key always takes priority over this one.
+
+An API key is a secret code from an AI provider that lets AppBlips use your account there. A model is the specific AI that writes the code, such as a Claude or GPT model.
+
+<Warning>
+  Whoever can open this copy of AppBlips can build with the key you put here, and your provider bills you for it. Keep AppBlips on your own computer, which is the default, and set a spending limit in your provider's dashboard.
+</Warning>
+
+<ParamField body="OPENAI_API_KEY" type="string">
+  Your API key. On its own, the key's beginning tells AppBlips which provider it belongs to:
+
+  - `sk-ant-` → Anthropic
+  - `sk-proj-` (also `sk-svcacct-` and `sk-admin-`) → OpenAI
+  - `AIza` → Gemini
+  - `xai-` → xAI
+  - `sk-or-` → OpenRouter
+  - Anything else → DeepSeek, unless `OPENAI_LLM_PROVIDER` or `OPENAI_BASE_URL` says otherwise
+</ParamField>
+
+<ParamField body="OPENAI_LLM_MODEL" type="string">
+  The model to build with, written exactly as your provider names it, for example `deepseek-v4-pro`. Leave it empty and AppBlips picks the provider's newest general model from its model list. You must fill it in when you set `OPENAI_BASE_URL`.
+</ParamField>
+
+<ParamField body="OPENAI_LLM_PROVIDER" type="string">
+  Names the provider outright: `deepseek`, `openai`, `anthropic`, `gemini`, `xai` or `openrouter`. Leave it empty to let AppBlips work it out from the key. Set it to `openai` if you have an older OpenAI key that starts with just `sk-`.
+</ParamField>
+
+<ParamField body="OPENAI_BASE_URL" type="string">
+  The web address of another service that speaks the OpenAI chat-completions API, such as `https://openrouter.ai/api/v1`, or your own vLLM, LiteLLM or Groq address. Leave it empty to use the provider's own address. When you set it, also set `OPENAI_LLM_MODEL`.
+</ParamField>
+
+<ParamField body="OPENAI_LLM_VISION_MODEL" type="string">
+  A second model, on the same service and key, used only for requests that include an image, such as a screenshot of the preview. Use it when your main model can't read images. Leave it empty to use `OPENAI_LLM_MODEL` for everything.
+</ParamField>
+
+<ParamField body="OPENAI_LLM_TEMPERATURE" type="number" default="0.0">
+  How much the AI varies its answers, from `0.0` (most predictable) upward. Requests that fix errors always use `0.0`, and models that don't accept a temperature never get one.
+</ParamField>
+
+## Limits on the Free option
+
+When the server has its own provider, its **Free** option is limited, so one person can't use up your budget. The limits count each visitor by their IP address (the address their internet connection uses). People who build with their own key in **Settings → AI** are never limited.
+
+The counts are kept in memory, so restarting AppBlips resets them. Your provider's own spending limit is still the final safeguard.
+
+When someone reaches a limit, AppBlips tells them when they can build again and that they can keep going with their own API key.
+
+<ParamField body="APPBLIPS_FREE_LIMITS" type="string" default="on">
+  Set it to `off` to turn every limit off. Do this when only you use this copy of AppBlips.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_REQUESTS_PER_HOUR" type="number" default="120">
+  How many requests one visitor may send in an hour. `0` removes this limit.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_CONCURRENT" type="number" default="4">
+  How many requests one visitor may have running at the same time. `0` removes this limit.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY" type="number" default="2,000,000">
+  How many tokens one visitor may use in a day. A token is a small piece of text, about three-quarters of a word, and providers bill by the token. Days run from midnight to midnight UTC. `0` removes this limit.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_TOKENS_PER_DAY" type="number" default="30,000,000">
+  How many tokens everyone together may use in a day (UTC). `0` removes this limit.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_MAX_OUTPUT_TOKENS" type="number">
+  The longest reply, in tokens, that one Free request may get. Leave it empty to keep the app's own limit: 64,000 tokens, or whatever the person set under **Settings → AI → Output tokens: building**.
+</ParamField>
+
+## Server
+
+<ParamField body="PORT" type="number" default="3000">
+  The port `npm start` listens on. A port is the number after the colon in an address such as `http://localhost:3000`. Docker ignores this setting: use `APPBLIPS_PORT` instead.
+</ParamField>
+
+<ParamField body="APPBLIPS_PORT" type="number" default="3000">
+  Docker only. The port on your computer where you open AppBlips.
+</ParamField>
+
+<ParamField body="HOST" type="string" default="127.0.0.1">
+  `npm start` only. The network address the server listens on. The default lets only your own computer connect. Change it only if you put your own sign-in in front of AppBlips. See [Security](/self-hosting/security#if-you-open-appblips-to-other-devices).
+</ParamField>
+
+<ParamField body="APPBLIPS_ALLOWED_HOSTS" type="string">
+  AppBlips only answers when you open it as `localhost`, `127.0.0.1` or `[::1]`. This stops other websites from reaching it by pointing their own domain name at your computer. To open AppBlips under another name, such as your reverse proxy's domain, list the names here, separated by commas, without `http://` or a port. For example: `appblips.home.example`.
+</ParamField>
+
+<ParamField body="APPBLIPS_CHAT_ALLOWED_ORIGINS" type="string">
+  AppBlips refuses AI requests sent from any page but its own. If a reverse proxy changes the address the server sees, builds can fail with `Requests from other sites are not allowed.` List the exact address you open AppBlips at here, separated by commas. For example: `https://appblips.home.example`.
+</ParamField>
+
+<ParamField body="APPBLIPS_DATA_DIR" type="string" default="~/.appblips">
+  A folder where AppBlips 0.1.27 and earlier kept the keys you saved in the browser version. AppBlips now keeps those keys in your browser and deletes any old key files from this folder when it starts. You don't need to set it. The Docker image uses `/data`.
+</ParamField>
+
+## Example `.env` files
+
+<CodeGroup>
+```bash Anthropic
+OPENAI_API_KEY=sk-ant-...
+```
+
+```bash DeepSeek
+OPENAI_API_KEY=sk-...
+OPENAI_LLM_MODEL=deepseek-v4-pro
+```
+
+```bash OpenRouter
+OPENAI_API_KEY=sk-or-...
+OPENAI_LLM_MODEL=anthropic/claude-sonnet-5
+```
+
+```bash Another service
+OPENAI_BASE_URL=https://example.com/v1
+OPENAI_API_KEY=your-key
+OPENAI_LLM_MODEL=your-model
+```
+</CodeGroup>
+
+If a service other than the ones AppBlips knows rejects builds, set **Reasoning** to **Off** under [Settings → AI](/reference/settings#reasoning). AppBlips sends a reasoning setting with each build, and some services don't accept it.

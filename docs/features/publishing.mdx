@@ -1,0 +1,110 @@
+---
+title: "Publish to the web"
+sidebarTitle: "Publishing"
+description: "Put your app, website or game online at a free surge.sh web address with HTTPS, straight from AppBlips."
+---
+
+**Publish** puts your project online so anyone can open it. AppBlips uses [Surge](https://surge.sh), a free hosting service, and gives your project its own web address, such as `https://my-bakery.surge.sh`. Every address uses HTTPS, the padlock in the address bar that keeps the connection secure.
+
+Publishing works for apps, websites and games. Imported React + Vite sites can't be published from AppBlips; [export them](/features/importing-sites#export-the-project) instead.
+
+## Publish for the first time
+
+You need a free Surge account. You can create one inside AppBlips.
+
+<Steps>
+  <Step title="Open the Publish window">
+    Open your project. In the preview toolbar, click **Publish** (the globe, at the right end).
+  </Step>
+  <Step title="Sign in to Surge">
+    - **New to Surge:** click **Create an account**. Type your email, choose a password, type it again under **Type the password again**, then click **Create account**.
+    - **Already have an account:** leave **I have an account** selected, type your email and password, then click **Sign in**.
+  </Step>
+  <Step title="Choose the web address">
+    Under **Web address**, AppBlips suggests a name. Keep it or type your own, using only lowercase letters, numbers and dashes. The address ends in `.surge.sh`.
+  </Step>
+  <Step title="Choose the options you want">
+    All of these are optional. AppBlips remembers your choices for each project.
+
+    - **Site icon:** click **Choose image…** and pick a picture (PNG, JPEG, WebP, GIF, SVG or ICO). It's the small picture in the browser tab, in bookmarks and on a phone's home screen. A square image works best.
+    - **Let search engines find this site:** tick it if you want Google and others to list your site. See [Search engines](#search-engines).
+    - **Prompt visitors to install as an app:** visitors see a notice inviting them to add your site to their phone or computer like an app, with its own icon. This makes your site a PWA (progressive web app). Without a site icon, AppBlips makes a simple one from your project's name.
+    - **Password protect this site:** visitors must type a password before they see anything. See [Password protection](#password-protection).
+  </Step>
+  <Step title="Publish">
+    Click **Publish**. After a few seconds, the window says **Your site is live** and shows the link. Click **Copy** to copy it, or **Open site** to visit it.
+  </Step>
+</Steps>
+
+<Note>
+  Unless you add a password, anyone with the link can see your site. Don't publish anything private.
+</Note>
+
+### Share it
+
+Under **Share it**, click an icon to share your link by email or on X, Facebook, LinkedIn, Reddit, Bluesky or WhatsApp. Your browser opens that service's share page (or your email app) with the link filled in. Nothing is posted until you post it there.
+
+To feature your project in the AppBlips Showcase, click **Submit it to the showcase**. See [Showcase](/features/showcase).
+
+## Update a published site
+
+After you change your project, click **Publish** again. For a project that's already online, the window says **This project is online** and shows its address.
+
+- **Update site:** replaces what's online with your latest version, at the same address.
+- **Site icon**, search engines, install prompt and password: change them here, then click **Update site**.
+- **Publish to a different address:** puts a second copy online at a new address. The old one stays online until you unpublish it.
+- **Unpublish:** takes the site offline. See [Take a site offline](#take-a-site-offline).
+
+It can take a minute for the new version to appear everywhere.
+
+## Search engines
+
+**Let search engines find this site** is unticked at first.
+
+- **Unticked:** AppBlips adds a `robots.txt` file and a "noindex" tag that ask search engines to leave your site out of their results. Well-behaved search engines respect that, but it isn't a lock: anyone with the link can still open the site.
+- **Ticked:** your site can show up in search results. If the [SEO tool](/features/tools#seo) is on and has your website address, AppBlips also publishes a `sitemap.xml` and `robots.txt` to help search engines find your pages. This box decides, whatever the SEO tool's own setting says.
+
+A password-protected site is always kept out of search results.
+
+## Password protection
+
+Tick **Password protect this site**, type a password of at least 10 characters under **Site password**, and type it again under **Type it again**. Visitors then see a lock screen and need the password to get in.
+
+AppBlips locks every page on your device before uploading anything, so what goes online is the lock screen with the pages scrambled inside it.
+
+- **Your password is never uploaded or saved**, by AppBlips or in the published files.
+- **Everything stays hidden until the password is typed**, including your pictures. Only the site icon stays public, because the lock screen shows it.
+- **Visitors unlock once per tab.** The site's other pages then open without asking again. Closing the tab locks it again.
+- **Updating asks for the password again**, because AppBlips doesn't keep it. Type the same one to keep it, or a new one to change it. Untick the box and click **Update site** to remove the password.
+
+<Warning>
+  A static host can't count wrong guesses or lock anyone out. Someone who downloads the locked pages could try many passwords on their own computer. AppBlips makes each guess slow, but a short or common password can still be guessed. Use a long password, such as four random words, and don't reuse one from elsewhere.
+</Warning>
+
+## Take a site offline
+
+1. Open the project and click **Publish**.
+2. Click **Unpublish**.
+3. Click **Unpublish** again to confirm, or **Keep it online** to change your mind.
+
+The site goes offline and the link stops working. Your project stays in AppBlips, so you can click **Publish again** later. Someone else could take the address in the meantime.
+
+AppBlips only remembers the last address each project was published to. To remove an older address, install [Node.js](https://nodejs.org), open a terminal and run `npx surge teardown old-name.surge.sh` with your own address, then sign in with your Surge email and password.
+
+## Your Surge account
+
+- Your Surge password goes to Surge once and is never saved. AppBlips keeps only the sign-in Surge sends back:
+  - In the **desktop app**, it's encrypted with your computer's keychain.
+  - In the **browser version**, it's saved in your own web browser, not on the server.
+- To sign in ahead of time, or to sign out, click **Settings**, then **Extensions**, then the **Surge** card. You can also click **Sign out** in the Publish window.
+- Surge sends a confirmation email when you create an account. You can publish without confirming it.
+- If you forget your password, reset it at [surge.sh](https://surge.sh).
+
+## Limits
+
+- Surge addresses are first come, first served. If the name you chose belongs to someone else, type a different one and click **Publish** again.
+- Custom domains, such as `www.mybakery.com`, aren't supported in AppBlips.
+- Surge limits how often you can publish in a short time. If Surge refuses, wait a few minutes and try again.
+- A site's images can be at most 60 MB in total. Only the [My images](/features/tools#my-images-beta) pictures your pages use are uploaded.
+- Images made with [Pollinations](/features/connectors#pollinations) are copied into your site, so they stay online as long as it does. Publish again after the AI changes an image.
+- Surge's [terms](https://surge.sh/terms) apply to what you publish.

@@ -1,0 +1,254 @@
+---
+title: "Troubleshooting"
+sidebarTitle: "Troubleshooting"
+description: "Fixes for common AppBlips problems: installing, running from source or Docker, saving projects, the preview, voice input, and AI errors."
+---
+
+Find the message or symptom you see below. Each entry explains what it means and how to fix it. If nothing here helps, [find the error details](#find-the-error-details) and [report a bug](https://github.com/TechMitten/app-blips/issues/new).
+
+## Windows installer is blocked
+
+<AccordionGroup>
+  <Accordion title="Windows blocks an AppBlips installer from GitHub">
+    Older versions of AppBlips offered a `.exe` installer on GitHub. It wasn't code-signed, so Windows 11's **Smart App Control** could block it, and it no longer gets updates.
+
+    Install [AppBlips from the Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) instead. It's signed by Microsoft, so Windows doesn't block it, and the Store keeps it up to date.
+
+    Before you uninstall the old copy, back up your projects: open **Settings → Data**, click **Export**, and keep the file. In the Store version, import it with **Settings → Data → Import…**.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Linux doesn't use Smart App Control, so the AppImage and `.deb` are never blocked this way.
+</Note>
+
+---
+
+## Saving and finding projects
+
+<AccordionGroup>
+  <Accordion title="My projects disappeared (browser version)">
+    The browser version saves projects in your web browser, separately for each address. Check that you:
+
+    - Opened the same address as before, with the same port, and `localhost` rather than `127.0.0.1` (or the other way round).
+    - Used the same browser, and not a private or incognito window.
+
+    Clearing your browser's data for that address deletes the projects for good. Back up now and then with **Settings → Data → Export**.
+  </Accordion>
+
+  <Accordion title="&quot;This project could not be saved: the browser's storage for AppBlips is full&quot;">
+    Your browser has run out of room for AppBlips. Your latest change isn't saved yet.
+
+    1. Open **Settings → Data** and click **Export** to back up your projects.
+    2. Delete apps you no longer need.
+    3. Try again.
+
+    The [desktop app](/quickstart-desktop) saves projects as folders on your computer and doesn't have this limit. The same advice applies to `Browser storage is full. Delete some apps or use the desktop app.` when importing a backup.
+  </Accordion>
+
+  <Accordion title="Saving failed in the desktop app">
+    A message such as `… failed: … Your latest changes may not be saved to disk` means AppBlips couldn't write to your projects folder. Open **Settings → Data**, check where the **Projects folder** is, and make sure that folder still exists and you can save files there. If it's on a removable drive, plug the drive back in, or click **Change…** to choose another folder.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Running from source or Docker
+
+<AccordionGroup>
+  <Accordion title="&quot;Port 3000 is already in use&quot;">
+    Another program is already using port 3000.
+
+    - **From source:** start AppBlips on another port. On macOS or Linux, run `PORT=3001 npm start`. On Windows (PowerShell), run `$env:PORT=3001; npm start`. Then open `http://localhost:3001`.
+    - **Docker:** add `APPBLIPS_PORT=3001` to a `.env` file in the AppBlips folder and run `docker compose up -d` again. See [Use another port](/self-hosting/docker#use-another-port).
+
+    Your browser keeps projects separately for each address, so the new port starts with an empty project list. To bring your projects along, export them from **Settings → Data** at the old address first.
+  </Accordion>
+
+  <Accordion title="&quot;This address isn't allowed&quot;">
+    AppBlips only answers when you open it as `localhost` or `127.0.0.1`. Open [http://localhost:3000](http://localhost:3000) instead. If you meant to use another name, for example behind a reverse proxy, add it to `APPBLIPS_ALLOWED_HOSTS` in `.env` and restart. See the [Configuration reference](/self-hosting/configuration#server).
+  </Accordion>
+
+  <Accordion title="&quot;Requests from other sites are not allowed.&quot;">
+    AppBlips refused a request because it seemed to come from another website. This happens behind a reverse proxy that changes the address AppBlips sees. Add the exact address you open AppBlips at to `APPBLIPS_CHAT_ALLOWED_ORIGINS` in `.env` and restart. See the [Configuration reference](/self-hosting/configuration#server).
+  </Accordion>
+
+  <Accordion title="&quot;AppBlips isn't set up yet&quot;">
+    No AI provider is set up. Open **Settings → AI**, choose a provider, paste your API key, choose a model and click **Save**. See [Choose an AI provider](/ai-providers).
+
+    If you gave the server a provider in `.env`, the rest of the message says what's missing or wrong there, for example a model name. Fix it and restart AppBlips. See the [Configuration reference](/self-hosting/configuration#ai-provider-for-the-server).
+  </Accordion>
+
+  <Accordion title="npm install or npm start fails">
+    Check your Node.js version with `node --version`. AppBlips needs 22.12 or newer. Install the **LTS** version from [nodejs.org](https://nodejs.org/). Then delete the `node_modules` folder and run `npm install` again.
+
+    If the error mentions `Could not download` or `does not match its pinned sha256`, the build couldn't get the voice-input speech model from Hugging Face. Check your internet connection and run `npm start` again. It only downloads the model once.
+
+    To download the model on its own, for example before you build on a computer that will be offline, run `node scripts/fetch-whisper-model.js` in the AppBlips folder. It saves the model in `public/whisper/`, and later builds use that copy.
+  </Accordion>
+
+  <Accordion title="npm run desktop on Linux fails with a chrome-sandbox error">
+    Ubuntu 24.04 and some other Linux systems need Electron's sandbox helper to belong to the system. In the AppBlips folder, run:
+
+    ```bash
+    sudo chown root:root node_modules/electron/dist/chrome-sandbox
+    sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+    ```
+
+    Then run `npm run desktop` again. Don't use `--no-sandbox` instead: it turns off a safety feature.
+  </Accordion>
+
+  <Accordion title="docker-compose fails with &quot;No module named 'distutils'&quot;">
+    You typed `docker-compose`, with a hyphen, which runs an old, retired tool. Type `docker compose`, with a space. If that's an unknown command, install the Compose plugin (on Ubuntu: `sudo apt install docker-compose-v2`).
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Preview problems
+
+<AccordionGroup>
+  <Accordion title="The preview is blank after a build">
+    A blank preview usually means the app's code has an error that stops it from showing. AppBlips catches most errors and fixes them by itself.
+
+    If the preview stays blank:
+
+    1. Type a follow-up in the chat, such as `The preview is blank. Fix any JavaScript errors`, and send it.
+    2. Click the camera key next to the prompt box to attach a screenshot of the preview, so the AI sees what you see.
+    3. If that doesn't help, step back with **Previous version** and try your prompt again with more detail.
+
+    <Tip>
+      The **Code** tab in the preview toolbar shows your app's code. If you spot the problem, click **Edit** to fix it yourself. If you don't see the tab, turn on **Code view** under **Settings → Workspace**.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="A link in the preview doesn't go anywhere">
+    The preview stops links from leaving your app. A link to another page of your website opens that page in the preview, and links to other websites open in a new tab. A link to a page that doesn't exist does nothing.
+
+    To make a link work, ask for it in the chat, for example `The "Pricing" link should open the pricing page`. In the App and Game studios, ask for screens inside the app instead of links to other pages.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Voice input
+
+<AccordionGroup>
+  <Accordion title="The microphone key says access is blocked">
+    AppBlips needs your permission to use the microphone.
+
+    **Windows:**
+
+    1. Open **Start → Settings → Privacy & security → Microphone**.
+    2. Turn on **Microphone access** and **Let apps access your microphone**.
+    3. Turn on the switch next to **AppBlips**.
+    4. Close AppBlips and open it again.
+
+    **Browser version:** click the icon to the left of the address bar, set **Microphone** to **Allow**, then reload the page.
+
+    If it says `No microphone was found.`, check that a microphone is plugged in and set as the default input in your system's sound settings. If it says `The microphone is in use by another app.`, close the other app that's recording, such as a video call, and try again.
+  </Accordion>
+
+  <Accordion title="&quot;Voice input could not understand that recording. Try again.&quot;">
+    AppBlips recorded you but couldn't turn the recording into text.
+
+    1. Check that the right microphone is the default input in your system's sound settings.
+    2. Speak a little closer to the microphone, for at least a second or two.
+    3. Click the microphone key and try again.
+
+    If it keeps failing, close AppBlips and open it again, then [find the error details](#find-the-error-details).
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## AI and build errors
+
+<AccordionGroup>
+  <Accordion title="&quot;rejected the API key in Settings → AI&quot;">
+    A message such as `Anthropic rejected the API key in Settings → AI.` means your AI provider didn't accept your key.
+
+    1. Open **Settings → AI**.
+    2. Check that the key is for the provider you chose, and that it's still active in your provider's dashboard.
+    3. Check that the model is one your key can use.
+    4. Click **Test connection**.
+
+    Also check that your provider account has credit left.
+  </Accordion>
+
+  <Accordion title="&quot;Failed to reach LLM endpoint&quot;">
+    AppBlips couldn't connect to your AI provider at all. Check that:
+
+    - Your computer is online.
+    - No firewall, VPN or proxy is blocking your provider's website.
+    - Your provider isn't having an outage. Check its status page.
+  </Accordion>
+
+  <Accordion title="The build hangs, or &quot;Stream stalled: no data received for 180s&quot;">
+    The AI provider stopped sending anything. After 3 minutes with no data, AppBlips stops waiting.
+
+    1. Click **Cancel** next to the prompt box, then send your prompt again.
+    2. Check your AI provider's status page for outages or slowdowns.
+    3. Choose a lower **Reasoning** level under **Settings → AI**. Higher levels take longer and are more likely to time out on slow providers.
+  </Accordion>
+
+  <Accordion title="The app was cut off or is incomplete">
+    Every AI reply has a length limit. When a reply reaches it, AppBlips asks the AI to carry on where it stopped, up to three times. If the app is still incomplete, the reply says so.
+
+    1. Open **Settings → AI** and look at **Output tokens: building**. If there's a number in it, click **Use default** to go back to 64,000.
+    2. Ask for the rest in the chat, for example `Finish the parts that are missing`.
+    3. For a very large app, build it in steps: start with the main screen, then add one feature per prompt.
+    4. Some models have a low limit of their own. If this keeps happening, choose another model under **Settings → AI**.
+  </Accordion>
+
+  <Accordion title="&quot;turned the request down&quot; or a rate limit error">
+    AppBlips sets no limit on your own key. A message such as `OpenRouter turned the request down: …` comes from your AI provider, and the text after the colon is its reason. Common causes:
+
+    - **No credit left** on your provider account. Many providers report this as a rate limit (HTTP 429).
+    - **Your provider's own limits** on how many requests you can send. Wait a minute and try again, or check your account's limits.
+  </Accordion>
+
+  <Accordion title="&quot;You've used today's Free AI allowance&quot; or another Free AI limit">
+    The **Free (no key needed)** option has limits, set by whoever runs that copy of AppBlips, so it stays available for everyone. The message says when you can build again:
+
+    - `You’ve reached the Free AI limit of … requests an hour.` Wait the number of minutes it shows.
+    - `You’ve used today’s Free AI allowance.` or `Free AI has used up today’s allowance for everyone.` It resets at midnight UTC.
+    - `Free AI is still answering your other requests.` Wait for your other builds to finish.
+
+    To keep building now, use your own API key: open **Settings → AI**, choose a provider, paste your key, choose a model and click **Save**. Your own key is never limited. See [Choose an AI provider](/ai-providers).
+  </Accordion>
+
+  <Accordion title="&quot;Claude declined this request&quot;">
+    Claude's safety checks turned the request down. This sometimes happens by mistake with ordinary requests. Reword your prompt, or choose another model under **Settings → AI**.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Find the error details
+
+When something fails without a clear message, AppBlips writes the details to its log. Include those lines when you report a problem.
+
+<AccordionGroup>
+  <Accordion title="Desktop app">
+    1. In AppBlips, press `Ctrl+Alt+Shift+I`. The developer tools open next to the app.
+    2. Click the **Console** tab.
+    3. Try the action that failed again.
+    4. Copy the yellow and red lines that start with `[AppBlips]`.
+  </Accordion>
+
+  <Accordion title="Browser version">
+    1. In the browser tab with AppBlips, press `F12` (on a Mac, `Cmd+Option+J`).
+    2. Click the **Console** tab.
+    3. Try the action that failed again.
+    4. Copy the yellow and red lines that start with `[AppBlips]`.
+
+    If you run AppBlips yourself, messages from the AI connection appear where it runs: in the terminal where you ran `npm start`, or with `docker compose logs -f` for Docker. Lines starting with `[anthropic]` show each Claude request and its result. In the `[anthropic] done:` lines, `cache_read` is how many tokens came from Anthropic's prompt cache, at a reduced price, and `cache_write` is how many were stored for the next step. During a build, `cache_read` should be above 0 from the second step on.
+  </Accordion>
+</AccordionGroup>
+
+The logs never contain your API key. They can include the first few lines of an AI reply, so check what you copy before you share it publicly.
+
+<Note>
+  For general questions about AppBlips, see the [FAQ](/reference/faq).
+</Note>

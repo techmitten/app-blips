@@ -1,0 +1,117 @@
+---
+title: "Choose an AI provider"
+sidebarTitle: "AI Providers"
+description: "What an AI provider, API key and model are, which providers AppBlips works with, how to get a key, where your key is kept, and how to pick a model and reasoning level."
+---
+
+AppBlips uses an AI to write the code for your projects. The AI comes from an **AI provider**: a company such as Anthropic or OpenAI that runs AI models. You connect AppBlips to a provider once, and every build and edit goes through it.
+
+## The words you'll see
+
+- **AI provider:** the company that runs the AI, such as Anthropic, OpenAI or Google.
+- **API key:** a long, password-like code you create on the provider's website. It lets AppBlips use the AI on your account, and the provider bills that account for what you use. Keep it private, like a password.
+- **Model:** a particular AI from that provider. Providers offer several, from fast and cheap to slower and more capable.
+- **Token:** the unit providers use to measure and charge for text. A token is roughly three-quarters of a word. A typical build uses tens of thousands of tokens.
+
+AppBlips itself is free. When you use your own key, the only cost is what your provider charges for the tokens you use. Most providers ask you to add a payment method or buy some credit before a new key works.
+
+## Supported providers
+
+- **Anthropic** (Claude models). Marked as recommended in AppBlips.
+- **OpenAI** (GPT models). Choose a model that supports tool calling through Chat Completions.
+- **Gemini** (Google's models, through Google AI Studio).
+- **xAI** (Grok models).
+- **DeepSeek**.
+- **OpenRouter**, one key that reaches models from many companies.
+
+Some copies of AppBlips also offer **Free (no key needed)**, described [below](#free-ai).
+
+## Get an API key
+
+<Steps>
+  <Step title="Open your provider's key page">
+    Sign in or create an account on your provider's website, then open its API keys page:
+
+    - Anthropic: [platform.claude.com/settings/keys](https://platform.claude.com/settings/keys)
+    - OpenAI: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+    - Gemini: [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+    - xAI: [console.x.ai](https://console.x.ai/team/default/api-keys)
+    - DeepSeek: [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys)
+    - OpenRouter: [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys)
+
+    In AppBlips' setup, the **Get a key** link opens the right page for the provider you chose.
+  </Step>
+  <Step title="Create a key">
+    Click the button to create a new key. Give it a name you'll recognise, such as "AppBlips".
+  </Step>
+  <Step title="Copy it">
+    Copy the key straight away. Many providers only show it once. If you lose it, delete it and create a new one.
+  </Step>
+  <Step title="Add billing if asked">
+    If your provider needs a payment method or prepaid credit, add it in the billing section of the same website.
+  </Step>
+</Steps>
+
+## Connect your provider in AppBlips
+
+You can connect your provider during setup, on the screen **Choose the AI that builds with you.**, or at any time in Settings:
+
+1. Click **Settings** (the gear icon) and open the **AI** tab.
+2. Under **AI coding provider**, choose your provider from the **Provider** list.
+3. Paste your key in the API key box.
+4. Choose a **Model**. The list comes from your provider, so it appears once your key is in. If it doesn't load, click **Refresh models**, or type the model's exact name (its ID) from your provider's website.
+5. Click **Test connection** to check that it works.
+6. Click **Save**.
+
+To switch providers later, choose a different one and save. To remove your provider, model and key, click **Clear** and confirm.
+
+## Where your key is kept
+
+- **Desktop app:** your key is encrypted with your computer's keychain (Windows Data Protection, or GNOME Keyring or KWallet on Linux) and stays on your computer. Only AppBlips' background process uses it. Once it's saved, AppBlips can't show it again; to change it, type a new one and click **Save**.
+- **Browser version** (web.appblips.com, Pinokio, from source or Docker): your key is saved in your web browser on this device. AppBlips sends it to its server along with each request, so the request can reach your provider. The server doesn't store it.
+
+Either way, your key is never written into your projects or the apps you export or publish.
+
+## Free AI
+
+Some copies of AppBlips come with AI already set up by whoever runs them, such as [web.appblips.com](https://web.appblips.com). On those, setup shows a screen called **AI is included, free.**, and the provider list has a **Free (no key needed)** option.
+
+- There's no key or model to choose. The host picked them and pays for them.
+- It's shared by everyone using that copy, so it can be slower when busy and has usage limits. If you reach one, AppBlips tells you when you can try again.
+- You can switch to your own key at any time in **Settings → AI**. Your own key is never limited by AppBlips.
+
+If you run AppBlips yourself, you can offer the free option by giving the server a provider and key. See the [Configuration reference](/self-hosting/configuration).
+
+## Choose a model
+
+Which model you choose makes the biggest difference to your results.
+
+- **Larger, more capable models** write better code for complex apps and games, follow long instructions more closely and make fewer mistakes. They cost more and take longer.
+- **Smaller, faster models** are cheaper and quicker, and are fine for simple pages and small tools.
+- **To build from screenshots,** pick a model that can read images. Most current models from the main providers can.
+
+If you're unsure, start with your provider's current general-purpose model. You can change models at any time, even halfway through a project.
+
+## Reasoning
+
+Many models can "think" before they write code. In **Settings → AI**, **Reasoning** sets how much they think:
+
+- Higher levels suit complex apps and games, but are slower and cost more.
+- Lower levels are faster and cheaper, and fine for small changes.
+
+The list only shows the levels your chosen model supports, and marks the usual level for that model as **Default**. If a model doesn't support reasoning levels, AppBlips says so instead.
+
+## Other AI settings
+
+**Settings → AI** also lets you:
+
+- **Output tokens: building:** set the longest reply the AI may write when building or editing. Leave it empty for the default. Raise it if large projects stop before they're finished.
+- **Output tokens: Ask:** set the longest reply in Ask mode. Leave it empty to let your provider decide.
+- **Clarifying questions:** let the AI ask a few questions about your idea before it builds.
+- **Suggested prompts:** show ideas for your next prompt after each build.
+
+For every setting, see the [Settings reference](/reference/settings).
+
+## Let the AI search the web
+
+The AI only knows what it learned during training. To let it look up real, current facts while it builds, such as a business's opening hours or how to use a service, add a free [Tavily](/features/connectors#tavily) key in **Settings → Extensions**. It works with any provider.

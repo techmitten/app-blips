@@ -1,0 +1,34 @@
+---
+title: "Code signing policy"
+sidebarTitle: "Code signing policy"
+description: "Which AppBlips downloads are signed, how releases are built, and how to check that a download is genuine."
+---
+
+Code signing adds a digital signature to a program, so your computer can tell who made it and that nobody changed it since.
+
+## What's signed
+
+- **Windows, Microsoft Store:** signed by Microsoft. Windows installs it without warnings, and the Store keeps it up to date. The [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) is the only way to install AppBlips on Windows.
+- **Linux, AppImage and `.deb` from GitHub:** the files themselves aren't code-signed. Linux doesn't warn about that the way Windows does. You can check them against their fingerprints (see below).
+- **Linux, AppBlips package source:** if you install and update the `.deb` through AppBlips' package source with `apt`, the package lists are signed with AppBlips' own key, and `apt` checks the signature for you on every update.
+
+## How releases are built
+
+Every Linux release on GitHub is built automatically from the [`TechMitten/app-blips`](https://github.com/TechMitten/app-blips) repository, by the [Desktop workflow](https://github.com/TechMitten/app-blips/blob/master/.github/workflows/desktop.yml) on GitHub's servers. Nobody builds those files by hand. The project owner, [@TechMitten](https://github.com/TechMitten), checks each release before publishing it on the [Releases page](https://github.com/TechMitten/app-blips/releases).
+
+The Microsoft Store package is built by the project owner from the same source code and uploaded to Microsoft. Microsoft reviews it, signs it, and delivers it and its updates through the Store.
+
+## Check that your download is genuine
+
+This applies to the Linux files you download from GitHub. The Store and `apt` check their own signatures for you.
+
+Each release includes a file named `SHA256SUMS.txt`, which lists a fingerprint for every download. If your file's fingerprint matches the list, the file is exactly what the workflow built.
+
+1. Download `SHA256SUMS.txt` from the same release as your file.
+2. Open a terminal in the folder that holds your download.
+3. Type `sha256sum` followed by a space and the file's name, then press **Enter**.
+4. Compare the long code it prints with the line for that file in `SHA256SUMS.txt`. They should be identical.
+
+## Privacy
+
+AppBlips sends your prompts and projects only to the AI provider you set up in **Settings → AI**, or, with the **Free** option, to the provider chosen by whoever runs that copy of AppBlips. It also connects to a few other services, for fonts, code libraries and updates. See [What does AppBlips connect to?](/reference/faq#privacy) for the full list.

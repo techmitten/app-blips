@@ -1,0 +1,141 @@
+---
+title: "Import a site"
+sidebarTitle: "Importing sites"
+description: "Open an HTML page, a .zip of a website, or a React + Vite project in AppBlips, and keep editing it with AI."
+---
+
+Already have a website, perhaps one a web designer made for you? **Import a site** opens it in AppBlips so you can keep changing it by describing what you want.
+
+AppBlips accepts three kinds of file:
+
+- **A single `.html` file:** opens in the Website studio as a one-page site.
+- **A `.zip` of a plain website** (HTML pages, CSS, JavaScript and images): opens in the Website studio with all its pages.
+- **A `.zip` of a React + Vite project:** opens as an **imported site** that keeps every one of its files, so you can export the same project again later. See [React projects](#react-projects).
+
+## HTML pages and plain websites
+
+### Import a page or a site
+
+1. On the start screen, click **Import a site**.
+2. Click **Click to choose a .html or .zip file, or drop it here** and pick your file, or drag the file onto it.
+3. AppBlips shows what it found, for example **Found a website with 4 pages**, and suggests a **Site name** taken from the home page's title. Change the name if you like.
+4. Click **Open site**.
+5. Describe a change in the chat, for example "Change the headline on the home page to Fresh bread daily".
+
+The site is now an ordinary Website studio project. Click-to-edit, pages, [export](/features/exporting) and [publish](/features/publishing) all work as they do for sites you build.
+
+<Tip>
+  If your page uses its own stylesheet, scripts or pictures, import a `.zip` of the whole site folder, not just the `.html` file. A single file can't bring the others with it, and AppBlips tells you which ones are missing.
+</Tip>
+
+### How AppBlips brings the site in
+
+In the Website studio, each page is one self-contained file, so AppBlips adjusts the site as it imports it:
+
+- **Home page:** the `index.html` file in the top folder. If a zip has several pages but no `index.html`, AppBlips stops with: "This zip has several .html pages but no index.html, so AppBlips can't tell which one is the home page. Name the home page index.html and try again."
+- **Other pages:** every page the home page links to, plus any other pages in the top folder. Pages in sub-folders get simple names (`blog/post.html` becomes `blog-post.html`), and links are updated to match. Pages nothing links to, such as a theme's demo folder, are left out.
+- **Stylesheets and scripts** are built into each page that uses them.
+- **Pictures** (JPEG, PNG, WebP, GIF and SVG) go into the project's [My images](/features/tools#my-images-beta).
+- **Fonts and icons** up to 60 KB each are built into the page. Larger files, and other files such as PDFs, are left out.
+- **Common libraries** (jQuery, Bootstrap, Font Awesome, Swiper and Animate.css) load from a CDN, a free public server for code, at the same version, instead of a copy in every page.
+
+Before you open the site, AppBlips lists anything it left out or changed.
+
+### Limits
+
+- At most **12 pages**.
+- At most **400 KB** for all the pages together, including the CSS and JavaScript built into each one. A large site with big stylesheets on every page may not fit.
+- At most **25 pictures**. Any beyond that are left out and show as broken images.
+- A `.zip` can hold at most 1,000 files and unpack to at most 80 MB. A single `.html` file can be at most 20 MB.
+
+<Note>
+  The AI only knows about the imported pictures while **My images** is on (**Settings → Tools**). The pictures show on your pages either way.
+</Note>
+
+## React projects
+
+AppBlips can open a real React + Vite website project and let you keep editing it with AI. The project keeps its own files and folders. When you export it, you get the same project back, ready for `npm install` and `npm run build`.
+
+### What can be imported
+
+Projects that use:
+
+- **React** with **Vite**, in TypeScript or JavaScript
+- **Tailwind CSS** v3 or v4, or plain CSS and CSS modules
+- **React Router** v6 or v7
+- npm packages such as shadcn/ui, Radix, Framer Motion and lucide-react
+- images and fonts in `src/assets` or `public/`
+
+The zip needs a `package.json` that lists Vite and React. Projects built with Next.js, Create React App, Remix, Gatsby, Astro, Vue, Nuxt, Svelte, Angular, Solid or Preact are refused, and so are monorepos with several packages.
+
+A project can have at most:
+
+- **1,000 files**, not counting `node_modules` and build output
+- **8 MB of code** in total
+- **150 MB of images, fonts and other files** in total
+
+Code files over 1 MB (5 MB for lockfiles such as `package-lock.json`) and other files over 50 MB are skipped, and AppBlips lists what it skipped.
+
+### For designers: prepare the zip
+
+1. Open the project folder: the one that contains `package.json`, `index.html` and `src`.
+2. Leave out the `node_modules` and `dist` folders. AppBlips skips them anyway, but the zip is much smaller without them.
+3. Zip the folder. On Windows, right-click it and choose **Send to → Compressed (zipped) folder**. On macOS, right-click it and choose **Compress**.
+4. Send the `.zip` file to your customer.
+
+AppBlips never imports `.env` files, because they can hold secrets. List the public `VITE_` settings the site needs in `.env.example` instead, and AppBlips fills them in for your customer.
+
+### For site owners: import and edit
+
+1. On the start screen, click **Import a site**.
+2. Choose the `.zip` file, or drag it onto the box. AppBlips says **Found a React + Vite project**.
+3. If the site needs settings, AppBlips asks how to get it ready. See [Sites that need settings](#sites-that-need-settings).
+4. Check the **Site name**, then click **Open site**.
+5. Describe a change in the chat, for example "Change the headline on the home page to Fresh bread daily", and send it.
+
+The AI finds the right files, edits them, and checks that the project still builds before it finishes. The preview updates when it's done. To see another page, type its address in the bar above the preview, for example `appblips.local/about`. The bar shows in the desktop-sized views, not in the phone and tablet ones.
+
+### Sites that need settings
+
+Some projects read settings such as a service address or a public key from a `.env` file. When AppBlips finds them, it says **This site needs a few settings** and offers two choices:
+
+- **I'll fill in the .env settings:** type the public `VITE_` values your designer gives you into **Public .env settings**, one per line, then click **Save settings**. They're saved as `.env.local` with the project, included in exports and visible to anyone who visits the site, so never enter passwords or private API keys.
+- **Use AI to remove the .env dependency:** the AI makes a standalone version you can preview and edit. Connected features, such as sign-in or payments, may show demo data instead. This uses your AI provider and can take a few minutes. Your original files are kept in the version history, so you can undo it.
+
+If the site needs settings only a server can use, AppBlips can't run it in the preview, so choose the AI option.
+
+### Browse the project's files
+
+Click the **Files** tab in the preview toolbar to look through the project:
+
+- The list on the left shows every folder and file. Type in **Search files…** to find one by name.
+- Common files and folders have a short description of what they're for.
+- Files the AI changed in its last edit have a small dot, and **Changed in the last edit** lists them.
+- Images, fonts and videos show a preview instead of code.
+- Click **Copy** to copy a file's code.
+
+To change a file yourself, click **Edit**, type your changes, then click **Save** (or press **Ctrl+S**, **⌘S** on a Mac). Each save becomes a new version you can undo. Images, fonts and other files that aren't code can't be edited here.
+
+### Export the project
+
+Click **Export** in the preview toolbar to download the project as a `.zip`. Every file is at its original path, and files the AI didn't change are exactly as they were.
+
+To build or host it, you need [Node.js](https://nodejs.org):
+
+1. Unzip the file.
+2. Open a terminal in the unzipped folder.
+3. Run `npm install`.
+4. Run `npm run build`.
+
+<Warning>
+  If the AI added or removed an npm package, AppBlips tells you when you export. Use `npm install`, not `npm ci`, so the lockfile catches up with `package.json`.
+</Warning>
+
+### Good to know
+
+- The preview loads npm packages from the internet, so editing an imported site needs a connection.
+- The preview runs Tailwind in the browser. It looks very close to the real build, and the export keeps your real Tailwind setup.
+- Imported sites can't be published from AppBlips. Export them and host them yourself.
+- Imported sites don't use SEO, My images, or extensions other than [Tavily](/features/connectors#tavily).
+- **Settings → Data → Export all apps** doesn't include imported sites. Export each one as a `.zip` to back it up.
+- In the desktop app, each imported site's files are also kept in a `site` folder inside its project folder. **Projects folder** under **Settings → Data** shows where that is.

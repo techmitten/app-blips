@@ -1,0 +1,251 @@
+---
+title: "Settings reference"
+sidebarTitle: "Settings"
+description: "Every setting in AppBlips, tab by tab: Appearance, Workspace, AI, Extensions, Tools, Data, About and Danger Zone."
+---
+
+Open **Settings** from the header to change how AppBlips looks and works. Settings has eight tabs: **Appearance**, **Workspace**, **AI**, **Extensions**, **Tools**, **Data**, **About** and **Danger Zone**. Your settings are saved on your device and kept between sessions. Click **Done** to close Settings.
+
+---
+
+## Appearance
+
+How AppBlips looks.
+
+<ParamField body="Theme" type="Light | Dark | System" default="Dark">
+  The color scheme of AppBlips. **Light** and **Dark** always use that scheme. **System** follows your computer's light or dark setting and switches when it does.
+</ParamField>
+
+<ParamField body="Build pane font" type="Small | Default | Large | XL" default="Small">
+  The text size of the whole build pane: the starter ideas, the chat and the prompt box. Each button shows an "A" at the size it picks.
+</ParamField>
+
+<ParamField body="Build pane position" type="Left | Right" default="Left">
+  Which side of the preview the build pane sits on. It applies on wider screens, where the two are side by side.
+</ParamField>
+
+---
+
+## Workspace
+
+How the preview and the code behave while you build.
+
+<ParamField body="Code view" type="toggle" default="On">
+  Shows the **Code** tab in the preview toolbar, where you can read the code of your app or click **Edit** to change it yourself. See [Edit the code yourself](/features/live-preview#edit-the-code-yourself). Imported sites always show a **Files** tab instead, whatever this is set to.
+</ParamField>
+
+<ParamField body="Auto Follow Code" type="toggle" default="On">
+  While an app is being written, the **Code** tab scrolls to keep the newest line in view. Turn it off to scroll back and read earlier code during a build.
+</ParamField>
+
+<ParamField body="Code autocomplete" type="toggle" default="On">
+  When you edit code in the **Code** tab, a short list of suggested words appears as you type. Use the up and down arrow keys to pick one, then press **Enter** or **Tab** to insert it. Press **Esc** to close the list, or just keep typing. Suggestions come from your own code plus common keywords, HTML tags and CSS properties. They're worked out on your computer: nothing is sent to the AI.
+</ParamField>
+
+<ParamField body="Live code preview" type="toggle" default="On">
+  Shows the code being written in the preview pane while your app builds. Turn it off to see the preview only once the app is ready.
+</ParamField>
+
+<ParamField body="Skip splash screen" type="toggle" default="Off">
+  Turn it on to skip the intro animation and go straight to AppBlips. It takes effect the next time AppBlips opens or the page reloads. With it off, you can still skip the intro at any time: click **Skip** in the bottom-right corner or press **Esc**.
+</ParamField>
+
+<ParamField body="Check for updates" type="toggle" default="On">
+  AppBlips asks GitHub about new versions when it starts and every hour while it's open, and tells you when one is out. GitHub sees your IP address when it does. The setting also shows which version you have. A change takes effect the next time AppBlips opens.
+
+  - **Desktop app (AppImage):** downloads updates in the background and offers **Restart to update**.
+  - **Desktop app (`.deb`):** tells you how to update: through `apt` if you added the AppBlips package source, or with a download link.
+  - **Microsoft Store version:** the Store installs updates, so AppBlips doesn't check GitHub or show update notices. **Check now** opens its Store page.
+  - **Browser version you run yourself:** links to [how to update](/quickstart-source#update).
+
+  Click **Check now** to check straight away, even with the switch off. The answer appears under the setting.
+</ParamField>
+
+### Replay onboarding
+
+Click **Replay** to go through the setup screens again: your name, your chat avatar (and, in the desktop app, your projects folder), then the AI setup. Nothing is reset. Your projects stay as they are, and your AI setup only changes if you save a new one.
+
+---
+
+## AI
+
+The AI that builds your apps, and how it works.
+
+### AI coding provider
+
+The AI provider that builds, edits and answers questions in Ask mode. See [Choose an AI provider](/ai-providers) for how to get a key.
+
+1. Under **Provider**, choose **Anthropic**, **OpenAI**, **Gemini**, **xAI**, **DeepSeek** or **OpenRouter**.
+2. Paste your key into the **API key** box. The **Create a … API key** link below it opens the provider's key page.
+3. Under **Model**, pick a model from your provider's list, or type a model ID.
+4. Click **Test connection** to check that everything works.
+5. Click **Save**.
+
+The line under **AI coding provider** shows what AppBlips is using now, for example `Using Anthropic · claude-sonnet-5.`
+
+- **Free (no key needed):** appears first in the list when whoever runs this copy of AppBlips has set up AI for everyone, as on [web.appblips.com](/quickstart-browser). There's no key or model to choose. It may be slower or limited when busy. Choosing it and clicking **Save** switches off your own provider, but keeps its key saved.
+- **Saved key:** once saved, the key box shows **Saved (encrypted) — type to replace**, and the key itself is never shown again. To use another key, click the box, click **Replace key**, paste the new key and click **Save**. The old key keeps working until you save.
+- **Model list:** it loads once you've entered a key. Click **Refresh models** to load it again. If it can't load, type the exact model ID. With OpenAI, choose a model that supports tool calling through Chat Completions. On OpenRouter, uncensored models aren't listed and can't be used.
+- **Clear** removes the saved provider, model and key, after you confirm.
+
+If you leave the tab or close Settings with changes you haven't saved, AppBlips asks **Save your AI provider?** Click **Save**, **Discard changes** or **Keep editing**.
+
+<Note>
+  In the desktop app, your key is encrypted with your system keychain and stays on your computer. In the browser version, it's saved in your browser only and sent with each request, never stored on the server. See [Security](/self-hosting/security#your-api-key).
+</Note>
+
+### Output tokens
+
+A token is a small piece of text, about three-quarters of a word. These limits cap how long one AI reply can be. Changes save as you type.
+
+<ParamField body="Output tokens: building" type="number" default="64,000">
+  The longest reply when building, editing or fixing code. Thinking counts toward it too. Leave it empty to use the default of 64,000, which is enough for a large app. If your provider doesn't accept the number, AppBlips tries again with the largest number the provider allows. Click **Use default** to clear your value.
+</ParamField>
+
+<ParamField body="Output tokens: Ask" type="number" default="Provider default">
+  The longest reply in Ask mode. Leave it empty to let your AI provider decide. (Anthropic needs a limit, so it gets 64,000.) Click **Use provider default** to clear your value.
+</ParamField>
+
+### Reasoning
+
+<ParamField body="Reasoning" type="Off | Minimal | Low | Medium | High | Extra high | Max" default="Medium">
+  How much the AI thinks before it writes code, whenever it builds, edits or fixes an app. Lower levels are faster and cheaper. Higher levels suit complex apps but take longer and use more tokens.
+
+  The list only shows the levels your provider and model support, and marks the model's own default with **Default**. If you switch to a model that doesn't have your level, AppBlips uses the closest one, and goes back to your choice when you switch back.
+</ParamField>
+
+What you can pick depends on your provider and model:
+
+- **Anthropic:** Low, Medium, High, Extra high and Max on current Claude models, plus Off where the model can stop thinking (not Claude Opus 5.5). Older Claude models have no levels.
+- **OpenAI:** depends on the model, for example Off to Max on GPT-6.1 Terra, or Minimal to High on GPT-5. Models that don't reason have no levels.
+- **Gemini:** depends on the model, for example Low and High on Gemini 3 Pro, or Minimal to High on Gemini 3 Flash. Only Gemini 2.5 Flash and Flash-Lite can turn reasoning off.
+- **xAI:** Low, Medium and High on Grok 4.3 and later, Low and High on Grok 3 Mini. Other Grok models have no levels.
+- **DeepSeek:** Off, Low, High and Max.
+- **OpenRouter:** the levels each model lists in OpenRouter's catalog.
+
+<Tip>
+  Quick chat replies, such as clarifying questions and Ask mode answers, always run with reasoning off, so they stay fast.
+</Tip>
+
+### Other AI settings
+
+<ParamField body="Clarifying questions" type="toggle" default="Off">
+  Lets the AI ask you a few questions about your prompt before it builds, for example to check how an unclear feature should work. It adds a step before the first build, but can save edits later.
+</ParamField>
+
+<ParamField body="Suggested prompts" type="toggle" default="Off">
+  After each build or edit, the AI suggests a few things you could ask for next. They appear above the chat box in Build mode. Click one to put it in the chat box, where you can change it or send it. This uses a few extra tokens per build.
+</ParamField>
+
+<ParamField body="Smart game engine" type="toggle" default="On">
+  In the Game studio, the AI picks an engine for each new game: **Phaser** for platformers, shooters and RPGs, **Three.js** for 3D games, and no engine for simple arcade, puzzle and card games, which then load faster. An engine you name in your prompt always wins. Turn it off to let the AI decide while it writes. See [Game engines](/features/building-apps#game-engines).
+</ParamField>
+
+<ParamField body="Smart website add-ons" type="toggle" default="On">
+  In the Website studio, the AI adds ready-made libraries a new website needs, such as **Swiper** for carousels, **GSAP** or **AOS** for scroll animations, **Chart.js** for charts and **Leaflet** for maps. Simple sites get none, so they load faster. A library you name in your prompt always wins. Turn it off to build websites with plain JavaScript only. See [Website add-ons](/features/building-apps#website-add-ons).
+</ParamField>
+
+---
+
+## Extensions
+
+Extensions connect outside services to your projects, so the AI can use them in what it builds. Each card shows its status: **Connected**, **Needs key**, **Needs sign-in** or **Not connected**. Click a card to set the service up.
+
+Each service's page has an **Enable** switch, a box for its key, code or link (Pollinations has a sign-in instead), a **How it works** button, and **Prompts to try**: ready-made requests to copy into the chat. Changes save as you type. See [Extensions](/features/connectors) for step-by-step setup.
+
+<ParamField body="Enable Web3Forms" type="toggle" default="Off">
+  Emails you what visitors type into your forms. Needs your Web3Forms access key. See [Web3Forms](/features/connectors#web3forms).
+</ParamField>
+
+<ParamField body="Enable Umami" type="toggle" default="Off">
+  Counts visitors to your sites. Needs your Umami tracking code or website ID. See [Umami](/features/connectors#umami).
+</ParamField>
+
+<ParamField body="Enable Plausible" type="toggle" default="Off">
+  Counts visitors to your sites. Needs your Plausible tracking code. See [Plausible](/features/connectors#plausible).
+</ParamField>
+
+<ParamField body="Enable tawk.to" type="toggle" default="Off">
+  Adds a live chat bubble to your sites. Needs your tawk.to widget code. See [tawk.to](/features/connectors#tawkto).
+</ParamField>
+
+<ParamField body="Enable Square" type="toggle" default="Off">
+  Takes payments through your own Square checkout. Needs one or more Square payment links. See [Square](/features/connectors#square).
+</ParamField>
+
+<ParamField body="Enable Pollinations" type="toggle" default="Off">
+  AI images and AI features in your sites. Needs a sign-in with your Pollinations account. See [Pollinations](/features/connectors#pollinations).
+</ParamField>
+
+<ParamField body="Enable Google Sheets Backend" type="toggle" default="Off">
+  Beta. Saves what visitors send, such as RSVPs, sign-ups, votes and scores, in a Google Sheet you own, and shows results back on your sites. Needs the **Web app URL** of a short script you add to your Sheet; the page walks you through it. See [Google Sheets Backend](/features/connectors#google-sheets-backend).
+</ParamField>
+
+<ParamField body="Enable Pixabay" type="toggle" default="Off">
+  Search free stock photos and add them to the open project's images. Needs your free Pixabay API key: paste it and click **Save key**. Click **Remove key** to forget it. See [Pixabay](/features/connectors#pixabay).
+</ParamField>
+
+<ParamField body="Enable Tavily" type="toggle" default="Off">
+  Lets the AI search the web while it builds and edits. Needs your free Tavily API key: paste it and click **Save key**. Each search uses one Tavily credit. Click **Remove key** to forget it. See [Tavily](/features/connectors#tavily).
+</ParamField>
+
+The **Surge** card is the free hosting account that [Publish](/features/publishing) uses. Click it to sign in or create an account without publishing anything, or, once signed in, to see your Surge email and sign out.
+
+Missing a service? Click **Request an extension** at the end of the cards.
+
+---
+
+## Tools
+
+Tools are built into AppBlips: they need no outside service, account or key. Click a card to open its page, with an **Enable** switch, a **How it works** button and **Prompts to try**. See [Tools](/features/tools).
+
+<ParamField body="Enable SEO" type="toggle" default="Off">
+  Helps people find your site on Google. It's set separately for each project, so open a project first. You answer a few questions about it, two or three at a time, and the AI applies good search-engine optimization. Finish with **Send now** to apply your answers straight away, or **Maybe later** to save them for your next request. Click **Review answers** to change them later. See [SEO](/features/tools#seo).
+</ParamField>
+
+<ParamField body="Enable My images" type="toggle" default="Off">
+  Beta. Lets the AI use photos and logos you upload to the open project. Below the switch is that project's image gallery, where you add images. Click the eye on an image to hide just that one from the AI. With Pixabay set up, **Find free photos on Pixabay** searches free photos to add. See [My images](/features/tools#my-images-beta).
+</ParamField>
+
+---
+
+## Data
+
+Back up your projects, and choose where the desktop app saves them.
+
+- **Projects folder:** desktop app only. Shows where your projects are saved: one folder per app. Click **Open** to see it, or **Change…** to pick another folder; AppBlips moves your apps there. The browser version saves projects in your browser instead.
+- **Export all apps:** click **Export** to download every saved app, its version history and its saved app data as one backup file. Imported sites aren't included: open each one and use **Export** to download it as a `.zip`. Images you added with **My images** aren't in the file either: a restored app lists them, but you'll need to upload them again.
+- **Import apps:** click **Import…** and choose a backup file. An app you already have is replaced only if the backup's copy is newer. The desktop app can import a backup from the browser version, and the other way round.
+
+See [Back up or move your projects](/quickstart-desktop#back-up-or-move-your-projects).
+
+---
+
+## About
+
+The AppBlips logo, the version you have and whether it's the **Desktop app** or the **Browser version**. Below them are buttons for the AppBlips **Website**, the **Source code** on GitHub, and **Report a bug**, which opens a new issue on GitHub. Click **Legal** or **Licenses** to jump to those sections.
+
+Every button or link in Settings that leaves AppBlips first asks if that's okay, and says why it's needed. Click **Continue** to open it in your web browser, or **Cancel** to stay.
+
+### Legal
+
+Links to the AppBlips **Privacy Policy** and **Terms of Service**, and to the **Surge Terms of Service**. Surge is the hosting service **Publish** uses, and its terms apply to what you publish. No Surge code is included in AppBlips.
+
+### Licenses
+
+Credits for the open source code inside AppBlips.
+
+- **AppBlips:** open source under the MIT License. Click **Show license** to read it.
+- **Open source packages:** every package that ships inside AppBlips, with its version and license. Click a package to read its license. Type in **Search packages** to find one by name, license or author.
+- **Other credits:** the Whisper speech model for voice input, React Bits, the fonts AppBlips uses and, in the desktop app, Chromium. Chromium's own licenses are in the file `LICENSES.chromium.html` in the AppBlips install folder.
+
+---
+
+## Danger Zone
+
+<Warning>
+  These actions are permanent. They can't be undone.
+</Warning>
+
+- **Delete all saved apps:** click **Delete all**, then **Delete all** again to confirm. Removes every saved app and its version history.
+- **Reset app to factory defaults:** click **Factory Reset**, then **Reset App** to confirm. Deletes all apps, history, settings and API keys, signs you out of every connected service, such as Surge and Pollinations, and restarts AppBlips as if it were newly installed.

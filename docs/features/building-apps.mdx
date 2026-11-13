@@ -1,0 +1,264 @@
+---
+title: "Build an app from a prompt"
+sidebarTitle: "Building apps"
+description: "Pick a studio, describe what you want in plain words, and AppBlips builds a working app, website or game. Tips for good prompts, pictures, voice input, Ask mode and the settings that shape a build."
+---
+
+You don't need to know how to code to use AppBlips. You describe what you want in everyday words, and the AI writes the code for you. A minute or so later, your app is running in the preview, ready to click through. Then you keep chatting to change it until it's right.
+
+## Pick a studio
+
+Every new project starts on the studio picker. Choose the kind of thing you want to make:
+
+- **Mobile & Web App:** interactive tools, dashboards and utilities, such as a budget tracker, a quiz or a timer. An app is one page.
+- **Responsive Website:** sites with several pages and a menu, such as a page for a business, a portfolio or an event. A website can have up to 12 pages.
+- **Browser Game:** 2D and 3D games that play with a keyboard, mouse or touch.
+
+Below the studios you can also open **My projects** (your saved work), **Import a site** (keep editing a site you already have, see [Import a site](/features/importing-sites)) or **Explore** (projects other people built, see [Showcase](/features/showcase)).
+
+To start something new later, click **New** in the header.
+
+## Write your first prompt
+
+A prompt is the message you type to tell the AI what to build. Write it the way you'd explain your idea to a friend. You don't need technical words like HTML or React.
+
+<Steps>
+  <Step title="Describe your idea">
+    Type it in the box in the middle of the screen. For example:
+
+    ```
+    A tip calculator. I type the bill amount, pick a tip percentage and
+    the number of people, and it shows the tip and the total per person.
+    ```
+  </Step>
+  <Step title="Send it">
+    Press Enter, or click the button under the box (it says **Build App**, **Build Website** or **Build Game**). To start a new line instead, press Shift+Enter. On a touchscreen keyboard, Enter starts a new line, so tap the button to send.
+  </Step>
+  <Step title="Watch it build">
+    The preview shows how far the build has got. When it's done, your app appears and is ready to use. See [Live preview](/features/live-preview#while-your-app-builds).
+  </Step>
+</Steps>
+
+To stop a build part-way, click **Cancel** next to the prompt box.
+
+### Tips for better results
+
+The more you say, the closer the first build gets to what you have in mind.
+
+<AccordionGroup>
+  <Accordion title="Name every feature you want">
+    List what it should do: "a to-do list where I can add tasks, tick them off, and filter by done or not done". The AI builds what you ask for and doesn't guess at extras.
+  </Accordion>
+  <Accordion title="Describe the look">
+    Mention colors ("a dark navy background with white text"), a layout ("two columns side by side") or a feeling ("calm and minimal, like a notes app").
+  </Accordion>
+  <Accordion title="Describe your data">
+    If the app keeps a list, say what each item holds: "each task has a title, a due date, a priority (low, medium or high) and a done checkbox". The forms and lists then come out right the first time.
+  </Accordion>
+  <Accordion title="Say what clicks should do">
+    Spell out how it should behave: "clicking a card opens the full description" or "clicking a column header sorts the table by it".
+  </Accordion>
+  <Accordion title="Start small, then add">
+    A short first prompt followed by a few changes often works better than one very long prompt. Each change is saved as its own version, so you can always step back.
+  </Accordion>
+</AccordionGroup>
+
+### Starter ideas
+
+Not sure what to build? Under the prompt box, a new project shows ready-made ideas for the studio you're in. In the build pane they're headed **Or start with one of these**.
+
+1. Click an idea. Its prompt goes into the prompt box.
+2. Change any of the words you like.
+3. Send it.
+
+Each studio has dozens of ideas, shuffled each time you open AppBlips. To see more, click the arrow keys beside them (**Previous ideas** and **More ideas**), or drag or swipe the row sideways.
+
+## Add a picture to your prompt
+
+A picture often explains a layout faster than words. You can send a sketch, a screenshot of a site you like or a mockup along with your message.
+
+- **From your computer:** click the paperclip key under the prompt box (its tooltip says **Attach an image from your device**) and pick a picture.
+- **From your clipboard:** copy a picture or take a screenshot, then press Ctrl+V (⌘V on a Mac) in the prompt box.
+- **Of your own app:** once something is built, click the camera key (**Attach a screenshot of the preview**). AppBlips takes a picture of the preview as it looks now. It's a quick way to show what's wrong: "the Sign up button is cut off on the right".
+
+A small thumbnail appears above the prompt box. Click it to see it full size, or click **Remove attached image** to take it off. Then write your message as usual, for example "build this, but use a text box instead of the file upload".
+
+When you send a screenshot of the preview, the AI's reply starts by saying what it sees, such as "I can see your screenshot, the Sign up button is cut off on the right". That way you know it looked at the right thing.
+
+The picture itself goes to the AI with that one message only. AppBlips also saves a short written description of it with the chat, and later messages send that description instead. So the AI still remembers what the picture showed without you attaching it again.
+
+## Speak your prompt
+
+On the start screen of a new project, you can say your idea out loud instead of typing it.
+
+<Steps>
+  <Step title="Start recording">
+    Click the microphone key next to the prompt box (its tooltip says **Speak your prompt**). If you're asked whether AppBlips may use your microphone, allow it. See [Microphone permission](#microphone-permission).
+  </Step>
+  <Step title="Talk">
+    While the key pulses red and **Listening…** shows, describe what you want to build.
+  </Step>
+  <Step title="Stop">
+    Click the microphone key again (**Stop voice input**). **Transcribing…** shows for a few seconds, then your words appear in the prompt box.
+  </Step>
+  <Step title="Check and send">
+    Fix any word it misheard, then send the prompt as usual.
+  </Step>
+</Steps>
+
+Your spoken words are added after anything you'd already typed. Typing while AppBlips is listening cancels the recording. A recording stops by itself after 2 minutes.
+
+### Your voice stays on your computer
+
+AppBlips turns speech into text with Whisper, an open-source speech-recognition model made by OpenAI. A model is the trained program that does the work. AppBlips comes with the **base** size of Whisper built in (about 76 MB), and it runs on your own computer:
+
+- Your recording is never uploaded or saved, and it isn't sent to your AI provider. Only the text you choose to send becomes part of your prompt.
+- It works without an internet connection.
+- It understands most languages. It listens for your computer's language first.
+- The first recording after you open AppBlips takes a few extra seconds while the model loads.
+- It can mishear unusual names and technical words, so read the text before you send it.
+
+Whisper's license is listed in **Settings → About → Licenses**.
+
+### Microphone permission
+
+- **Installer from GitHub, or Linux:** AppBlips doesn't ask. Clicking the microphone key is your permission. On Windows, the microphone privacy switches in Windows Settings must be on (they are by default).
+- **Microsoft Store version:** the first time, Windows asks whether AppBlips may use your microphone. Click **Yes**.
+- **Browser version:** your browser asks the first time. Click **Allow**.
+
+The apps you build can't use your microphone through AppBlips. Only AppBlips' own prompt box can. If you see `Microphone access is blocked`, see [Troubleshooting](/reference/troubleshooting).
+
+## Keep changing it
+
+After the first build, the prompt box stays ready for your next request. Describe a change and AppBlips updates the app you have, rather than starting over:
+
+```
+Add a dark mode switch in the top-right corner.
+```
+
+```
+Make the buttons rounded and change the accent color to teal.
+```
+
+Every change is saved as a new version. If one misses the mark, step back with **Previous version** in the preview toolbar or press Ctrl+Z. See [Versions and history](/features/live-preview#versions-and-history).
+
+In the Website studio you can also click on the page to change text, pictures and links yourself, with no prompt at all. See [Edit your app](/features/editing-apps).
+
+### Handy chat keys
+
+- **Copy message:** the copy key in the corner of any message copies its text. It shows a tick when it's done.
+- **Rewind project to this message:** the curved arrow beside the copy key on one of your earlier messages takes the project back to how it was at that point.
+- **New chat:** starts a fresh conversation (click the **+** key, **New chat (keeps version history)**). The AI forgets the earlier messages, which helps when a long chat has drifted off track. Your versions stay in the history.
+
+### Suggested prompts
+
+Want ideas for what to do next? Turn on **Suggested prompts** in **Settings → AI**. After each build, a row of short next steps, such as "Add a high-score table", appears above the prompt box. Click one to put it in the box, then edit or send it. It's off by default because it uses a few extra tokens on each build.
+
+## Finish the setup
+
+When a build is done, the AI says in the chat what it built or changed. Sometimes part of your app needs something only you can provide. For example, a weather app needs an API key from a weather service. (An API key is a password-like code that lets an app use an online service.)
+
+When that happens, the AI's message ends with **To finish setting it up:** and numbered steps: where to sign up, where to find the value, and how to add it. Usually the last step is to paste the value into the chat and ask the AI to put it in.
+
+<Warning>
+  Anything you put into your app, including a key, can be seen by anyone who opens the app. Use a free key, or one the service lets you restrict. Never use a key tied to a paid account you can't limit.
+</Warning>
+
+## Ask questions without changing anything
+
+The key next to the paperclip switches the prompt box between **Build** and **Ask**:
+
+- **Build:** your message changes the app.
+- **Ask:** the AI only answers. Ask how something works, what a part of the code does or what to try next. Your app stays exactly as it is.
+
+Click the key to switch. You don't always need to: if you ask a plain question in Build mode, such as "how does the score get saved?", the AI answers without changing anything. A request worded as a question, like "can you add a dark mode?", is still built.
+
+## Let the AI look things up
+
+The AI doesn't know everything, and what it knows can be out of date. If your app needs real facts, such as your business's opening hours, today's prices or how to use a particular service, turn on the [Tavily extension](/features/connectors#tavily) with your own free Tavily key. The AI then searches the web when a request needs it, and the chat shows **Searching the web…** while it does.
+
+Search results come from the open web and can be wrong. Check important facts before you publish.
+
+## Use your own images
+
+To build with your own photos or logo, turn on **My images** and add the pictures to your project: open **Settings**, click **Tools**, then the **My images** card. Then mention an image by name in your prompt, for example "put team-photo in the hero section". Before it uses an image, the AI shows which one it matched and waits for you to click **Yes, use it**.
+
+See [My images](/features/tools#my-images-beta) for the full steps.
+
+## Settings that shape a build
+
+These are all in **Settings → AI**.
+
+### Reasoning
+
+Reasoning lets the AI think a problem through before it writes code. More thinking suits apps with tricky logic or many steps, but it's slower and uses more tokens.
+
+Choose a level from **Reasoning**. The list shows only the levels your AI provider and model support, from **Off** up to **Max**, and marks the model's own default with **Default**. AppBlips uses **Medium** until you choose something else. If your model doesn't offer the level you picked, AppBlips uses the nearest one it does.
+
+Reasoning applies when the AI builds, edits or fixes your app. Ask mode answers and clarifying questions always run without it, so they come back quickly.
+
+### Clarifying questions
+
+Turn on **Clarifying questions** and the AI may ask you a few short questions before it builds, when your prompt leaves room for doubt. For example, it might ask what data the app should keep, or what matters most on the screen. Answer them in the chat and it builds with your answers in mind.
+
+It's off by default. Leave it off if you'd rather build straight away and adjust afterwards.
+
+### Game engines
+
+In the Game studio, AppBlips picks an engine for each new game before it starts writing. An engine is a ready-made toolkit for games.
+
+- **Phaser** for platformers, shooters, RPGs, tower defense and other games with lots of moving sprites. It adds about 1 MB to download.
+- **Three.js** for anything 3D, such as racing, flying or first-person games.
+- **No engine** (plain canvas) for simple arcade, puzzle, card, board and word games, so they load faster.
+
+The choice shows in the AI's reply for that build, for example:
+
+> Engine: Phaser 3, a game engine for 2D games with sprites, levels and physics. It adds about 1 MB to download.
+
+To choose yourself, name the engine in your prompt, such as "make it in Three.js" or "plain canvas, no engine". Your choice always wins, and the reply then says **Engine: the one you asked for in your request.**
+
+The engine is picked once, for the first build. Later changes keep the same engine. To let the AI decide as it writes instead, turn off **Smart game engine**.
+
+### Website add-ons
+
+In the Website studio, AppBlips picks ready-made libraries ("add-ons") for each new website before it starts writing:
+
+- **Swiper:** carousels and sliders, such as a row of reviews or a photo slideshow.
+- **GLightbox:** click a photo to see it full screen.
+- **GSAP** or **AOS:** sections that animate in as you scroll (never both).
+- **Lenis:** smooth scrolling, for showcase sites that also animate.
+- **Alpine.js:** tabs, pop-ups and monthly/yearly price switches.
+- **Chart.js:** charts of numbers.
+- **Leaflet:** an interactive map of your location.
+
+A site gets at most three, and only what it clearly needs, because each one is an extra download. A simple one-page site usually gets none. The choice shows in the AI's reply for that build, for example:
+
+> Add-ons: Swiper (carousels), GLightbox (full-screen photos).
+
+To choose yourself, name the library in your prompt, such as "use Swiper for the reviews" or "no libraries". Your choice always wins. Add-ons are picked for the first build. A later change that needs one, such as "add a photo carousel", can add it then.
+
+To build websites with plain JavaScript only, turn off **Smart website add-ons**.
+
+## Automatic error fixing
+
+After every build, AppBlips checks the new code for errors, and it watches for errors while your app runs in the preview. If it finds one, it asks the AI to fix it straight away. You don't need to do anything.
+
+While it works, the preview shows **Auto Error Checking**, and the chat shows **Automatically fixing a problem**. Click **Cancel** to stop it. The fix is saved as a new version, so you can undo it like any other change.
+
+AppBlips only tries a few times. If the problem is still there, the chat says:
+
+> The automatic fix could not be completed. Try asking for a change or restoring an earlier version.
+
+Describe what's wrong in the chat, or go back to an earlier version.
+
+AppBlips doesn't automatically fix errors in code you edited yourself. See [Edit the code yourself](/features/live-preview#edit-the-code-yourself).
+
+## Very large apps
+
+Each AI reply has a length limit, set in **Settings → AI** under **Output tokens: building** (64,000 tokens by default, enough for a large app). If a reply reaches the limit, AppBlips asks the AI to carry on where it stopped, up to three times. If the app is still unfinished after that, AppBlips tells you. See [Troubleshooting](/reference/troubleshooting).
+
+## How much does a build use?
+
+AI providers measure and bill use in **tokens**. A token is a small piece of text, about three-quarters of a word. One build can be several AI requests (choosing an engine or add-ons, writing the code, fixing errors, writing the reply). Each request sends your message, your app's code, the chat so far and AppBlips' instructions, and counts everything the AI writes back, including its thinking.
+
+AppBlips doesn't show a running total. To see what you've used and what it cost, open the usage or billing page on your AI provider's website. For ways to choose a provider and model, see [AI providers](/ai-providers).

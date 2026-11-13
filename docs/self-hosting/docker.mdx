@@ -1,0 +1,117 @@
+---
+title: "Run AppBlips with Docker"
+sidebarTitle: "Docker"
+description: "Run the browser version of AppBlips in a Docker container. One command builds and starts it at localhost:3000, with nothing else to install."
+---
+
+<Note>
+  This is an advanced option. Most people should install the [desktop app](/quickstart-desktop), or [try AppBlips in the browser](/quickstart-browser) with nothing to install.
+</Note>
+
+Docker runs programs inside a container: a sealed box that already holds everything the program needs. With Docker you don't install Node.js or anything else for AppBlips. One command builds the container and starts it, and then you use AppBlips in your web browser.
+
+It's the same browser version you get when you [run AppBlips from source](/quickstart-source). Your projects and your API key are saved in your web browser, not in the container.
+
+## Before you start
+
+1. Install Docker:
+   - **Windows or macOS:** install [Docker Desktop](https://docs.docker.com/get-docker/) and open it.
+   - **Linux:** install [Docker Engine](https://docs.docker.com/engine/install/) with the Compose plugin. On Ubuntu, run `sudo apt install docker.io docker-compose-v2`.
+2. Get the AppBlips code. If you have Git, open a terminal and run:
+
+   ```bash
+   git clone https://github.com/techmitten/app-blips.git
+   cd app-blips
+   ```
+
+   Without Git, open the [AppBlips GitHub page](https://github.com/techmitten/app-blips), click **Code**, then **Download ZIP**. Unzip the file and open a terminal in the unzipped folder.
+
+<Warning>
+  Type `docker compose`, with a space. The older `docker-compose` tool, with a hyphen, can't read AppBlips' setup file, and on newer Linux systems it fails with `No module named 'distutils'`. If `docker compose` is an unknown command, install the Compose plugin (on Ubuntu: `sudo apt install docker-compose-v2`).
+</Warning>
+
+## Start AppBlips
+
+<Steps>
+  <Step title="Build and start the container">
+    In the AppBlips folder, run:
+
+    ```bash
+    docker compose up -d
+    ```
+
+    The first time, Docker downloads what it needs and builds AppBlips. That includes the speech model for voice input (about 76 MB, from Hugging Face). Expect a few minutes. Later starts take seconds.
+  </Step>
+  <Step title="Open AppBlips">
+    In your web browser, go to [http://localhost:3000](http://localhost:3000).
+  </Step>
+  <Step title="Finish the setup screens">
+    Type your name and click **Continue**. Pick a chat avatar and click **Continue** again. Then choose your AI provider, paste your API key and choose a model. Click **Test connection** to check them, then click **Start building**. See [Choose an AI provider](/ai-providers) if you don't have a key yet.
+
+    If you gave the server its own provider in `.env` (see below), the setup also offers **Free (no key needed)**, and you can start without a key.
+  </Step>
+  <Step title="Build your first app">
+    Pick a studio, such as **Mobile & Web App**, describe what you want in plain English and press **Enter**. See [Build apps](/features/building-apps).
+  </Step>
+</Steps>
+
+The container starts again by itself when your computer or Docker restarts, until you stop it.
+
+To see what AppBlips is printing, for example when the page doesn't load, run `docker compose logs -f`. Press `Ctrl+C` to stop watching. AppBlips keeps running.
+
+## Stop AppBlips
+
+In the AppBlips folder, run:
+
+```bash
+docker compose down
+```
+
+## Update AppBlips
+
+1. Get the new code. Run `git pull` in the AppBlips folder, or download the ZIP again and unzip it over the old folder.
+2. Rebuild and restart the container:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+Your projects and keys are saved in your browser, so updating and restarting don't touch them. Just open the same address as before.
+
+## Use another port
+
+AppBlips opens at port 3000 on your computer. To use another port:
+
+1. In the AppBlips folder, create a file named `.env`, or copy `.env.example` to `.env`.
+2. Add this line, with the port you want:
+
+   ```bash
+   APPBLIPS_PORT=8080
+   ```
+
+3. Run `docker compose up -d` again.
+4. Open `http://localhost:8080`.
+
+<Warning>
+  Your browser keeps projects separately for each address, so the new port starts with an empty project list. Before you switch, open AppBlips at the old address and click **Settings → Data → Export**. Then import the file at the new address with **Settings → Data → Import…**.
+</Warning>
+
+## Give the server its own AI provider (optional)
+
+You can put an AI provider in the same `.env` file instead of entering one in the app. AppBlips then offers a **Free (no key needed)** option, which uses that provider. For example, with an Anthropic key:
+
+```bash
+OPENAI_API_KEY=sk-ant-...
+```
+
+AppBlips recognizes keys from Anthropic, OpenAI, Gemini, xAI and OpenRouter by how they start, and picks the provider's newest model unless you set `OPENAI_LLM_MODEL`. Run `docker compose up -d` after changing `.env` so the container reads it. See the [Configuration reference](/self-hosting/configuration) for every setting.
+
+## Keep it on your computer
+
+The setup file, `docker-compose.yml`, publishes AppBlips as `127.0.0.1:3000`. That means only your own computer can open it.
+
+<Warning>
+  Don't remove the `127.0.0.1:` part. AppBlips has no sign-in, so anyone who can reach it can build with the key you gave the server. See [Security](/self-hosting/security#if-you-open-appblips-to-other-devices).
+</Warning>
+
+The container runs AppBlips as a regular user, not as an administrator (root). It also creates a Docker volume named `appblips-data`, where AppBlips 0.1.27 and earlier kept saved keys. Newer versions delete those old key files when they start and keep nothing else there.
