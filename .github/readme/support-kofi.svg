@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="54" viewBox="0 0 250 54" role="img" aria-label="Support us on Ko-fi">
+  <title>Support us on Ko-fi</title>
+  <rect x="0.5" y="0.5" width="249" height="53" rx="10" fill="#FFFFFF" stroke="#29ABE0"/>
+  <circle cx="26.5" cy="27.5" r="15.5" fill="#29ABE0"/>
+  <g fill="#FFFFFF">
+    <path d="M17.5 19.5h15a1 1 0 0 1 1 1v8.5a6 6 0 0 1-6 6h-5a6 6 0 0 1-6-6v-8.5a1 1 0 0 1 1-1z"/>
+    <path d="M33 21.5h1.5a4 4 0 0 1 0 8H33v-2.4h1.5a1.6 1.6 0 0 0 0-3.2H33z"/>
+  </g>
+  <path fill="#29ABE0" d="M25 31.5l-3.6-3.5a2.1 2.1 0 0 1 3-3l.6.6.6-.6a2.1 2.1 0 0 1 3 3z"/>
+  <text x="53" y="20" font-family="Helvetica-Bold, Helvetica, Arial, sans-serif" font-size="9" font-weight="bold" fill="#29ABE0">SUPPORT US ON</text>
+  <text x="52" y="40" font-family="Helvetica-Bold, Helvetica, Arial, sans-serif" font-size="21" font-weight="bold" fill="#29ABE0">Ko-fi</text>
+  <g transform="translate(208 16)" fill="none" stroke="#29ABE0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 20.5 3 12.7A5 5 0 0 1 10.2 5.6l.8.8.8-.8A5 5 0 0 1 19 12.7z"/>
+  </g>
+</svg>

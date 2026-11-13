@@ -16,10 +16,6 @@
 </p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/appblips?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-appblips" target="_blank" rel="noopener noreferrer"><img alt="AppBlips - AI websites that don't look AI-made. Publish in one click | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1315175&amp;theme=light&amp;t=1794567580902"></a>
-</p>
-
-<p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg"></a>
   <a href="https://github.com/techmitten/app-blips/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/techmitten/app-blips?style=flat&color=yellow"></a>
   <a href="https://discord.gg/a7QfqbvaF9"><img alt="Discord" src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white"></a>
@@ -116,6 +112,16 @@ server.js            # Web server (npm start / Docker): serves dist/ and /api/* 
 testing/             # Standalone Node test scripts for backend routes and preview logic
 scripts/             # Build scripts, including Whisper model fetching
 ```
+
+## Support AppBlips
+
+If AppBlips is useful to you, an upvote on Product Hunt or a star on GitHub helps other people find it, and a tip on Ko-fi helps keep development going.
+
+<p align="center">
+  <a href="https://www.producthunt.com/products/appblips?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-appblips" target="_blank" rel="noopener noreferrer"><img alt="AppBlips - AI websites that don't look AI-made. Publish in one click | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1315175&amp;theme=light&amp;t=1794567580902"></a>
+  <a href="https://github.com/techmitten/app-blips"><img alt="Star AppBlips on GitHub" src=".github/readme/star-github.svg" width="250" height="54"></a>
+  <a href="https://ko-fi.com/techray"><img alt="Support AppBlips on Ko-fi" src=".github/readme/support-kofi.svg" width="250" height="54"></a>
+</p>
 
 ## License
 
