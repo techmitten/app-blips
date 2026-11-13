@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Code2, EyeOff } from 'lucide-react';
+import { Check, Code2, EyeOff, FileCode2 } from 'lucide-react';
 import ThinkingElapsed from './ThinkingElapsed';
 import useElapsedSeconds from '../hooks/useElapsedSeconds';
 
@@ -99,6 +99,7 @@ export default function BuildBlueprint({
   const progress = furthest >= CHECKING
     ? 1
     : 1 - Math.exp(-(codeRef ? chars / CHARS_FOR_TWO_THIRDS : seconds / 40) * 1.1);
+  const fileName = page?.page || 'index.html';
   const blocks = isTouch ? LAYOUT_TOUCH : (LAYOUTS[studioMode] || LAYOUTS.app);
 
   const detail = (index) => {
@@ -114,7 +115,18 @@ export default function BuildBlueprint({
   return (
     <div className={`build-blueprint${showCode && codeSlot ? ' is-code' : ''}`} role="status" aria-live="polite">
       {showCode && codeSlot ? (
-        <div className="build-blueprint-code">{codeSlot}</div>
+        // An editor window around the stream: the file being written and a
+        // numbered gutter (LiveCodePeek sets the line counter).
+        <div className="build-blueprint-code">
+          <div className="build-blueprint-code-bar" aria-hidden="true">
+            <span className="build-blueprint-code-lights"><i /><i /><i /></span>
+            <span key={fileName} className="build-blueprint-code-tab">
+              <FileCode2 size={12} />
+              {fileName}
+            </span>
+          </div>
+          <div className="build-blueprint-code-screen">{codeSlot}</div>
+        </div>
       ) : (
         <div className={`build-blueprint-frame ${isTouch ? 'is-touch' : ''}`} aria-hidden="true">
           {blocks.map(([x, y, w, h], i) => {

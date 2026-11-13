@@ -353,7 +353,9 @@ function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '', ba
       </div>}
       {hasLines && (
         <pre ref={bodyRef} className={`live-code-peek-body ${scrolledOff ? 'is-scrolled' : ''}`}>
-          <code>
+          {/* Starts the gutter counter at the first shown line, so numbers
+              stay true as older lines scroll off (shown in the blueprint). */}
+          <code style={{ counterReset: `peek-ln ${shownStart}` }}>
             {shown.map((line, i) => (
               <PeekLine key={shownStart + i} text={line} />
             ))}
