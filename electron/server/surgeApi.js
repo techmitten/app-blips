@@ -19,19 +19,34 @@
 //                                              src/lib/passwordGate.js),
 //                                   extras?: { 'sitemap.xml': text,
 //                                              'robots.txt': text } }
-//                                 -> { url, domain, custom?, dns? } or
-//                                    { error, signedOut? }  (dns: the record
-//                                    a custom domain needs, see dnsRecordFor)
+//                                 -> { url, domain, custom?, dns?, preview? }
+//                                    or { error, signedOut?, retryAt? }
+//                                    (dns: the record a custom domain needs,
+//                                    see dnsRecordFor; preview: the upload's
+//                                    own surge.sh address, which works before
+//                                    the domain's DNS does; retryAt: when a
+//                                    rate-limited publish may be retried)
 //                                 (images: Pollinations images copied into the
 //                                 site, see src/lib/siteImages.js, and the site
 //                                 icon, see src/lib/favicon.js; extras: the SEO
 //                                 connector's files, see src/lib/seo.js)
 //   POST   /api/surge/unpublish -> { domain } takes that site offline
 //                                 -> { removed: true } or { error, signedOut? }
-//   POST   /api/surge/dns      -> { domain } whether a custom domain's public
-//                                 DNS points at Surge yet (checkDns)
-//                                 -> { status: 'connected' | 'missing' |
-//                                      'elsewhere' | 'unknown', cname, ips }
+//   POST   /api/surge/domain   -> { domain } where a custom domain stands:
+//                                 its DNS, Surge's own state, its certificate
+//                                 and whether it answers over HTTPS
+//                                 (domainStatus). Read-only; safe to poll
+//   POST   /api/surge/encrypt  -> { domain } asks Surge for a Let's Encrypt
+//                                 certificate for a custom domain (what
+//                                 `surge <domain> debug encrypt` does). Surge
+//                                 gets one by itself once the DNS is right;
+//                                 this is the nudge for when it's stuck
+//                                 -> { issued: true } or
+//                                    { error, signedOut?, retryAt? }
+//   POST   /api/surge/verify   -> {} resends the Surge account's email
+//                                 verification link (`surge verify`)
+//                                 -> { sent, verified?, message? } or
+//                                    { error, signedOut? }
 //
 // `tokens` is { describe, keyFor, save, clear }: browserKeys.js (kept in the visitor's browser) in the browser
 // version, electron/surgeStore.js (OS keychain) on desktop.
@@ -41,12 +56,12 @@ import { MAX_FILES_BYTES, MAX_PAGES, validatePageName } from '../../src/lib/page
 import { MAX_SITE_IMAGES_BYTES, SITE_IMAGE_PATH_RE } from '../../src/lib/siteImages.js';
 import { FAVICON_PATH, MAX_FAVICON_BYTES, addFaviconLinks } from '../../src/lib/favicon.js';
 import { checkGatePassword, inlineGateImages, protectPages } from '../../src/lib/passwordGate.js';
-import { SURGE_A_RECORD, SURGE_CNAME_TARGET, SURGE_SUFFIX, dnsRecordFor, normalizeSiteHost } from '../../src/lib/siteAddress.js';
+import { SURGE_CNAME_TARGET, SURGE_EDGE_IPS, SURGE_SUFFIX, dnsRecordFor, normalizeSiteHost } from '../../src/lib/siteAddress.js';
 
 export const SURGE_API = 'https://surge.surge.sh';
 export { SURGE_SUFFIX, normalizeSiteHost };
 // Surge's API expects a CLI version with every publish.
-const SURGE_CLIENT_VERSION = '0.46.0';
+const SURGE_CLIENT_VERSION = '0.56.0';
 const MAX_EMAIL = 254;
 const MAX_PASSWORD = 256;
 
@@ -65,19 +80,40 @@ const addressProblem = (domain) => {
   return typed.includes('.') && !typed.endsWith(SURGE_SUFFIX) ? BAD_DOMAIN : BAD_ADDRESS;
 };
 
-// Surge explains refusals in a `reason` header, or a JSON body with
-// `messages`/`errors`.
+// The text of a `message` / `error` field: a string, or { message }.
+const textOf = (value) => (typeof value === 'string' ? value : typeof value?.message === 'string' ? value.message : '');
+const strings = (list) => (Array.isArray(list) ? list.filter((m) => typeof m === 'string') : []);
+
+// Surge explains a refusal in its JSON body or, when the body is empty, in a
+// `reason` header. Read in the order Surge's docs give (surge-docs/api.md):
+// `messages`, then `message` (rate limits use it), then `error`, then the
+// header.
 async function surgeReason(response) {
-  const header = response.headers.get('reason');
-  if (header) return header;
+  let body = null;
   try {
-    const body = JSON.parse(await response.text());
-    const list = [...(body?.messages || []), ...(body?.errors || [])].filter((m) => typeof m === 'string');
-    return list.join(' ');
-  } catch {
-    return '';
-  }
+    body = JSON.parse(await response.text());
+  } catch { /* no JSON body */ }
+  return strings(body?.messages).join(' ')
+    || textOf(body?.message)
+    || textOf(body?.error)
+    || strings(body?.errors).join(' ')
+    || response.headers.get('reason')
+    || '';
 }
+
+// A deploy-style reply (publish, encrypt): one JSON object per line.
+const parseEvents = (text) => text.split('\n').map((line) => {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return null;
+  }
+}).filter(Boolean);
+
+// What an `error` line says: { error: { message } } (surge-docs/api-deploys.md),
+// or the older `message` / `messages` / `errors` fields.
+const eventMessage = (event) => [textOf(event.error), textOf(event.message), ...strings(event.messages), ...strings(event.errors)]
+  .filter(Boolean).join(' ');
 
 const checkFiles = (files) => {
   if (!files || typeof files !== 'object' || Array.isArray(files)) return 'Nothing to publish.';
@@ -250,6 +286,14 @@ async function publish({ domain, files, images, extras, password }, tokens, fetc
     const reason = await surgeReason(response);
     return json({ error: reason || 'Surge doesn’t accept that address. Try a different one.' }, 400);
   }
+  if (response.status === 429) {
+    // Retrying while limited counts against the limit too, so say when.
+    const reason = await surgeReason(response);
+    return json({
+      error: reason || 'Surge is limiting how often this site can be published. Try again later.',
+      retryAt: retryAtFrom(response, reason, 15 * 60_000),
+    }, 429);
+  }
   if (!response.ok) {
     const reason = await surgeReason(response);
     return json({ error: reason || `Surge couldn’t publish the site (error ${response.status}). Try again in a minute.` }, 502);
@@ -263,15 +307,18 @@ async function publish({ domain, files, images, extras, password }, tokens, fetc
   } catch {
     return json({ error: 'The connection to Surge dropped while publishing. Try again.' }, 502);
   }
-  const events = text.split('\n').map((line) => {
-    try {
-      return JSON.parse(line);
-    } catch {
-      return null;
-    }
-  }).filter(Boolean);
-  if (events.some((event) => event.type === 'info')) {
-    return json({ url: `https://${host}`, domain: host, ...(custom ? { custom: true, dns: dnsRecordFor(host) } : {}) });
+  const events = parseEvents(text);
+  const info = events.find((event) => event.type === 'info');
+  if (info) {
+    // The revision's own address on surge.sh, which works before a custom
+    // domain's DNS does.
+    const preview = typeof info.metadata?.preview === 'string' && info.metadata.preview ? info.metadata.preview : '';
+    return json({
+      url: `https://${host}`,
+      domain: host,
+      ...(custom ? { custom: true, dns: dnsRecordFor(host) } : {}),
+      ...(preview ? { preview: `https://${preview.replace(/^https?:\/\//, '')}` } : {}),
+    });
   }
   if (events.some((event) => event.type === 'collect')) {
     return json({
@@ -281,7 +328,7 @@ async function publish({ domain, files, images, extras, password }, tokens, fetc
     }, 400);
   }
   const failure = events.find((event) => event.type === 'error' || event.messages || event.errors);
-  const message = failure && [failure.message, ...(failure.messages || []), ...(failure.errors || [])].filter((m) => typeof m === 'string').join(' ');
+  const message = failure ? eventMessage(failure) : '';
   return json({ error: message || 'Surge didn’t finish publishing. Try again.' }, 502);
 }
 
@@ -322,9 +369,10 @@ export const DOH_RESOLVERS = ['https://cloudflare-dns.com/dns-query', 'https://d
 const DNS_A = 1;
 const DNS_NS = 2;
 const DNS_CNAME = 5;
+const DNS_AAAA = 28;
 
-// { Status, Answer: [{ type, data }] } from the first resolver that answers,
-// or null when none can be reached.
+// { Status, Answer: [{ type, data, TTL }] } from the first resolver that
+// answers, or null when none can be reached.
 async function resolve(name, type, fetchImpl) {
   for (const base of DOH_RESOLVERS) {
     try {
@@ -344,45 +392,357 @@ const answers = (reply, type) => (Array.isArray(reply?.Answer) ? reply.Answer : 
   .filter((record) => record?.type === type && typeof record.data === 'string')
   .map((record) => record.data.trim().toLowerCase().replace(/\.$/, ''));
 
+// The shortest TTL in a reply, in seconds: how long resolvers may keep
+// handing out the answer they have now (an old record, after a change).
+const ttlOf = (reply) => {
+  const ttls = (Array.isArray(reply?.Answer) ? reply.Answer : [])
+    .map((record) => record?.TTL)
+    .filter((ttl) => Number.isFinite(ttl) && ttl >= 0);
+  return ttls.length ? Math.min(...ttls) : null;
+};
+
 // Surge's own names: geo.surge.world now, na-west1.surge.sh / geo.surge.sh
 // from older instructions, and the ns*.surge.world name servers.
 const isSurgeName = (name) => name === SURGE_CNAME_TARGET || name.endsWith('.surge.world') || name.endsWith(SURGE_SUFFIX);
 
-// Whether `host` reaches Surge: a CNAME to one of Surge's names, an A record
-// with one of Surge's addresses, or the domain handed to Surge's name
-// servers. 'missing' means no records yet; 'elsewhere' means it points
-// somewhere else (the old host, a parking page), which the page shows so
-// people know which record to replace.
-export async function checkDns(host, fetchImpl) {
-  const reply = await resolve(host, 'A', fetchImpl);
-  if (!reply) return { status: 'unknown', cname: [], ips: [] };
-  const cname = answers(reply, DNS_CNAME);
-  const ips = answers(reply, DNS_A);
-  const result = (status) => ({ status, cname, ips });
-  if (cname.some(isSurgeName) || ips.includes(SURGE_A_RECORD)) return result('connected');
+// Cloudflare's published IPv4 ranges (cloudflare.com/ips-v4, checked
+// 2026-11-14). An address in them means the record is proxied (the orange
+// cloud): visitors reach Cloudflare, so Surge can neither see the domain nor
+// get it a certificate.
+const CLOUDFLARE_RANGES = [
+  '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18',
+  '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17',
+  '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
+];
+const ipToNumber = (ip) => {
+  const parts = String(ip).split('.').map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  return ((parts[0] * 256 + parts[1]) * 256 + parts[2]) * 256 + parts[3];
+};
+export const isCloudflareIp = (ip) => {
+  const value = ipToNumber(ip);
+  return value !== null && CLOUDFLARE_RANGES.some((range) => {
+    const [base, bits] = range.split('/');
+    const start = ipToNumber(base);
+    return value >= start && value < start + 2 ** (32 - Number(bits));
+  });
+};
 
-  // A flattened CNAME / ALIAS, or Surge's own name servers, show up only as
-  // addresses: compare them with where Surge's name resolves right now.
-  if (ips.length) {
-    const surge = answers(await resolve(SURGE_CNAME_TARGET, 'A', fetchImpl), DNS_A);
-    if (ips.some((ip) => surge.includes(ip))) return result('connected');
-  }
+// The name servers of the zone `host` lives in: the nearest name, walking up,
+// that has NS records of its own (a name that's a CNAME is skipped, since a
+// resolver answers for the CNAME's target instead).
+async function zoneNameServers(host, fetchImpl) {
   const labels = host.split('.');
   for (let i = 0; i < labels.length - 1; i++) {
-    const servers = answers(await resolve(labels.slice(i).join('.'), 'NS', fetchImpl), DNS_NS);
-    if (servers.length) {
-      if (servers.some(isSurgeName)) return result('connected');
-      break;
+    const reply = await resolve(labels.slice(i).join('.'), 'NS', fetchImpl);
+    if (answers(reply, DNS_CNAME).length) continue;
+    const servers = answers(reply, DNS_NS);
+    if (servers.length) return servers;
+  }
+  return [];
+}
+
+// Who runs the domain's DNS, when that changes the instructions.
+const dnsProvider = (servers) => {
+  if (servers.some((server) => server.endsWith('.ns.cloudflare.com'))) return 'cloudflare';
+  if (servers.some(isSurgeName)) return 'surge';
+  return null;
+};
+
+// Where `host` points, as the public sees it:
+//   connected  a CNAME to one of Surge's names, an A record with one of
+//              Surge's addresses, or the domain handed to Surge's name servers
+//   mixed      Surge's address plus another (A or AAAA): visitors are split
+//              between the two, and Let's Encrypt tries the IPv6 one first,
+//              so Surge treats the domain as not pointed. `extra` lists them
+//   proxied    Cloudflare's proxy (orange cloud) is in front
+//   elsewhere  another host (the old one, a parking page)
+//   missing    no record yet
+//   unknown    no resolver could be reached
+// `ttl` is how long the current answer may stay cached. `servers` are the
+// zone's name servers (zoneNameServers), looked up once by the caller.
+export async function checkDns(host, fetchImpl, servers = []) {
+  const reply = await resolve(host, 'A', fetchImpl);
+  if (!reply) return { status: 'unknown', cname: [], ips: [], ttl: null };
+  const cname = answers(reply, DNS_CNAME);
+  const ips = answers(reply, DNS_A);
+  const result = (status, extra) => ({ status, cname, ips, ttl: ttlOf(reply), ...(extra?.length ? { extra } : {}) });
+  if (cname.some(isSurgeName)) return result('connected');
+  if (ips.some(isCloudflareIp)) return result('proxied');
+  if (ips.length) {
+    // A flattened CNAME / ALIAS shows up only as addresses: compare them
+    // with Surge's servers and with where Surge's name resolves right now.
+    let surgeIps = ips.filter((ip) => SURGE_EDGE_IPS.includes(ip));
+    if (surgeIps.length < ips.length) {
+      const geo = answers(await resolve(SURGE_CNAME_TARGET, 'A', fetchImpl), DNS_A);
+      surgeIps = ips.filter((ip) => SURGE_EDGE_IPS.includes(ip) || geo.includes(ip));
+    }
+    if (surgeIps.length) {
+      const others = ips.filter((ip) => !surgeIps.includes(ip));
+      if (others.length) return result('mixed', others);
+      const ipv6 = answers(await resolve(host, 'AAAA', fetchImpl), DNS_AAAA);
+      return ipv6.length ? result('mixed', ipv6) : result('connected');
     }
   }
+  if (servers.some(isSurgeName)) return result('connected');
   return result(cname.length || ips.length ? 'elsewhere' : 'missing');
 }
 
-async function dns({ domain }, tokens, fetchImpl) {
+// Whether `host` already answers over HTTPS, and who answered. Until Surge
+// has a certificate for it the TLS handshake fails (the name isn't on the
+// certificate), so fetch throws. Any reply at all, even a 404 or a redirect,
+// means a valid certificate, but only Surge's own reply (its `server:
+// Surge` / `surge-stamp` headers) means the site is live on Surge: an old
+// host or Cloudflare's proxy has certificates of its own.
+export async function checkHttps(host, fetchImpl) {
+  try {
+    const response = await fetchImpl(`https://${host}/`, {
+      method: 'HEAD',
+      redirect: 'manual',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
+    });
+    const server = (response.headers.get('server') || '').toLowerCase();
+    const via = response.headers.get('cf-ray') || server === 'cloudflare'
+      ? 'cloudflare'
+      : server === 'surge' || response.headers.has('surge-stamp') ? 'surge' : 'other';
+    return { ok: via === 'surge', via };
+  } catch {
+    return { ok: false, via: null };
+  }
+}
+
+const tokenOf = (tokens) => {
+  const { id: email, hasKey } = tokens.describe();
+  return hasKey ? tokens.keyFor(email) : '';
+};
+
+// GET on Surge's API with the token: { body }, { signedOut: true } on a 401,
+// or null when Surge can't be reached or refuses.
+async function surgeGet(path, token, fetchImpl) {
+  try {
+    const response = await fetchImpl(`${SURGE_API}/${path}`, {
+      headers: { authorization: basicAuth('token', token), accept: 'application/json', version: SURGE_CLIENT_VERSION },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (response.status === 401) return { signedOut: true };
+    if (!response.ok) return null;
+    return { body: await response.json() };
+  } catch {
+    return null;
+  }
+}
+
+const SURGE_STATES = ['waiting', 'securing', 'ready', 'live'];
+
+// Surge's own state for a domain (GET /<domain>/status, what `surge status`
+// shows): 'waiting' on DNS, 'securing' (getting the certificate), 'ready'
+// (published but held until the account's email is verified) or 'live'
+// (checked against Surge's servers). `reason` is Surge's explanation, when
+// it gives one.
+async function surgeState(host, token, fetchImpl) {
+  const reply = await surgeGet(`${host}/status`, token, fetchImpl);
+  if (!reply?.body) return reply;
+  const raw = String(reply.body.status || '').toLowerCase();
+  const status = raw.startsWith('waiting') ? 'waiting' : SURGE_STATES.includes(raw) ? raw : '';
+  const reason = typeof reply.body.reason === 'string' ? reply.body.reason : '';
+  return { status, reason };
+}
+
+// Whether a certificate name covers `host`: the same name, or a wildcard
+// one level up.
+const certCovers = (name, host) => {
+  const clean = String(name).toLowerCase().replace(/^dns:/, '').trim();
+  if (clean === host) return true;
+  return clean.startsWith('*.') && host.endsWith(clean.slice(1)) && host.split('.').length === clean.split('.').length;
+};
+
+// The certificate Surge has installed for `host` (GET /<domain>/certs):
+// { issued, issuer, expires }. The reply's exact shape isn't documented, so
+// this reads the fields the publish stream's `cert` lines use (issuer,
+// altnames, expiresInWords) and a few common spellings, and answers null
+// when it can't tell.
+const certNames = (cert) => [
+  ...['altnames', 'altNames', 'names', 'domains', 'subjectaltname'].flatMap((key) => {
+    const value = cert?.[key];
+    if (Array.isArray(value)) return value;
+    return typeof value === 'string' ? value.split(/[,\s]+/) : [];
+  }),
+  ...[cert?.subject, cert?.subject?.CN, cert?.commonName, cert?.domain].filter((value) => typeof value === 'string'),
+];
+async function surgeCerts(host, token, fetchImpl) {
+  const reply = await surgeGet(`${host}/certs`, token, fetchImpl);
+  if (!reply?.body) return null;
+  const { body } = reply;
+  const list = Array.isArray(body) ? body : Array.isArray(body?.certs) ? body.certs : [];
+  const cert = list.find((item) => certNames(item).some((name) => certCovers(name, host)));
+  if (!cert) return { issued: false, issuer: '', expires: '' };
+  const pick = (...values) => values.find((value) => typeof value === 'string' && value) || '';
+  return {
+    issued: true,
+    issuer: pick(cert.issuer, cert.issuer?.O, cert.issuer?.CN),
+    expires: pick(cert.expiresInWords, cert.expires, cert.notAfter, cert.validTo, cert.expiration),
+  };
+}
+
+// Everything about a custom domain the Publish window shows (useDomainStatus
+// in src/components/CustomDomainStatus.jsx), in one call:
+//   provider  'cloudflare' | 'surge' | null: who runs its DNS
+//   dns       checkDns for the domain; www: the same for www.<domain>, for
+//             a root domain only
+//   surge     Surge's state (surgeState), null when signed out or unreachable
+//   cert      Surge's certificate (surgeCerts), null when unknown
+//   https     checkHttps
+// No certificate is requested here: Surge gets one by itself once the DNS is
+// right, and asking repeatedly runs into Let's Encrypt's limits.
+async function domainStatus({ domain }, tokens, fetchImpl) {
   const site = normalizeSiteHost(domain);
   if (!site) return json({ error: addressProblem(domain) }, 400);
-  if (!site.custom) return json({ status: 'connected', cname: [], ips: [] });
-  return json(await checkDns(site.host, fetchImpl));
+  if (!site.custom) return json({ error: 'Only a domain you own needs this check.' }, 400);
+  const { host } = site;
+  const servers = await zoneNameServers(host, fetchImpl);
+  const root = dnsRecordFor(host).root;
+  const token = tokenOf(tokens);
+  const [dnsResult, www, https, surge, cert] = await Promise.all([
+    checkDns(host, fetchImpl, servers),
+    root ? checkDns(`www.${host}`, fetchImpl, servers) : null,
+    checkHttps(host, fetchImpl),
+    token ? surgeState(host, token, fetchImpl) : null,
+    token ? surgeCerts(host, token, fetchImpl) : null,
+  ]);
+  return json({
+    host,
+    provider: dnsProvider(servers),
+    dns: dnsResult,
+    ...(www ? { www } : {}),
+    surge: surge?.status !== undefined ? surge : null,
+    cert,
+    https,
+    ...(surge?.signedOut || !token ? { signedOut: true } : {}),
+    checkedAt: Date.now(),
+  });
+}
+
+// When a refused request may be tried again, in ms since the epoch: from a
+// `retry-after` header (seconds or a date), from "Try again in 9 hours" in
+// Surge's message, or `fallbackMs` from now.
+const UNIT_MS = { second: 1_000, minute: 60_000, hour: 3_600_000, day: 86_400_000 };
+export function retryAtFrom(response, message, fallbackMs) {
+  const header = response?.headers?.get('retry-after');
+  if (header) {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds)) return Date.now() + seconds * 1000;
+    const date = Date.parse(header);
+    if (Number.isFinite(date)) return date;
+  }
+  const match = /try again in (\d+) (second|minute|hour|day)s?/i.exec(message || '');
+  if (match) return Date.now() + Number(match[1]) * UNIT_MS[match[2].toLowerCase()];
+  return Date.now() + fallbackMs;
+}
+
+// Let's Encrypt's limits, as Surge passes them on: 5 failed checks per
+// domain an hour, 5 identical certificates a week, 50 a week per domain.
+const CERT_LIMIT_RE = /too many (failed )?(authorizations|certificates|requests|registrations)|rate ?limit/i;
+
+// Asks Surge for a certificate for a custom domain: PUT /<domain>/encrypt,
+// the same call as `surge <domain> debug encrypt`. Only for when Surge has
+// been stuck securing a domain for a while (useDomainStatus asks once by
+// itself, then only when the user does, at most every 30 minutes). Like
+// publish, the reply is a stream of JSON lines, and it always ends with an
+// `info` line: its `certs` list is empty when no certificate was issued
+// (surge-docs/api-deploys.md).
+//   -> { issued: true } or { error, retryAt?, signedOut? }
+async function encrypt({ domain }, tokens, fetchImpl) {
+  const token = tokenOf(tokens);
+  if (!token) return json({ error: 'Sign in to Surge first.', signedOut: true }, 401);
+  const site = normalizeSiteHost(domain);
+  if (!site) return json({ error: addressProblem(domain) }, 400);
+  if (!site.custom) return json({ issued: true });
+  const { host } = site;
+  let response;
+  try {
+    response = await fetchImpl(`${SURGE_API}/${host}/encrypt`, {
+      method: 'PUT',
+      headers: {
+        authorization: basicAuth('token', token),
+        accept: 'application/x-ndjson',
+        version: SURGE_CLIENT_VERSION,
+        timestamp: new Date().toISOString(),
+      },
+      // Let's Encrypt checks the domain while the request is open.
+      signal: AbortSignal.timeout(120_000),
+    });
+  } catch {
+    return json({ error: 'Couldn’t reach Surge. Try again in a minute.' }, 502);
+  }
+  if (response.status === 401) {
+    await tokens.clear();
+    return json({ error: 'Your Surge sign-in has expired. Sign in again.', signedOut: true }, 401);
+  }
+  if (!response.ok) {
+    const reason = await surgeReason(response);
+    if (response.status === 429 || CERT_LIMIT_RE.test(reason)) {
+      return json({ error: reason || 'Too many certificate requests for this domain.', retryAt: retryAtFrom(response, reason, 3_600_000) }, 429);
+    }
+    if (response.status === 404) return json({ error: `Surge has no site at ${host}. Publish it again.` }, 400);
+    if (response.status === 405) return json({ error: `Surge can’t request a certificate for ${host}.` }, 400);
+    return json({ error: reason || `Surge couldn’t request the certificate (error ${response.status}). Try again in a minute.` }, 502);
+  }
+  let text = '';
+  try {
+    text = await response.text();
+  } catch {
+    return json({ error: 'The connection to Surge dropped. Try again in a minute.' }, 502);
+  }
+  const events = parseEvents(text);
+  const failure = events.find((event) => event.type === 'error' || event.messages || event.errors);
+  const message = failure ? eventMessage(failure) : '';
+  if (message && CERT_LIMIT_RE.test(message)) {
+    return json({ error: message, retryAt: retryAtFrom(null, message, 3_600_000) }, 429);
+  }
+  const info = events.find((event) => event.type === 'info');
+  if (info && Array.isArray(info.certs) && info.certs.length) return json({ issued: true });
+  return json({
+    error: message || `Surge couldn’t get a certificate for ${host} yet. This usually means the new DNS records haven’t reached everyone yet.`,
+  }, 502);
+}
+
+// Resends the account's verification email (`surge verify`). A new
+// account's domains are held at 'ready' until it's verified. Surge answers
+// { verified: true } when there's nothing to verify, { sent: true } when it
+// sent the email, or { sent: false, msg } within five minutes of the last.
+//   -> { sent, verified?, message? } or { error, signedOut? }
+async function verify(_body, tokens, fetchImpl) {
+  const { id: email } = tokens.describe();
+  const token = tokenOf(tokens);
+  if (!token) return json({ error: 'Sign in to Surge first.', signedOut: true }, 401);
+  let response;
+  try {
+    response = await fetchImpl(`${SURGE_API}/verification`, {
+      method: 'POST',
+      headers: { authorization: basicAuth('token', token), accept: 'application/json', version: SURGE_CLIENT_VERSION },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return json({ error: 'Couldn’t reach Surge. Try again.' }, 502);
+  }
+  if (response.status === 401) {
+    await tokens.clear();
+    return json({ error: 'Your Surge sign-in has expired. Sign in again.', signedOut: true }, 401);
+  }
+  if (!response.ok) {
+    const reason = await surgeReason(response);
+    return json({ error: reason || `Surge couldn’t send the email (error ${response.status}). Try again.` }, 502);
+  }
+  let body = null;
+  try {
+    body = await response.json();
+  } catch { /* an empty reply: assume it was sent */ }
+  if (body?.verified === true) return json({ sent: false, verified: true, email });
+  if (body?.sent === false) {
+    return json({ sent: false, email, message: typeof body.msg === 'string' && body.msg ? body.msg : 'Surge sent one a few minutes ago. Check your inbox and spam folder.' });
+  }
+  return json({ sent: true, email });
 }
 
 export async function handleSurgeApi(request, env, tokens, { fetch: fetchImpl = globalThis.fetch } = {}) {
@@ -412,7 +772,7 @@ export async function handleSurgeApi(request, env, tokens, { fetch: fetchImpl = 
     }
     return json({ error: 'Method not allowed.' }, 405);
   }
-  const actions = { '/api/surge/login': login, '/api/surge/publish': publish, '/api/surge/unpublish': unpublish, '/api/surge/dns': dns };
+  const actions = { '/api/surge/login': login, '/api/surge/publish': publish, '/api/surge/unpublish': unpublish, '/api/surge/domain': domainStatus, '/api/surge/encrypt': encrypt, '/api/surge/verify': verify };
   if (actions[path]) {
     if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
     const body = await readBody();

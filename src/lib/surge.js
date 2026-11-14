@@ -5,7 +5,7 @@
 import { safeStorage } from './config.js';
 import { slugifyName } from './helpers.js';
 
-export { MAX_HOST_LENGTH, SURGE_A_RECORD, SURGE_CNAME_TARGET, SURGE_SUFFIX, dnsRecordFor, isCustomHost, normalizeSiteHost, siteHost, siteUrl } from './siteAddress.js';
+export { MAX_HOST_LENGTH, SURGE_A_RECORD, SURGE_CNAME_TARGET, SURGE_SUFFIX, dnsRecordFor, dnsRecordsFor, isCustomHost, latestPreviewUrl, normalizeSiteHost, siteHost, siteUrl } from './siteAddress.js';
 const DOMAINS_KEY = 'orion-surge-domains';
 
 async function call(path, { method = 'GET', body } = {}) {
@@ -31,8 +31,17 @@ export const surgeLogin = (email, password) => call('/api/surge/login', { method
 export const surgeSignOut = () => call('/api/surge', { method: 'DELETE' });
 export const surgePublish = (domain, files, images, extras, password) => call('/api/surge/publish', { method: 'POST', body: { domain, files, ...(images ? { images } : {}), ...(extras ? { extras } : {}), ...(password ? { password } : {}) } });
 export const surgeUnpublish = (domain) => call('/api/surge/unpublish', { method: 'POST', body: { domain } });
-// Whether a custom domain's DNS points at Surge yet (see checkDns in surgeApi.js).
-export const surgeCheckDns = (domain) => call('/api/surge/dns', { method: 'POST', body: { domain } });
+// Where a custom domain stands: its DNS, Surge's own state, its certificate
+// and whether it answers over HTTPS (see domainStatus in surgeApi.js).
+// Read-only, so CustomDomainStatus polls it.
+export const surgeDomainStatus = (domain) => call('/api/surge/domain', { method: 'POST', body: { domain } });
+// Asks Surge for the custom domain's HTTPS certificate (see encrypt in
+// surgeApi.js). Surge gets one by itself; this is the nudge for when it's
+// stuck, rationed by loadCertState / saveCertState below.
+export const surgeEncrypt = (domain) => call('/api/surge/encrypt', { method: 'POST', body: { domain } });
+// Resends the Surge account's email verification link (see verify in
+// surgeApi.js). A new account's domains are held until it's verified.
+export const surgeVerifyEmail = () => call('/api/surge/verify', { method: 'POST', body: {} });
 
 // "My Bakery Site" -> "my-bakery-site-x7k2": a random tail makes it unlikely
 // that someone else on Surge already has the address.
@@ -175,4 +184,41 @@ export const savePwa = (projectId, enabled) => {
   try {
     safeStorage('local')?.setItem(PWA_KEY, JSON.stringify(map));
   } catch { /* not remembered */ }
+};
+
+// Per custom domain, what the Publish window remembers about getting its
+// certificate, so closing and reopening it doesn't start over:
+//   connectedAt    when its DNS was first seen pointing at Surge
+//   lastRequestAt  when AppBlips last asked Surge for a certificate
+//   retryAt        until when Let's Encrypt refuses (its rate limits)
+const CERT_KEY = 'orion-surge-cert';
+
+const loadCertMap = () => {
+  try {
+    const parsed = JSON.parse(safeStorage('local')?.getItem(CERT_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+export const loadCertState = (host) => {
+  const entry = host ? loadCertMap()[host] : null;
+  const number = (value) => (Number.isFinite(value) ? value : 0);
+  return {
+    connectedAt: number(entry?.connectedAt),
+    lastRequestAt: number(entry?.lastRequestAt),
+    retryAt: number(entry?.retryAt),
+  };
+};
+
+// Merges `patch` in; `null` forgets the domain (once it's live).
+export const saveCertState = (host, patch) => {
+  if (!host) return;
+  const map = loadCertMap();
+  if (patch === null) delete map[host];
+  else map[host] = { ...loadCertState(host), ...patch };
+  try {
+    safeStorage('local')?.setItem(CERT_KEY, JSON.stringify(map));
+  } catch { /* not remembered: the window starts the wait over */ }
 };

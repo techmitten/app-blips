@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronRight, CircleAlert, CloudUpload, Copy, ExternalLink, Globe, ImagePlus, LifeBuoy, Loader2, Lock, RefreshCw, Search, Smartphone, Sparkles, Trash2 } from 'lucide-react';
+import { Check, CircleAlert, CloudUpload, ExternalLink, Globe, ImagePlus, Loader2, Lock, RefreshCw, Search, Smartphone, Sparkles, Trash2 } from 'lucide-react';
 import Modal, { ModalCloseButton } from './Modal';
 import { FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON, Switch } from './SettingControls';
 import {
-  MAX_HOST_LENGTH, SURGE_A_RECORD, SURGE_CNAME_TARGET, SURGE_SUFFIX, dnsRecordFor, isCustomHost, normalizeSiteHost, siteHost, siteUrl, loadFavicon, loadProtected, loadPublishedName, loadPwa, loadSearchable, saveFavicon, saveProtected, savePublishedName, savePwa, saveSearchable, suggestSurgeName,
-  surgeCheckDns, surgeLogin, surgePublish, surgeSignOut, surgeStatus, surgeUnpublish,
+  MAX_HOST_LENGTH, SURGE_SUFFIX, dnsRecordsFor, isCustomHost, latestPreviewUrl, normalizeSiteHost, siteHost, siteUrl, loadFavicon, loadProtected, loadPublishedName, loadPwa, loadSearchable, saveFavicon, saveProtected, savePublishedName, savePwa, saveSearchable, suggestSurgeName,
+  surgeLogin, surgePublish, surgeSignOut, surgeStatus, surgeUnpublish,
 } from '../lib/surge';
 import { addNoIndex } from '../lib/seo';
 import { buildPwaManifest, buildServiceWorker, defaultPwaIconBase64, injectPwaPrompt } from '../lib/pwa';
@@ -16,9 +16,11 @@ import { FAVICON_PATH, faviconBase64, makeFavicon, withFavicon } from '../lib/fa
 import ShareIcon from './ShareIcons';
 import ShowcaseSubmitModal from './ShowcaseSubmitModal';
 import DnsHelpModal from './DnsHelpModal';
+import CustomDomainStatus from './CustomDomainStatus';
+import { BetaBadge, CopyButton, LINK_CLASS, StatusDot } from './PublishControls';
+import useDomainStatus from '../hooks/useDomainStatus';
 
 const LABEL_CLASS = 'block text-sm font-semibold text-slate-900';
-const LINK_CLASS = 'font-semibold text-indigo-600 hover:underline';
 
 // Shown on the manage and done steps once the project has an address.
 function ShowcaseSubmitLink({ onClick, disabled = false }) {
@@ -31,47 +33,7 @@ function ShowcaseSubmitLink({ onClick, disabled = false }) {
   );
 }
 
-// Copies a value and says so for a moment. `compact` is the icon-only form
-// used beside DNS values.
-function CopyButton({ value, label, compact = false }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef(0);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      clearTimeout(timer.current);
-      timer.current = setTimeout(() => setCopied(false), 1500);
-    } catch { /* clipboard blocked: the value is still on screen */ }
-  };
-  if (compact) {
-    return (
-      <button type="button" onClick={copy} aria-label={copied ? 'Copied' : `Copy ${label}`} title={copied ? 'Copied' : 'Copy'} className="shrink-0 rounded-md p-1 text-slate-600 transition-colors hover:bg-slate-200/70 hover:text-slate-800">
-        {copied ? <Check size={13} className="text-emerald-600" aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
-      </button>
-    );
-  }
-  return (
-    <button type="button" onClick={copy} aria-label={copied ? 'Copied' : `Copy ${label}`} className={`${SECONDARY_BUTTON} shrink-0 py-1 text-xs`}>
-      {copied ? <Check size={13} className="text-emerald-600" aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
-      {copied ? 'Copied' : 'Copy'}
-    </button>
-  );
-}
-
 const ICON_TYPES = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,.ico';
-
-// A custom domain's DNS state at a glance: red and pulsing until the DNS
-// check succeeds, then solid green. `size` is the dot's Tailwind size class.
-function StatusDot({ ok, size = 'h-2 w-2', className = '' }) {
-  return (
-    <span className={`relative inline-flex shrink-0 ${size} ${className}`} aria-hidden="true">
-      {!ok && <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 motion-safe:animate-ping" />}
-      <span className={`relative inline-flex ${size} rounded-full ${ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
-    </span>
-  );
-}
 
 // The site as a visitor's browser shows it: a tab with the site icon and
 // name, over the address bar. On the publish step the address is typed right
@@ -79,7 +41,7 @@ function StatusDot({ ok, size = 'h-2 w-2', className = '' }) {
 // Like a browser's toolbar, the address sits in an inset box: bordered like
 // any other field while editable, so it reads as one in both themes. The
 // icon is only shown here; SiteIconRow picks it.
-function SitePreview({ title, icon, live = false, pending = false, editable = false, children }) {
+function SitePreview({ title, icon, live = false, pending = false, pendingLabel = 'Waiting for DNS', editable = false, children }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
       <div className="flex items-end gap-2 px-2 pt-2">
@@ -96,7 +58,7 @@ function SitePreview({ title, icon, live = false, pending = false, editable = fa
         )}
         {!live && pending && (
           <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 pb-1.5 pr-1 text-xs font-semibold text-slate-600">
-            <StatusDot ok={false} size="h-2 w-2" />Waiting for DNS
+            <StatusDot ok={false} size="h-2 w-2" />{pendingLabel}
           </span>
         )}
       </div>
@@ -277,113 +239,9 @@ function PublishOptions({ icon, onIcon, searchable, onSearchable, pwa, onPwa, lo
   );
 }
 
-// The one DNS record a custom domain needs before it works (siteAddress.js).
-// Surge publishes right away; visitors reach it once the record is in place.
-// `onHelp` opens the provider guides (DnsHelpModal).
-function DnsSetup({ host, onHelp }) {
-  const record = dnsRecordFor(host);
-  const fields = [['Type', record.type], ['Name', record.name], ['Value', record.value]];
-  return (
-    <div className="space-y-2.5 text-xs leading-snug text-slate-600">
-      <p>
-        Where you bought <strong className="font-semibold text-slate-800">{host}</strong>, open its DNS settings and add this record:
-      </p>
-      <dl className="grid grid-cols-[auto_auto_minmax(0,1fr)] overflow-hidden rounded-lg border border-slate-200 bg-surface">
-        {fields.map(([term]) => (
-          <dt key={term} className="border-b border-slate-200 px-3 py-1.5 font-medium text-slate-600">{term}</dt>
-        ))}
-        {fields.map(([term, value]) => (
-          <dd key={term} className="flex min-w-0 items-center gap-1 px-3 py-1.5 font-mono text-[13px] text-slate-900">
-            <span className="min-w-0 break-all">{value}</span>
-            {term === 'Value' && <CopyButton value={value} label={`DNS ${term.toLowerCase()}`} compact />}
-          </dd>
-        ))}
-      </dl>
-      <p>
-        {record.root
-          ? <>If your provider offers ALIAS or ANAME records, you can point <span className="font-mono">@</span> at <span className="font-mono">{SURGE_CNAME_TARGET}</span> instead.</>
-          : <>For a domain with no prefix, like example.com, add an A record for <span className="font-mono">@</span> with <span className="font-mono">{SURGE_A_RECORD}</span> instead.</>}
-        {' '}It can take up to a day to start working. Surge adds HTTPS by itself, and the www and plain versions of the domain open the same site.
-      </p>
-      <p>
-        <button type="button" onClick={onHelp} className={`inline-flex items-start gap-1 text-left ${LINK_CLASS}`}>
-          <LifeBuoy size={13} className="mt-px shrink-0" aria-hidden="true" />Not sure how? Guides for GoDaddy, Namecheap and other providers
-        </button>
-      </p>
-    </div>
-  );
-}
-
-const DNS_RECHECK_MS = 30_000;
-
-// Watches whether a custom domain's DNS points at Surge yet (surgeCheckDns):
-// checks when `host` is set, then every 30 seconds until it's connected.
-// `checkNow` checks again straight away. `checking` is true during a check.
-function useDnsCheck(host) {
-  const [state, setState] = useState({ status: 'checking', cname: [], ips: [] });
-  // `tick` asks for a check; `answered` is the tick the latest reply was for,
-  // so a check is running while they differ.
-  const [tick, setTick] = useState(0);
-  const [answered, setAnswered] = useState(-1);
-  const checking = Boolean(host) && answered !== tick;
-  const connected = state.status === 'connected';
-
-  useEffect(() => {
-    if (!host) return undefined;
-    let live = true;
-    surgeCheckDns(host).then((result) => {
-      if (!live) return;
-      setState(result.error ? { status: 'unknown', cname: [], ips: [] } : result);
-      setAnswered(tick);
-    });
-    return () => { live = false; };
-  }, [host, tick]);
-
-  useEffect(() => {
-    if (!host || connected) return undefined;
-    const timer = setTimeout(() => setTick((n) => n + 1), DNS_RECHECK_MS);
-    return () => clearTimeout(timer);
-  }, [host, connected, tick]);
-
-  return { ...state, checking, checkNow: () => setTick((n) => n + 1) };
-}
-
-// One line saying where the domain's DNS stands, under the record to add.
-function DnsStatusLine({ host, check }) {
-  const { status, cname, ips, checking, checkNow } = check;
-  if (status === 'connected') {
-    return (
-      <p role="status" className="flex items-start gap-2 text-xs leading-snug text-emerald-700 dark:text-emerald-400">
-        <StatusDot ok className="mt-1" />
-        <span><strong className="font-semibold">{host} is connected.</strong> HTTPS can take a few more minutes to switch on.</span>
-      </p>
-    );
-  }
-  const pointsTo = cname[0] || ips.join(', ');
-  const message = {
-    checking: `Checking ${host}…`,
-    missing: `No record for ${host} yet. AppBlips checks again every 30 seconds.`,
-    elsewhere: `${host} points to ${pointsTo}, not Surge. Change that record to the one above. AppBlips checks again every 30 seconds.`,
-    unknown: 'Couldn’t check DNS right now. AppBlips tries again every 30 seconds.',
-  }[status];
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <p role="status" className="flex min-w-0 items-start gap-2 text-xs leading-snug text-slate-600">
-        <StatusDot ok={false} className="mt-1" />
-        <span className="min-w-0 break-words">{message}</span>
-      </p>
-      {status !== 'checking' && (
-        <button type="button" onClick={checkNow} disabled={checking} className={`shrink-0 text-xs ${LINK_CLASS} disabled:opacity-50`}>
-          {checking ? 'Checking…' : 'Check now'}
-        </button>
-      )}
-    </div>
-  );
-}
-
 // Publish: puts the current pages on Surge (surge.sh) at a free
 // <name>.surge.sh address with HTTPS, or at a domain the user owns ("Use a
-// domain I own"), which then needs one DNS record (DnsSetup). The first time it asks for a Surge sign-in
+// domain I own"), which then needs its DNS pointed at Surge (CustomDomainStatus). The first time it asks for a Surge sign-in
 // (a new email creates the account); the server keeps the token
 // (lib/surge.js). `buildFiles` returns the same pages Export downloads.
 // Images made with Pollinations are copied into the site (lib/siteImages.js)
@@ -425,6 +283,8 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState('');
+  // The surge.sh address of the latest upload (custom domains), or ''.
+  const [preview, setPreview] = useState('');
   const mounted = useRef(true);
   const signedInStep = connectOnly ? 'account' : published ? 'manage' : 'ready';
 
@@ -548,6 +408,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     setSiteConfirm('');
     setPublished(stored);
     setUrl(result.url);
+    setPreview(result.preview || '');
     setStep('done');
   };
 
@@ -590,11 +451,16 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
   const publishedUrl = siteUrl(published);
   const publishedHost = siteHost(published);
   const publishedCustom = isCustomHost(published);
-  // A custom domain is only live once its DNS points at Surge, so the done
-  // and manage steps watch it (useDnsCheck) instead of assuming.
-  const dnsCheck = useDnsCheck(publishedCustom && (step === 'done' || step === 'manage') ? publishedHost : '');
-  const reachable = !publishedCustom || dnsCheck.status === 'connected';
-  const dnsPending = publishedCustom && dnsCheck.status !== 'connected';
+  // A custom domain is only live once its DNS points at Surge and its HTTPS
+  // certificate is issued, so the done and manage steps watch it
+  // (useDomainStatus, CustomDomainStatus) instead of assuming.
+  const domainCheck = useDomainStatus(publishedCustom && (step === 'done' || step === 'manage') ? publishedHost : '');
+  const reachable = !publishedCustom || domainCheck.progress.live;
+  const dnsPending = publishedCustom && !domainCheck.progress.live;
+  const pendingLabel = domainCheck.progress.label;
+  // Where the upload can be seen before the domain works: the address
+  // Surge gave this publish, or the one that always shows the newest upload.
+  const previewUrl = publishedCustom ? (preview || latestPreviewUrl(publishedHost)) : '';
 
   const optionProps = {
     icon: favicon,
@@ -749,7 +615,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
         <>
           <div className="min-h-0 overflow-y-auto p-6 space-y-5 text-sm text-slate-700">
             <div className="space-y-2">
-              <SitePreview title={projectName} icon={favicon} live={reachable} pending={dnsPending}>
+              <SitePreview title={projectName} icon={favicon} live={reachable} pending={dnsPending} pendingLabel={pendingLabel}>
                 <a href={publishedUrl} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-sm font-semibold text-indigo-600 hover:underline">
                   {publishedHost}
                 </a>
@@ -757,18 +623,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
                   <ExternalLink size={14} aria-hidden="true" />
                 </a>
               </SitePreview>
-              {publishedCustom && <DnsStatusLine host={publishedHost} check={dnsCheck} />}
-              {publishedCustom && (
-                <details className="group rounded-lg">
-                  <summary className="cursor-pointer list-none text-xs font-semibold text-indigo-600 hover:underline [&::-webkit-details-marker]:hidden">
-                    <span className="inline-flex items-center gap-1">
-                      <ChevronRight size={13} className="transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
-                      DNS setup for {publishedHost}
-                    </span>
-                  </summary>
-                  <div className="pt-2.5"><DnsSetup host={publishedHost} onHelp={() => setDnsHelp(true)} /></div>
-                </details>
-              )}
+              {publishedCustom && <CustomDomainStatus host={publishedHost} check={domainCheck} preview={previewUrl} onHelp={() => setDnsHelp(true)} />}
             </div>
             <PublishOptions {...optionProps} />
             {errorLine}
@@ -862,7 +717,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
           <div className="p-6 space-y-5 overflow-y-auto text-sm text-slate-700">
             <div className="space-y-2">
               <div className="flex items-baseline justify-between gap-3">
-                <label htmlFor="surge-name" className={LABEL_CLASS}>{ownDomain ? 'Your domain' : 'Web address'}</label>
+                <label htmlFor="surge-name" className={LABEL_CLASS}>{ownDomain ? <>Your domain<BetaBadge /></> : 'Web address'}</label>
                 <button
                   type="button"
                   onClick={() => { setOwnDomain(!ownDomain); setError(''); }}
@@ -870,7 +725,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
                   disabled={busy}
                   className={`text-xs ${LINK_CLASS}`}
                 >
-                  {ownDomain ? 'Use a free .surge.sh address' : 'Use a domain I own'}
+                  {ownDomain ? 'Use a free .surge.sh address' : <>Use a domain I own<BetaBadge /></>}
                 </button>
               </div>
               <SitePreview title={projectName} icon={favicon} editable>
@@ -961,23 +816,14 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
                   Uploaded to Surge
                 </p>
               )}
-              <SitePreview title={projectName} icon={favicon} live={reachable} pending={dnsPending}>
+              <SitePreview title={projectName} icon={favicon} live={reachable} pending={dnsPending} pendingLabel={pendingLabel}>
                 <a href={url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-sm font-semibold text-indigo-600 hover:underline">
                   {url.replace(/^https:\/\//, '')}
                 </a>
                 <CopyButton value={url} label="link" />
               </SitePreview>
             </div>
-            {publishedCustom && !reachable && (
-              <section aria-labelledby="dns-step" className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <h3 id="dns-step" className="text-sm font-semibold text-slate-900">Connect {publishedHost} to go live</h3>
-                <DnsSetup host={publishedHost} onHelp={() => setDnsHelp(true)} />
-                <div className="border-t border-slate-200 pt-3">
-                  <DnsStatusLine host={publishedHost} check={dnsCheck} />
-                </div>
-              </section>
-            )}
-            {publishedCustom && reachable && <DnsStatusLine host={publishedHost} check={dnsCheck} />}
+            {publishedCustom && <CustomDomainStatus host={publishedHost} check={domainCheck} preview={previewUrl} onHelp={() => setDnsHelp(true)} />}
             {reachable && <div className="space-y-2">
               <p className="text-xs font-semibold text-slate-700">Share it</p>
               <div className="flex flex-wrap gap-2">
@@ -1005,7 +851,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
           </div>
           <div className="shrink-0 bg-slate-50 px-6 py-4 flex justify-end gap-3">
             {/* Until the domain is connected the link can't open the site yet,
-                so Close leads and Open site stays available for checking. */}
+                so Close leads and the preview stays available for checking. */}
             {reachable ? (
               <>
                 <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>Close</button>
@@ -1015,8 +861,10 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
               </>
             ) : (
               <>
-                <a href={url} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
-                  <ExternalLink size={14} aria-hidden="true" />Open site
+                {/* The domain doesn't work yet, but the upload's own surge.sh
+                    address does. */}
+                <a href={previewUrl || url} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
+                  <ExternalLink size={14} aria-hidden="true" />{previewUrl ? 'Open preview' : 'Open site'}
                 </a>
                 <button type="button" onClick={onClose} className={PRIMARY_BUTTON}>Close</button>
               </>
@@ -1027,7 +875,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
       {/* Portaled out of the card: its scale-in transform would otherwise
           contain the dialog's fixed-position scrim. */}
       {dnsHelp && createPortal(
-        <DnsHelpModal host={publishedHost} record={dnsRecordFor(publishedHost)} onClose={() => setDnsHelp(false)} />,
+        <DnsHelpModal host={publishedHost} records={dnsRecordsFor(publishedHost, { provider: domainCheck.snapshot?.provider })} onClose={() => setDnsHelp(false)} />,
         document.body,
       )}
       {submitUrl && createPortal(

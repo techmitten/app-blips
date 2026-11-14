@@ -4,12 +4,12 @@ import Modal, { ModalCloseButton } from './Modal';
 import { PRIMARY_BUTTON } from './SettingControls';
 import { DNS_PROVIDERS, providerGuideUrl } from '../lib/dnsProviders';
 
-// Opened from Publish's DNS steps (DnsSetup): links to each popular domain
+// Opened from Publish's custom domain checklist (CustomDomainStatus): links to each popular domain
 // provider's own guide for adding a DNS record, so people can follow
-// instructions for the screens they actually see. The record to add is
-// repeated at the top because this window covers the one that shows it.
+// instructions for the screens they actually see. The records to add are
+// repeated at the top because this window covers the one that shows them.
 // Escape closes only this window.
-export default function DnsHelpModal({ host, record, onClose, zIndex = 80 }) {
+export default function DnsHelpModal({ host, records, onClose, zIndex = 80 }) {
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key !== 'Escape') return;
@@ -38,20 +38,23 @@ export default function DnsHelpModal({ host, record, onClose, zIndex = 80 }) {
         <div className="space-y-2.5">
           <p id="dns-help-intro" className="text-xs leading-snug text-slate-600">
             Pick the company you bought <strong className="font-semibold text-slate-800">{host}</strong> from. Its guide opens in your browser.
-            Follow it to add this record:
+            Follow it to add {records.length > 1 ? 'these records' : 'this record'}:
           </p>
-          <p className="flex flex-wrap gap-x-5 gap-y-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            <span>Type <span className="font-mono text-[13px] text-slate-900">{record.type}</span></span>
-            <span>Name <span className="font-mono text-[13px] text-slate-900">{record.name}</span></span>
-            <span className="min-w-0 break-all">Value <span className="font-mono text-[13px] text-slate-900">{record.value}</span></span>
-          </p>
+          {records.map((record) => (
+            <p key={`${record.type} ${record.name}`} className="flex flex-wrap gap-x-5 gap-y-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              <span>Type <span className="font-mono text-[13px] text-slate-900">{record.type}</span></span>
+              <span>Name <span className="font-mono text-[13px] text-slate-900">{record.name}</span></span>
+              <span className="min-w-0 break-all">Value <span className="font-mono text-[13px] text-slate-900">{record.value}</span></span>
+              {record.proxy && <span>Proxy <span className="font-semibold text-slate-900">{record.proxy}</span></span>}
+            </p>
+          ))}
         </div>
 
         <ul className="grid gap-2 sm:grid-cols-2">
           {DNS_PROVIDERS.map((provider) => (
             <li key={provider.name}>
               <a
-                href={providerGuideUrl(provider, record.type)}
+                href={providerGuideUrl(provider, records[0].type)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex h-full items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2.5 transition-colors hover:border-indigo-300 hover:bg-indigo-50/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
@@ -68,7 +71,8 @@ export default function DnsHelpModal({ host, record, onClose, zIndex = 80 }) {
 
         <p className="text-xs leading-snug text-slate-600">
           Not listed? Search your provider&rsquo;s help pages for &ldquo;add DNS record&rdquo;. If your domain uses another company&rsquo;s
-          nameservers, such as Cloudflare&rsquo;s, add the record there instead.
+          nameservers, such as Cloudflare&rsquo;s, add the records there instead. On Cloudflare, set each record&rsquo;s proxy status
+          to <strong className="font-semibold text-slate-800">DNS only</strong> (grey cloud): Surge can&rsquo;t see the domain through the proxy.
         </p>
       </div>
 
