@@ -397,6 +397,7 @@
 /* About-you step (ProfileForm). The name field reuses the key field's frame
    without its monospace font. */
 .onboarding-key-input input.onboarding-name-input { font-family: inherit; font-size: 1.04rem; }
+.onboarding-key-input:has(> input.onboarding-name-input) { width: 100%; max-width: 360px; }
 
 .onboarding-avatar-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
 .onboarding-avatar { width: 100%; max-width: 64px; justify-self: center; aspect-ratio: 1; display: grid; place-items: center; padding: 5px; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: border-color .18s ease, transform .18s ease; }

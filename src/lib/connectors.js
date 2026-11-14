@@ -41,7 +41,7 @@ export const CONNECTORS_KEY = 'orion-connectors';
 const providerSearchConnector = ({ id, provider, providerName, name, engine, price, pageReads = false, homeUrl, notes = [] }) => ({
   id,
   name,
-  tagline: `Adds a web search globe to the chat box while you use ${providerName}. Search starts on; click the globe to turn it off.`,
+  tagline: `Web search while you use ${providerName}.`,
   description: `While ${providerName} is your AI provider, the AI can search the web with ${engine} for real facts, such as a business’s opening hours or current news, instead of guessing. It uses the same ${providerName} key as your builds.`,
   providerSearch: provider,
   homeUrl,

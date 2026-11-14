@@ -296,13 +296,10 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
 
 // Shown only when the host's environment variables supply AI: what the Free
 // choice on the next slide is, before the provider list offers it.
-function FreeAiPanel({ formRef, onSubmit, envProvider }) {
-  const runsOn = envProvider?.label
-    ? `${envProvider.label}${envProvider.model ? ` (${envProvider.model})` : ''}`
-    : 'an AI provider chosen by the host';
+function FreeAiPanel({ formRef, onSubmit }) {
   const points = [
     { icon: Zap, title: 'No key, no account', text: 'Start building right away. There is nothing to sign up for or paste in.' },
-    { icon: Cpu, title: `Runs on ${runsOn}`, text: 'Whoever runs this copy of AppBlips set it up and pays for it, so it may be slower or limited when it is busy.' },
+    { icon: Cpu, title: 'Runs on various models', text: 'Whoever runs this copy of AppBlips set it up and pays for it, so it may be slower or limited when it is busy.' },
     { icon: Settings, title: 'Your own key, any time', text: 'Prefer another provider or model? Pick it on the next step, or later in Settings → AI.' },
   ];
   return (
@@ -624,7 +621,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 onChooseFolder={chooseFolder}
               />
             ) : isFreeStep ? (
-              <FreeAiPanel formRef={formRef} onSubmit={() => setStep('ai')} envProvider={providerInfo?.envProvider} />
+              <FreeAiPanel formRef={formRef} onSubmit={() => setStep('ai')} />
             ) : (
               <SetupForm
                 formRef={formRef}
