@@ -299,7 +299,12 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
 function FreeAiPanel({ formRef, onSubmit }) {
   const points = [
     { icon: Zap, title: 'No key, no account', text: 'Start building right away. There is nothing to sign up for or paste in.' },
-    { icon: Cpu, title: 'Runs on various models', text: 'Whoever runs this copy of AppBlips set it up and pays for it, so it may be slower or limited when it is busy.' },
+    { icon: Cpu, title: 'Runs on various models', text: (
+      <>
+        For a limited time, AppBlips provides a free AI option. By using the free tier, you agree to our{' '}
+        <a href="https://www.appblips.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+      </>
+    ) },
     { icon: Settings, title: 'Your own key, any time', text: 'Prefer another provider or model? Pick it on the next step, or later in Settings → AI.' },
   ];
   return (
