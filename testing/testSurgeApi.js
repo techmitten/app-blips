@@ -138,8 +138,10 @@ test('publish uploads site/<page> to the address and returns the https link', as
 
 test('publish to a custom domain returns its link and the DNS record it needs', async () => {
   let seen;
-  const fetch = async (url) => {
+  let upload;
+  const fetch = async (url, init) => {
     seen = url;
+    upload = init;
     return new Response('{"type":"info"}\n', { status: 200 });
   };
   const publishTo = async (domain) => (await handleSurgeApi(
@@ -151,6 +153,10 @@ test('publish to a custom domain returns its link and the DNS record it needs', 
     dns: { type: 'CNAME', name: 'www', value: 'geo.surge.world', root: false },
   });
   assert.equal(seen, 'https://surge.surge.sh/www.example.com');
+  // The project carries a CNAME file naming the domain, counted in file-count.
+  const files = readTar(gunzipSync(upload.body));
+  assert.deepEqual(files.find((f) => f.name === 'site/CNAME'), { name: 'site/CNAME', text: 'www.example.com\n' });
+  assert.equal(upload.headers['file-count'], String(files.length));
   assert.equal((await publishTo('example.com')).dns.type, 'A');
   assert.match((await publishTo('bad..com')).error, /domain you own/);
   assert.match((await publishTo('my_site')).error, /lowercase letters/);
@@ -409,6 +415,8 @@ test('Domain status: Cloudflare’s proxy and name servers are recognised', asyn
   const greyCloud = await statusOf('shop.com', { zone: { ...zone, 'shop.com A': [{ type: 1, data: '138.197.235.123' }] } });
   assert.equal(greyCloud.dns.status, 'connected');
   assert.equal(greyCloud.provider, 'cloudflare');
+  const ownZone = await statusOf('shop.com', { zone: { ...zone, 'shop.com NS': [{ type: 2, data: 'ns3.cloudflare.com.' }] } });
+  assert.equal(ownZone.provider, 'cloudflare');
 });
 
 test('Domain status: Surge’s address next to another A or AAAA record is mixed', async () => {

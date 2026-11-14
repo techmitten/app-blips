@@ -246,6 +246,11 @@ async function publish({ domain, files, images, extras, password }, tokens, fetc
 
   // Surge drops the first folder of every path, so pages go in as site/<name>.
   const entries = [...Object.entries(pages).map(([name, html]) => ({ name: `site/${name}`, data: html })), ...uploads];
+  // A custom domain's project carries a CNAME file naming it, the way Surge's
+  // CLI keeps one (surge-docs/platform-custom-domains.md, "Remembering the
+  // domain"). Added here, on the way to Surge, so it's in every publish to
+  // a custom domain, password-locked or not.
+  if (custom) entries.push({ name: 'site/CNAME', data: `${host}\n` });
   const projectSize = entries.reduce((sum, { data }) => sum + (typeof data === 'string' ? new TextEncoder().encode(data).length : data.length), 0);
   const body = await gzip(createTar(entries));
 
@@ -444,7 +449,8 @@ async function zoneNameServers(host, fetchImpl) {
 
 // Who runs the domain's DNS, when that changes the instructions.
 const dnsProvider = (servers) => {
-  if (servers.some((server) => server.endsWith('.ns.cloudflare.com'))) return 'cloudflare';
+  // Customers get <name>.ns.cloudflare.com; Cloudflare's own zones ns<n>.cloudflare.com.
+  if (servers.some((server) => server.endsWith('.cloudflare.com'))) return 'cloudflare';
   if (servers.some(isSurgeName)) return 'surge';
   return null;
 };
