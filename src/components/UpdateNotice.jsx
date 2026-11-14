@@ -93,7 +93,7 @@ export default function UpdateNotice({ aboveOverlay = false }) {
     <div
       role="status"
       aria-live="polite"
-      className={`update-notice dark force-dark palette-stock fixed bottom-4 right-4 ${aboveOverlay ? 'z-[1200]' : 'z-[85]'} w-[calc(100%-2rem)] max-w-sm rounded-xl border border-slate-200 bg-surface px-4 py-3.5 shadow-xl text-sm text-slate-700`}
+      className={`update-notice dark force-dark palette-stock fixed bottom-4 right-4 ${aboveOverlay ? 'z-1200' : 'z-85'} w-[calc(100%-2rem)] max-w-sm rounded-xl border border-slate-200 bg-surface px-4 py-3.5 shadow-xl text-sm text-slate-700`}
     >
       <div className="flex items-start gap-3">
         <ArrowUpCircle size={18} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />
