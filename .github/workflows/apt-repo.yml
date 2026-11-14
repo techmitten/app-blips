@@ -49,6 +49,15 @@ jobs:
           ls -l site/pool/main
           [ -n "$(ls site/pool/main)" ] || { echo "No .deb files found in any published release"; exit 1; }
 
+      # apt-ftparchive lives in apt-utils, which the Ubuntu 26 runner image
+      # no longer ships by default.
+      - name: Install apt-utils
+        run: |
+          command -v apt-ftparchive >/dev/null || {
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq apt-utils
+          }
+
       - name: Build and sign the repository
         env:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
