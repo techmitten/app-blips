@@ -113,7 +113,7 @@ export default function BuildBlueprint({
   };
 
   return (
-    <div className={`build-blueprint${showCode && codeSlot ? ' is-code' : ''}`} role="status" aria-live="polite">
+    <div className={`build-blueprint${isTouch ? '' : ' is-wide'}${showCode && codeSlot ? ' is-code' : ''}`} role="status" aria-live="polite">
       {showCode && codeSlot ? (
         // An editor window around the stream: the file being written and a
         // numbered gutter (LiveCodePeek sets the line counter).

@@ -201,6 +201,18 @@
   background: var(--bp-gutter);
   font-size: max(11px, 0.72em);
 }
+/* Reasoning before any code exists: the panel is the screen's only content,
+   so it fills the editor instead of sitting in its top half. */
+.build-blueprint-code .live-code-peek-reasoning:first-child {
+  flex: 1 1 auto;
+  border-top: 0;
+  background: none;
+}
+.build-blueprint-code .live-code-peek-reasoning:first-child .live-code-peek-reasoning-text {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
 
 /* ----- Timeline ----- */
 .build-blueprint-steps {
@@ -316,6 +328,33 @@
   .build-blueprint-code .live-code-peek.is-bare { height: calc(62cqb - 2.5em); }
   .build-blueprint-steps { grid-area: steps; align-self: end; }
   .build-blueprint-footer { grid-area: footer; align-self: start; }
+}
+
+/* ----- Website previews (desktop, full size): side by side too -----
+   The wireframe on the left, the timeline and footer on the right, whenever
+   the screen is wide enough for both. */
+@container (min-width: 760px) {
+  .build-blueprint.is-wide {
+    display: grid;
+    grid-template-columns: auto max-content;
+    grid-template-areas: 'visual steps' 'visual footer';
+    align-items: center;
+    column-gap: 2.4em;
+    row-gap: 1.1em;
+    width: auto;
+    max-width: 100%;
+    margin-top: clamp(20px, 7cqb, 36px);
+  }
+  .build-blueprint.is-wide.is-code {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    width: min(56em, 100%);
+  }
+  .is-wide .build-blueprint-frame,
+  .is-wide .build-blueprint-code { grid-area: visual; }
+  .is-wide .build-blueprint-frame { width: min(22em, 46cqi); }
+  .is-wide .build-blueprint-code .live-code-peek.is-bare { height: min(calc(62cqb - 2.5em), 34em); }
+  .is-wide .build-blueprint-steps { grid-area: steps; align-self: end; }
+  .is-wide .build-blueprint-footer { grid-area: footer; align-self: start; }
 }
 
 /* Dark: the overlay's coral palette comes through the variables above;

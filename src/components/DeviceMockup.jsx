@@ -278,7 +278,9 @@ function LiveCodePeek({ codeRef, page = null, reasoning = '', className = '', ba
   // Keep the visible panel anchored to the newest thought. Without this, the
   // intentionally compact preview shows the beginning of a long reasoning
   // stream and then appears to stop while the text continues arriving.
-  const visibleReasoning = reasoning.length > 600 ? `…${reasoning.slice(-600)}` : reasoning;
+  // The tail is long enough to fill the full-height panel shown before any
+  // code exists; shorter windows clip the excess off the top.
+  const visibleReasoning = reasoning.length > 2400 ? `…${reasoning.slice(-2400)}` : reasoning;
 
   useLayoutEffect(() => {
     const el = bodyRef.current;

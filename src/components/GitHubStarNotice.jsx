@@ -6,7 +6,7 @@ export default function GitHubStarNotice({ onDismiss }) {
   return (
     <aside
       aria-label="Support AppBlips on GitHub"
-      className="fixed top-4 right-4 z-[55] w-[calc(100%-2rem)] max-w-sm rounded-xl border border-slate-200 bg-surface p-4 shadow-xl text-sm text-slate-700"
+      className="fixed top-4 right-4 z-55 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-slate-200 bg-surface p-4 shadow-xl text-sm text-slate-700"
     >
       <div className="flex items-start gap-3">
         <Star size={20} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />
