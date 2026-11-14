@@ -68,6 +68,14 @@
       {
         "label": "Discord",
         "href": "https://discord.gg/a7QfqbvaF9"
+      },
+      {
+        "label": "Terms",
+        "href": "https://www.appblips.com/terms"
+      },
+      {
+        "label": "Privacy",
+        "href": "https://www.appblips.com/privacy"
       }
     ],
     "primary": {
