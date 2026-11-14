@@ -114,13 +114,11 @@ export async function checkForUpdate({
   return release && compareVersions(release.version, current) > 0 ? release : null;
 }
 
-// The terminal command a .deb install's update notice offers to copy. With the
-// AppBlips apt source, a normal upgrade picks the new version up; without it,
-// the .deb the Download button saved is installed by hand. Browsers save to
+// The terminal command a .deb install's update notice offers to copy: install
+// the .deb the Download button saved. Browsers save to
 // ~/Downloads by default; the file name comes from the release, and only a
 // plain name is used so nothing odd ends up in a command people paste.
-export function debUpdateCommand({ apt, downloadUrl } = {}) {
-  if (apt) return 'sudo apt update && sudo apt upgrade';
+export function debUpdateCommand({ downloadUrl } = {}) {
   let name = '';
   try {
     name = decodeURIComponent(String(downloadUrl || '').split('/').pop() || '');

@@ -1,6 +1,4 @@
 #!/bin/bash
-# debconf must be loaded first: confmodule re-runs the script from the top.
-. /usr/share/debconf/confmodule
 
 if type update-alternatives >/dev/null 2>&1; then
     # Remove previous link if it doesn't use update-alternatives
@@ -58,14 +56,9 @@ if apparmor_status --enabled > /dev/null 2>&1; then
   fi
 fi
 
-# Add the AppBlips apt source if the user said yes when the package asked (see
-# build/linux/config). The signing key ships in the package, so nothing is
-# downloaded here, and the answer defaults to "no" when nobody can be asked
-# (software centers, DEBIAN_FRONTEND=noninteractive).
-db_get appblips/add-apt-source || true
-if [ "$RET" = "true" ] && [ ! -e /etc/apt/sources.list.d/appblips.list ]; then
-    install -d -m 0755 /etc/apt/keyrings
-    install -m 0644 '/opt/${sanitizedProductName}/resources/appblips.gpg' /etc/apt/keyrings/appblips.gpg
-    echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/appblips.gpg] https://techmitten.github.io/app-blips stable main' > /etc/apt/sources.list.d/appblips.list
+# Versions up to 0.1.29 could add an AppBlips apt source hosted on GitHub
+# Pages. That repository is gone, so take the source and its key away again,
+# or every `apt update` would fail on it.
+if grep -qs 'techmitten.github.io/app-blips' /etc/apt/sources.list.d/appblips.list; then
+    rm -f /etc/apt/sources.list.d/appblips.list /etc/apt/keyrings/appblips.gpg
 fi
-db_stop || true

@@ -11,7 +11,7 @@
 //
 // Other installs can't replace themselves without a password prompt (.deb) or
 // aren't installs at all (`npm run desktop`), so check() answers
-// { auto: false } (plus { deb, apt } on a .deb, see debInstall.js, so the
+// { auto: false } (plus { deb } on a .deb, see debInstall.js, so the
 // notice can say how to update) and the renderer falls back to its notify-only check
 // against the GitHub API (src/lib/updates.js), linking to the release.
 //

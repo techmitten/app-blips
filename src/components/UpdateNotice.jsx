@@ -16,8 +16,7 @@ import { logError, logWarn } from '../lib/errorLog';
 //   - Every other install (.deb, running from source) gets a notice
 //     from the GitHub release check (lib/updates.js) with a link: the .deb to
 //     download the new installer, source to the update instructions. A .deb
-//     also gets the steps to install it (DebUpdateHelp), which differ when
-//     the AppBlips apt source is set up.
+//     also gets the steps to install it (DebUpdateHelp).
 // Closing a release notice hides that version for good; "Later" on a
 // downloaded desktop update only hides it until next launch (it installs
 // when the app quits anyway).
@@ -29,7 +28,7 @@ function NoticeLink({ href, className, children }) {
 }
 
 export default function UpdateNotice({ aboveOverlay = false }) {
-  const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url?, deb?, apt? }
+  const [update, setUpdate] = useState(null); // { kind: 'notify' | 'ready', version, url?, deb? }
   const [installing, setInstalling] = useState(false);
   const [installFailed, setInstallFailed] = useState(false);
 
@@ -39,11 +38,10 @@ export default function UpdateNotice({ aboveOverlay = false }) {
     const fromDesktop = (state) => {
       if (!cancelled && state?.status === 'ready') setUpdate({ kind: 'ready', version: state.version });
     };
-    // `desktop` is the desktop updater's answer: a .deb with or without the
-    // apt source.
+    // `desktop` is the desktop updater's answer (a .deb, or nothing).
     const checkReleases = (desktop = null) => checkForUpdate({ storage: safeStorage('local') }).then((release) => {
       if (cancelled || !release || release.version === loadDismissedUpdate()) return;
-      setUpdate({ kind: 'notify', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) });
+      setUpdate({ kind: 'notify', ...release, ...(desktop?.deb ? { deb: true } : {}) });
     });
     const run = async () => {
       if (isDesktop) {

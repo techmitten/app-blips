@@ -60,7 +60,7 @@ async function askForUpdate() {
       }
       const release = await checkForUpdate({ storage: safeStorage('local'), force: true });
       return release
-        ? { status: 'available', ...release, ...(desktop?.deb ? { deb: true, apt: Boolean(desktop.apt) } : {}) }
+        ? { status: 'available', ...release, ...(desktop?.deb ? { deb: true } : {}) }
         : { status: 'current' };
     }
     const release = await checkForUpdate({ storage: safeStorage('local'), force: true });
