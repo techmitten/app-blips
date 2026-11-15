@@ -1,7 +1,7 @@
 name: Desktop
 
 # Builds the Linux desktop installers (AppImage, .deb and snap) on
-# ubuntu-latest. Run it by hand from the Actions tab, or push a tag like v0.1.0
+# Ubuntu 24.04. Run it by hand from the Actions tab, or push a tag like v0.1.0
 # to also publish them as a draft GitHub Release (bump "version" in
 # package.json to match first) and upload the snap to the Snap Store's
 # candidate channel, using the SNAPCRAFT_STORE_CREDENTIALS secret (made with
@@ -27,7 +27,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 24.04 explicitly: the core24 snap is built on it, and ubuntu-latest moves
+    # to newer releases on its own.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,7 +37,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # electron-builder builds the snap with snapcraft, which also uploads it.
+      # electron-builder builds the snap with snapcraft inside an LXD container
+      # (snapcraft.core24.useLXD in electron-builder.yml); snapcraft also
+      # uploads it.
+      - uses: canonical/setup-lxd@v0.1.3
       - name: Install snapcraft
         run: sudo snap install snapcraft --classic
       - run: npm run desktop:dist

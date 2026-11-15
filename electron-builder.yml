@@ -80,20 +80,40 @@ deb:
 # to the candidate channel; it reaches users once promoted to stable (see
 # RELEASING.md). snapd updates it, so electron/updater.js shows no update
 # notice for it. The name is package.json's "name" (appblips).
-# `default` is electron-builder's standard plug set (desktop, home, x11,
-# wayland, network, browser-support, opengl, audio-playback, ...). The others:
+# core24 is built by snapcraft inside an LXD container (useLXD), with the gnome
+# extension supplying the desktop libraries and the usual desktop plugs, so the
+# build machine needs LXD (the workflow sets it up). Plugs:
+#   default: electron-builder's standard set (desktop, home, x11, wayland,
+#     network, opengl, audio-playback, ...)
+#   browser-support: needed by Electron. Without allow-sandbox (which the
+#     store reserves for browsers) the app runs with --no-sandbox in the snap,
+#     which snap confinement replaces.
 #   password-manager-service: the keyring, so the API key is properly encrypted
 #   audio-record: the microphone, for voice input
 #   removable-media: projects folders on USB drives (Choose folder)
-# The first two aren't connected automatically until the Snap Store grants
-# auto-connection; until then the user runs `snap connect appblips:<plug>`.
-snap:
-  base: core22
-  confinement: strict
-  grade: stable
-  summary: Turn a text prompt into a working app, website or game.
-  plugs: [default, password-manager-service, audio-record, removable-media]
-  artifactName: AppBlips-${version}-${arch}.${ext}
+# password-manager-service and audio-record aren't connected automatically
+# until the Snap Store grants auto-connection; until then the user runs
+# `snap connect appblips:<plug>`.
+# The summary, description and icon are also the store listing's: after a
+# change, push them with `snapcraft upload-metadata` (see RELEASING.md).
+snapcraft:
+  base: core24
+  core24:
+    confinement: strict
+    grade: stable
+    useLXD: true
+    plugs: [default, browser-support, password-manager-service, audio-record, removable-media]
+    summary: Turn a text prompt into a working app, website or game.
+    description: |
+      AppBlips turns a text prompt into a working app, website or game. Describe what you want, and AppBlips writes it as a single file and runs it in a live, sandboxed preview so you can try it straight away. Keep chatting to refine it.
+
+      - Build from plain language: tools, websites, games and prototypes
+      - Preview safely: generated code runs in a sandbox, away from your files and keys
+      - Bring your own AI provider key, encrypted with your system keyring
+      - Projects are saved as ordinary files on your computer
+      - Publish a finished app to the web in one step
+      - Speak your prompts with voice input that runs on your computer
+    artifactName: AppBlips-${version}-${arch}.${ext}
 # Where electron-updater looks for new versions (Windows and AppImage builds
 # update themselves; see electron/updater.js). Builds never upload by
 # themselves (--publish never): the Desktop workflow attaches the installers
