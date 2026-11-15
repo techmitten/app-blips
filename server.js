@@ -24,6 +24,7 @@ import { describeConfig, formatConfigSummary } from './electron/server/configSum
 import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js';
 import { createBrowserKeys, removeLegacyKeyFiles } from './electron/server/browserKeys.js';
 import { createFreeLimits, freeLimitsEnabled, clientIp, visitorKey } from './electron/server/freeLimits.js';
+import { createFreePasses, FREE_PASS_HEADER } from './electron/server/freePass.js';
 import { handleProviderApi } from './electron/server/providerApi.js';
 import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
@@ -56,6 +57,17 @@ const handleUnsplashApi = createUnsplashApi();
 // Limits on the Free option (the .env provider) for a server many people can
 // reach; APPBLIPS_FREE_LIMITS=off turns them off (freeLimits.js).
 const freeLimits = freeLimitsEnabled(process.env) ? createFreeLimits(process.env) : null;
+// A Cloudflare Turnstile check before the Free option answers, when
+// TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY are set (freePass.js).
+const freePasses = createFreePasses(process.env);
+// Who is asking, for the Free option: the address it is counted under, and
+// whether the request carries a valid pass (null: no pass needed).
+const freeAccess = (req) => {
+  const ip = clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress);
+  const visitor = visitorKey(ip);
+  const freePass = freePasses ? { ok: freePasses.check(req.headers[FREE_PASS_HEADER], visitor), siteKey: freePasses.siteKey } : null;
+  return { ip, visitor, freePass };
+};
 removeLegacyKeyFiles();
 
 const sendText = (res, status, text, headers = {}) => {
@@ -137,11 +149,10 @@ const server = createServer((req, res) => {
     }
     const handle = async () => {
       const incoming = await toChatRequest(req, res);
-      const ip = clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress);
+      const { ip, visitor, freePass } = freeAccess(req);
       // For checking how a hosting platform forwards addresses; off by default.
       if (process.env.APPBLIPS_DEBUG_CLIENT_IP) console.log(`[free-limits] x-forwarded-for="${req.headers['x-forwarded-for'] || ''}" peer=${req.socket.remoteAddress} -> ${ip}`);
-      const visitor = visitorKey(ip);
-      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env, { freeLimits, visitor }));
+      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env, { freeLimits, visitor, freePass }));
       sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
     };
     handle().catch(fail);
@@ -192,9 +203,23 @@ const server = createServer((req, res) => {
   // visitor's own DeepSeek key, or the Free option's (then counted against
   // the visitor's free allowance).
   if (req.url.startsWith('/api/web/')) {
-    const visitor = visitorKey(clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress));
+    const { visitor, freePass } = freeAccess(req);
     toFetchRequest(req, res)
-      .then((request) => withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), process.env, { freeLimits, visitor })))
+      .then((request) => withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), process.env, { freeLimits, visitor, freePass })))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  // The Turnstile check's answer in, a Free pass out (freePass.js).
+  if (req.url === '/api/free-pass') {
+    if (!freePasses) {
+      sendJson(res, 404, { error: 'Free AI needs no check on this server.' });
+      return;
+    }
+    const { ip, visitor } = freeAccess(req);
+    toFetchRequest(req, res)
+      .then((request) => freePasses.handle(request, { visitor, ip }))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

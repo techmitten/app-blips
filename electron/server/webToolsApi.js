@@ -38,6 +38,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { isForeignOrigin } from './chatProxy.js';
 import { resolveProvider, resolveUserProvider, providerLabel } from './providers.js';
 import { defaultModel } from './defaultModel.js';
+import { freePassRefusal } from './freePass.js';
 
 const DEEPSEEK_TOOLS = 'https://api.deepseek.com/v1/tools';
 const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
@@ -353,8 +354,9 @@ const KINDS = { '/api/web/status': 'status', '/api/web/search': 'search', '/api/
 
 // `request` has been through withSavedProvider. `freeLimits` (freeLimits.js)
 // limits calls paid by the environment provider per `visitor`; server.js
-// passes both.
-export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globalThis.fetch, freeLimits = null, visitor = '' } = {}) {
+// passes both. `freePass` ({ ok, siteKey }, freePass.js), when given, means
+// those calls need a valid pass, as in chatProxy.js.
+export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globalThis.fetch, freeLimits = null, visitor = '', freePass = null } = {}) {
   const kind = KINDS[new URL(request.url).pathname.replace(/\/+$/, '')];
   if (!kind) return json(404, { error: 'Not found.' });
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
@@ -382,6 +384,9 @@ export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globa
 
   const invalid = validate(kind, payload);
   if (invalid) return json(400, { error: invalid });
+
+  // The Free option: only with a pass, when the server asks for one.
+  if (freePass && !freePass.ok && !own) return json(403, { ...freePassRefusal(freePass.siteKey), stop: true });
 
   // The Free option: counted per visitor like an AI request.
   let ticket = null;
