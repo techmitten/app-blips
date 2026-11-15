@@ -525,6 +525,9 @@ app.on('second-instance', () => {
   mainWindow.focus();
 });
 
+// UI sounds on the studio picker should play without a first click.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 app.on('web-contents-created', (_event, contents) => lockDown(contents));
 
 app.whenReady().then(() => {

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
-import { isUiSoundMuted, playBlip, setUiSoundMuted, unlockUiSound } from '../lib/uiSound';
+import { isUiSoundMuted, playBlip, setUiSoundMuted } from '../lib/uiSound';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
 // invite/widget assets), drawn to match the lucide icons' ~17px box.
@@ -95,9 +95,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
     if (event.pointerType === 'mouse') setTitleHeld(false);
   };
   const rowRefs = useRef({});
-  // Audio stays locked until the first click or key press (browser rule), so
-  // hover blips start after that.
-  useEffect(() => unlockUiSound(), []);
   const [soundMuted, setSoundMuted] = useState(isUiSoundMuted);
   const toggleSound = () => {
     const next = !soundMuted;

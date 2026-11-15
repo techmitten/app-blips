@@ -2,9 +2,9 @@
 // options on the studio picker.
 //
 // Browsers keep audio locked until the page gets a real user gesture (click,
-// tap or key press; hover does not count), so the first hovers on a fresh
-// page are silent. `unlockUiSound` resumes the context on the first gesture
-// and every hover after that plays.
+// tap or key press; hover does not count) unless they already trust the site.
+// `unlockUiSound` runs from app start, so it is satisfied by the earliest
+// gesture or trust signal and every hover after that plays.
 
 let context = null;
 let lastPlayed = 0;
@@ -35,16 +35,27 @@ function getContext() {
   return context;
 }
 
-// Call once from a component; returns a cleanup. Resumes the audio context on
-// the first gesture so later hovers can play.
+// Call once at app start (not from the picker, so a click anywhere earlier in
+// the session already counts). Tries to start the context straight away, which
+// works when the browser already trusts the site (returning visitors, installed
+// apps, desktop), and otherwise resumes it on the first real gesture. Returns
+// a cleanup.
+const GESTURE_EVENTS = ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend'];
 export function unlockUiSound() {
-  const unlock = () => {
+  let done = false;
+  const detach = () => GESTURE_EVENTS.forEach((name) => window.removeEventListener(name, unlock, { capture: true }));
+  function unlock() {
+    if (done) return;
     const ctx = getContext();
-    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
-  };
-  const events = ['pointerdown', 'keydown', 'touchstart'];
-  events.forEach((name) => window.addEventListener(name, unlock, { capture: true, passive: true }));
-  return () => events.forEach((name) => window.removeEventListener(name, unlock, { capture: true }));
+    if (!ctx) { done = true; detach(); return; }
+    if (ctx.state === 'running') { done = true; detach(); return; }
+    ctx.resume().then(() => {
+      if (ctx.state === 'running') { done = true; detach(); }
+    }).catch(() => {});
+  }
+  GESTURE_EVENTS.forEach((name) => window.addEventListener(name, unlock, { capture: true, passive: true }));
+  unlock();
+  return detach;
 }
 
 // A short, quiet sine blip. `pitch` shifts it in semitones so neighbouring

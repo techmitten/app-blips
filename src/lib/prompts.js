@@ -199,7 +199,7 @@ export const WEBSITE_ADDON_ROUTER_SYSTEM_PROMPT = `You choose optional add-on li
 - glightbox: click a photo to see it full screen. Photography, galleries, portfolios, real estate, restaurants, venues, weddings.
 - alpine: lots of interactive UI -- tabs, pricing monthly/yearly toggles, filters, multi-step forms, several modals. A single menu or FAQ needs none.
 - chart: charts of numbers -- statistics, impact reports, investor or data-driven pages.
-- leaflet: an interactive map -- a shop, venue, office, or event location the visitor should find.
+- map: an embedded map -- a shop, venue, office, or event location the visitor should find.
 - none: a simple page that needs none of these.
 If the user named a library from this list, include it; if they asked for no libraries or plain HTML, reply none. Pick at most three, and when in doubt pick fewer: every add-on is an extra download.
 Reply with the chosen words separated by commas, or the single word none: no other text.`;
@@ -212,7 +212,7 @@ export const WEBSITE_ADDONS = {
   glightbox: 'GLightbox',
   alpine: 'Alpine.js',
   chart: 'Chart.js',
-  leaflet: 'Leaflet',
+  map: 'Map embed',
 };
 
 // The add-on keys named in the router's reply, in WEBSITE_ADDONS order. An
@@ -237,7 +237,7 @@ const WEBSITE_ADDON_PURPOSES = {
   glightbox: 'full-screen photos',
   alpine: 'tabs, toggles and pop-ups',
   chart: 'charts',
-  leaflet: 'an interactive map',
+  map: 'an embedded map',
 };
 
 export const describeWebsiteAddons = (addons, { failed = false } = {}) => {
@@ -496,7 +496,7 @@ const WEBSITE_ADDON_GUIDELINES = `ADD-ON LIBRARIES (load one only as rule 6 allo
 - GLightbox (full-screen photos): <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox@3.3.1/dist/css/glightbox.min.css"> and <script src="https://cdn.jsdelivr.net/npm/glightbox@3.3.1/dist/js/glightbox.min.js"></script>, then GLightbox({ selector: '.glightbox' }). Wrap each thumbnail <img> in <a href="(large image URL)" class="glightbox" data-gallery="(group name)">, so without the script the link still opens the photo.
 - Alpine.js (interactive UI): <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script> (this one may go in the <head>, with defer). Use x-data, x-show, x-transition, @click and :class to toggle tabs, menus, modals, accordions and pricing toggles whose content is all written in the markup. Never use x-text, x-html or x-for for visible content (rule 5); for a monthly/yearly price toggle write both prices in the markup and x-show the right one. Add [x-cloak]{display:none} and x-cloak on elements that start hidden.
 - Chart.js: <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>, which exposes the global Chart. Draw into a <canvas> inside a sized container with responsive: true and maintainAspectRatio: false, using the site's palette. Also state the key figures in the static text (a caption, list or table), since a canvas is not readable or editable text.
-- Leaflet (maps): <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"> and <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>, then L.map('map').setView([lat, lng], 15) with an OpenStreetMap tile layer ('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', keeping its © OpenStreetMap contributors attribution) and a marker with a popup. Give the map container an explicit height, and write the street address in the static markup next to it.`;
+- Map embed (maps): an <iframe> of OpenStreetMap's own embed page, with no library and no script: <iframe title="Map showing (place name)" src="https://www.openstreetmap.org/export/embed.html?bbox=(lng-0.006)%2C(lat-0.004)%2C(lng+0.006)%2C(lat+0.004)&amp;layer=mapnik&amp;marker=(lat)%2C(lng)" loading="lazy" style="border:0;width:100%;height:380px"></iframe>, with a link under it: <a href="https://www.openstreetmap.org/?mlat=(lat)&amp;mlon=(lng)#map=16/(lat)/(lng)" target="_blank" rel="noopener noreferrer">View larger map</a>. Fill in real decimal coordinates for the place or its town. Do NOT load Leaflet or any raw map-tile URL (tile.openstreetmap.org and similar): their servers refuse requests without a website Referer, which shows "Access blocked" in the map. Write the street address in the static markup next to the map. If the request gives no address, use the placeholder "123 Main Street" with the town the site is about (or a plausible one) and put the map on that town's coordinates, so the map is never left empty or broken.`;
 
 // The Website Studio variant: same delivery format and edit tooling as the
 // app prompt, but inverted content rules -- website anatomy (nav, hero,

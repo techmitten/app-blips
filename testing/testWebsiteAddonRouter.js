@@ -7,7 +7,7 @@ import { parseWebsiteAddons, buildWebsiteAddonDirective, describeWebsiteAddons, 
 const replies = {
   'swiper, glightbox': ['swiper', 'glightbox'],
   'GLightbox,Swiper': ['swiper', 'glightbox'],
-  '**leaflet**': ['leaflet'],
+  '**map**': ['map'],
   'Chart.js, alpine.js': ['alpine', 'chart'],
   'gsap, aos, lenis': ['gsap', 'lenis'],
   'gsap, lenis, swiper, glightbox': ['gsap', 'lenis', 'swiper'],
@@ -33,7 +33,7 @@ assert.doesNotMatch(buildWebsiteInitialGenerationPrompt('a bakery', ''), /ADD-ON
 
 // Every add-on the directive can name has loading instructions in the prompt.
 const systemLines = buildHtmlSystemPrompt('website').split('\n');
-for (const name of ['GSAP + ScrollTrigger', 'AOS', 'Lenis', 'Swiper', 'GLightbox', 'Alpine.js', 'Chart.js', 'Leaflet']) {
+for (const name of ['GSAP + ScrollTrigger', 'AOS', 'Lenis', 'Swiper', 'GLightbox', 'Alpine.js', 'Chart.js', 'Map embed']) {
   assert.ok(systemLines.some((line) => line.startsWith(`- ${name}`)), name);
 }
 assert.doesNotMatch(buildHtmlSystemPrompt('app'), /ADD-ON LIBRARIES/);

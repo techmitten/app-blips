@@ -527,9 +527,7 @@ export default function CodeView({
               );
             })}
           </div>
-        ) : (
-          <span className="text-xs text-slate-400 font-mono truncate">{activePage}</span>
-        )}
+        ) : null}
         <div className="flex-1"></div>
         {isSvgText && (
           <div className="flex shrink-0 rounded-md border border-neutral-800 p-0.5 text-xs" role="group" aria-label="Show SVG as">
@@ -654,7 +652,7 @@ export default function CodeView({
             {isGenerating && !hasFileList && (!writingPage || writingPage === activePage) && (
               <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-blue-500/20 bg-black/95 px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider text-blue-300 backdrop-blur-sm">
                 <Loader2 className="animate-spin" size={12} />
-                <span>{writingPage ? `Streaming ${writingPage}` : 'Streaming'}</span>
+                <span>{writingPage && writingPage !== 'index.html' ? `Streaming ${writingPage}` : 'Streaming'}</span>
               </div>
             )}
             {codeBody}
