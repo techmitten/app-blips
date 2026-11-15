@@ -755,6 +755,9 @@ export const MAX_WEBSITE_REFINEMENT_TURNS = 14;
 // build request, or '' when nothing was found. Failures leave the build to go
 // ahead without it.
 const MAX_RESEARCH_TURNS = 2;
+// Ask answers: up to this many turns in all, the last one with no tools so
+// it has to answer.
+const MAX_ASK_WEB_TURNS = 4;
 // Reading a page takes a turn after the search that found it.
 const MAX_RESEARCH_TURNS_WITH_FETCH = 3;
 const researchForBuild = async ({ requestText, signal, onChunk, web }) => {
@@ -997,13 +1000,37 @@ const generateAppCodeCore = async (
       }
     ];
     const forward = routedFromBuild ? asRoutedAnswerChunks(onChunk) : onChunk;
-    const message = await requestModelText({
-      messages,
-      onChunk: forward,
-      signal,
-      reasoningEffort: CHAT_REASONING_EFFORT,
-      askMode: true
-    });
+    // Web search (the Tavily connector, or the AI provider's own search when
+    // the globe is on): the model may search before it answers. A turn that
+    // ends in searches drops the text it streamed first, so the reply is
+    // only the final answer.
+    const web = startWebSearch({ signal });
+    if (web?.guidance) messages[0].content += `\n\n${web.guidance}`;
+    let message;
+    for (let turn = 1; ; turn++) {
+      const tools = web && turn < MAX_ASK_WEB_TURNS && web.canCall() ? web.tools() : [];
+      message = await requestModelText({
+        messages,
+        onChunk: forward,
+        signal,
+        reasoningEffort: CHAT_REASONING_EFFORT,
+        askMode: true,
+        ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
+      });
+      const calls = (message.tool_calls || []).filter((toolCall) => web?.isCall(toolCall));
+      if (!calls.length) break;
+      if (forward) forward('', 'clear_reply');
+      messages.push(assistantTurn(message));
+      for (const toolCall of message.tool_calls) {
+        if (!web.isCall(toolCall)) {
+          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify({ success: false, error: 'Only the web tools are available.' }) });
+          continue;
+        }
+        if (onChunk) onChunk(describeToolCall(toolCall), 'status');
+        const result = await web.execute(toolCall);
+        messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
+      }
+    }
     const rawText = String(message.content || message || '').trim();
     return {
       code: currentCode || '',

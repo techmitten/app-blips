@@ -165,7 +165,7 @@ export default function PromptInput({
   };
 
   // Builds only: Ask mode answers without searching.
-  const showWebSearch = Boolean(webSearchAvailable && onWebSearchChange && chatMode !== 'ask');
+  const showWebSearch = Boolean(webSearchAvailable && onWebSearchChange);
   const webSearchTitle = webSearch
     ? 'Web search is on: the AI searches the web when a request needs real facts. Click to turn it off.'
     : `Let the AI search the web for real facts. Each search has a small cost on your ${WEB_SEARCH_PROVIDERS[webSearchProvider] || 'AI provider'} key, usually about a cent or less.`;
