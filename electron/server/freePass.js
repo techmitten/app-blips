@@ -14,10 +14,6 @@
 // can't be shared across many addresses: each new address needs its own. The
 // signing key is APPBLIPS_FREE_PASS_SECRET, or a random one per start (a
 // restart then just means a new check).
-//
-// TURNSTILE_VERIFY_URL replaces Cloudflare's siteverify address, for a host
-// that can't reach challenges.cloudflare.com (a Hugging Face Space can't): an
-// https address that forwards to it, like cloudflare/turnstile-relay.js.
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
@@ -43,9 +39,6 @@ export function createFreePasses(env, { now = Date.now, fetch: fetchImpl = globa
     if (siteKey || secretKey) warn('[free-pass] Set both TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY to require a check for Free AI; it stays off with only one.');
     return null;
   }
-  const relay = trimmed(env?.TURNSTILE_VERIFY_URL);
-  if (relay && !/^https:\/\/[^\s/]+/i.test(relay)) warn('[free-pass] TURNSTILE_VERIFY_URL must start with https://; using Cloudflare directly.');
-  const verifyUrl = relay && /^https:\/\/[^\s/]+/i.test(relay) ? relay : SITEVERIFY_URL;
   const configured = trimmed(env?.APPBLIPS_FREE_PASS_SECRET);
   const signingKey = configured ? Buffer.from(configured) : randomBytes(32);
   const sign = (visitor, expires) => createHmac('sha256', signingKey).update(`${visitor}\n${expires}`).digest('base64url');
@@ -71,7 +64,7 @@ export function createFreePasses(env, { now = Date.now, fetch: fetchImpl = globa
   const verify = async (token, ip) => {
     const form = new URLSearchParams({ secret: secretKey, response: token });
     if (ip) form.set('remoteip', ip);
-    const response = await fetchImpl(verifyUrl, {
+    const response = await fetchImpl(SITEVERIFY_URL, {
       method: 'POST',
       body: form,
       signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
