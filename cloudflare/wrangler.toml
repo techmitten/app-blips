@@ -1,0 +1,9 @@
+# The Turnstile relay (turnstile-relay.js). Deploy from this folder:
+#   cd cloudflare && wrangler deploy
+name = "appblips-turnstile-relay"
+main = "turnstile-relay.js"
+compatibility_date = "2026-11-01"
+workers_dev = false
+routes = [
+  { pattern = "verify.appblips.com", custom_domain = true },
+]

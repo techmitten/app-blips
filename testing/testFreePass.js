@@ -69,6 +69,23 @@ test('/api/free-pass trades a genuine Turnstile answer for a pass', async () => 
   assert.equal(verified.length, 2, 'nothing is sent to Cloudflare without a token');
 });
 
+test('TURNSTILE_VERIFY_URL sends the confirmation through a relay instead', async () => {
+  const urls = [];
+  const fetch = async (url) => {
+    urls.push(url);
+    return Response.json({ success: true });
+  };
+  const relayed = createFreePasses({ ...KEYS, TURNSTILE_VERIFY_URL: 'https://verify.example.com' }, { fetch });
+  assert.equal((await relayed.handle(passRequest({ token: 't' }), { visitor: 'v', ip: '' })).status, 200);
+  assert.deepEqual(urls, ['https://verify.example.com']);
+  // Not https: ignored, with a warning.
+  const warnings = [];
+  const plain = createFreePasses({ ...KEYS, TURNSTILE_VERIFY_URL: 'http://verify.example.com' }, { fetch, warn: (m) => warnings.push(m) });
+  await plain.handle(passRequest({ token: 't' }), { visitor: 'v', ip: '' });
+  assert.equal(urls[1], 'https://challenges.cloudflare.com/turnstile/v0/siteverify');
+  assert.equal(warnings.length, 1);
+});
+
 test('/api/free-pass says so when Cloudflare can’t be reached', async (t) => {
   t.mock.method(console, 'warn', () => {});
   const passes = createFreePasses(KEYS, { fetch: async () => { throw new Error('offline'); } });
