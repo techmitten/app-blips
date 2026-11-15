@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
   Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, Volume2, VolumeX, X,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
-import { isUiSoundMuted, playBlip, setUiSoundMuted } from '../lib/uiSound';
+import { isUiSoundLocked, isUiSoundMuted, playBlip, setUiSoundMuted, subscribeUiSoundLocked } from '../lib/uiSound';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
 // invite/widget assets), drawn to match the lucide icons' ~17px box.
@@ -101,7 +101,11 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
     setUiSoundMuted(next);
     setSoundMuted(next);
   };
-  const soundLabel = soundMuted ? 'Turn sounds on' : 'Mute sounds';
+  // After a reload the browser keeps audio locked until a click; hovers can't
+  // unlock it, so the speaker pulses and says so.
+  const soundLocked = useSyncExternalStore(subscribeUiSoundLocked, isUiSoundLocked);
+  const soundWaiting = soundLocked && !soundMuted;
+  const soundLabel = soundMuted ? 'Turn sounds on' : soundWaiting ? 'Click anywhere to enable sounds' : 'Mute sounds';
   const [indicator, setIndicator] = useState(null);
 
   // The highlight is one element that slides to the active row. It is
@@ -231,8 +235,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                   aria-label="Mute sounds"
                   aria-pressed={soundMuted}
                   title={soundLabel}
-                  className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
+                  className={`${GHOST_BTN} relative h-9 w-9 max-md:hidden`}
                 >
+                  {soundWaiting && <span aria-hidden="true" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
                   {soundMuted ? <VolumeX size={17} aria-hidden="true" /> : <Volume2 size={17} aria-hidden="true" />}
                 </button>
                 {onToggleTheme && (
@@ -312,8 +317,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                     />
                   </span>
                 </h1>
-                <p className="studio-lead mt-4 max-w-2xl text-base leading-snug studio-text-muted sm:mt-5 sm:text-lg">
-                  Pick a studio, describe your idea in plain English, and watch it come to life.
+                <p className="studio-lead mt-4 max-w-2xl text-base leading-snug studio-text-muted sm:mt-5 sm:whitespace-nowrap sm:text-lg">
+                  Describe your idea and watch it come to life.
                 </p>
               </header>
 

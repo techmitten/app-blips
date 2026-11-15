@@ -23,6 +23,15 @@ export function setUiSoundMuted(value) {
   try { localStorage.setItem(UI_SOUND_MUTED_KEY, String(muted)); } catch { /* keep the in-memory value */ }
 }
 
+// Lets the UI show that sound is still waiting for a first click.
+const lockListeners = new Set();
+export const isUiSoundLocked = () => !context || context.state !== 'running';
+export function subscribeUiSoundLocked(listener) {
+  lockListeners.add(listener);
+  return () => lockListeners.delete(listener);
+}
+const notifyLock = () => lockListeners.forEach((listener) => listener());
+
 function getContext() {
   if (context) return context;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -32,6 +41,8 @@ function getContext() {
   } catch {
     return null;
   }
+  context.addEventListener('statechange', notifyLock);
+  notifyLock();
   return context;
 }
 
@@ -81,4 +92,15 @@ export function playBlip(pitch = 0) {
   osc.connect(gain).connect(ctx.destination);
   osc.start(now);
   osc.stop(now + 0.09);
+}
+
+// For a click handler: starts the context inside the gesture and resolves
+// true once it is running, so the caller can confirm with a blip.
+export async function enableUiSound() {
+  const ctx = getContext();
+  if (!ctx) return false;
+  if (ctx.state !== 'running') {
+    try { await ctx.resume(); } catch { return false; }
+  }
+  return ctx.state === 'running';
 }

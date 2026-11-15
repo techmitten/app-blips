@@ -19,6 +19,7 @@ import ConfirmModal from './components/ConfirmModal';
 
 import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
+import EnterGate from './components/EnterGate';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 import GitHubStarNotice from './components/GitHubStarNotice';
@@ -372,6 +373,9 @@ export default function App({ coldStart = false }) {
   // Mid-session studio pick: opened by "New" once any work has been confirmed
   // away (or when there is none). Cancelable -- unlike the forced gate.
   const [isStudioChoiceOpen, setIsStudioChoiceOpen] = useState(false);
+  // Every page load that lands on the picker shows the Enter page first; its
+  // click is what unlocks audio for the picker's hover sounds.
+  const [hasEntered, setHasEntered] = useState(false);
 
   // --- Mobile Layout ---
   const [mobileView, setMobileView] = useState('chat'); // 'chat' | 'preview'
@@ -2718,6 +2722,13 @@ export default function App({ coldStart = false }) {
   // Cold launches begin at the picker; renderer reloads can resume a project
   // or pending job. Mid-session, the same screen opens over "New".
   const showStudioChoice = isStudioChoiceOpen || (!isResumingProject && studioMode === null);
+  if (showStudioChoice && !hasEntered && !isStudioChoiceOpen) {
+    return (
+      <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
+        <EnterGate onEnter={() => { setSplashDone(true); setHasEntered(true); }} />
+      </div>
+    );
+  }
   if (showStudioChoice) {
     return (
       <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
