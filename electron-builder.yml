@@ -102,6 +102,11 @@ snapcraft:
     confinement: strict
     grade: stable
     useLXD: true
+    # Run under X11 (XWayland on Wayland desktops) via --ozone-platform=x11.
+    # Natively on Wayland, Electron in the snap renders with the snap's own
+    # Mesa (mesa-2404) and the window flickers at random. The .deb and
+    # AppImage use the host's graphics stack and aren't affected.
+    forceX11: true
     plugs: [default, browser-support, password-manager-service, audio-record, removable-media]
     summary: Turn a text prompt into a working app, website or game.
     description: |

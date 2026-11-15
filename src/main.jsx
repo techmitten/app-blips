@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import ExternalLinkGuard from './components/ExternalLinkGuard.jsx'
 import { initProjectStore, isDesktop } from './lib/desktop'
 import { installBrowserKeyStorage } from './lib/browserKeys'
 import { beginAppSession } from './lib/config'
@@ -30,6 +31,7 @@ Promise.all([initProjectStore(), startAndroidApi()]).then(() => {
   createRoot(document.getElementById('root'), reactRootErrorOptions).render(
     <StrictMode>
       <App coldStart={coldStart} />
+      <ExternalLinkGuard />
     </StrictMode>,
   )
 }).catch((err) => logError('Could not load saved projects; the app did not start', err))

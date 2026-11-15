@@ -6,6 +6,7 @@ import DebUpdateHelp from './DebUpdateHelp';
 import { isDesktop, desktopBridge } from '../lib/desktop';
 import { UPDATE_GUIDE_URL } from '../lib/updates';
 import { logError } from '../lib/errorLog';
+import { confirmExternal } from '../lib/externalLinks';
 
 // The "Check now" button and its answer for Settings → Workspace → Check for
 // updates. The check itself lives in hooks/useUpdateCheck.js.
@@ -38,7 +39,7 @@ export function UpdateCheckResult({ result }) {
   };
 
   const openStore = () => {
-    try { window.open(result.url, '_blank', 'noopener,noreferrer'); } catch { /* blocked */ }
+    confirmExternal({ url: result.url, why: 'Get the latest version of AppBlips.' });
   };
 
   const text = {

@@ -95,6 +95,7 @@ import { changedFiles } from './lib/codebase/fileInfo';
 import { loadEsbuild } from './lib/codebase/esbuildBrowser';
 import { blobBytes, ensureBlobs, putBlobs } from './lib/blobStore';
 import { logError, logWarn } from './lib/errorLog';
+import { confirmExternal } from './lib/externalLinks';
 
 // App owns the workspace/generation state (prompt, versions, streaming) and
 // composes everything else from hooks (src/hooks) and components
@@ -2371,7 +2372,7 @@ export default function App({ coldStart = false }) {
     onUndo: handleUndo,
     onRedo: handleRedo,
     onOpenApps: () => setIsProjectsListOpen(true),
-    onOpenHelp: () => window.open(DOCS_URL, '_blank', 'noopener,noreferrer'),
+    onOpenHelp: () => confirmExternal({ url: DOCS_URL, site: 'AppBlips Docs', why: 'Help and guides for AppBlips.' }),
     isBusy: isGenerating,
   });
 

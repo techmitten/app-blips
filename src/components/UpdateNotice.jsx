@@ -22,7 +22,7 @@ import { logError, logWarn } from '../lib/errorLog';
 // when the app quits anyway).
 // `aboveOverlay` lifts it over the full-screen onboarding (z-index 1000), so a
 // fresh install hears about an update before setup is finished.
-// The notice's links open straight away, like its other buttons.
+// Its links go through the external-link confirmation like any other.
 function NoticeLink({ href, className, children }) {
   return <a href={href} target="_blank" rel="noopener noreferrer" className={className}>{children}</a>;
 }

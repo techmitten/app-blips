@@ -2,10 +2,9 @@ import { useExternalConfirm } from '../hooks/useExternalConfirm';
 
 // Drop-in replacement for an external <a>. `why` is shown in the dialog.
 export function ConfirmedLink({ href, site, why, className, children, ...rest }) {
-  const { ask, dialog } = useExternalConfirm();
+  const { ask } = useExternalConfirm();
   return (
-    <>
-      <a
+    <a
         {...rest}
         href={href}
         target="_blank"
@@ -17,8 +16,6 @@ export function ConfirmedLink({ href, site, why, className, children, ...rest })
         }}
       >
         {children}
-      </a>
-      {dialog}
-    </>
+    </a>
   );
 }
