@@ -38,6 +38,7 @@ import { handleSeoScanApi } from './server/seoScanApi.js';
 import { resolveAddresses } from './server/dnsLookup.js';
 import { withSavedProvider } from './server/savedProvider.js';
 import { createUpdater } from './updater.js';
+import { resolveProjectsPath } from './projectPaths.js';
 
 const SCHEME = 'appblips';
 const APP_ORIGIN = `${SCHEME}://app`;
@@ -73,7 +74,6 @@ const settingsFile = () => join(app.getPath('userData'), 'settings.json');
 // Documents deletes them by accident. Updates keep it, but uninstalling or
 // resetting the Microsoft Store version deletes it (Windows removes a packaged
 // app's AppData), so Settings → Data still offers Export and another folder.
-const defaultProjectsRoot = () => join(app.getPath('userData'), 'Projects');
 // Where versions before 0.1.9 put them. An install with projects there keeps it.
 const legacyProjectsRoot = () => join(app.getPath('documents'), 'AppBlips', 'Projects');
 
@@ -90,9 +90,10 @@ function hasProjects(dir) {
 // after they delete every project in the old one).
 function resolveProjectsRoot() {
   const saved = readSettings().projectsRoot;
-  if (saved) return saved;
-  const root = hasProjects(legacyProjectsRoot()) ? legacyProjectsRoot() : defaultProjectsRoot();
-  writeSettings({ projectsRoot: root }).catch((err) => console.warn('[main] could not save the projects folder', err));
+  const root = resolveProjectsPath({ saved, userData: app.getPath('userData'), legacy: legacyProjectsRoot(), hasProjects });
+  if (root !== saved) {
+    writeSettings({ projectsRoot: root }).catch((err) => console.warn('[main] could not save the projects folder', err));
+  }
   return root;
 }
 

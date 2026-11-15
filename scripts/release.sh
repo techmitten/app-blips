@@ -24,6 +24,7 @@ ask()  { local reply; read -r -p "$1 [y/N] " reply; [[ "$reply" =~ ^[Yy]$ ]]; }
 command -v gh >/dev/null || fail "The GitHub CLI (gh) is not installed."
 gh auth status >/dev/null 2>&1 || fail "Not signed in to GitHub. Run: gh auth login"
 git remote get-url space >/dev/null 2>&1 || fail "The Hugging Face remote is missing. Add it with: git remote add space https://huggingface.co/spaces/inpectorgadget/app-blips"
+command -v timeout >/dev/null || fail "Install GNU coreutils (timeout) to deploy to Hugging Face."
 [ "$(git branch --show-current)" = "master" ] || fail "You are not on master. Switch with: git checkout master"
 [ -z "$(git status --porcelain)" ] || fail "You have unsaved (uncommitted) changes. Commit or discard them first."
 git fetch --quiet origin
@@ -93,9 +94,4 @@ else
 fi
 
 # --- Deploy the browser demo (including when GitHub is left as a draft) -------
-say "Pushing $tag to Hugging Face…"
-git push space "$tag:refs/heads/master" || fail "The Hugging Face push failed. The GitHub release is already prepared.
-Fix access to the space remote or resolve its branch divergence, then retry:
-  git push space $tag:refs/heads/master
-Do not rerun npm run release for this version."
-say "Pushed to Hugging Face. The Space will rebuild the browser demo."
+bash scripts/push-space.sh "$tag"

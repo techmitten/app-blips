@@ -48,6 +48,8 @@ Find the message or symptom you see below. Each entry explains what it means and
 
   <Accordion title="Saving failed in the desktop app">
     A message such as `… failed: … Your latest changes may not be saved to disk` means AppBlips couldn't write to your projects folder. Open **Settings → Data**, check where the **Projects folder** is, and make sure that folder still exists and you can save files there. If it's on a removable drive, plug the drive back in, or click **Change…** to choose another folder.
+
+    If the Snap Store version reports `EACCES: permission denied` for a path such as `~/snap/appblips/1/.config/appblips/Projects`, it may be trying to use a previous Snap revision's folder. Update AppBlips in App Center, then close and reopen it. AppBlips uses the running revision's copy of your projects. Export any unsaved work from **Settings → Data** before closing.
   </Accordion>
 </AccordionGroup>
 
