@@ -1,10 +1,11 @@
 import { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
-  Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, Volume2, VolumeX, X,
+  Megaphone, Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, Volume2, VolumeX, X,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
+import WhatsNew from './WhatsNew';
 import { isUiSoundLocked, isUiSoundMuted, playBlip, setUiSoundMuted, subscribeUiSoundLocked } from '../lib/uiSound';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
@@ -78,6 +79,24 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
   // picker (e.g. Settings) handles its own Escape first.
   // Mobile slide-out menu. Escape closes it before it would close the picker.
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const scrollRef = useRef(null);
+  const newsLinkRef = useRef(null);
+  const navigateToNews = (open) => {
+    setMenuOpen(false);
+    setShowWhatsNew(open);
+  };
+  useEffect(() => {
+    if (!showWhatsNew) return;
+    const scroll = scrollRef.current;
+    const newsLink = newsLinkRef.current;
+    scroll?.scrollTo(0, 0);
+    scroll?.querySelector('.whats-new-back')?.focus({ preventScroll: true });
+    return () => {
+      scroll?.scrollTo(0, 0);
+      newsLink?.focus({ preventScroll: true });
+    };
+  }, [showWhatsNew]);
   // The highlighted studio row: follows hover and keyboard focus.
   const [active, setActive] = useState('app');
   // While a mouse is over a studio row, the title's rotating word shows that
@@ -119,13 +138,13 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
     const observer = new ResizeObserver(measure);
     observer.observe(row.parentElement);
     return () => observer.disconnect();
-  }, [active]);
+  }, [active, showWhatsNew]);
 
   // Number keys 1-3 start a studio from anywhere on the picker, unless a
   // field or a modal has the keyboard.
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || menuOpen) return;
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || menuOpen || showWhatsNew) return;
       if (event.target.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="menu"]')) return;
       const studio = STUDIOS[Number(event.key) - 1];
       if (!studio) return;
@@ -134,7 +153,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onSelectStudio, menuOpen]);
+  }, [onSelectStudio, menuOpen, showWhatsNew]);
 
   // Up/Down (and Home/End) move between the studio rows, like a menu.
   const onListKeyDown = (event) => {
@@ -151,15 +170,16 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
   };
 
   useEffect(() => {
-    if (!onCancel && !menuOpen) return;
+    if (!onCancel && !menuOpen && !showWhatsNew) return;
     const onKeyDown = (event) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       if (menuOpen) setMenuOpen(false);
+      else if (showWhatsNew) setShowWhatsNew(false);
       else onCancel?.();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onCancel, menuOpen]);
+  }, [onCancel, menuOpen, showWhatsNew]);
 
   // Runs the action after the panel has started closing, so a modal (Settings)
   // doesn't open over a menu that is still on screen.
@@ -204,7 +224,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
     <div className="studio-choice relative flex-1 min-h-0 overflow-hidden">
       {/* Behind everything, top bar and footer included, so they float on it. */}
       <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
-      <div className="relative h-full overflow-y-auto overflow-x-hidden">
+      <div ref={scrollRef} className="relative h-full overflow-y-auto overflow-x-hidden">
         <div className="flex min-h-full flex-col">
           {/* Top bar, like the landing page's: mark left, quick links centred
               (md+), GitHub, theme and settings on the right. */}
@@ -287,7 +307,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
             </div>
           </nav>
 
-          <div className="relative flex flex-1 flex-col">
+          {showWhatsNew ? <WhatsNew onBack={() => navigateToNews(false)} /> : <div className="relative flex flex-1 flex-col">
 
             <div className="studio-main relative mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
               <header className="flex flex-col items-center text-center animate-stagger-1">
@@ -385,10 +405,19 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                 ))}
               </div>
             </div>
-          </div>
+          </div>}
 
           <footer className="studio-footer relative shrink-0">
             <div className="studio-footer-inner flex flex-col-reverse items-center gap-1 px-4 py-3 sm:py-4 sm:px-6 md:flex-row md:justify-center md:gap-6 md:px-10">
+              <button
+                ref={newsLinkRef}
+                type="button"
+                onClick={() => navigateToNews(true)}
+                aria-current={showWhatsNew ? 'page' : undefined}
+                className={`${NAV_LINK} inline-flex min-h-9 items-center gap-2`}
+              >
+                <Megaphone size={17} aria-hidden="true" /> What’s New
+              </button>
               <nav aria-label="Footer links" className="flex-wrap max-md:hidden flex items-center justify-center gap-x-4 gap-y-1 whitespace-nowrap sm:gap-x-6">
                 <a
                   href={GITHUB_URL}
@@ -477,6 +506,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
               {soundMuted ? 'Turn sounds on' : 'Mute sounds'}
             </button>
             <div className="studio-menu-sep" role="separator" />
+            <button type="button" className={MENU_ITEM} onClick={() => navigateToNews(true)}>
+              <Megaphone size={18} aria-hidden="true" /> What’s New
+            </button>
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
               <Github size={18} aria-hidden="true" /> GitHub
             </a>

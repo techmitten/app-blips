@@ -1,0 +1,18 @@
+.whats-new { padding-top: 1rem; padding-bottom: 2rem; }
+.whats-new-back, .whats-new-link { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; font-size: 0.875rem; font-weight: 600; border-radius: 0.375rem; }
+.whats-new-header { padding: clamp(1.5rem, 5vw, 3rem) 0 2.5rem; }
+.whats-new-header h1 { margin-top: 1.25rem; font-size: clamp(2.75rem, 8vw, 4.5rem); font-weight: 700; line-height: 1.1; letter-spacing: -0.045em; }
+.whats-new-header h1 span { color: var(--sc-red); }
+.whats-new-header p { margin-top: 1rem; max-width: 30rem; font-size: 1rem; line-height: 1.7; }
+.whats-new-feed { display: grid; gap: 1.25rem; }
+.whats-new-card { padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid var(--sc-card-line); border-top-color: var(--sc-card-top); border-radius: 1.25rem; background: var(--sc-card-bg); box-shadow: inset 0 1px 0 var(--sc-card-inset), var(--sc-card-shadow); backdrop-filter: blur(14px); }
+.whats-new-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1.25rem; font-size: 0.75rem; font-weight: 600; }
+.whats-new-category, .whats-new-featured { display: inline-flex; align-items: center; gap: 0.5rem; }
+.whats-new-featured { border: 1px solid var(--sc-line); border-radius: 999px; padding: 0.375rem 0.625rem; color: var(--sc-red); }
+.whats-new-card h2 { max-width: 35rem; font-size: clamp(1.25rem, 3.5vw, 1.75rem); font-weight: 600; line-height: 1.35; letter-spacing: -0.025em; }
+.whats-new-card p { margin-top: 0.875rem; font-size: 0.9375rem; line-height: 1.8; }
+.whats-new-highlights { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.25rem; list-style: none; padding: 0; }
+.whats-new-highlights li { padding: 0.375rem 0.75rem; border: 1px solid var(--sc-line); border-radius: 999px; background: var(--sc-fill); font-size: 0.75rem; }
+.whats-new-link { margin-top: 1.25rem; }
+.whats-new-end { margin-top: 2rem; text-align: center; font-size: 0.8125rem; line-height: 1.7; }
+.whats-new .studio-eyebrow { display: inline-flex; }
