@@ -2,7 +2,7 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, Sheet, Sparkles,
+  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, Sheet, PackagePlus,
 } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
@@ -22,6 +22,7 @@ import {
 import { surgeStatus } from '../lib/surge';
 import { galleryNameForms } from '../lib/galleryImages';
 import { forgetTavilyKey, saveTavilyKey, tavilyStatus } from '../lib/tavily';
+import { colourIcon, PROVIDER_LOGOS } from './providerLogos';
 
 // Settings → Extensions: a grid of services the AI can wire into new projects.
 // Settings → Tools is the same component with `kind="tools"`: the native
@@ -55,34 +56,13 @@ const logoIcon = (src) => function LogoIcon({ size }) {
 // Web3Forms' cube relies on its shaded faces, which a mask would flatten, so it
 // keeps its own colours (a blue close to the indigo of the others). Surge's
 // multi-coloured mascot is the same.
-const colourIcon = (src) => function ColourIcon({ size }) {
-  return <img src={src} alt="" aria-hidden="true" width={size} height={size} />;
-};
 const Web3FormsIcon = colourIcon('/web3forms-logo.png');
 const SurgeIcon = colourIcon('/surge-logo.svg');
 
 const TAVILY_API = { status: tavilyStatus, save: saveTavilyKey, forget: forgetTavilyKey };
 
-// The provider web search tools show each provider's own logo, from Lobe
-// Icons (@lobehub/icons-static-svg 1.102.0, MIT; the marks are the
-// providers' trademarks, used to name them), in public/provider-logos.
-// DeepSeek, Claude and Gemini have colour marks and keep their colours. The
-// single-colour marks (OpenAI, Grok, OpenRouter) are black, or white on
-// dark, as the brands draw them, rather than the indigo the other icons
-// take: they use the title colour, which the dark theme turns white.
-// Globe for any provider without one.
-const brandMonoIcon = (src) => function BrandMonoIcon({ size }) {
-  const mask = `url(${src}) center / contain no-repeat`;
-  return <span aria-hidden="true" className="inline-block bg-current text-slate-900" style={{ width: size, height: size, mask, WebkitMask: mask }} />;
-};
-const PROVIDER_LOGOS = {
-  deepseek: colourIcon('/provider-logos/deepseek-color.svg'),
-  anthropic: colourIcon('/provider-logos/claude-color.svg'),
-  gemini: colourIcon('/provider-logos/gemini-color.svg'),
-  openai: brandMonoIcon('/provider-logos/openai.svg'),
-  xai: brandMonoIcon('/provider-logos/grok.svg'),
-  openrouter: brandMonoIcon('/provider-logos/openrouter.svg'),
-};
+// The provider web search tools show each provider's own logo
+// (providerLogos.jsx), or a globe for any provider without one.
 const PROVIDER_SEARCH_ICONS = Object.fromEntries(PROVIDER_SEARCH_CONNECTORS.map(({ id, providerSearch }) => [id, PROVIDER_LOGOS[providerSearch] || Globe]));
 
 const ICONS = {
@@ -477,9 +457,9 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
         {/* Not a button: there's nothing to open yet. Same dashed tile as
             "Request an extension" so it reads as a placeholder, not a tool. */}
         {kind === 'tools' && (
-          <div className={DASHED_TILE}>
+          <div className={`${DASHED_TILE} sm:col-span-2 !flex-row !items-center`}>
             <span className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600">
-              <Sparkles size={20} aria-hidden="true" />
+              <PackagePlus size={20} aria-hidden="true" />
             </span>
             <span>
               <span className="block text-sm font-semibold text-slate-900">More coming soon</span>

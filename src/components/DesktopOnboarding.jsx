@@ -14,6 +14,7 @@ import ProfileAvatar from './ProfileAvatar';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
+import { ONBOARDING_PROVIDER_LOGOS } from './providerLogos';
 
 // One labelled field. `error` appears only after the user has tried to
 // continue, so an untouched form doesn't open covered in red.
@@ -27,16 +28,11 @@ function SetupField({ title, error, children }) {
   );
 }
 
-// OpenRouter's mark (two routes merging); the other providers get a generic
-// glyph rather than a copied logo.
+// The provider's logo (the same ones as Settings → Tools), or a generic chip
+// for a provider without one.
 function ProviderGlyph({ id }) {
-  if (id !== 'openrouter') return <Cpu size={18} />;
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2 12h3.5c2.5 0 3.5-5 7-5H17" /><path d="M2 12h3.5c2.5 0 3.5 5 7 5H17" />
-      <path d="M15 4.5 18 7l-3 2.5" /><path d="M15 14.5 18 17l-3 2.5" />
-    </svg>
-  );
+  const Logo = ONBOARDING_PROVIDER_LOGOS[id];
+  return Logo ? <span className="onboarding-provider-logo"><Logo size={20} /></span> : <Cpu size={18} />;
 }
 
 // A native <select> here let some phone browsers open their picker at the top
@@ -129,6 +125,7 @@ function ProviderSelect({ options, value, onChange, invalid }) {
               onMouseMove={() => { if (index !== active) setActive(index); }}
               onClick={() => choose(option)}
             >
+              {option.id === FREE_PROVIDER_ID ? <Gift size={18} /> : <ProviderGlyph id={option.id} />}
               <span className="model-combobox-text"><span className="model-combobox-label">{option.label}{option.id === 'anthropic' && <span className="onboarding-provider-recommended"> (recommended)</span>}</span></span>
               {option.id === value && <Check size={14} className="model-combobox-check" />}
             </li>
@@ -608,7 +605,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 ? 'Pick a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
                 : 'Pick a fun avatar for your chat messages.'}</p>
             ) : isFreeStep ? (
-              <p>This copy of AppBlips comes with AI already set up, so you can build without an API key of your own. On the next step it is the <strong>Free</strong> option in the provider list.</p>
+              <p>On the next step it is the <strong>Free</strong> option in the provider list.</p>
             ) : (
               <p>{hasFree
                 ? 'Keep Free, or connect your own key through Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter. You can change this later in Settings.'

@@ -1,10 +1,12 @@
 import { ConfirmedLink } from './ExternalLinkConfirm';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'lucide-react';
+import { Check, ChevronDown, Cpu, Gift, Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
+import useAnchoredList from '../hooks/useAnchoredList';
+import { PROVIDER_LOGOS, ONBOARDING_PROVIDER_LOGOS } from './providerLogos';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
@@ -20,8 +22,109 @@ import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 // Edits are a draft until Save; `guardRef` lets SettingsModal stop the user
 // leaving with unsaved edits (see useProviderGuard there).
 
-const SELECT_COLORS = { backgroundColor: 'var(--color-surface)', color: 'var(--color-slate-900)' };
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
+function ProviderGlyph({ id, logos }) {
+  if (id === FREE_PROVIDER_ID) return <Gift size={18} className="shrink-0" />;
+  const Logo = logos[id];
+  return Logo ? <span className="inline-flex shrink-0"><Logo size={18} /></span> : <Cpu size={18} className="shrink-0" />;
+}
+
+// A native <select> can't show logos, so this is a small listbox (same list
+// styling and placement as the model picker) with each provider's logo.
+function ProviderDropdown({ value, onChange, options }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const wrapRef = useRef(null);
+  const buttonRef = useRef(null);
+  const listRef = useRef(null);
+  const listId = useId();
+  const [position, place] = useAnchoredList(wrapRef, listRef, open);
+  const selected = options.find((o) => o.id === value) || null;
+  const openList = () => {
+    place();
+    setActive(Math.max(0, options.findIndex((o) => o.id === value)));
+    setOpen(true);
+  };
+  const choose = (option) => {
+    if (option.id !== value) onChange(option.id);
+    setOpen(false);
+    buttonRef.current?.focus();
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (e) => {
+      if (wrapRef.current?.contains(e.target) || listRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open]);
+
+  const onKeyDown = (e) => {
+    const last = options.length - 1;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) return openList();
+      setActive((i) => (e.key === 'ArrowDown' ? Math.min(last, i + 1) : Math.max(0, i - 1)));
+    } else if (open && (e.key === 'Home' || e.key === 'End')) {
+      e.preventDefault();
+      setActive(e.key === 'Home' ? 0 : last);
+    } else if (open && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      choose(options[active]);
+    } else if (open && e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+    } else if (e.key === 'Tab') {
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        role="combobox"
+        aria-label="Provider"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-activedescendant={open ? `${listId}-${active}` : undefined}
+        onClick={() => (open ? setOpen(false) : openList())}
+        onKeyDown={onKeyDown}
+        className={`${INPUT_CLASS} flex items-center gap-2 text-left ${selected ? '' : 'text-slate-500'}`}
+      >
+        {selected && <ProviderGlyph id={selected.id} logos={PROVIDER_LOGOS} />}
+        <span className="min-w-0 flex-1 truncate">{selected ? selected.label : 'Select a provider'}</span>
+        <ChevronDown size={16} className="shrink-0 text-slate-400" />
+      </button>
+      {open && position && createPortal(
+        <ul ref={listRef} id={listId} role="listbox" aria-label="Provider" className="model-combobox-list" style={{ position: 'fixed', ...position }} onMouseDown={(e) => e.preventDefault()}>
+          {options.map((option, i) => (
+            <li
+              key={option.id}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={option.id === value}
+              className={`model-combobox-option${i === active ? ' is-active' : ''}${option.id === value ? ' is-selected' : ''}`}
+              onMouseMove={() => { if (i !== active) setActive(i); }}
+              onClick={() => choose(option)}
+            >
+              <ProviderGlyph id={option.id} logos={ONBOARDING_PROVIDER_LOGOS} />
+              <span className="model-combobox-text"><span className="model-combobox-label">{option.label}</span></span>
+              {option.id === value && <Check size={14} className="model-combobox-check" />}
+            </li>
+          ))}
+        </ul>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
 const providerLabel = (id) => (id === FREE_PROVIDER_ID ? FREE_PROVIDER_LABEL : USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id);
 // Free is the choice in effect when the environment supplies AI and no
 // provider of the user's own is switched on.
@@ -92,7 +195,7 @@ export default function DesktopProviderSettings({ guardRef }) {
     : active
       ? `Using ${providerLabel(saved.id)} · ${saved.model}.`
       : saved.envConfigured
-        ? `Using Free AI${saved.envProvider ? ` (${saved.envProvider.label}${saved.envProvider.model ? ` · ${saved.envProvider.model}` : ''})` : ''}, set up by whoever runs this copy of AppBlips. Choose a provider with your own key to use it instead.`
+        ? 'Choose a provider with your own key to use it instead.'
         : 'Not set up yet. Choose a provider and coding model to start building.';
 
   // Returns whether it saved, for the leave-with-unsaved-changes dialog.
@@ -183,25 +286,17 @@ export default function DesktopProviderSettings({ guardRef }) {
       description={summary}
       details={(
         <div className="space-y-3">
-          <label className="block text-sm text-slate-600">
+          <div className="block text-sm text-slate-600">
             Provider
-            <select
+            <ProviderDropdown
               value={draft.id}
-              onChange={(e) => update({ id: e.target.value, model: '', apiKey: '' })}
-              className={INPUT_CLASS}
-              // Placeholder text is muted; each option keeps SELECT_COLORS so
-              // the open list isn't grey too.
-              style={draft.id ? SELECT_COLORS : { ...SELECT_COLORS, color: 'var(--color-slate-500)' }}
-            >
-              {/* Disabled: once a provider is chosen there's no going back to none (Clear does that). */}
-              <option value="" disabled style={SELECT_COLORS}>Select a provider</option>
-              {saved?.envConfigured && <option value={FREE_PROVIDER_ID} style={SELECT_COLORS}>{FREE_PROVIDER_LABEL}</option>}
-              {USER_PROVIDER_OPTIONS.map((p) => <option key={p.id} value={p.id} style={SELECT_COLORS}>{p.label}</option>)}
-            </select>
-          </label>
+              onChange={(id) => update({ id, model: '', apiKey: '' })}
+              options={[...(saved?.envConfigured ? [{ id: FREE_PROVIDER_ID, label: FREE_PROVIDER_LABEL }] : []), ...USER_PROVIDER_OPTIONS]}
+            />
+          </div>
           {isFree ? (
             <p className="text-xs text-slate-500 leading-snug">
-              Whoever runs this copy of AppBlips has set up AI for everyone using it{saved?.envProvider ? `, on ${saved.envProvider.label}${saved.envProvider.model ? ` (${saved.envProvider.model})` : ''}` : ''}. No key or model to choose. It may be slower or limited when busy; pick a provider with your own key for more control.
+              No key or model to choose. It may be slower or limited when busy; pick a provider with your own key for more control.
               {saved?.enabled && ' Saving switches off your own provider; its key stays saved.'}
             </p>
           ) : (<>

@@ -322,8 +322,9 @@
 .onboarding-select option { color: #f0f0f0; background: #262626; }
 /* Provider button (ProviderSelect) with a glyph and a chevron drawn over it. */
 .onboarding-select-wrap { position: relative; display: block; margin-top: 12px; color: #dcdcdc; }
-.onboarding-select-wrap > svg { position: absolute; top: 50%; transform: translateY(-50%); pointer-events: none; }
-.onboarding-select-wrap > svg:first-child { left: 18px; }
+.onboarding-select-wrap > svg, .onboarding-select-wrap > .onboarding-provider-logo { position: absolute; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.onboarding-select-wrap > svg:first-child, .onboarding-select-wrap > .onboarding-provider-logo { left: 18px; }
+.onboarding-provider-logo { display: inline-flex; flex: none; }
 .onboarding-select-wrap > svg:last-child { right: 18px; color: #c7c7c7; }
 .onboarding-select-wrap .onboarding-select { display: flex; align-items: center; padding: 0 48px 0 58px; text-align: left; cursor: pointer; }
 .onboarding-select-placeholder { color: #8a8a8a; }
