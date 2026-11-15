@@ -578,7 +578,7 @@ CRITICAL RULES:
 5. INPUT -- BOTH KEYBOARD AND TOUCH MUST WORK. Listen for keydown/keyup on the document, call e.preventDefault() for game keys (arrows, space) so the page does not scroll, and keep a set of currently-held keys that the loop reads. Support pointer/touch input (pointerdown/pointermove/pointerup plus a click/tap to start), and on touch devices (see rule 16 for how to detect them) render on-screen touch controls (a virtual d-pad, joystick, or fire buttons) whenever the game needs directional or action input. Touch targets must be large and must not overlap the HUD. Never rely on alert(), confirm(), or prompt() -- build pause, game-over and menu overlays inside the page. MOUSE LOOK (first-person and other free-camera games): pointer lock and fullscreen are extras that may be refused, and are refused in the AppBlips preview, so the game must be fully playable without them. Always support looking around by dragging (mouse button held, and a touch drag on the part of the screen not used by the movement controls). You may also call requestPointerLock() on a click for smoother mouse look: wrap it in try/catch, handle a rejected promise and the pointerlockerror event silently, and never wait for the lock before starting play or show a "click to lock the mouse" screen that cannot be passed.
 6. GAME FEEL AND JUICE: add particle effects, easing (lerp) toward targets, subtle screen shake on hits, and short flashes on damage. These are what make a game read as professional rather than wooden.
 7. SOUND: use the Web Audio API with procedurally generated tones/noise for sound effects (there are no external audio files). Audio can only start after a user gesture, so create/resume the AudioContext on the first click, tap, or keypress. Always provide a visible mute toggle and default to sound on; persist the mute preference.
-8. GAME STATES AND FLOW: implement explicit states -- a start/menu screen with instructions and controls, active play, pause (Escape and a visible pause button), and a game-over/win screen with the score and an obvious restart. The player must always be able to restart without reloading the page.
+8. GAME STATES AND FLOW: implement explicit states -- a start/menu screen with instructions and controls (see OPENER below), active play, pause (Escape and a visible pause button), and a game-over/win screen with the score and an obvious restart. The player must always be able to restart without reloading the page.
 9. PROGRESSION: track a score, and where the genre calls for it, lives/health, a timer, and levels or escalating difficulty (waves that speed up, more enemies, faster spawns). Make the challenge ramp so the game does not stay trivial or become impossible.
 10. DATA PERSISTENCE: use localStorage for the high-score table, best times, unlocked levels, and settings (sound on/off, difficulty). Always read defensively with graceful defaults (e.g. try { return JSON.parse(localStorage.getItem(KEY)) ?? DEFAULT; } catch { return DEFAULT; }) so a first run with an empty store works. Do NOT use indexedDB (unavailable on an opaque origin).
 11. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for the surrounding UI chrome (menus, HUD panels, buttons). Build menus, HUD and overlays with plain HTML in the markup that JavaScript shows, hides and updates; do not load a component framework (React, Preact, Vue) for them. Never write JSX in a game and never load Babel standalone.
@@ -591,10 +591,11 @@ CRITICAL RULES:
    - Open-field games (slicers, shooters, runners, breakout, snake, physics toys) size the playfield to the real viewport -- landscape on desktop, portrait on phones -- and recompute on resize. Scale spawn positions, speeds and spacing with the play area so the difficulty feels the same at every size.
    - Fixed-board games (puzzles, card and board games, tetris, 2048, match-3) scale the board to the largest size that fits and center it. On wide screens put the side panels (score, next piece, stats, controls help) in columns beside the board; on narrow screens stack them above or below it. Use a real layout (flex/grid), not absolutely positioned panels that can drift over the board.
    - HUD elements must never overlap one another, the board's playable area, or each other's text. Keep the in-play HUD compact and pinned to the edges of the playfield.
-   - Menu, pause and game-over overlays cover the whole viewport with a dimmed backdrop, sit above every HUD element (highest z-index; hide or dim the HUD while they show), are centered, and use a max-width so they look right on a phone and on a monitor.
+   - Menu, pause and game-over overlays cover the whole viewport, sit above every HUD element (highest z-index; hide or dim the HUD while they show), and keep their text and buttons within a readable width so they look right on a phone and on a monitor.
    - Show on-screen touch controls only on touch devices (matchMedia('(pointer: coarse)') or a @media (pointer: coarse) rule); on desktop show keyboard/mouse hints instead and let the playfield use that space.
    - Include <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"> and keep HUD and touch controls clear of the notch and home indicator with env(safe-area-inset-*) padding. Give the playfield and touch controls touch-action: none and user-select: none so a swipe or long press steers the game instead of scrolling, zooming or selecting text.
    - Menus, HUD and overlays styled with Tailwind are written mobile-first: unprefixed classes are the phone size and md:/lg: scale them up (e.g. text-3xl md:text-6xl for titles, stacked buttons that go side by side at sm:). Never put a desktop-sized font, padding or fixed width unprefixed, and keep text readable (at least 14px) on phones.
+17. OPENER -- EVERY GAME GETS ITS OWN START SCREEN. The start screen is the game's first impression, so design it for this game in particular, never from a stock template. Do NOT default to the generic opener: a dark translucent card centered on a dimmed backdrop, holding a gradient title, a one-line tagline, a big "Play"/"Start" button and a bulleted controls list. Instead, take its look from the game's own theme and setting: a layout, colour palette, type (a font stack, letter-spacing and weight that suit the theme, or a title drawn in code), title treatment and background chosen for this game, with something of the game itself on screen (the world animating behind the title, the player character, an attract-mode demo, a themed prop such as an arcade marquee, a book cover, a ship's console or a chalkboard). Name the start action in the game's own voice ("Launch", "Deal me in", "Enter the dungeon") where that reads naturally. If the request carries an OPENER line, follow its direction. The pause and game-over screens use the same visual language as the opener. The opener still shows the controls (keyboard on desktop, touch on touch devices), starts on a click, tap or key press, and follows rule 16.
 
 PHASER GUIDELINES (use these only when the game is built on Phaser 3):
 - Load Phaser 3 exactly once, as a classic script in the <head>, before any module script:
@@ -861,21 +862,41 @@ export const buildWebsiteInitialGenerationPrompt = (prompt, projectName, addonDi
 Structure it like a professional website: a top navigation bar with the site name, menu links, and a call-to-action button; a hero section with a strong headline and supporting imagery; several distinct content sections appropriate to the request; and an informative footer. It must look designed on both a 1440px desktop and a 375px phone: write the Tailwind classes mobile-first (unprefixed classes are the phone layout, md:/lg: add the desktop layout) so columns stack, type and spacing shrink, and nothing overflows on phones. All content (headings, paragraphs, images, links) must be present as static HTML in the markup; the only exception is live data that a CONNECTORS section in your instructions tells you to load.${nameInstruction}`;
 };
 
+// Start-screen layouts for new games. Rule 17 of the game prompt already says
+// to theme the opener, but with the same brief every time the model still
+// converges on one layout, so each new game is handed one of these at random.
+export const GAME_OPENER_DIRECTIONS = [
+  'a full-bleed live scene: the game world runs in attract mode behind the title, with the title and start prompt laid directly over it and no panel or card',
+  'an off-centre composition: the title stacked large along one side (left or bottom), the player character or key art filling the other side, and the start prompt small beneath the title',
+  'a physical object from the game\'s world that holds the menu, such as a cabinet marquee, a signpost, a scroll, a cockpit screen, a playing card or a book cover, drawn in code',
+  'a retro arcade attract screen: a blocky or pixel title, a blinking "press start" line, a scrolling high-score table and a small demo or sprite parade',
+  'a minimal, typographic opener: one oversized title word, lots of empty space in a single bold background colour, the start action as a quiet text link and the controls in small type at the edge',
+  'a cinematic title card: the title animates in (letters dropping, a wipe, a zoom or a glitch) over a moody backdrop, then the start prompt and controls fade in below',
+  'a diegetic opener: the player is already in the world (the ship on the launch pad, the snake coiled on the board, the first card dealt) and the title and controls sit as labels within the scene, so the first input starts play right there',
+  'a split screen: one half is bold title art in the game\'s palette, the other half lists the start action, the controls as small icons or keycaps, and the best score',
+];
+
+export const pickGameOpenerDirection = (random = Math.random) =>
+  GAME_OPENER_DIRECTIONS[Math.floor(random() * GAME_OPENER_DIRECTIONS.length) % GAME_OPENER_DIRECTIONS.length];
+
 // The Games Studio's initial-generation instruction. Games are single-file like
 // apps, but the brief leads with gameplay: a playable loop, both control
 // schemes, and a start/play/game-over flow -- the parts a generic "build an
 // app" brief tends to omit, yielding pretty but dead screens.
-export const buildGameInitialGenerationPrompt = (prompt, projectName, engineDirective = '') => {
+export const buildGameInitialGenerationPrompt = (prompt, projectName, engineDirective = '', openerDirection = pickGameOpenerDirection()) => {
   const trimmedPrompt = prompt.trim();
   const nameInstruction = buildProjectNameInstruction(projectName, 'game');
   const engineLine = engineDirective ? `\n\n${engineDirective}` : '';
+  const openerLine = openerDirection
+    ? `\n\nOPENER: unless the request describes its own start screen, build the start screen as ${openerDirection}. Style it in the game's own theme (rule 17).`
+    : '';
 
-  return `Create a complete, playable browser game based on this request: ${trimmedPrompt}.${engineLine}
+  return `Create a complete, playable browser game based on this request: ${trimmedPrompt}.${engineLine}${openerLine}
 
 Build it like a real game, not a mockup:
 - Pick the right engine (unless an ENGINE line above already chose it): raw Canvas 2D with a requestAnimationFrame loop for a simple arcade or puzzle game, or Phaser 3 (loaded from its CDN per the PHASER GUIDELINES) for a sprite-, tilemap-, animation- or physics-heavy game such as a platformer, top-down RPG or shoot-em-up. Either way it must run a real update loop and scale to fit both phone and desktop.
 - Support BOTH keyboard and touch/pointer input. On touch devices, render large on-screen touch controls when the game needs directional or action input.
-- Include a start screen with controls, active play with a visible score/HUD, a pause state, and a game-over or win screen with restart. Add escalating difficulty, particle/juice effects, and a high-score saved to localStorage.
+- Include a start screen designed for this game (rule 17, not a generic centered card) that shows the controls, active play with a visible score/HUD, a pause state, and a game-over or win screen with restart. Add escalating difficulty, particle/juice effects, and a high-score saved to localStorage.
 - Add procedural Web Audio sound effects with a visible mute toggle (sound starts on the first user interaction).
 - Make it self-contained: draw the art in code and synthesize the sound, with no external image or audio assets and no runtime data fetches, unless a USER IMAGES or CONNECTORS section in your instructions allows one. Never use alert(), confirm() or prompt().
 - Make it look and play great on BOTH a desktop monitor and a phone (rule 16): fill the whole screen, use landscape space on desktop instead of a narrow phone-width column, keep HUD panels from overlapping the playfield or the menus, and show touch controls only on touch devices.${nameInstruction}`;
