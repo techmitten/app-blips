@@ -355,6 +355,9 @@ const EXTERNAL_OPEN_GAP_MS = 1000;
 // Store app. Only this exact URL is let through, never the scheme in general.
 // Matches STORE_URL in src/lib/updates.js.
 const STORE_APP_URL = 'ms-windows-store://pdp/?productid=9NK9SS4V2N1K';
+// The same for a snap install, opening AppBlips in Ubuntu's App Center.
+// Matches SNAP_STORE_URL in src/lib/updates.js.
+const SNAP_APP_URL = 'snap://appblips';
 let lastExternalOpen = 0;
 const openExternalPaced = (url) => {
   const now = Date.now();
@@ -380,7 +383,7 @@ function lockDown(contents) {
     }
     // mailto: for Publish's "Share by email": it only opens a draft in the
     // user's mail app, which they still have to send.
-    if (/^(https?:\/\/|mailto:)/i.test(url) || url === STORE_APP_URL) openExternalPaced(url);
+    if (/^(https?:\/\/|mailto:)/i.test(url) || url === STORE_APP_URL || url === SNAP_APP_URL) openExternalPaced(url);
     return { action: 'deny' };
   });
   contents.on('will-navigate', (event, url) => {

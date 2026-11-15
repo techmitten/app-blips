@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { isDesktop, desktopBridge } from '../lib/desktop';
-import { checkForUpdate, STORE_URL } from '../lib/updates';
+import { checkForUpdate, SNAP_STORE_URL, STORE_URL } from '../lib/updates';
 import { safeStorage } from '../lib/config';
 import { logWarn } from '../lib/errorLog';
 
@@ -51,7 +51,10 @@ async function askForUpdate() {
         logWarn('Desktop update check failed; checking GitHub releases instead', err);
         return null;
       });
-      if (desktop?.store) return { status: 'store', url: STORE_URL };
+      if (desktop?.store) {
+        const snap = desktop.store === 'snap';
+        return { status: 'store', snap, url: snap ? SNAP_STORE_URL : STORE_URL };
+      }
       if (desktop?.auto) {
         const state = desktop.state || {};
         return state.status === 'downloading' || state.status === 'ready'

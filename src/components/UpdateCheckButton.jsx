@@ -47,7 +47,9 @@ export function UpdateCheckResult({ result }) {
     downloading: `AppBlips ${result.version} is downloading in the background. You'll be offered a restart when it's ready.`,
     ready: `AppBlips ${result.version} has downloaded. Restart to use it now, or it installs the next time you close AppBlips.`,
     available: `AppBlips ${result.version} is available.`,
-    store: 'The Microsoft Store updates AppBlips for you. To check for a new version now, open AppBlips in the Store.',
+    store: result.snap
+      ? 'Ubuntu updates AppBlips for you in the background. To check for a new version now, open AppBlips in App Center.'
+      : 'The Microsoft Store updates AppBlips for you. To check for a new version now, open AppBlips in the Store.',
   }[result.status];
 
   return (
@@ -75,7 +77,7 @@ export function UpdateCheckResult({ result }) {
           {/* Opens the Store app, not a website, so it skips the "leaves
               AppBlips for this website" confirm: the label says where it goes. */}
           <button type="button" onClick={openStore} className={SECONDARY_BUTTON}>
-            Open Microsoft Store
+            {result.snap ? 'Open App Center' : 'Open Microsoft Store'}
           </button>
         </div>
       )}

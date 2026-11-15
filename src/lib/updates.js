@@ -24,6 +24,9 @@ export const DESKTOP_UPDATE_GUIDE_URL = 'https://docs.appblips.com/quickstart-de
 // main process allows exactly this URL through its window-open handler
 // (electron/main.js, STORE_APP_URL), so keep the two in step.
 export const STORE_URL = 'ms-windows-store://pdp/?productid=9NK9SS4V2N1K';
+// The same for a snap install: opens AppBlips in Ubuntu's App Center. Matches
+// SNAP_APP_URL in electron/main.js.
+export const SNAP_STORE_URL = 'snap://appblips';
 // Hourly, so a new release reaches people soon after it is published. One
 // request an hour per install stays far below the API limit above.
 export const CHECK_INTERVAL_MS = 60 * 60 * 1000;

@@ -90,5 +90,6 @@ test('debInstall: only packaged non-AppImage Linux', () => {
   assert.equal(debInstall({ isPackaged: false, platform: 'linux', env: {} }), null);
   assert.equal(debInstall({ isPackaged: true, platform: 'win32', env: {} }), null);
   assert.equal(debInstall({ isPackaged: true, platform: 'linux', env: { APPIMAGE: '/x.AppImage' } }), null);
+  assert.equal(debInstall({ isPackaged: true, platform: 'linux', env: { SNAP: '/snap/appblips/1' } }), null);
   assert.deepEqual(debInstall({ isPackaged: true, platform: 'linux', env: {} }), { deb: true });
 });

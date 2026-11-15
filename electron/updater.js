@@ -16,8 +16,11 @@
 // against the GitHub API (src/lib/updates.js), linking to the release.
 //
 // Microsoft Store (MSIX) installs are updated by the Store, so they answer
-// { auto: false, store: true } and the renderer shows no update notice: GitHub
-// releases go out days before Microsoft approves the Store version.
+// { auto: false, store: 'microsoft' } and the renderer shows no update notice:
+// GitHub releases go out days before Microsoft approves the Store version.
+// Snap installs (Ubuntu's App Center) are updated by snapd the same way and
+// answer { auto: false, store: 'snap' }: a snap reaches the stable channel
+// only after it's promoted there, later than the GitHub release.
 import electronUpdater from 'electron-updater';
 import { debInstall } from './debInstall.js';
 
@@ -61,7 +64,8 @@ export function createUpdater({ app, send, beforeInstall }) {
     async check(options) {
       const force = options?.force === true;
       const result = { auto, version: app.getVersion() };
-      if (process.windowsStore) return { ...result, store: true };
+      if (process.windowsStore) return { ...result, store: 'microsoft' };
+      if (process.platform === 'linux' && process.env.SNAP) return { ...result, store: 'snap' };
       if (!auto) return { ...result, ...debInstall({ isPackaged: app.isPackaged }) };
       const busy = state.status === 'downloading' || state.status === 'ready';
       if (!busy && (force || Date.now() - lastCheck > RECHECK_MS)) {

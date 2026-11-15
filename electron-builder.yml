@@ -1,5 +1,6 @@
-# Desktop installers (npm run desktop:dist): Linux AppImage + .deb, built by
-# the CI workflow in .github/workflows/desktop.yml. Windows is distributed
+# Desktop installers (npm run desktop:dist): Linux AppImage, .deb and snap,
+# built by the CI workflow in .github/workflows/desktop.yml (which uploads the
+# snap to the Snap Store, the source of Ubuntu's App Center). Windows is distributed
 # only through the Microsoft Store (npm run desktop:store, built by hand on a
 # Windows PC, see RELEASING.md); the win: section below exists only to give
 # that package an icon, not to build a Windows installer.
@@ -57,6 +58,8 @@ linux:
       arch: [x64]
     - target: deb
       arch: [x64]
+    - target: snap
+      arch: [x64]
   category: Development
   # Add a contact address ("Name <email>") before publishing .deb packages.
   maintainer: TechMitten
@@ -73,6 +76,24 @@ linux:
 # GitHub Pages apt source, so re-copy it when upgrading electron-builder.
 deb:
   afterInstall: build/linux/after-install.tpl
+# Snap Store package, for Ubuntu's App Center. The Desktop workflow uploads it
+# to the candidate channel; it reaches users once promoted to stable (see
+# RELEASING.md). snapd updates it, so electron/updater.js shows no update
+# notice for it. The name is package.json's "name" (appblips).
+# `default` is electron-builder's standard plug set (desktop, home, x11,
+# wayland, network, browser-support, opengl, audio-playback, ...). The others:
+#   password-manager-service: the keyring, so the API key is properly encrypted
+#   audio-record: the microphone, for voice input
+#   removable-media: projects folders on USB drives (Choose folder)
+# The first two aren't connected automatically until the Snap Store grants
+# auto-connection; until then the user runs `snap connect appblips:<plug>`.
+snap:
+  base: core22
+  confinement: strict
+  grade: stable
+  summary: Turn a text prompt into a working app, website or game.
+  plugs: [default, password-manager-service, audio-record, removable-media]
+  artifactName: AppBlips-${version}-${arch}.${ext}
 # Where electron-updater looks for new versions (Windows and AppImage builds
 # update themselves; see electron/updater.js). Builds never upload by
 # themselves (--publish never): the Desktop workflow attaches the installers
