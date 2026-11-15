@@ -77,9 +77,9 @@ linux:
 deb:
   afterInstall: build/linux/after-install.tpl
 # Snap Store package, for Ubuntu's App Center. The Desktop workflow uploads it
-# to the candidate channel; it reaches users once promoted to stable (see
-# RELEASING.md). snapd updates it, so electron/updater.js shows no update
-# notice for it. The name is package.json's "name" (appblips).
+# to the stable channel (see RELEASING.md). snapd updates it;
+# electron/updater.js checks the Snap Store for update notices.
+# The name is package.json's "name" (appblips).
 # core24 is built by snapcraft inside an LXD container (useLXD), with the gnome
 # extension supplying the desktop libraries and the usual desktop plugs, so the
 # build machine needs LXD (the workflow sets it up). Plugs:

@@ -1,13 +1,12 @@
 // Run (Linux needs a display: xvfb-run -a node testing/testStoreUpdateNotice.mjs)
 // after `npm run build && node scripts/build-electron.js`.
 // The update notice in the real desktop app: a Microsoft Store install
-// (faked with helpers/fakeWindowsStore.cjs) or a snap (faked by setting SNAP)
-// shows none and never asks GitHub (the store updates it, and has new
-// versions days after the GitHub release), any other install that doesn't update itself links to the release. GitHub's
+// (faked with helpers/fakeWindowsStore.cjs) checks GitHub and opens the Store.
+// A snap checks the Snap Store and opens App Center; other installs link to GitHub. GitHub's
 // answer is mocked, so no network is needed. HOME/XDG_CONFIG_HOME point at a
 // temp folder, so the user's real projects and settings are never touched.
 import assert from 'node:assert/strict';
-import { _electron as electron } from '@playwright/test';
+import { _electron as electron, expect } from '@playwright/test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { CHECK_CACHE_KEY } from '../src/lib/updates.js';
 
 const fakeStore = fileURLToPath(new URL('./helpers/fakeWindowsStore.cjs', import.meta.url));
+const fakeSnap = fileURLToPath(new URL('./helpers/fakeSnapStore.cjs', import.meta.url));
 const releaseUrl = 'https://github.com/TechMitten/app-blips/releases/tag/v99.0.0';
 
 async function launch({ store = false, snap = false } = {}) {
@@ -24,7 +24,7 @@ async function launch({ store = false, snap = false } = {}) {
   // An existing provider file marks first-run onboarding as done.
   await writeFile(join(home, '.config', 'appblips', 'provider.json'), '{}');
   const app = await electron.launch({
-    args: store ? ['-r', fakeStore, '.'] : ['.'],
+    args: store ? ['-r', fakeStore, '.'] : snap ? ['-r', fakeSnap, '.'] : ['.'],
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '', HOME: home, XDG_CONFIG_HOME: join(home, '.config'), ...(snap ? { SNAP: '/snap/appblips/1' } : {}) },
   });
   const githubCalls = [];
@@ -55,46 +55,50 @@ async function launch({ store = false, snap = false } = {}) {
   return { app, page, githubCalls, close };
 }
 
-async function storeInstall(kind) {
-  const { page, githubCalls, close } = await launch({ [kind]: true });
-  try {
-    const check = await page.evaluate(() => window.appblipsDesktop.updates.check());
-    // Long enough for the startup check to have shown a notice if it were going to.
-    await page.waitForTimeout(5000);
-    const notices = await page.getByRole('status').filter({ hasText: /is available/ }).count();
-    await page.screenshot({ path: join(tmpdir(), `appblips-update-${kind}.png`) });
-    return { check, notices, githubCalls: [...githubCalls] };
-  } finally {
-    await close();
-  }
-}
-
-async function otherInstall() {
-  const { app, page, close } = await launch();
+async function otherInstall(options) {
+  const { app, page, githubCalls, close } = await launch(options);
   try {
     const notice = page.getByRole('status').filter({ hasText: 'AppBlips 99.0.0 is available' });
     await notice.waitFor({ timeout: 20000 });
     const check = await page.evaluate(() => window.appblipsDesktop.updates.check());
     const link = notice.getByRole('link');
-    const result = { check, text: await notice.innerText(), label: await link.innerText(), href: await link.getAttribute('href') };
+    const result = { check, text: await notice.innerText(), label: await link.innerText(), href: await link.getAttribute('href'), githubCalls: [...githubCalls] };
     await page.screenshot({ path: join(tmpdir(), 'appblips-update-other.png') });
     await link.click();
-    await page.waitForTimeout(500);
+    if (!options?.store && !options?.snap) await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect.poll(() => app.evaluate(() => globalThis.opened.length)).toBe(1);
     result.opened = await app.evaluate(() => globalThis.opened);
+    if (options?.store || options?.snap) {
+      await notice.getByRole('button', { name: 'Dismiss', exact: true }).click();
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+      await page.getByRole('tab', { name: 'Workspace', exact: true }).click();
+      await page.getByRole('button', { name: 'Check now', exact: true }).click();
+      const answer = page.getByRole('status').filter({ hasText: 'AppBlips 99.0.0 is available' });
+      await answer.waitFor();
+      await answer.getByRole('button', { name: options.snap ? 'Open App Center' : 'Open Microsoft Store', exact: true }).click();
+      await expect.poll(() => app.evaluate(() => globalThis.opened)).toEqual([result.href, result.href]);
+      assert.equal(await answer.getByRole('link', { name: 'Download', exact: true }).count(), 0);
+    }
     return result;
   } finally {
     await close();
   }
 }
 
-const store = await storeInstall('store');
+const store = await otherInstall({ store: true });
 assert.equal(store.check.store, 'microsoft', 'main reports a Microsoft Store install');
-assert.equal(store.notices, 0, 'a Store install shows no update notice');
-assert.deepEqual(store.githubCalls, [], 'a Store install never asks GitHub');
+assert.equal(store.label, 'Open Microsoft Store');
+assert.equal(store.href, 'ms-windows-store://pdp/?productid=9NK9SS4V2N1K');
+assert.match(store.text, /while Microsoft approves/);
+assert.ok(store.githubCalls.length > 0);
+assert.deepEqual(store.opened, [store.href]);
 
-const snap = await storeInstall('snap');
+const snap = await otherInstall({ snap: true });
 assert.equal(snap.check.store, 'snap', 'main reports a snap install');
-assert.equal(snap.notices, 0, 'a snap install shows no update notice');
+assert.equal(snap.label, 'Open App Center');
+assert.equal(snap.href, 'snap://appblips');
+assert.match(snap.text, /Close AppBlips/);
+assert.deepEqual(snap.opened, ['snap://appblips']);
 assert.deepEqual(snap.githubCalls, [], 'a snap install never asks GitHub');
 
 const other = await otherInstall();
@@ -104,4 +108,4 @@ assert.equal(other.href, releaseUrl);
 assert.doesNotMatch(other.text, /Microsoft Store/);
 assert.deepEqual(other.opened, [releaseUrl], 'clicking opens the release');
 
-console.log('ok: Store and snap installs show no notice, other installs link to the release');
+console.log('ok: Microsoft Store opens the Store, snap opens App Center, other installs link to the release');

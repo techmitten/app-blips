@@ -16,13 +16,13 @@
 // against the GitHub API (src/lib/updates.js), linking to the release.
 //
 // Microsoft Store (MSIX) installs are updated by the Store, so they answer
-// { auto: false, store: 'microsoft' } and the renderer shows no update notice:
-// GitHub releases go out days before Microsoft approves the Store version.
-// Snap installs (Ubuntu's App Center) are updated by snapd the same way and
-// answer { auto: false, store: 'snap' }: a snap reaches the stable channel
-// only after it's promoted there, later than the GitHub release.
+// { auto: false, store: 'microsoft' }. The renderer checks GitHub releases and
+// directs users to the Store, explaining that Store approval may take longer.
+// Snap installs are updated by snapd; check the Snap Store's stable release
+// and let the renderer direct users to App Center when an update is available.
 import electronUpdater from 'electron-updater';
 import { debInstall } from './debInstall.js';
+import { createSnapUpdateCheck } from './snapUpdates.js';
 
 const RECHECK_MS = 60 * 60 * 1000;
 
@@ -30,6 +30,7 @@ export const canAutoUpdate = (app) => app.isPackaged && !process.windowsStore
   && (process.platform === 'win32' || Boolean(process.env.APPIMAGE));
 
 export function createUpdater({ app, send, beforeInstall }) {
+  const checkSnap = createSnapUpdateCheck();
   const auto = canAutoUpdate(app);
   // electron-updater builds its platform updater on first access, so it is
   // only touched on installs that update themselves.
@@ -65,7 +66,14 @@ export function createUpdater({ app, send, beforeInstall }) {
       const force = options?.force === true;
       const result = { auto, version: app.getVersion() };
       if (process.windowsStore) return { ...result, store: 'microsoft' };
-      if (process.platform === 'linux' && process.env.SNAP) return { ...result, store: 'snap' };
+      if (process.platform === 'linux' && process.env.SNAP) {
+        try {
+          return { ...result, store: 'snap', update: await checkSnap({ current: result.version, force }) };
+        } catch (err) {
+          console.warn('[updater] Snap Store check failed:', err);
+          return { ...result, store: 'snap', failed: true };
+        }
+      }
       if (!auto) return { ...result, ...debInstall({ isPackaged: app.isPackaged }) };
       const busy = state.status === 'downloading' || state.status === 'ready';
       if (!busy && (force || Date.now() - lastCheck > RECHECK_MS)) {

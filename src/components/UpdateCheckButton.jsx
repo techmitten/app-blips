@@ -6,7 +6,7 @@ import DebUpdateHelp from './DebUpdateHelp';
 import { isDesktop, desktopBridge } from '../lib/desktop';
 import { UPDATE_GUIDE_URL } from '../lib/updates';
 import { logError } from '../lib/errorLog';
-import { confirmExternal } from '../lib/externalLinks';
+import { openExternalNow } from '../lib/externalLinks';
 
 // The "Check now" button and its answer for Settings → Workspace → Check for
 // updates. The check itself lives in hooks/useUpdateCheck.js.
@@ -39,12 +39,12 @@ export function UpdateCheckResult({ result }) {
   };
 
   const openStore = () => {
-    confirmExternal({ url: result.url, why: 'Get the latest version of AppBlips.' });
+    openExternalNow(result.url);
   };
 
   const text = {
     current: "You're up to date.",
-    failed: "Couldn't reach GitHub to check. Check your internet connection and try again.",
+    failed: `Couldn't reach ${result.snap ? 'the Snap Store' : 'GitHub'} to check. Check your internet connection and try again.`,
     downloading: `AppBlips ${result.version} is downloading in the background. You'll be offered a restart when it's ready.`,
     ready: `AppBlips ${result.version} has downloaded. Restart to use it now, or it installs the next time you close AppBlips.`,
     available: `AppBlips ${result.version} is available.`,
@@ -73,16 +73,18 @@ export function UpdateCheckResult({ result }) {
           <DebUpdateHelp update={result} Link={ConfirmedLink} />
         </div>
       )}
-      {result.status === 'store' && (
+      {(result.status === 'store' || (result.status === 'available' && (result.snap || result.store === 'microsoft'))) && (
         <div className="mt-2">
           {/* Opens the Store app, not a website, so it skips the "leaves
               AppBlips for this website" confirm: the label says where it goes. */}
           <button type="button" onClick={openStore} className={SECONDARY_BUTTON}>
             {result.snap ? 'Open App Center' : 'Open Microsoft Store'}
           </button>
+          {result.snap && result.status === 'available' && <p className="mt-1.5 text-slate-600">Close AppBlips before updating it in App Center.</p>}
+          {result.store === 'microsoft' && <p className="mt-1.5 text-slate-600">The update may take a little longer to appear while Microsoft approves it.</p>}
         </div>
       )}
-      {result.status === 'available' && !(isDesktop && result.deb) && (
+      {result.status === 'available' && !result.snap && result.store !== 'microsoft' && !(isDesktop && result.deb) && (
         <div className="mt-2 flex flex-wrap gap-2">
           <ConfirmedLink href={isDesktop && result.downloadUrl ? result.downloadUrl : result.url} why={isDesktop ? 'To download the newer version of AppBlips from the AppBlips release page.' : 'To read what changed in the newest version of AppBlips.'} className={SECONDARY_BUTTON}>
             {isDesktop ? 'Download' : "What's new"}

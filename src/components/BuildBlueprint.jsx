@@ -162,7 +162,6 @@ export default function BuildBlueprint({
       </ol>
 
       <div className="build-blueprint-footer">
-        <span className="tabular-nums">{seconds}s</span>
         {codeRef && lines > 0 && <span className="tabular-nums">{lines.toLocaleString()} lines</span>}
         {codeRef && codeSlot && (
           <button type="button" className="build-blueprint-toggle" onClick={() => setShowCode((v) => !v)} aria-pressed={showCode}>

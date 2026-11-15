@@ -107,7 +107,8 @@ Quick answers to the questions people ask most about AppBlips.
 
     - **Your AI provider** (the one in **Settings → AI**): your prompts, your project's code and any images you attach go there to build your app.
     - **The AppBlips server** (browser version only): the page sends its AI and extension requests to the server it was opened from. When you run AppBlips from source or Docker, that server is on your own computer. On web.appblips.com, it's AppBlips' server, which passes your requests on without storing your projects or keys. With **Free (no key needed)**, it sends them to the AI provider chosen by whoever runs that copy.
-    - **GitHub:** to check for new versions, when AppBlips starts and every hour while it's open. The desktop app also downloads updates from there. Turn this off under **Settings → Workspace → Check for updates**. The Microsoft Store version gets updates from the Store and doesn't check GitHub.
+    - **GitHub:** to check for new versions, when AppBlips starts and every hour while it's open. The AppImage version also downloads updates from there. The Microsoft Store version checks GitHub for announcements and opens the Microsoft Store to get updates. Turn automatic checks off under **Settings → Workspace → Check for updates**.
+    - **Snap Store:** the Snap Store version checks its stable channel for newer versions at startup and every hour. Its update notification opens Ubuntu's App Center. The same switch turns automatic checks off.
     - **Google Fonts:** for the fonts AppBlips itself uses.
     - **Hugging Face:** only when you build AppBlips from source or with Docker, to download the voice-input speech model once. The desktop app already includes it.
     - **Code libraries:** the apps you build, and imported sites, load libraries such as React, Tailwind CSS or game engines from public sites like esm.sh, jsDelivr and cdn.tailwindcss.com. Exported apps load them from there too.

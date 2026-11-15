@@ -3,16 +3,16 @@ import { ArrowUpCircle, X } from 'lucide-react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import DebUpdateHelp from './DebUpdateHelp';
 import { isDesktop, desktopBridge } from '../lib/desktop';
-import { checkForUpdate, CHECK_INTERVAL_MS, UPDATE_GUIDE_URL } from '../lib/updates';
+import { checkForUpdate, CHECK_INTERVAL_MS, UPDATE_GUIDE_URL, STORE_URL } from '../lib/updates';
 import { loadCheckUpdates, loadDismissedUpdate, saveDismissedUpdate, safeStorage } from '../lib/config';
 import { logError, logWarn } from '../lib/errorLog';
 
 // "A new version is out" notice, behind Settings → Workspace → Check for updates.
 //   - Desktop Windows/AppImage builds update themselves (electron/updater.js):
 //     the notice appears once the update has downloaded and offers a restart.
-//   - Microsoft Store installs get no notice at all: the Store updates them,
-//     and a GitHub release goes out days before Microsoft approves the Store
-//     version, so a notice from GitHub offered a version the Store didn't have.
+//   - Microsoft Store installs hear about GitHub releases but open the Store;
+//     the notice explains that Store approval can take longer.
+//   - Snap installs check the Snap Store and link to App Center.
 //   - Every other install (.deb, running from source) gets a notice
 //     from the GitHub release check (lib/updates.js) with a link: the .deb to
 //     download the new installer, source to the update instructions. A .deb
@@ -39,9 +39,10 @@ export default function UpdateNotice({ aboveOverlay = false }) {
       if (!cancelled && state?.status === 'ready') setUpdate({ kind: 'ready', version: state.version });
     };
     // `desktop` is the desktop updater's answer (a .deb, or nothing).
-    const checkReleases = (desktop = null) => checkForUpdate({ storage: safeStorage('local') }).then((release) => {
+    const checkReleases = (desktop = null) => checkForUpdate({ storage: safeStorage('local'), ...(desktop?.version ? { current: desktop.version } : {}) }).then((release) => {
       if (cancelled || !release || release.version === loadDismissedUpdate()) return;
-      setUpdate({ kind: 'notify', ...release, ...(desktop?.deb ? { deb: true } : {}) });
+      setUpdate({ kind: 'notify', ...release, ...(desktop?.deb ? { deb: true } : {}),
+        ...(desktop?.store === 'microsoft' ? { store: 'microsoft', url: STORE_URL, downloadUrl: undefined } : {}) });
     });
     const run = async () => {
       if (isDesktop) {
@@ -49,7 +50,16 @@ export default function UpdateNotice({ aboveOverlay = false }) {
           logWarn('Desktop update check failed; checking GitHub releases instead', err);
           return null;
         });
-        if (result?.store) return;
+        if (result?.store) {
+          if (result.store === 'microsoft') {
+            checkReleases(result);
+            return;
+          }
+          if (!cancelled && result.update && result.update.version !== loadDismissedUpdate()) {
+            setUpdate({ kind: 'notify', ...result.update });
+          }
+          return;
+        }
         if (result?.auto) {
           fromDesktop(result.state);
           return;
@@ -109,7 +119,11 @@ export default function UpdateNotice({ aboveOverlay = false }) {
           <p className="mt-0.5 text-xs text-slate-600 leading-snug">
             {ready
               ? `AppBlips ${update.version} has downloaded. Restart to use it now, or it installs the next time you close AppBlips.`
-              : isDesktop
+              : update.store === 'microsoft'
+                  ? 'Open the Microsoft Store to check for the update. It may take a little longer to appear while Microsoft approves it.'
+                  : update.snap
+                  ? 'Close AppBlips, then update it in App Center. Ubuntu also checks for updates automatically.'
+                  : isDesktop
                   ? 'Download the new installer and install it over this version. Your projects stay where they are.'
                   : 'See what changed, and how to update your copy.'}
           </p>
@@ -131,7 +145,7 @@ export default function UpdateNotice({ aboveOverlay = false }) {
             ) : (
               <>
                 <a href={isDesktop && update.downloadUrl ? update.downloadUrl : update.url} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>
-                  {isDesktop ? 'Download' : "What's new"}
+                  {update.store === 'microsoft' ? 'Open Microsoft Store' : update.snap ? 'Open App Center' : isDesktop ? 'Download' : "What's new"}
                 </a>
                 {!isDesktop && (
                   <a href={UPDATE_GUIDE_URL} target="_blank" rel="noopener noreferrer" className={SECONDARY_BUTTON}>

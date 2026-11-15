@@ -9,9 +9,8 @@ import { logWarn } from '../lib/errorLog';
 // shows the answer under the row. Works even with the switch off: clicking
 // is the user asking for this one check. Mirrors UpdateNotice's three kinds
 // of install: self-updating desktop builds report downloading/ready, the
-// Microsoft Store says the Store handles updates (without asking GitHub, whose
-// releases go out before the Store approves them), everything else links to
-// the release.
+// Microsoft Store checks GitHub and links to the Store, Snap checks its own
+// Store, and everything else links to the release.
 // A dismissed notice doesn't hide the answer here, since the user asked.
 //
 // `checking` is kept apart from `result` so a repeat check leaves the last
@@ -53,6 +52,12 @@ async function askForUpdate() {
       });
       if (desktop?.store) {
         const snap = desktop.store === 'snap';
+        if (desktop.failed) return { status: 'failed', snap };
+        if (desktop.update) return { status: 'available', ...desktop.update };
+        if (!snap) {
+          const release = await checkForUpdate({ current: desktop.version, storage: safeStorage('local'), force: true });
+          if (release) return { status: 'available', version: release.version, store: 'microsoft', url: STORE_URL };
+        }
         return { status: 'store', snap, url: snap ? SNAP_STORE_URL : STORE_URL };
       }
       if (desktop?.auto) {
