@@ -19,7 +19,6 @@ import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
 import { defaultModel } from './defaultModel.js';
 import { meterResponse } from './freeLimits.js';
-import { freePassRefusal } from './freePass.js';
 
 export const DEFAULT_TEMPERATURE = 0;
 
@@ -155,10 +154,8 @@ const routeModel = (env, provider, payload) => {
 export const UPSTREAM_CONNECT_MS = 120_000;
 
 // `freeLimits` (freeLimits.js) limits requests answered with the env
-// provider (the Free option) per `visitor`; server.js passes both. `freePass`
-// ({ ok, siteKey }, freePass.js), when given, means the Free option needs a
-// valid pass: without one it answers 403 { source: 'free-pass', siteKey }.
-export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '', freePass = null } = {}) {
+// provider (the Free option) per `visitor`; server.js passes both.
+export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '' } = {}) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -188,11 +185,6 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   const picked = await pickProvider(env, payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
-
-  // The Free option: only with a pass, when the server asks for one.
-  if (freePass && !freePass.ok && !provider.userSupplied) {
-    return new Response(JSON.stringify(freePassRefusal(freePass.siteKey)), { status: 403, headers: { 'content-type': 'application/json' } });
-  }
 
   // The Free option: counted per visitor (and its output capped, if set).
   let ticket = null;

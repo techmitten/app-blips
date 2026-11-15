@@ -9,11 +9,6 @@
 //
 // localStorage can be read by scripts on AppBlips' own origin. The apps
 // AppBlips builds run in sandboxed frames without that origin, so they can't.
-//
-// The same wrapper adds the Free pass (freePass.js) to AI and web search
-// requests, and when the server asks for one, gets it and retries once.
-
-import { FREE_PASS_HEADER, currentFreePass, freePassSiteKey, obtainFreePass, forgetFreePass } from './freePass.js';
 
 const KEY_HEADER = 'x-appblips-key';
 const KEY_SET_HEADER = 'x-appblips-key-set';
@@ -49,9 +44,6 @@ const write = (name, value) => {
   } catch { /* blocked: kept in memory */ }
 };
 
-// The requests the Free option pays for, which may need a Free pass.
-const needsFreePass = (url) => url.pathname === '/api/chat' || url.pathname.startsWith('/api/web/');
-
 const slotFor = (url) => {
   if (url.origin !== window.location.origin) return null;
   const match = SLOTS.find(([path]) => url.pathname === path || url.pathname.startsWith(`${path}/`));
@@ -85,28 +77,7 @@ export function installBrowserKeyStorage() {
     if (saved) headers.set(KEY_HEADER, saved);
     else headers.delete(KEY_HEADER);
 
-    const freePass = needsFreePass(url);
-    const send = (pass) => {
-      if (pass) headers.set(FREE_PASS_HEADER, pass);
-      else headers.delete(FREE_PASS_HEADER);
-      return originalFetch(input, { ...init, headers });
-    };
-    let response = await send(freePass ? currentFreePass() : '');
-    // The server wants a (new) Free pass: get one and send the request again.
-    // Only bodies that can be sent twice (a string, or none) are retried.
-    if (freePass) {
-      const siteKey = await freePassSiteKey(response);
-      const resendable = !(input instanceof Request) && (init?.body == null || typeof init.body === 'string');
-      if (siteKey && resendable && !init?.signal?.aborted) {
-        forgetFreePass();
-        try {
-          response = await send(await obtainFreePass(siteKey, originalFetch));
-        } catch (err) {
-          // The server's own 403 message says what to do next.
-          if (err?.name !== 'AbortError') console.warn('[free-pass]', err?.message || err);
-        }
-      }
-    }
+    const response = await originalFetch(input, { ...init, headers });
     const update = response.headers.get(KEY_SET_HEADER);
     if (update) write(STORAGE_PREFIX + slot, update === KEY_CLEARED ? null : update);
     return response;
