@@ -77,7 +77,12 @@ export function createFreePasses(env, { now = Date.now, fetch: fetchImpl = globa
       signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
     });
     const data = await response.json().catch(() => null);
-    return data?.success === true;
+    if (data?.success === true) return true;
+    // Cloudflare's reason (error codes, never the token or secret), for
+    // telling a bad setup from a failed check in the server log.
+    const codes = Array.isArray(data?.['error-codes']) ? data['error-codes'].join(', ') : '';
+    console.warn(`[free-pass] check rejected: HTTP ${response.status}${codes ? `, ${codes}` : data ? '' : ', not JSON'}${data?.hostname ? `, hostname ${data.hostname}` : ''}`);
+    return false;
   };
 
   const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });

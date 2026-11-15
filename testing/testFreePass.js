@@ -48,7 +48,8 @@ const passRequest = (body, method = 'POST') => new Request('https://app.example/
   ...(method === 'POST' ? { body: JSON.stringify(body) } : {}),
 });
 
-test('/api/free-pass trades a genuine Turnstile answer for a pass', async () => {
+test('/api/free-pass trades a genuine Turnstile answer for a pass', async (t) => {
+  t.mock.method(console, 'warn', () => {});
   const verified = [];
   const fetch = async (url, options) => {
     verified.push({ url, form: Object.fromEntries(options.body) });
