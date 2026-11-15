@@ -37,6 +37,8 @@ export default function usePreviewBridge({
   // Drag mode: a sub-mode of editing in which dragging moves elements and a
   // click selects without starting in-place text editing.
   dragEnabled = false,
+  // A build is running: the frame silences its sound (set-muted).
+  muted = false,
   onElementSelected,
   onElementDeselected,
   onElementTextCommitted,
@@ -85,6 +87,7 @@ export default function usePreviewBridge({
   // toggle must not re-run the whole handshake effect.
   const editingEnabledRef = useRef(editingEnabled);
   const dragEnabledRef = useRef(dragEnabled);
+  const mutedRef = useRef(muted);
   // requestId -> { resolve, reject, timeoutId }, for correlating the one
   // request/response pair in this otherwise push-only protocol.
   const pendingCapturesRef = useRef(new Map());
@@ -108,6 +111,7 @@ export default function usePreviewBridge({
     currentTokenRef.current = previewToken;
     editingEnabledRef.current = editingEnabled;
     dragEnabledRef.current = dragEnabled;
+    mutedRef.current = muted;
   });
 
   // Reject any still-pending screenshot request on unmount so its promise
@@ -167,6 +171,7 @@ export default function usePreviewBridge({
     const push = () => {
       send('configure', { enabled: PREVIEW_MODES[previewMode].isTouchChrome });
       send('set-editing', { enabled: editingEnabledRef.current, drag: editingEnabledRef.current && dragEnabledRef.current });
+      send('set-muted', { muted: mutedRef.current });
     };
 
     // Belt-and-braces against the same compositor staleness that DeviceMockup's
@@ -374,6 +379,13 @@ export default function usePreviewBridge({
   useEffect(() => {
     sendRef.current('set-editing', { enabled: editingEnabled, drag: editingEnabled && dragEnabled });
   }, [editingEnabled, dragEnabled]);
+
+  // Builds start and end without reloading the frame, so the mute is its own
+  // push too. A build that brings new code loads a fresh document, which
+  // gets the current value in its handshake.
+  useEffect(() => {
+    sendRef.current('set-muted', { muted });
+  }, [muted]);
 
   // Imperative request/response wrapper on top of the otherwise push-only
   // protocol -- see the pendingCapturesRef/onMessage handling above for the

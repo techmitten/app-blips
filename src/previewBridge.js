@@ -114,6 +114,92 @@ const BRIDGE_SOURCE = `(function () {
     subtree: true
   });
 
+  // Build mute: while AppBlips builds an edit, the old document keeps running
+  // under the building overlay, and a game's sound would keep playing. The
+  // parent sends set-muted; every Web Audio context the page makes is tracked
+  // here (this script runs before the page's own) and suspended, and media
+  // elements are muted. Unmuting restores only what this muted.
+  var buildMuted = false;
+  var audioContexts = [];
+  var mutedContexts = [];
+  var mutedMedia = [];
+  var playedMedia = [];
+  function muteContext(ctx) {
+    if (ctx.state === 'running') {
+      if (mutedContexts.indexOf(ctx) === -1) mutedContexts.push(ctx);
+      try { var sp = ctx.__orionSuspend(); if (sp && sp.catch) sp.catch(function () {}); } catch (err) { /* closed */ }
+    }
+  }
+  function muteMedia(el) {
+    if (!el || el.muted || mutedMedia.indexOf(el) !== -1) return;
+    el.muted = true;
+    mutedMedia.push(el);
+  }
+  (function () {
+    var NativeAC = window.AudioContext || window.webkitAudioContext;
+    if (typeof NativeAC !== 'function' || typeof Reflect === 'undefined') return;
+    function TrackedAudioContext() {
+      var ctx = Reflect.construct(NativeAC, arguments, new.target || TrackedAudioContext);
+      var nativeResume = ctx.resume;
+      ctx.__orionSuspend = function () { return NativeAC.prototype.suspend.call(ctx); };
+      ctx.__orionResume = function () { return nativeResume.call(ctx); };
+      // A game resumes its context on the next key press; while muted that
+      // is remembered for unmute instead.
+      ctx.resume = function () {
+        if (buildMuted) {
+          if (mutedContexts.indexOf(ctx) === -1) mutedContexts.push(ctx);
+          return Promise.resolve();
+        }
+        return nativeResume.call(ctx);
+      };
+      audioContexts.push(ctx);
+      if (buildMuted) muteContext(ctx);
+      return ctx;
+    }
+    TrackedAudioContext.prototype = NativeAC.prototype;
+    try { Object.setPrototypeOf(TrackedAudioContext, NativeAC); } catch (err) { /* statics stay native */ }
+    try {
+      if (window.AudioContext) window.AudioContext = TrackedAudioContext;
+      if (window.webkitAudioContext) window.webkitAudioContext = TrackedAudioContext;
+    } catch (err) { /* left native */ }
+  })();
+  (function () {
+    var proto = window.HTMLMediaElement && window.HTMLMediaElement.prototype;
+    if (!proto || typeof proto.play !== 'function') return;
+    var nativePlay = proto.play;
+    // Covers new Audio() objects that never enter the document.
+    proto.play = function () {
+      if (playedMedia.indexOf(this) === -1) playedMedia.push(this);
+      if (buildMuted) muteMedia(this);
+      return nativePlay.apply(this, arguments);
+    };
+  })();
+  function setBuildMuted(next) {
+    if (next === buildMuted) return;
+    buildMuted = next;
+    var i;
+    if (next) {
+      for (i = 0; i < audioContexts.length; i += 1) muteContext(audioContexts[i]);
+      var media = document.querySelectorAll('audio, video');
+      for (i = 0; i < media.length; i += 1) muteMedia(media[i]);
+      for (i = 0; i < playedMedia.length; i += 1) muteMedia(playedMedia[i]);
+      return;
+    }
+    var contexts = mutedContexts;
+    mutedContexts = [];
+    for (i = 0; i < contexts.length; i += 1) {
+      try {
+        if (contexts[i].state !== 'closed') {
+          var rp = contexts[i].__orionResume();
+          if (rp && rp.catch) rp.catch(function () {});
+        }
+      } catch (err) { /* closed */ }
+    }
+    var els = mutedMedia;
+    mutedMedia = [];
+    for (i = 0; i < els.length; i += 1) els[i].muted = false;
+  }
+
   function post(type, payload) {
     try {
       // targetOrigin '*' is required: this frame has an opaque origin and
@@ -3084,6 +3170,8 @@ const BRIDGE_SOURCE = `(function () {
     if (d.type === 'configure') {
       desiredEnabled = !!(d.payload && d.payload.enabled);
       sync();
+    } else if (d.type === 'set-muted') {
+      setBuildMuted(!!(d.payload && d.payload.muted));
     } else if (d.type === 'set-editing') {
       setEditingEnabled(!!(d.payload && d.payload.enabled), !!(d.payload && d.payload.drag));
     } else if (d.type === 'nav-back' || d.type === 'nav-forward') {

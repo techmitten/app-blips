@@ -885,6 +885,7 @@ export default function App({ coldStart = false }) {
     onStorageChange: handleStorageChange,
     editingEnabled: isPreviewEditing,
     dragEnabled: isPreviewEditing && isDragMode,
+    muted: isGenerating && chatMode === 'build',
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
     onElementTextCommitted: handleElementTextCommittedTrampoline,
