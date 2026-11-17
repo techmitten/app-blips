@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Settings,
-  CircleHelp, Plug, Menu, X, Github, ShieldCheck, ScrollText,
+  CircleHelp, MessageSquare, Plug, Menu, X, Github, ShieldCheck, ScrollText,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import { DiscordIcon } from './StudioChoice';
+import FeedbackModal from './FeedbackModal';
 
 const MAX_RECENTS = 5;
 
@@ -52,6 +54,7 @@ export default function HeroSidebar({
 
   // Slide-out menu below lg, the same one the studio picker uses below md.
   const [menuOpen, setMenuOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   useEffect(() => {
     if (!menuOpen) return undefined;
     const onKeyDown = (event) => {
@@ -132,6 +135,7 @@ export default function HeroSidebar({
 
         <RailItem icon={Plug} label="Extensions" collapsed={collapsed} onClick={onOpenExtensions} />
         <RailItem icon={Settings} label="Settings" collapsed={collapsed} onClick={onOpenSettings} />
+        <RailItem icon={MessageSquare} label="Feedback" collapsed={collapsed} onClick={() => setFeedbackOpen(true)} />
         <RailItem icon={CircleHelp} label="Help" collapsed={collapsed} href={DOCS_URL} />
       </nav>
     </aside>
@@ -173,6 +177,9 @@ export default function HeroSidebar({
           <button type="button" className="studio-menu-item" onClick={fromMenu(onOpenSettings)}>
             <Settings size={18} aria-hidden="true" /> Settings
           </button>
+          <button type="button" className="studio-menu-item" onClick={fromMenu(() => setFeedbackOpen(true))}>
+            <MessageSquare size={18} aria-hidden="true" /> Send feedback
+          </button>
           <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
             <CircleHelp size={18} aria-hidden="true" /> Help
           </a>
@@ -193,6 +200,10 @@ export default function HeroSidebar({
         </div>
       </aside>
     </div>
+    {feedbackOpen && createPortal(
+      <FeedbackModal onClose={() => setFeedbackOpen(false)} />,
+      document.body,
+    )}
     </>
   );
 }

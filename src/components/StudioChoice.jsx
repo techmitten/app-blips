@@ -1,11 +1,13 @@
+import { createPortal } from 'react-dom';
 import { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
-  Megaphone, Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, Volume2, VolumeX, X,
+  Megaphone, MessageSquare, Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, Volume2, VolumeX, X,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
 import WhatsNew from './WhatsNew';
+import FeedbackModal from './FeedbackModal';
 import { isUiSoundLocked, isUiSoundMuted, playBlip, setUiSoundMuted, subscribeUiSoundLocked } from '../lib/uiSound';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
@@ -80,6 +82,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
   // Mobile slide-out menu. Escape closes it before it would close the picker.
   const [menuOpen, setMenuOpen] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const scrollRef = useRef(null);
   const newsLinkRef = useRef(null);
   const navigateToNews = (open) => {
@@ -238,6 +241,15 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
 
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFeedbackOpen(true)}
+                  aria-label="Send feedback"
+                  title="Send feedback"
+                  className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
+                >
+                  <MessageSquare size={17} aria-hidden="true" />
+                </button>
                 <a
                   href={DOCS_URL}
                   draggable={false}
@@ -492,6 +504,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                 <Settings size={18} aria-hidden="true" /> Settings
               </button>
             )}
+            <button type="button" className={MENU_ITEM} onClick={fromMenu(() => setFeedbackOpen(true))}>
+              <MessageSquare size={18} aria-hidden="true" /> Send feedback
+            </button>
             <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
               <CircleHelp size={18} aria-hidden="true" /> Help
             </a>
@@ -525,6 +540,10 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
           </div>
         </aside>
       </div>
+      {feedbackOpen && createPortal(
+        <FeedbackModal onClose={() => setFeedbackOpen(false)} />,
+        document.body,
+      )}
     </div>
   );
 }

@@ -1,4 +1,7 @@
-import { Bug, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Bug, ExternalLink, MessageSquare } from 'lucide-react';
+import FeedbackModal from './FeedbackModal';
 import { ConfirmedLink } from './ExternalLinkConfirm';
 import { SECONDARY_BUTTON, SettingRow } from './SettingControls';
 import LicensesSettings from './LicensesSettings';
@@ -8,6 +11,10 @@ import { CURRENT_VERSION } from '../lib/updates';
 // Settings → About: logo, version and copyright, then the legal links and the
 // open source licenses (once tabs of their own). The copyright line mirrors
 // LICENSE; keep the two in sync.
+// The four buttons under the version: a brand-coloured edge, a shadow and a
+// small icon move on hover (movement only when motion is allowed).
+const ABOUT_BUTTON = `${SECONDARY_BUTTON} group transition-all duration-200 hover:border-brand hover:text-brand hover:shadow-md active:shadow-sm`;
+const ICON_MOTION = 'transition-transform duration-200';
 const COPYRIGHT = '© 2026 TechMitten LLC';
 const WEBSITE_URL = 'https://www.appblips.com';
 const REPO_URL = 'https://github.com/TechMitten/app-blips';
@@ -41,6 +48,7 @@ function jumpTo(event, id) {
 }
 
 export default function AboutSettings() {
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   return (
     <>
     <div className="flex flex-col items-center py-6 text-center">
@@ -53,18 +61,22 @@ export default function AboutSettings() {
         <span className="font-normal text-slate-500"> · {isDesktop ? 'Desktop app' : 'Browser version'}</span>
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
-        <ConfirmedLink href={WEBSITE_URL} why="To visit the AppBlips website for news, pricing and help." className={SECONDARY_BUTTON}>
-          <ExternalLink size={14} aria-hidden="true" />
+        <ConfirmedLink href={WEBSITE_URL} why="To visit the AppBlips website for news, pricing and help." className={ABOUT_BUTTON}>
+          <ExternalLink size={14} aria-hidden="true" className={`${ICON_MOTION} motion-safe:group-hover:translate-x-px motion-safe:group-hover:-translate-y-px`} />
           Website
         </ConfirmedLink>
-        <ConfirmedLink href={REPO_URL} why="To show you AppBlips&rsquo;s source code, which is public on GitHub." className={SECONDARY_BUTTON}>
-          <ExternalLink size={14} aria-hidden="true" />
+        <ConfirmedLink href={REPO_URL} why="To show you AppBlips&rsquo;s source code, which is public on GitHub." className={ABOUT_BUTTON}>
+          <ExternalLink size={14} aria-hidden="true" className={`${ICON_MOTION} motion-safe:group-hover:translate-x-px motion-safe:group-hover:-translate-y-px`} />
           Source code
         </ConfirmedLink>
-        <ConfirmedLink href={BUG_REPORT_URL} why="Bug reports are filed on GitHub, so you need to describe the problem on that page." className={SECONDARY_BUTTON}>
-          <Bug size={14} aria-hidden="true" />
+        <ConfirmedLink href={BUG_REPORT_URL} why="Bug reports are filed on GitHub, so you need to describe the problem on that page." className={ABOUT_BUTTON}>
+          <Bug size={14} aria-hidden="true" className={`${ICON_MOTION} motion-safe:group-hover:rotate-12`} />
           Report a bug
         </ConfirmedLink>
+        <button type="button" onClick={() => setFeedbackOpen(true)} className={ABOUT_BUTTON}>
+          <MessageSquare size={14} aria-hidden="true" className={`${ICON_MOTION} motion-safe:group-hover:scale-125`} />
+          Send feedback
+        </button>
       </div>
       <nav aria-label="About sections" className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm">
         {SECTIONS.map(({ id, label }) => (
@@ -92,6 +104,10 @@ export default function AboutSettings() {
 
     <h3 id="about-licenses" tabIndex={-1} className={SECTION_CLASS}>Licenses</h3>
     <LicensesSettings />
+    {feedbackOpen && createPortal(
+      <FeedbackModal onClose={() => setFeedbackOpen(false)} />,
+      document.body,
+    )}
     </>
   );
 }

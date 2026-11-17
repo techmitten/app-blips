@@ -13,6 +13,11 @@ export const brandMonoIcon = (src, className = 'text-slate-900') => function Bra
   return <span aria-hidden="true" className={`inline-block bg-current ${className}`} style={{ width: size, height: size, mask, WebkitMask: mask }} />;
 };
 
+// A lucide icon in a service's brand colour, for services whose own logo isn't bundled.
+export const tinted = (Icon, className) => function TintedIcon({ size }) {
+  return <Icon size={size} aria-hidden="true" className={className} />;
+};
+
 const LOGO_FILES = {
   deepseek: ['deepseek-color.svg', true],
   anthropic: ['claude-color.svg', true],

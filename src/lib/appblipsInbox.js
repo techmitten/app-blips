@@ -7,6 +7,8 @@ import { CURRENT_VERSION } from './updates.js';
 
 export const WEB3FORMS_URL = 'https://api.web3forms.com/submit';
 export const APPBLIPS_FORMS_KEY = 'c0b38db4-3383-420f-aaff-4da44dad333b';
+// Feedback has its own Web3Forms key (and so its own inbox settings).
+export const APPBLIPS_FEEDBACK_KEY = '83b6bf7a-9b5b-428c-ae03-eeb2af83a5d7';
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Basic bot protection. It only stops scripts that drive the forms; the key is
@@ -24,9 +26,9 @@ export const looksLikeBot = ({ botcheck = false, openedAt = -Infinity }, time) =
 // Posts `fields` (plus the key, version and Web3Forms' own honeypot) and
 // resolves to { ok, message }; never throws. On failure `message` is shown to
 // the user, and is '' when the send was aborted by closing the dialog.
-export const postToAppBlipsInbox = async (fields, { fetchImpl = fetch, signal } = {}) => {
+export const postToAppBlipsInbox = async (fields, { fetchImpl = fetch, signal, accessKey = APPBLIPS_FORMS_KEY } = {}) => {
   const body = {
-    access_key: APPBLIPS_FORMS_KEY,
+    access_key: accessKey,
     from_name: 'AppBlips',
     ...fields,
     app_version: CURRENT_VERSION,

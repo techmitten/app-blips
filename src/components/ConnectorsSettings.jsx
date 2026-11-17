@@ -2,7 +2,7 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, CreditCard, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, Sheet, PackagePlus,
+  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, PackagePlus,
 } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
@@ -22,7 +22,8 @@ import {
 import { surgeStatus } from '../lib/surge';
 import { galleryNameForms } from '../lib/galleryImages';
 import { forgetTavilyKey, saveTavilyKey, tavilyStatus } from '../lib/tavily';
-import { colourIcon, PROVIDER_LOGOS } from './providerLogos';
+import { brandMonoIcon, colourIcon, tinted, PROVIDER_LOGOS } from './providerLogos';
+import { SheetsLogo, SquareLogo } from './serviceLogos';
 
 // Settings → Extensions: a grid of services the AI can wire into new projects.
 // Settings → Tools is the same component with `kind="tools"`: the native
@@ -46,13 +47,6 @@ import { colourIcon, PROVIDER_LOGOS } from './providerLogos';
 // same way and uses the plain server-key page (ServerKeyConnector.jsx); the AI
 // searches with it (lib/webSearch.js). Google Sheets Backend has its own page
 // too (SheetsConnector.jsx): its setup steps come before the URL box.
-// Service logos are used as masks so they take the text colour like the
-// lucide icons beside them, and stay visible in both themes.
-const logoIcon = (src) => function LogoIcon({ size }) {
-  const mask = `url(${src}) center / contain no-repeat`;
-  return <span aria-hidden="true" className="inline-block bg-current" style={{ width: size, height: size, mask, WebkitMask: mask }} />;
-};
-
 // Web3Forms' cube relies on its shaded faces, which a mask would flatten, so it
 // keeps its own colours (a blue close to the indigo of the others). Surge's
 // multi-coloured mascot is the same.
@@ -66,8 +60,20 @@ const TAVILY_API = { status: tavilyStatus, save: saveTavilyKey, forget: forgetTa
 const PROVIDER_SEARCH_ICONS = Object.fromEntries(PROVIDER_SEARCH_CONNECTORS.map(({ id, providerSearch }) => [id, PROVIDER_LOGOS[providerSearch] || Globe]));
 
 const ICONS = {
-  web3forms: Web3FormsIcon, umami: logoIcon('/umami-logo.png'), plausible: logoIcon('/plausible-logo.svg'), tawkto: MessagesSquare,
-  square: CreditCard, pollinations: logoIcon('/pollinations-logo.svg'), sheets: Sheet, pixabay: Camera, tavily: Globe, seo: Search, images: Images,
+  web3forms: Web3FormsIcon,
+  // Umami and Pollinations are single-colour marks (black on light, white on
+  // dark); Plausible keeps its own indigo gradient.
+  umami: brandMonoIcon('/umami-logo.png'),
+  plausible: colourIcon('/plausible-logo.svg'),
+  pollinations: brandMonoIcon('/pollinations-logo.svg'),
+  // No logo files for these, so each gets its brand colour: tawk.to green,
+  // Pixabay green, Tavily blue.
+  tawkto: tinted(MessagesSquare, 'text-[#03a84e]'),
+  pixabay: tinted(Camera, 'text-[#2ec66d]'),
+  tavily: tinted(Globe, 'text-[#468bff]'),
+  square: SquareLogo,
+  sheets: SheetsLogo,
+  seo: Search, images: Images,
   ...PROVIDER_SEARCH_ICONS,
 };
 
