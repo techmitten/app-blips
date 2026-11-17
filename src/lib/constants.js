@@ -468,6 +468,62 @@ export const STARTER_PRESETS = [
     category: "Productivity",
     icon: Bug,
     color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Habit Heatmap",
+    prompt: "A habit-building app with a GitHub-style yearly heatmap per habit, a Chart.js streak and completion trend, weekly reminders, drag-to-reorder habits, and a tabbed layout for Today, Insights, and Settings.",
+    category: "Productivity",
+    icon: CalendarCheck,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Finance Dashboard",
+    prompt: "A personal finance dashboard with interactive Chart.js charts for spending by category, net worth over time, and income vs. expenses, a date-range filter, a sortable transactions table, and CSV import and export.",
+    category: "Finance",
+    icon: Gauge,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Pomodoro Garden",
+    prompt: "A focus app where every completed session grows an animated plant in a virtual garden, with a ring timer, ambient Web Audio soundscapes, a garden gallery of past sessions, and weekly focus stats.",
+    category: "Productivity",
+    icon: Sprout,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Spaced Repetition",
+    prompt: "A spaced-repetition flashcard app with decks, a Leitner-box scheduler, swipeable cards with flip animations, a keyboard-driven review mode, per-deck progress charts, and import from pasted text.",
+    category: "Education",
+    icon: Brain,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Step Sequencer",
+    prompt: "A multi-track step sequencer built on Web Audio with synthesized drums and bass, per-track volume and mute, a tempo slider with swing, pattern save slots, and a live waveform visualizer.",
+    category: "Audio",
+    icon: Music,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Trip Planner",
+    prompt: "A multi-day trip planner with a day-by-day itinerary, drag-and-drop activities, a Leaflet map showing each stop with route lines, a packing checklist, a budget tracker, and a shareable summary view.",
+    category: "Travel",
+    icon: Map,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Data Explorer",
+    prompt: "A drag-and-drop CSV explorer that parses files in the browser, shows a searchable sortable table, auto-detects column types, and builds pivot summaries and Chart.js charts with a chart-type switcher.",
+    category: "Data",
+    icon: Database,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Kanban Pro",
+    prompt: "A polished kanban workspace with multiple boards, drag-and-drop cards, labels, due dates, checklists, a card detail drawer, filters, and a command palette opened with Ctrl+K.",
+    category: "Productivity",
+    icon: ListTodo,
+    color: "text-blue-600 bg-blue-50"
   }
 ];
 
@@ -1308,6 +1364,62 @@ export const GAME_STARTER_PRESETS = [
     category: "Party",
     icon: Users,
     color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Phaser Platformer",
+    prompt: "A Phaser 3 platformer with a tilemap-style level, arcade physics, a hero with run, jump, and double-jump animations, patrolling enemies, collectible coins, a camera that follows the player over parallax layers, and a three-level campaign.",
+    category: "Platformer",
+    icon: Rocket,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Phaser Space Shooter",
+    prompt: "A Phaser 3 vertical shoot-em-up with scrolling starfields, pooled bullets, enemy formations, a boss fight every fifth wave, weapon upgrades, particle explosions, screen shake, and a persistent high score.",
+    category: "Shooter",
+    icon: Bomb,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Three.js Racer",
+    prompt: "A 3D endless racing game in Three.js with a low-poly car on a curving road, a chase camera, speed-based FOV and fog, traffic to dodge, boost pads, a day-to-night cycle, and a distance score with a best-run record.",
+    category: "Racing",
+    icon: Car,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Voxel Explorer",
+    prompt: "A Three.js voxel sandbox where the player walks a procedurally generated block world in first person, places and breaks blocks, picks from a hotbar of materials, and sees a day and night sky, with touch controls on mobile.",
+    category: "Sandbox",
+    icon: Blocks,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Phaser Top-Down RPG",
+    prompt: "A Phaser 3 top-down adventure with a tile-based village and dungeon, smooth four-way movement, NPC dialogue boxes, a quest log, an inventory, sword combat against slimes, and scene transitions between areas.",
+    category: "RPG",
+    icon: Sword,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Phaser Survivors",
+    prompt: "A Phaser 3 survivor-like where the hero auto-attacks while the player dodges growing hordes, collects XP gems, chooses one of three upgrades on each level-up, and tries to last twenty minutes against escalating waves.",
+    category: "Roguelike",
+    icon: Skull,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Orbit Defender",
+    prompt: "A 3D space defense game in Three.js where the player orbits a planet in a turret ship, shoots incoming asteroids and raiders in every direction, upgrades shields between waves, and protects the planet's health bar.",
+    category: "Shooter",
+    icon: Orbit,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Physics Lab",
+    prompt: "A Phaser 3 physics puzzle game using Matter.js bodies where the player drops, ropes, and launches objects to push a ball into a goal, with twenty hand-built levels, star ratings, and undo and reset buttons.",
+    category: "Puzzle",
+    icon: Puzzle,
+    color: "text-teal-600 bg-teal-50"
   }
 ];
 
@@ -1806,6 +1918,62 @@ export const WEBSITE_STARTER_PRESETS = [
     category: "Health",
     icon: Heart,
     color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Multi-Page Agency",
+    prompt: "A multi-page creative agency website with separate Home, Work, Services, About, and Contact pages, a shared sticky navbar and footer, a case-study page template, smooth GSAP scroll reveals, and a contact form with inline confirmation.",
+    category: "Agency",
+    icon: Briefcase,
+    color: "text-indigo-600 bg-indigo-50"
+  },
+  {
+    title: "Multi-Page Restaurant",
+    prompt: "A multi-page restaurant website with Home, Menu, Reservations, Our Story, and Contact pages, a shared header and footer, a tabbed menu with dish cards, a reservation form with inline confirmation, and a Swiper gallery of the dining room.",
+    category: "Food",
+    icon: UtensilsCrossed,
+    color: "text-amber-600 bg-amber-50"
+  },
+  {
+    title: "Multi-Page SaaS",
+    prompt: "A multi-page SaaS website with Home, Features, Pricing, Customers, and Contact pages, a shared navbar with dropdown menus, a monthly and yearly pricing toggle, an Alpine.js FAQ, a customer stories page, and a polished footer.",
+    category: "Marketing",
+    icon: Rocket,
+    color: "text-violet-600 bg-violet-50"
+  },
+  {
+    title: "Documentation Hub",
+    prompt: "A multi-page documentation site with a landing page plus Getting Started, API Reference, and Guides pages, a persistent sidebar with active-page highlighting, an on-page table of contents, copyable code blocks, and a client-side search box.",
+    category: "Docs",
+    icon: BookOpen,
+    color: "text-sky-600 bg-sky-50"
+  },
+  {
+    title: "Case Study Portfolio",
+    prompt: "A multi-page designer portfolio with a Home page, a Projects index with category filters, three individual case-study pages with large imagery and outcome stats, an About page, a GLightbox gallery, and a Contact page.",
+    category: "Portfolio",
+    icon: Palette,
+    color: "text-rose-600 bg-rose-50"
+  },
+  {
+    title: "Online Store",
+    prompt: "A multi-page storefront with Home, Shop, Product Detail, About, and Contact pages, a filterable product grid, a product page with a Swiper image gallery and size picker, and a slide-out cart that persists across pages.",
+    category: "Commerce",
+    icon: Store,
+    color: "text-emerald-600 bg-emerald-50"
+  },
+  {
+    title: "Conference Site",
+    prompt: "A multi-page conference website with Home, Schedule, Speakers, Venue, Tickets, and FAQ pages, a tabbed multi-day schedule, speaker cards linking to bio pages, a Leaflet venue map, and a ticket tier comparison.",
+    category: "Events",
+    icon: Users,
+    color: "text-teal-600 bg-teal-50"
+  },
+  {
+    title: "Impact Report",
+    prompt: "An interactive annual impact report site with Home, Highlights, Programs, and Financials pages, Chart.js charts for funding and outcomes, animated count-up stats, and a sticky section navigation.",
+    category: "Nonprofit",
+    icon: Globe,
+    color: "text-blue-600 bg-blue-50"
   }
 ];
 
