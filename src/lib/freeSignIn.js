@@ -20,6 +20,35 @@ const listeners = new Set();
 const LOAD_TIMEOUT_MS = 20_000;
 export const SIGN_IN_UNAVAILABLE = 'The Free AI sign-in couldn’t load. Check your internet connection (or anything that blocks sign-in pages), then reload the page. You can also use your own API key in Settings → AI.';
 
+// OAuth in a popup, so the page stays as it is; and Google shows its account
+// picker instead of quietly using whichever account the browser is signed in to.
+const SIGN_IN_OPTIONS = { oauthFlow: 'popup', oidcPrompt: 'select_account' };
+
+// Clerk's modal sits near the top by default, and its 100vw backdrop counts
+// the scrollbar, so it can sit off centre. Centre it like the app's dialogs.
+const APPEARANCE = {
+  elements: {
+    modalBackdrop: { width: '100%', alignItems: 'center' },
+    modalContent: { margin: 'auto' },
+  },
+};
+
+// A press outside the sign-in modal would close it (Clerk has no setting for
+// this). Clerk closes it only for a press on its backdrop element itself, so
+// swallow those at the window, before Clerk's listener on the document sees
+// them. The modal's close button and Escape still close it.
+const keepSignInOpen = () => {
+  const swallow = (event) => {
+    if (event.target instanceof Element && event.target.classList.contains('cl-modalBackdrop')) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  };
+  for (const type of ['pointerdown', 'mousedown', 'touchstart', 'click']) {
+    window.addEventListener(type, swallow, { capture: true, passive: false });
+  }
+};
+
 const notify = () => {
   for (const listener of listeners) listener();
 };
@@ -66,14 +95,26 @@ export const loadFreeSignIn = async () => {
         const instance = new Clerk(config.publishableKey);
         await instance.load({
           ui,
+          // After sign-in Clerk "navigates" to its after-sign-in address,
+          // which without a router is a full page load that wipes the prompt
+          // being typed. The app has no pages to go to, so stay put.
+          routerPush: () => {},
+          routerReplace: () => {},
+          appearance: APPEARANCE,
           localization: {
             signIn: { start: { subtitle: 'Sign in with Google or GitHub to use Free AI.' } },
             signUp: { start: { subtitle: 'Sign in with Google or GitHub to use Free AI.' } },
           },
         });
+        keepSignInOpen();
         return instance;
       })()]);
-      clerk.addListener(notify);
+      clerk.addListener(({ session }) => {
+        // Signed in: the sign-in modal has done its job (Clerk would otherwise
+        // leave it to the navigation that no longer happens).
+        if (session) clerk.closeSignIn();
+        notify();
+      });
       notify();
       return clerk;
     } catch (err) {
@@ -102,7 +143,7 @@ export const freeSignInState = async () => {
 // Opens Clerk's sign-in (Google or GitHub, in a popup).
 export const openFreeSignIn = async () => {
   const clerk = await loadFreeSignIn();
-  clerk?.openSignIn({ oauthFlow: 'popup' });
+  clerk?.openSignIn(SIGN_IN_OPTIONS);
 };
 
 export const signOutOfFreeAi = async () => {
@@ -118,7 +159,7 @@ export const ensureFreeSignIn = async () => {
   if (!usesFreeAi()) return true;
   const clerk = await loadFreeSignIn();
   if (!clerk || clerk.session) return true;
-  clerk.openSignIn({ oauthFlow: 'popup' });
+  clerk.openSignIn(SIGN_IN_OPTIONS);
   return false;
 };
 
