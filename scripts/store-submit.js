@@ -1,16 +1,21 @@
-// Uploads a built Microsoft Store package to Partner Center as a DRAFT
-// submission, using the Microsoft Store submission API. It never commits the
-// submission: you review the draft and click "Submit to the Store" yourself.
+// Sends a built Microsoft Store package to Partner Center for certification,
+// using the Microsoft Store submission API. The submission is set to publish
+// MANUALLY: once Microsoft has certified it, nothing reaches users until you
+// click "Publish now" in Partner Center. (It has to be committed: Partner
+// Center ignores the API's changes to a submission until then, so an
+// uncommitted one still shows the previous version.)
 //
 // Usage:
 //   node scripts/store-submit.js --check
 //       Only sign in and check that a new draft can be made (no submission
 //       is pending). Run before building, so a release stops early.
 //   node scripts/store-submit.js <package.zip> <package-file-name-inside-the-zip>
-//       Create the draft and upload the package. In GitHub Actions the draft's
+//       Create the submission, upload the package, commit it and wait until
+//       Microsoft has accepted the package. In GitHub Actions the submission's
 //       id is written to the step output `submission` as soon as it exists.
 //   node scripts/store-submit.js --delete <submission-id>
-//       Delete a draft this script made (when a later release step failed).
+//       Delete a submission this script made (when a later release step
+//       failed).
 // Env:   MSSTORE_TENANT_ID, MSSTORE_CLIENT_ID, MSSTORE_CLIENT_SECRET,
 //        MSSTORE_PRODUCT_ID (the app's Store ID)
 // Run by the store and publish jobs in .github/workflows/desktop.yml.
@@ -70,28 +75,30 @@ const app = await api('GET', API, token)
 if (app.pendingApplicationSubmission) {
   die(
     `AppBlips already has a pending submission (id ${app.pendingApplicationSubmission.id}). ` +
-      'Open Partner Center → AppBlips, submit or delete it, then run this again.',
+      'Open Partner Center → AppBlips and publish it (if it has passed certification) or delete it, then run this again.',
   )
 }
 if (mode === 'check') {
-  console.log('Partner Center is ready for a new draft.')
+  console.log('Partner Center is ready for a new submission.')
   process.exit(0)
 }
 
 const [zipPath, fileName] = args
 
-// 3. New draft, copied from the last published submission. Its id goes out
+// 3. New submission, copied from the last published one. Its id goes out
 // straight away, so a failure from here on can still delete it.
 const sub = await api('POST', `${API}/submissions`, token)
-console.log(`Created draft submission ${sub.id}`)
+console.log(`Created submission ${sub.id}`)
 if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `submission=${sub.id}\n`)
 
-// 4. Replace the packages: remove the old ones, add the new one
+// 4. Replace the packages (remove the old ones, add the new one) and wait for
+// "Publish now" after certification instead of publishing straight away.
 for (const pkg of sub.applicationPackages || []) pkg.fileStatus = 'PendingDelete'
 sub.applicationPackages = [
   ...(sub.applicationPackages || []),
   { fileName, fileStatus: 'PendingUpload', minimumDirectXVersion: 'None', minimumSystemRam: 'None' },
 ]
+sub.targetPublishMode = 'Manual'
 await api('PUT', `${API}/submissions/${sub.id}`, token, sub)
 
 // 5. Upload the zipped package to the blob URL from step 3
@@ -104,5 +111,25 @@ const up = await fetch(sub.fileUploadUrl, {
 if (!up.ok) die(`Uploading the package failed (${up.status}): ${await up.text()}`)
 console.log(`Uploaded ${fileName} (${(zip.length / 1048576).toFixed(1)} MB)`)
 
-// 6. Left as a draft on purpose.
-console.log('\nDraft is ready. Open Partner Center → AppBlips, check it and click "Submit to the Store".')
+// 6. Commit, then wait until Microsoft has taken the package. A rejected
+// package (wrong identity, version not higher than the Store's, ...) fails
+// here, while the release can still be stopped.
+await api('POST', `${API}/submissions/${sub.id}/commit`, token)
+console.log('Committed. Waiting for Partner Center to process the package…')
+const deadline = Date.now() + 30 * 60_000
+let status
+for (;;) {
+  status = await api('GET', `${API}/submissions/${sub.id}/status`, token)
+  if (status.status.endsWith('Failed')) {
+    const errors = (status.statusDetails?.errors || []).map((e) => `${e.code}: ${e.details}`).join('; ')
+    die(`Partner Center rejected the submission (${status.status}): ${errors || 'no details given'}`)
+  }
+  if (!['CommitStarted', 'PreProcessing'].includes(status.status)) break
+  if (Date.now() > deadline) {
+    console.log(`Still ${status.status} after 30 minutes; not waiting longer. Check Partner Center → AppBlips.`)
+    break
+  }
+  await new Promise((r) => setTimeout(r, 20_000))
+}
+console.log(`Status: ${status.status}`)
+console.log('\nSent for certification (usually a few days). When it passes, open Partner Center → AppBlips and click "Publish now".')

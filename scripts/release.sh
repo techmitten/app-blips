@@ -4,8 +4,8 @@
 # Bumps the version, pushes the matching v* tag (which starts the Desktop
 # workflow), waits for GitHub to build the Linux installers and the Microsoft
 # Store package, then publishes the draft release once you confirm. GitHub
-# publishes nothing unless every build succeeds (a draft release, a draft
-# Store submission and the snap on stable).
+# publishes nothing unless every build succeeds (a draft release, a Store
+# submission set to publish manually, and the snap on stable).
 # `npm run release store` skips all of that: it only builds and submits the
 # Microsoft Store package for the latest release tag, or another one: `npm run release store v0.1.35` (no version bump).
 # See notes/RELEASING.md for the manual steps this automates.
@@ -34,15 +34,15 @@ if [ "$bump" = "store" ]; then
     || fail "GitHub's master doesn't have the Store workflow yet. Commit and push first."
   tag="${2:-$(git describe --tags --abbrev=0 --match 'v*' origin/master 2>/dev/null || true)}"
   git rev-parse -q --verify "refs/tags/$tag" >/dev/null || fail "Tag '$tag' not found."
-  say "Microsoft Store only: build $tag and upload it as a draft (no version bump, no Linux build, no GitHub release)"
+  say "Microsoft Store only: build $tag and send it for certification (no version bump, no Linux build, no GitHub release)"
   echo "The Store rejects a version it already has. To use another tag: npm run release store vX.Y.Z"
-  ask "Upload $tag to the Microsoft Store as a draft?" || fail "Cancelled. Nothing was changed."
+  ask "Send $tag to the Microsoft Store for certification?" || fail "Cancelled. Nothing was changed."
   gh workflow run desktop.yml --ref master -f store_only=true -f tag="$tag"
   sleep 8
   run_id="$(gh run list --workflow desktop.yml --branch master --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
   say "Building and uploading (a few minutes)…"
   gh run watch "$run_id" --exit-status --interval 20 || fail "The Store job failed. See: $(gh run view "$run_id" --json url --jq .url)"
-  say "Draft uploaded. Open Partner Center → AppBlips, check it and click Submit to the Store."
+  say "Sent for certification (usually a few days). When it passes, open Partner Center → AppBlips and click Publish now."
   exit 0
 fi
 
@@ -97,16 +97,22 @@ done
 say "Building (this usually takes 10-20 minutes)…"
 if ! gh run watch "$run_id" --exit-status --interval 30; then
   fail "The GitHub build failed, so nothing was published. See: $(gh run view "$run_id" --json url --jq .url)
-To retry after fixing it, delete the tag:
+If the fix was outside the code (e.g. a pending Partner Center submission,
+or an expired secret), rerun just the failed jobs once the run has finished:
+  gh run rerun $run_id --failed
+then publish the draft: gh release edit $tag --draft=false --notes \"...\"
+If the code needed fixing, delete the tag:
   git tag -d $tag && git push origin :refs/tags/$tag
 then tag the fixed commit and push it again: git tag $tag && git push origin $tag"
 fi
 
 # --- Publish -----------------------------------------------------------------
 say "Build finished. The draft release $tag is ready on GitHub."
+echo "Already out: the snap (App Center users get it now). The Microsoft Store"
+echo "version is in certification; when it passes, click Publish now in Partner Center."
 echo "Installers: $(gh release view "$tag" --json assets --jq '[.assets[].name] | join(", ")')"
 echo
-if ask "Publish $tag now? Users will start getting the update."; then
+if ask "Publish $tag on GitHub now? AppImage and .deb users will start getting the update."; then
   read -r -p "Release notes (one line, what changed): " notes
   gh release edit "$tag" --draft=false --notes "${notes:-Improvements and fixes.}" >/dev/null
   say "Published! $(gh release view "$tag" --json url --jq .url)"

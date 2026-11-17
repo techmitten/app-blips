@@ -3,8 +3,8 @@ name: Desktop
 # Builds the desktop packages: the Linux installers (AppImage, .deb and snap)
 # on Ubuntu 24.04 and the Microsoft Store package on Windows. Pushing a tag
 # like v0.1.0 (npm run release) also publishes them, but only once every
-# build has succeeded (the publish job): a draft GitHub Release, a draft
-# Microsoft Store submission, and the snap on the Snap Store's stable channel
+# build has succeeded (the publish job): a draft GitHub Release, a Microsoft
+# Store submission (set to publish manually), and the snap on the Snap Store's stable channel
 # (Ubuntu's App Center; SNAPCRAFT_STORE_CREDENTIALS, made with
 # `snapcraft export-login` with stable channel access; see notes/RELEASING.md).
 # Run by hand from the Actions tab it only builds, or with store_only it
@@ -113,7 +113,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # Fail before building if Partner Center can't take a new draft (bad
+      # Fail before building if Partner Center can't take a new submission (bad
       # secrets, or a submission still pending), so the release stops before
       # anything is published.
       - name: Check Partner Center
@@ -142,13 +142,13 @@ jobs:
           path: dist-desktop/AppBlips-Store.zip
 
   # Publishes only once every build has succeeded, so a failed build leaves
-  # nothing published anywhere. Order: the Microsoft Store draft, then the
-  # GitHub draft release, then the snap to the Snap Store's stable channel
-  # (the only step users see straight away), last. If a step fails, the drafts
-  # made before it are deleted again. The Store draft is never committed: you
-  # review it in Partner Center and click Submit to the Store (Microsoft's
-  # certification takes days and only starts then). The .appx is never
-  # uploaded anywhere else. store_only runs do just the Store draft.
+  # nothing published anywhere. Order: the Microsoft Store submission, then
+  # the GitHub draft release, then the snap to the Snap Store's stable channel
+  # (the only step users see straight away), last. If a step fails, what the
+  # steps before it made is deleted again. The Store submission goes to
+  # Microsoft's certification (a few days) set to publish manually: users get
+  # it only after you click "Publish now" in Partner Center. The .appx is never
+  # uploaded anywhere else. store_only runs do just the Store submission.
   publish:
     needs: [build, store]
     if: >-
@@ -167,7 +167,7 @@ jobs:
         with:
           path: dist-desktop
           merge-multiple: true
-      - name: Upload the package to Partner Center as a draft
+      - name: Send the package to Microsoft Store certification
         id: store
         env:
           MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
@@ -196,7 +196,7 @@ jobs:
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: snapcraft upload --release=stable dist-desktop/*.snap
-      # Undo the drafts if a later step failed.
+      # Undo the earlier steps if a later one failed.
       - name: Delete the GitHub draft release
         if: failure() && steps.release.outcome == 'success'
         env:
@@ -205,7 +205,7 @@ jobs:
           if [ "$(gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true ]; then
             gh release delete "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --yes
           fi
-      - name: Delete the Partner Center draft
+      - name: Delete the Partner Center submission
         if: failure() && steps.store.outputs.submission != ''
         env:
           MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
