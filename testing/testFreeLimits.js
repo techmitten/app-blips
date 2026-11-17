@@ -6,7 +6,8 @@ import { handleChatProxy } from '../electron/server/chatProxy.js';
 // --- Client IP ----------------------------------------------------------------
 
 // The message limits have their own tests; these turn them off so a test can send requests back to back.
-const NO_MESSAGE_LIMITS = { APPBLIPS_FREE_MESSAGES_PER_MINUTE: '0', APPBLIPS_FREE_MESSAGE_GAP_SECONDS: '0' };
+// Rate limits are fixed in production; tests change them through the `rates` option.
+const NO_MESSAGE_LIMITS = { messagesPerMinute: 0, messageGapSeconds: 0 };
 
 test('the visitor is the address that reached the platform, not what the visitor wrote', () => {
   // Direct to the platform: its edge appends the real address; internal hops are private.
@@ -35,12 +36,9 @@ test('limits are on unless APPBLIPS_FREE_LIMITS turns them off', () => {
 test('hourly requests, concurrency, and daily tokens per visitor and site-wide', () => {
   let clock = Date.UTC(2026, 10, 12, 10);
   const limits = createFreeLimits({
-    ...NO_MESSAGE_LIMITS,
-    APPBLIPS_FREE_REQUESTS_PER_HOUR: '3',
-    APPBLIPS_FREE_CONCURRENT: '2',
     APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: '1,000',
     APPBLIPS_FREE_TOKENS_PER_DAY: '1500',
-  }, { now: () => clock });
+  }, { now: () => clock, rates: { ...NO_MESSAGE_LIMITS, requestsPerHour: 3, concurrent: 2 } });
 
   const a1 = limits.begin('a');
   const a2 = limits.begin('a');
@@ -64,9 +62,35 @@ test('hourly requests, concurrency, and daily tokens per visitor and site-wide',
   next.end(10);
 });
 
+test('usage caps are off unless set; rate limits are fixed', () => {
+  const unset = createFreeLimits({});
+  assert.equal(unset.limits.tokensPerDay, 0);
+  assert.equal(unset.limits.tokensPerIpPerDay, 0);
+  assert.equal(unset.limits.maxOutputTokens, 0);
+  assert.deepEqual(
+    { messagesPerMinute: unset.limits.messagesPerMinute, messageGapSeconds: unset.limits.messageGapSeconds, requestsPerHour: unset.limits.requestsPerHour, concurrent: unset.limits.concurrent },
+    { messagesPerMinute: 6, messageGapSeconds: 3, requestsPerHour: 120, concurrent: 4 },
+  );
+  // The old rate variables no longer change anything.
+  const tried = createFreeLimits({ APPBLIPS_FREE_MESSAGES_PER_MINUTE: '0', APPBLIPS_FREE_REQUESTS_PER_HOUR: '9999', APPBLIPS_FREE_CONCURRENT: '0', APPBLIPS_FREE_MESSAGE_GAP_SECONDS: '0' });
+  assert.equal(tried.limits.messagesPerMinute, 6);
+  assert.equal(tried.limits.requestsPerHour, 120);
+  // Caps read as numbers; blank, 0 or nonsense means none.
+  assert.equal(createFreeLimits({ APPBLIPS_FREE_TOKENS_PER_DAY: '150,000,000' }).limits.tokensPerDay, 150_000_000);
+  assert.equal(createFreeLimits({ APPBLIPS_FREE_TOKENS_PER_DAY: '0' }).limits.tokensPerDay, 0);
+  assert.equal(createFreeLimits({ APPBLIPS_FREE_TOKENS_PER_DAY: 'lots' }).limits.tokensPerDay, 0);
+
+  // With no caps, a heavy day isn't cut off.
+  let clock = 0;
+  const limits = createFreeLimits({}, { now: () => clock, rates: { messagesPerMinute: 0, messageGapSeconds: 0 } });
+  limits.begin('a').end(50_000_000);
+  clock += 3_600_000;
+  assert.equal(limits.begin('a').refused, undefined);
+});
+
 test('the hourly limit names how long to wait', () => {
   let clock = 0;
-  const limits = createFreeLimits({ ...NO_MESSAGE_LIMITS, APPBLIPS_FREE_REQUESTS_PER_HOUR: '1' }, { now: () => clock });
+  const limits = createFreeLimits({}, { now: () => clock, rates: { ...NO_MESSAGE_LIMITS, requestsPerHour: 1 } });
   limits.begin('a').end(1);
   clock = 20 * 60_000;
   const { refused } = limits.begin('a');
@@ -77,7 +101,7 @@ test('the hourly limit names how long to wait', () => {
 
 test('the AI’s turns of one chat message count as one message', () => {
   let clock = 0;
-  const limits = createFreeLimits({ APPBLIPS_FREE_MESSAGES_PER_MINUTE: '2', APPBLIPS_FREE_MESSAGE_GAP_SECONDS: '0', APPBLIPS_FREE_CONCURRENT: '0', APPBLIPS_FREE_REQUESTS_PER_HOUR: '0' }, { now: () => clock });
+  const limits = createFreeLimits({}, { now: () => clock, rates: { messagesPerMinute: 2, messageGapSeconds: 0, concurrent: 0, requestsPerHour: 0 } });
   // Twenty turns of one message are fine.
   for (let i = 0; i < 20; i += 1) assert.equal(limits.begin('a', 'message-one-id').refused, undefined);
   assert.equal(limits.begin('a', 'message-two-id').refused, undefined);
@@ -94,7 +118,7 @@ test('the AI’s turns of one chat message count as one message', () => {
 
 test('messages need a gap between them; a request without an id is its own message', () => {
   let clock = 0;
-  const limits = createFreeLimits({ APPBLIPS_FREE_MESSAGES_PER_MINUTE: '0', APPBLIPS_FREE_CONCURRENT: '0', APPBLIPS_FREE_REQUESTS_PER_HOUR: '0' }, { now: () => clock });
+  const limits = createFreeLimits({}, { now: () => clock, rates: { messagesPerMinute: 0, concurrent: 0, requestsPerHour: 0 } });
   assert.equal(limits.begin('a').refused, undefined);
   clock = 1000;
   assert.match(limits.begin('a').refused.error, /Wait 2s/);
@@ -105,7 +129,7 @@ test('messages need a gap between them; a request without an id is its own messa
 
 test('one message id can’t be reused forever', () => {
   let clock = 0;
-  const limits = createFreeLimits({ APPBLIPS_FREE_MESSAGES_PER_MINUTE: '1', APPBLIPS_FREE_MESSAGE_GAP_SECONDS: '0', APPBLIPS_FREE_CONCURRENT: '0', APPBLIPS_FREE_REQUESTS_PER_HOUR: '0' }, { now: () => clock });
+  const limits = createFreeLimits({}, { now: () => clock, rates: { messagesPerMinute: 1, messageGapSeconds: 0, concurrent: 0, requestsPerHour: 0 } });
   for (let i = 0; i < 60; i += 1) assert.equal(limits.begin('a', 'reused-id-1234').refused, undefined);
   // The 61st counts as a new message, and the minute already holds one.
   assert.match(limits.begin('a', 'reused-id-1234').refused.error, /too quickly/);
@@ -160,7 +184,7 @@ test('the Free option is limited and capped; the visitor’s own key is not', as
     sent.push(JSON.parse(options.body));
     return new Response('data: {"choices":[],"usage":{"total_tokens":5}}\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
   });
-  const freeLimits = createFreeLimits({ ...NO_MESSAGE_LIMITS, APPBLIPS_FREE_REQUESTS_PER_HOUR: '1', APPBLIPS_FREE_MAX_OUTPUT_TOKENS: '1000' });
+  const freeLimits = createFreeLimits({ APPBLIPS_FREE_MAX_OUTPUT_TOKENS: '1000' }, { rates: { ...NO_MESSAGE_LIMITS, requestsPerHour: 1 } });
 
   const first = await send({ max_tokens: 50000 }, { freeLimits, visitor: 'v' });
   assert.equal(first.status, 200);
@@ -185,7 +209,7 @@ test('by default the Free option keeps the 64k build limit and the user’s own 
     sent.push(JSON.parse(options.body));
     return new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
   });
-  const freeLimits = createFreeLimits(NO_MESSAGE_LIMITS);
+  const freeLimits = createFreeLimits({}, { rates: NO_MESSAGE_LIMITS });
   assert.equal(freeLimits.limits.maxOutputTokens, 0);
   await (await send({}, { freeLimits, visitor: 'd' })).text();
   await (await send({ max_tokens: 90000 }, { freeLimits, visitor: 'd' })).text();

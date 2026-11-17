@@ -18,19 +18,22 @@ const memoryStorage = () => {
   };
 };
 
-const ENV = { APPBLIPS_FREE_MESSAGES_PER_MINUTE: '0', APPBLIPS_FREE_MESSAGE_GAP_SECONDS: '0', APPBLIPS_FREE_CONCURRENT: '0' };
+const ENV = {};
+// Rate limits are fixed in production; tests change them through `rates`.
+const RATES = { messagesPerMinute: 0, messageGapSeconds: 0, concurrent: 0 };
 
 test('counts survive a restart of the Durable Object', async () => {
   let clock = Date.UTC(2026, 10, 17, 10);
   const storage = memoryStorage();
-  const env = { ...ENV, APPBLIPS_FREE_REQUESTS_PER_HOUR: '2', APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: '1000' };
-  const first = createFreeLimitsStore(env, storage, { now: () => clock });
+  const env = { ...ENV, APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: '1000' };
+  const rates = { ...RATES, requestsPerHour: 2 };
+  const first = createFreeLimitsStore(env, storage, { now: () => clock, rates });
   const a = await first.begin('v1');
   assert.ok(a.ticket);
   await first.end(a.ticket, 'v1', 400);
 
   // A new object (after eviction) reads the saved counts.
-  const second = createFreeLimitsStore(env, storage, { now: () => clock });
+  const second = createFreeLimitsStore(env, storage, { now: () => clock, rates });
   const b = await second.begin('v1');
   assert.ok(b.ticket, 'second request of the hour');
   const refused = await second.begin('v1');
@@ -38,7 +41,7 @@ test('counts survive a restart of the Durable Object', async () => {
   // The first object's ticket is gone after the restart; its tokens still count.
   await second.end(b.ticket, 'v1', 700);
   clock += 3_600_000;
-  const third = createFreeLimitsStore(env, storage, { now: () => clock });
+  const third = createFreeLimitsStore(env, storage, { now: () => clock, rates });
   assert.match((await third.begin('v1')).refused.error, /today’s Free AI allowance/);
   assert.ok((await third.begin('v2')).ticket, 'another visitor is unaffected');
 });
@@ -47,9 +50,9 @@ test('a ticket lost in a restart still counts its tokens', async () => {
   const clock = Date.UTC(2026, 10, 17, 10);
   const storage = memoryStorage();
   const env = { ...ENV, APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: '100' };
-  const before = createFreeLimitsStore(env, storage, { now: () => clock });
+  const before = createFreeLimitsStore(env, storage, { now: () => clock, rates: RATES });
   const { ticket } = await before.begin('v1');
-  const after = createFreeLimitsStore(env, storage, { now: () => clock });
+  const after = createFreeLimitsStore(env, storage, { now: () => clock, rates: RATES });
   await after.end(ticket, 'v1', 150);
   assert.match((await after.begin('v1')).refused.error, /today’s Free AI allowance/);
 });
@@ -57,12 +60,12 @@ test('a ticket lost in a restart still counts its tokens', async () => {
 test('entries with nothing left to limit are deleted when the object starts', async () => {
   let clock = Date.UTC(2026, 10, 17, 10);
   const storage = memoryStorage();
-  const first = createFreeLimitsStore(ENV, storage, { now: () => clock });
+  const first = createFreeLimitsStore(ENV, storage, { now: () => clock, rates: RATES });
   await first.end((await first.begin('old')).ticket, 'old', 5);
   await first.allowUnsplash('old');
   assert.ok(storage.data.has('v:old') && storage.data.has('u:old'));
   clock += 26 * 3_600_000; // the next day, well past the hour
-  const later = createFreeLimitsStore(ENV, storage, { now: () => clock });
+  const later = createFreeLimitsStore(ENV, storage, { now: () => clock, rates: RATES });
   await later.begin('new');
   assert.equal(storage.data.has('v:old'), false);
   assert.equal(storage.data.has('u:old'), false);
@@ -79,9 +82,9 @@ test('if the counts can’t be read or saved, Free AI is refused', async () => {
   const original = console.error;
   console.error = (...args) => errors.push(args);
   try {
-    const store = createFreeLimitsStore(ENV, broken);
+    const store = createFreeLimitsStore(ENV, broken, { rates: RATES });
     assert.deepEqual((await store.begin('v1')).refused, { error: UNAVAILABLE, retryAfter: 60 });
-    const unwritable = createFreeLimitsStore(ENV, { ...memoryStorage(), put: broken.put });
+    const unwritable = createFreeLimitsStore(ENV, { ...memoryStorage(), put: broken.put }, { rates: RATES });
     assert.equal((await unwritable.begin('v1')).refused.error, UNAVAILABLE);
   } finally {
     console.error = original;
@@ -92,10 +95,10 @@ test('if the counts can’t be read or saved, Free AI is refused', async () => {
 test('Unsplash searches are limited per visitor per hour, across restarts', async () => {
   let clock = Date.UTC(2026, 10, 17, 10);
   const storage = memoryStorage();
-  const store = createFreeLimitsStore(ENV, storage, { now: () => clock, unsplashPerHour: 2 });
+  const store = createFreeLimitsStore(ENV, storage, { now: () => clock, unsplashPerHour: 2, rates: RATES });
   assert.equal(await store.allowUnsplash('v1'), true);
   assert.equal(await store.allowUnsplash('v1'), true);
-  const restarted = createFreeLimitsStore(ENV, storage, { now: () => clock, unsplashPerHour: 2 });
+  const restarted = createFreeLimitsStore(ENV, storage, { now: () => clock, unsplashPerHour: 2, rates: RATES });
   assert.equal(await restarted.allowUnsplash('v1'), false);
   assert.equal(await restarted.allowUnsplash('v2'), true);
   clock += 3_600_000;

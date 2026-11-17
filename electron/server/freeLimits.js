@@ -1,29 +1,34 @@
 // Limits on the Free option: requests answered with the server's own
-// provider (OPENAI_API_KEY), on a server many people can reach, like a
-// Hugging Face Space. Requests with the visitor's own key are never limited.
-// server.js turns this on; set APPBLIPS_FREE_LIMITS=off for a server only you
-// use. The counts live in memory, so a restart clears them; the provider's
-// own spending cap stays the hard ceiling.
+// provider (OPENAI_API_KEY), on a server many people can reach.
+// Requests with the visitor's own key are never limited. server.js and the
+// Cloudflare Worker turn this on; set APPBLIPS_FREE_LIMITS=off for a server
+// only you use. In server.js the counts live in memory, so a restart clears
+// them (the Worker saves them); the provider's own spending cap stays the
+// hard ceiling.
 //
-//   APPBLIPS_FREE_MESSAGES_PER_MINUTE    per visitor, chat messages (default 6)
-//   APPBLIPS_FREE_MESSAGE_GAP_SECONDS    per visitor, between messages (default 3)
-//   APPBLIPS_FREE_REQUESTS_PER_HOUR      per visitor              (default 120)
-//   APPBLIPS_FREE_CONCURRENT             per visitor, at once     (default 4)
-//   APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY  per visitor, UTC day     (default 2,000,000)
-//   APPBLIPS_FREE_TOKENS_PER_DAY         everyone together        (default 30,000,000)
-//   APPBLIPS_FREE_MAX_OUTPUT_TOKENS      per request              (default none: the
-//                                        app's 64k default, or the user's setting)
-// 0 turns one limit off. A visitor is an IP address (an IPv6 /64, since one
-// connection usually holds a whole /64).
+// Rate limits (RATE_LIMITS) are fixed protection against rapid-fire use and
+// can't be changed: per visitor, 6 chat messages a minute, 3 s between
+// messages, 120 AI requests an hour and 4 at once.
+//
+// Usage caps are off unless set:
+//   APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY  per visitor, UTC day
+//   APPBLIPS_FREE_TOKENS_PER_DAY         everyone together, UTC day
+//   APPBLIPS_FREE_MAX_OUTPUT_TOKENS      per request (blank keeps the app's
+//                                        64k default, or the user's setting)
+// A visitor is an IP address (an IPv6 /64, since one connection usually holds
+// a whole /64), or the signed-in account when Free AI needs a sign-in
+// (freeAuth.js).
 
-const DEFAULTS = {
-  messagesPerMinute: ['APPBLIPS_FREE_MESSAGES_PER_MINUTE', 6],
-  messageGapSeconds: ['APPBLIPS_FREE_MESSAGE_GAP_SECONDS', 3],
-  requestsPerHour: ['APPBLIPS_FREE_REQUESTS_PER_HOUR', 120],
-  concurrent: ['APPBLIPS_FREE_CONCURRENT', 4],
-  tokensPerIpPerDay: ['APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY', 2_000_000],
-  tokensPerDay: ['APPBLIPS_FREE_TOKENS_PER_DAY', 30_000_000],
-  maxOutputTokens: ['APPBLIPS_FREE_MAX_OUTPUT_TOKENS', 0],
+export const RATE_LIMITS = Object.freeze({
+  messagesPerMinute: 6,
+  messageGapSeconds: 3,
+  requestsPerHour: 120,
+  concurrent: 4,
+});
+const USAGE_CAPS = {
+  tokensPerIpPerDay: 'APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY',
+  tokensPerDay: 'APPBLIPS_FREE_TOKENS_PER_DAY',
+  maxOutputTokens: 'APPBLIPS_FREE_MAX_OUTPUT_TOKENS',
 };
 const MINUTE_MS = 60_000;
 // One chat message makes many requests (the AI's turns, tool calls, repairs),
@@ -37,12 +42,13 @@ const MAX_MESSAGES_TRACKED = 50;
 const HOUR_MS = 3_600_000;
 const MAX_VISITORS = 50_000;
 
-const readLimits = (env) => {
-  const limits = {};
-  for (const [field, [name, fallback]] of Object.entries(DEFAULTS)) {
-    const raw = String(env?.[name] ?? '').replace(/[,_\s]/g, '');
-    const value = raw === '' ? fallback : Number(raw);
-    limits[field] = Number.isFinite(value) && value >= 0 ? Math.floor(value) : fallback;
+// The fixed rate limits (`rates` replaces some, for tests only) and the usage
+// caps from `env`, 0 meaning none. A blank, 0 or unreadable cap is no cap.
+const readLimits = (env, rates = {}) => {
+  const limits = { ...RATE_LIMITS, ...rates };
+  for (const [field, name] of Object.entries(USAGE_CAPS)) {
+    const value = Number(String(env?.[name] ?? '').replace(/[,_\s]/g, ''));
+    limits[field] = Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
   }
   return limits;
 };
@@ -216,8 +222,8 @@ const refusal = (error, retryAfterSeconds = null) => ({ refused: { error, retryA
 // { end(tokens) } to call once when the request is over. The other methods
 // let a host that can't keep this object in memory (the Cloudflare Worker's
 // Durable Object, worker/freeLimitsStore.js) save and restore the counts.
-export function createFreeLimits(env, { now = Date.now } = {}) {
-  const limits = readLimits(env);
+export function createFreeLimits(env, { now = Date.now, rates = {} } = {}) {
+  const limits = readLimits(env, rates);
   const visitors = new Map();
   let site = { day: today(now()), tokens: 0 };
 

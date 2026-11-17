@@ -20,8 +20,9 @@ export const UNAVAILABLE = 'Free AI isn’t available right now. Try again in a 
 
 const today = (now) => new Date(now).toISOString().slice(0, 10);
 
-export function createFreeLimitsStore(env, storage, { now = Date.now, unsplashPerHour = DEFAULT_SEARCHES_PER_VISITOR_HOUR } = {}) {
-  const limiter = createFreeLimits(env, { now });
+// `rates` replaces fixed rate limits, for tests only (freeLimits.js).
+export function createFreeLimitsStore(env, storage, { now = Date.now, unsplashPerHour = DEFAULT_SEARCHES_PER_VISITOR_HOUR, rates = {} } = {}) {
+  const limiter = createFreeLimits(env, { now, rates });
   const unsplash = new Map(); // visitor -> { start, count }
   const tickets = new Map(); // id -> { ticket, visitor }
   let nextTicket = 1;

@@ -58,7 +58,7 @@ test('a valid token for this site names the user; anything else is refused', asy
 test('Free AI without a sign-in gets a 401; the user’s own key needs none; users are counted by account', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => new Response('data: {"choices":[],"usage":{"total_tokens":5}}\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } }));
   const env = { OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', OPENAI_LLM_PROVIDER: 'deepseek', ...CLERK };
-  const freeLimits = createFreeLimits({ APPBLIPS_FREE_REQUESTS_PER_HOUR: '1', APPBLIPS_FREE_MESSAGES_PER_MINUTE: '0', APPBLIPS_FREE_MESSAGE_GAP_SECONDS: '0' });
+  const freeLimits = createFreeLimits({}, { rates: { requestsPerHour: 1, messagesPerMinute: 0, messageGapSeconds: 0 } });
   const checkSignIn = (r) => checkFreeSignIn(r, env);
   const options = { freeLimits, visitor: '203.0.113.9', checkSignIn };
 
