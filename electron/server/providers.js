@@ -254,11 +254,79 @@ const missingVars = (provider) => [
   !provider.baseUrl && provider.vars.baseUrl,
 ].filter(Boolean);
 
+// Prompt caching. Every provider caches a request start it has seen before;
+// they differ in what they need to be told.
+// - Anthropic: caches only up to a marked cache point (cache_control). The
+//   renderer marks one on a text part (llm.js createPageContent);
+//   anthropic.js passes it on and adds its own.
+// - OpenRouter with a Claude model: the same markers, sent in OpenRouter's
+//   format, with the cache points anthropic.js would add (system prompt, end
+//   of a tool conversation). Other models there get the plain string.
+// - OpenRouter: picks a backend by hashing the first messages, which differ
+//   per page of a build, so a page request could land where nothing is
+//   cached. session_id pins one request series to one backend.
+// - OpenAI: prompt_cache_key does the same for its own servers.
+// - Everyone else caches automatically and gets the plain string, since not
+//   every provider accepts the field or text-part arrays.
+// `cacheKey` is the renderer's per-message ID (x-appblips-message): random,
+// shared by every request of one build, and naming nothing about the user.
+const CACHE_POINT = { type: 'ephemeral' };
+const OPENROUTER_CLAUDE = /^~?anthropic\//i;
+const MAX_CACHE_KEY_LENGTH = 64;
+
+const withoutCachePoints = (messages) => messages.map((message) => {
+  const parts = message?.content;
+  if (!Array.isArray(parts) || !parts.some((part) => part?.cache_control)) return message;
+  if (parts.every((part) => part?.type === 'text')) return { ...message, content: parts.map((part) => part.text).join('') };
+  return {
+    ...message,
+    content: parts.map((part) => {
+      const { cache_control: _drop, ...rest } = part; // eslint-disable-line no-unused-vars
+      return rest;
+    }),
+  };
+});
+
+// The system prompt as a text part marked as a cache point, as anthropic.js
+// does for direct Claude requests.
+const withCachedSystemPrompt = (messages) => {
+  const index = messages.findIndex((message) => message?.role === 'system');
+  const content = messages[index]?.content;
+  if (index < 0 || typeof content !== 'string' || !content.trim()) return messages;
+  const next = [...messages];
+  next[index] = { ...messages[index], content: [{ type: 'text', text: content, cache_control: CACHE_POINT }] };
+  return next;
+};
+
+const applyCacheSettings = (bodyObj, provider, cacheKey) => {
+  if (provider.id === 'anthropic' || !Array.isArray(bodyObj.messages)) return;
+  const key = typeof cacheKey === 'string' && /^[\w-]+$/.test(cacheKey) ? cacheKey.slice(0, MAX_CACHE_KEY_LENGTH) : '';
+  if (isOpenRouter(provider)) {
+    if (key) bodyObj.session_id = key;
+    if (OPENROUTER_CLAUDE.test(String(bodyObj.model || ''))) {
+      bodyObj.messages = withCachedSystemPrompt(bodyObj.messages);
+      // As in anthropic.js: tool loops resend the whole conversation each
+      // turn, so a cache point at its end lets each turn read the one before.
+      if (Array.isArray(bodyObj.tools) && bodyObj.tools.length) bodyObj.cache_control = CACHE_POINT;
+      return;
+    }
+  } else if (provider.id === 'openai' && key && isOpenAIEndpoint(provider)) {
+    bodyObj.prompt_cache_key = key;
+  }
+  bodyObj.messages = withoutCachePoints(bodyObj.messages);
+};
+
+const isOpenAIEndpoint = (provider) => {
+  try { return new URL(provider?.baseUrl).hostname === 'api.openai.com'; } catch { return false; }
+};
+
 // Adapts an OpenAI-style request body in place to what `provider` accepts:
-// writes the reasoning setting, drops stream_options where unsupported, and
+// writes the reasoning setting, drops stream_options where unsupported,
 // relaxes forced tool choices where unsupported (including DeepSeek with
-// thinking on). Returns { reasoningEnabled }.
-export const applyProviderSettings = (bodyObj, provider, { effort } = {}) => {
+// thinking on), and sets up prompt caching (applyCacheSettings above).
+// Returns { reasoningEnabled }.
+export const applyProviderSettings = (bodyObj, provider, { effort, cacheKey } = {}) => {
+  applyCacheSettings(bodyObj, provider, cacheKey);
   let raw = effort ?? 'none';
   let off = OFF_EFFORTS.has(raw);
   if (off) raw = 'none';

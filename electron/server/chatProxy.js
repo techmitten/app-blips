@@ -280,7 +280,9 @@ async function forward(request, env, payload, provider, maxTokens, connectTimeou
   // providers.js), drops stream_options where unsupported, and relaxes forced
   // tool choices the provider would reject -- the refinement loop already
   // nudges the model if 'auto' returns no tool call.
-  applyProviderSettings(bodyObj, provider, { effort: reasoning_effort ?? 'none' });
+  // The message ID keys prompt caching: every request of one build shares it.
+  const cacheKey = request.headers?.get?.('x-appblips-message') || '';
+  applyProviderSettings(bodyObj, provider, { effort: reasoning_effort ?? 'none', cacheKey });
 
   // The client going away (request.signal) cancels the upstream call at any
   // point; the connect timer only runs until the provider's headers arrive.

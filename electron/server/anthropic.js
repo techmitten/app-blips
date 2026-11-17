@@ -53,7 +53,8 @@ const contentBlocks = (content) => {
   if (typeof content === 'string') return nonBlank(content) ? [{ type: 'text', text: content }] : [];
   if (!Array.isArray(content)) return [];
   return content.flatMap((part) => {
-    if (part?.type === 'text' && nonBlank(part.text)) return [{ type: 'text', text: part.text }];
+    // A cache point the renderer marked (llm.js createPageContent).
+    if (part?.type === 'text' && nonBlank(part.text)) return [{ type: 'text', text: part.text, ...(part.cache_control ? { cache_control: CACHE } : {}) }];
     if (part?.type === 'image_url' && typeof part.image_url?.url === 'string') return [imageBlock(part.image_url.url)];
     return [];
   });

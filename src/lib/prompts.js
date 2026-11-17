@@ -373,7 +373,12 @@ export const getRefinementTools = (studioMode = 'app') =>
 // The extra pages of an initial build are requested as plain streamed text, like
 // the landing page: some providers do not stream tool-call arguments, so a
 // create_page tool call would show nothing until the whole page finished.
-export const buildCreatePageInstruction = ({ pageName, request, landingHtml, projectName }) => `The website's landing page (index.html) is below. It links to a page named "${pageName}" that does not exist yet. Write it now. Respond with the complete HTML document for ${pageName} only, beginning at <!DOCTYPE html>, with no explanation and no markdown fences.
+// `shared` is the same for every page of a build, so providers' prompt caches
+// (which match the start of a request) can reuse the landing page and rules
+// from one page to the next; llm.js also marks its end as a cache point for
+// Claude. Only `task` may name the page.
+export const buildCreatePageParts = ({ pageName, request, landingHtml, projectName }) => ({
+  shared: `The website's landing page (index.html) is below. It links to pages that do not exist yet; you will write one of them, named at the end of this message.
 
 Original request: ${request}
 
@@ -386,7 +391,16 @@ Rules for the new page:
 Landing page (index.html):
 \`\`\`html
 ${landingHtml}
-\`\`\``;
+\`\`\`
+
+`,
+  task: `Write "${pageName}" now. Respond with the complete HTML document for ${pageName} only, beginning at <!DOCTYPE html>, with no explanation and no markdown fences.`,
+});
+
+export const buildCreatePageInstruction = (options) => {
+  const { shared, task } = buildCreatePageParts(options);
+  return shared + task;
+};
 
 // Shared by the three build prompts. The chat's acknowledgement
 // (generateChatReply) and closing summary (generateCompletionReply) are

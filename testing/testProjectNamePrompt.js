@@ -7,6 +7,7 @@ import {
   buildWebsiteInitialGenerationPrompt,
   buildGameInitialGenerationPrompt,
   buildCreatePageInstruction,
+  buildCreatePageParts,
 } from '../src/lib/prompts.js';
 
 const cases = [
@@ -29,5 +30,14 @@ for (const { name, prompt } of cases) {
 assert.doesNotMatch(buildInitialGenerationPrompt('a recipe tracker', 'both', ''), /only a label/);
 assert.doesNotMatch(buildInitialGenerationPrompt('a recipe tracker', 'both', 'Untitled App'), /only a label/);
 assert.doesNotMatch(buildWebsiteInitialGenerationPrompt('a bakery site', 'Untitled Website'), /only a label/);
+
+// Page requests share everything but the final task line, so prompt caches
+// can reuse the landing page from one page to the next.
+const pageBase = { request: 'a bakery site', landingHtml: '<html></html>', projectName: 'Crumb' };
+const aboutParts = buildCreatePageParts({ ...pageBase, pageName: 'about.html' });
+const menuParts = buildCreatePageParts({ ...pageBase, pageName: 'menu.html' });
+assert.equal(aboutParts.shared, menuParts.shared);
+assert.ok(!menuParts.shared.includes('menu.html'));
+assert.ok(menuParts.task.includes('menu.html'));
 
 console.log('ok');

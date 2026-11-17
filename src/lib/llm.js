@@ -31,7 +31,7 @@ import {
   
   REFINEMENT_TOOLS,
   getRefinementTools,
-  buildCreatePageInstruction,
+  buildCreatePageParts,
   ASK_CLARIFYING_QUESTIONS_TOOL,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
@@ -887,6 +887,15 @@ export const executeRefinementTool = (workingCode, toolCall) => {
 // than through create_page: some providers deliver tool-call arguments as a
 // single event once the whole call is finished, which left the live views blank
 // for the entire page and looked like a hang.
+// The page request as two text parts, with a cache point after the part every
+// page shares. Claude caches only up to a marked point (anthropic.js); the
+// proxy joins the parts back into one string for the other providers
+// (providers.js), whose caches need no marker.
+const createPageContent = ({ shared, task }) => [
+  { type: 'text', text: shared, cache_control: { type: 'ephemeral' } },
+  { type: 'text', text: task },
+];
+
 const createMissingPages = async ({ files, request, signal, onChunk, projectName, reasoningEffort }) => {
   let result = files;
   const targets = [...new Set(findBrokenLinks(files).map((b) => b.target))].slice(0, MAX_PAGES - 1);
@@ -917,7 +926,7 @@ const createMissingPages = async ({ files, request, signal, onChunk, projectName
         const message = await requestFullText({
           messages: [
             { role: 'system', content: buildHtmlSystemPrompt('website', getActiveConnectors()) },
-            { role: 'user', content: buildCreatePageInstruction({ pageName, request, landingHtml: getLanding(files), projectName }) }
+            { role: 'user', content: createPageContent(buildCreatePageParts({ pageName, request, landingHtml: getLanding(files), projectName })) }
           ],
           onChunk: forwardLive,
           signal,

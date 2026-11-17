@@ -195,3 +195,64 @@ test('the chat proxy routes Anthropic through the SDK and reports a bad key', as
     assert.match((await response.json()).error, /Anthropic rejected the API key/);
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test('a cache point marked on a text part reaches Claude; other providers get the plain string', () => {
+  const content = [
+    { type: 'text', text: 'Shared landing page. ', cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: 'Write about.html now.' },
+  ];
+  const messages = () => [{ role: 'system', content: 'sys' }, { role: 'user', content }];
+
+  const claude = { model: 'claude-opus-5-5', messages: messages(), max_tokens: 10 };
+  applyProviderSettings(claude, provider, { effort: 'none' });
+  const params = toAnthropicParams(claude);
+  assert.deepEqual(params.messages[0].content, [
+    { type: 'text', text: 'Shared landing page. ', cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: 'Write about.html now.' },
+  ]);
+
+  for (const id of ['deepseek', 'openai', 'gemini', 'xai', 'openrouter']) {
+    const body = { model: 'm', messages: messages() };
+    applyProviderSettings(body, { id, model: 'm' }, { effort: 'none' });
+    assert.equal(body.messages[1].content, 'Shared landing page. Write about.html now.', id);
+  }
+});
+
+test('OpenRouter Claude keeps cache points and is pinned to one backend; OpenAI gets a cache key', () => {
+  const content = [
+    { type: 'text', text: 'Shared. ', cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: 'Write about.html now.' },
+  ];
+  const messages = () => [{ role: 'system', content: 'sys' }, { role: 'user', content }];
+  const tools = [{ type: 'function', function: { name: 'view_code', parameters: { type: 'object', properties: {} } } }];
+
+  const claude = { model: 'anthropic/claude-sonnet-5-5', messages: messages() };
+  applyProviderSettings(claude, { id: 'openrouter', model: 'x' }, { effort: 'none', cacheKey: 'abc123' });
+  assert.deepEqual(claude.messages[0].content, [{ type: 'text', text: 'sys', cache_control: { type: 'ephemeral' } }]);
+  assert.deepEqual(claude.messages[1].content, content);
+  assert.equal(claude.session_id, 'abc123');
+  assert.equal(claude.cache_control, undefined, 'one-shot requests get no end-of-conversation cache point');
+
+  const loop = { model: 'anthropic/claude-sonnet-5-5', messages: messages(), tools };
+  applyProviderSettings(loop, { id: 'openrouter', model: 'x' }, { effort: 'none' });
+  assert.deepEqual(loop.cache_control, { type: 'ephemeral' });
+  assert.equal(loop.session_id, undefined);
+
+  const other = { model: 'deepseek/deepseek-v4', messages: messages() };
+  applyProviderSettings(other, { id: 'openrouter', model: 'x' }, { effort: 'none', cacheKey: 'abc123' });
+  assert.equal(other.messages[0].content, 'sys');
+  assert.equal(other.messages[1].content, 'Shared. Write about.html now.');
+  assert.equal(other.session_id, 'abc123');
+
+  const openai = { model: 'gpt-5.5', messages: messages() };
+  applyProviderSettings(openai, resolveUserProvider({ id: 'openai', apiKey: 'sk-test', model: 'gpt-5.5' }), { effort: 'none', cacheKey: 'abc123' });
+  assert.equal(openai.prompt_cache_key, 'abc123');
+  assert.equal(openai.messages[1].content, 'Shared. Write about.html now.');
+
+  for (const id of ['deepseek', 'gemini', 'xai']) {
+    const body = { model: 'm', messages: messages() };
+    applyProviderSettings(body, { id, model: 'm' }, { effort: 'none', cacheKey: 'abc123' });
+    assert.equal(body.prompt_cache_key, undefined, id);
+    assert.equal(body.session_id, undefined, id);
+  }
+});

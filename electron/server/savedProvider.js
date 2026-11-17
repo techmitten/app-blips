@@ -25,6 +25,8 @@ export async function withSavedProvider(request, { keyFor, active = () => null }
   }
   const origin = request.headers.get('origin');
   const authorization = request.headers.get('authorization');
+  // The per-message ID keys prompt caching (providers.js applyCacheSettings).
+  const messageId = request.headers.get('x-appblips-message');
   return new Request(request.url, {
     method: 'POST',
     // Origin is kept for chatProxy's other-site check: a sandboxed app's
@@ -33,6 +35,7 @@ export async function withSavedProvider(request, { keyFor, active = () => null }
       'content-type': 'application/json',
       ...(origin ? { origin } : {}),
       ...(authorization ? { authorization } : {}),
+      ...(messageId ? { 'x-appblips-message': messageId } : {}),
     },
     body: body ? JSON.stringify(body) : text,
   });
