@@ -66,3 +66,5 @@ opencode.json
 # Wrangler's local state from `wrangler dev` (local D1 copy, temp builds)
 .wrangler/
 searchfetch.md
+# Cloudflare Worker (wrangler.jsonc): local settings for wrangler dev
+.dev.vars*

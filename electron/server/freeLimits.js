@@ -213,7 +213,9 @@ const today = (now) => new Date(now).toISOString().slice(0, 10);
 const refusal = (error, retryAfterSeconds = null) => ({ refused: { error, retryAfter: retryAfterSeconds } });
 
 // Returns { limits, begin(visitor) } where begin gives { refused } or
-// { end(tokens) } to call once when the request is over.
+// { end(tokens) } to call once when the request is over. The other methods
+// let a host that can't keep this object in memory (the Cloudflare Worker's
+// Durable Object, worker/freeLimitsStore.js) save and restore the counts.
 export function createFreeLimits(env, { now = Date.now } = {}) {
   const limits = readLimits(env);
   const visitors = new Map();
@@ -247,6 +249,28 @@ export function createFreeLimits(env, { now = Date.now } = {}) {
 
   return {
     limits,
+    // One visitor's counts, and the site-wide ones, as plain JSON.
+    exportVisitor(key) {
+      const v = visitors.get(key);
+      if (!v) return null;
+      const { day, tokens, hourStart, hourCount, minuteStart, minuteCount, lastMessageAt, messages } = v;
+      return { day, tokens, hourStart, hourCount, minuteStart, minuteCount, lastMessageAt, messages: [...messages] };
+    },
+    exportSite: () => ({ ...site }),
+    // Puts saved counts back. Nothing is in flight after a restart.
+    restore({ site: savedSite = null, visitors: saved = [] } = {}) {
+      if (savedSite && typeof savedSite.day === 'string') site = { day: savedSite.day, tokens: Number(savedSite.tokens) || 0 };
+      for (const [key, v] of saved) {
+        if (!v || typeof v !== 'object') continue;
+        visitors.set(key, { ...v, messages: new Map(Array.isArray(v.messages) ? v.messages : []), inFlight: 0 });
+      }
+    },
+    // Tokens of a request whose ticket was lost (its host restarted mid-request).
+    addTokens(key, tokens) {
+      const used = Number.isFinite(tokens) && tokens > 0 ? tokens : 0;
+      visitorFor(key).tokens += used;
+      site.tokens += used;
+    },
     begin(key, messageId = '') {
       const visitor = visitorFor(key);
       if (limits.tokensPerDay && site.tokens >= limits.tokensPerDay) {

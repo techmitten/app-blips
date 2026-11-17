@@ -120,7 +120,9 @@ async function apiGet(key, path, request, fetchImpl) {
 
 // One handler per server: the search cache and the per-visitor counts live in
 // it. `perVisitor`: searches each visitor may make an hour (0 = no limit).
-export function createUnsplashApi({ fetch: fetchImpl = globalThis.fetch, now = Date.now, perVisitor = DEFAULT_SEARCHES_PER_VISITOR_HOUR } = {}) {
+// `allowVisitor(visitor)` (may return a promise) replaces the in-memory count,
+// for a host whose memory isn't shared between requests (the Cloudflare Worker).
+export function createUnsplashApi({ fetch: fetchImpl = globalThis.fetch, now = Date.now, perVisitor = DEFAULT_SEARCHES_PER_VISITOR_HOUR, allowVisitor: allowVisitorOverride = null } = {}) {
   const cache = new Map();
   const visitors = new Map();
 
@@ -175,7 +177,7 @@ export function createUnsplashApi({ fetch: fetchImpl = globalThis.fetch, now = D
     const cacheKey = `${query.toLowerCase()}\n${orientation}`;
     const hit = cached(cacheKey);
     if (hit) return json(200, { query, results: hit });
-    if (!allowVisitor(visitor)) return json(429, { error: 'You’ve made a lot of photo searches this hour. Try again later.', stop: true });
+    if (!(await (allowVisitorOverride || allowVisitor)(visitor))) return json(429, { error: 'You’ve made a lot of photo searches this hour. Try again later.', stop: true });
 
     const params = new URLSearchParams({ query, per_page: String(PER_PAGE), content_filter: 'high', ...(orientation ? { orientation } : {}) });
     const result = await apiGet(key, `/search/photos?${params}`, request, fetchImpl);

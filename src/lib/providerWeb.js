@@ -20,6 +20,7 @@ import { isDesktop, webProviderStore } from './desktop.js';
 import { loadWebSearch } from './config.js';
 import { providerSearchEnabled } from './connectors.js';
 import { messageHeaders } from './messageId.js';
+import { freeSignInHeaders } from './freeSignIn.js';
 
 // The browser version names the provider in use (without its key), as it does
 // for /api/chat; the desktop app's main process knows it already.
@@ -30,11 +31,15 @@ const withProvider = (body) => {
 
 async function call(path, body, { signal = null } = {}) {
   let response;
+  const sent = withProvider(body);
+  // Paid by Free AI (no provider of the user's own): it may need a sign-in.
+  // The status check spends nothing and never needs one, so it doesn't load Clerk.
+  const signIn = !isDesktop && !sent.user_provider && !path.endsWith('/status') ? await freeSignInHeaders() : {};
   try {
     response = await fetch(path, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...messageHeaders() },
-      body: JSON.stringify(withProvider(body)),
+      headers: { 'content-type': 'application/json', ...messageHeaders(), ...signIn },
+      body: JSON.stringify(sent),
       signal,
     });
   } catch (err) {

@@ -1,5 +1,6 @@
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply, extractUserNotes, invalidArgumentsError } from './edits';
 import { messageHeaders } from './messageId';
+import { freeSignInHeaders } from './freeSignIn';
 import { isDesktop, webProviderStore } from './desktop';
 import { loadOutputTokenLimit, loadPromptSuggestions } from './config';
 import { describeProjectForSuggestions, recentRequests, parseSuggestions, MAX_SUGGESTIONS } from './promptSuggestions';
@@ -465,6 +466,8 @@ export const requestModelText = async ({
     // server attaches it (withSavedProvider).
     let provider = userProvider ?? null;
     if (!isDesktop) provider = webProviderStore.forRequest(provider);
+    // No provider of the user's own: Free AI, which may need a sign-in.
+    if (!isDesktop && !provider) Object.assign(headers, await freeSignInHeaders());
     usageTracker = trackRequest(bodyObj);
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -473,8 +476,12 @@ export const requestModelText = async ({
       signal
     });
     if (response.status === 401) {
-      const err = new Error('The AI provider rejected the request. Check the provider and key in Settings → AI.');
+      // Free AI without a sign-in (server freeAuth.js) says so itself.
+      const errData = await response.json().catch(() => null);
+      const signIn = errData?.source === 'free-sign-in' && typeof errData.error === 'string';
+      const err = new Error(signIn ? errData.error : 'The AI provider rejected the request. Check the provider and key in Settings → AI.');
       err.isNonRetryable = true;
+      if (signIn) err.needsFreeSignIn = true;
       throw err;
     }
 

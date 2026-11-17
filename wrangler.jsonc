@@ -1,0 +1,32 @@
+// The browser version on Cloudflare Workers (worker/index.js). `npx wrangler
+// deploy` builds the client and uploads it with the Worker; Cloudflare serves
+// dist/ itself, and only /api/* runs the Worker. Settings (the Free option's
+// provider and key, the APPBLIPS_FREE_* limits, UNSPLASH_ACCESS_KEY, …) go in
+// the dashboard's Variables and Secrets, or `npx wrangler secret put NAME`;
+// for `npx wrangler dev`, in a .dev.vars file. The desktop app, `npm start`
+// and Docker don't use any of this.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "appblips-web",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-11-01",
+  // Buffer, node:stream and friends, used by the shared handlers.
+  "compatibility_flags": ["nodejs_compat"],
+  "build": {
+    "command": "npm run build && cp worker/_headers dist/_headers"
+  },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // Client-side routes get index.html, like server.js's fallback.
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  // The Free option's counts (worker/freeLimitsObject.js). The free plan only
+  // offers SQLite-backed Durable Objects.
+  "durable_objects": {
+    "bindings": [{ "name": "FREE_LIMITS", "class_name": "FreeLimits" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["FreeLimits"] }],
+  "observability": { "enabled": true }
+}

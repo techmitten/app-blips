@@ -89,6 +89,8 @@ export async function toFetchRequest(req, res = null) {
     headers: {
       ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
       ...(req.headers.origin ? { origin: req.headers.origin } : {}),
+      // The Free option's sign-in (freeAuth.js), for /api/web/*.
+      ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
       ...browserKeyHeaders(req),
     },
     ...(hasBody ? { body } : {}),

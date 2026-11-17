@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { startUserMessage } from './lib/messageId';
+import { ensureFreeSignIn, openFreeSignIn } from './lib/freeSignIn';
 import { flushSync } from 'react-dom';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
@@ -1510,6 +1511,16 @@ export default function App({ coldStart = false }) {
     e?.preventDefault();
     const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
     if (!currentPrompt.trim()) return;
+    // Free AI on a server that asks for a sign-in: sign in first; the prompt
+    // stays in the box to send again.
+    if (!isAutoFix) {
+      try {
+        if (!(await ensureFreeSignIn())) return;
+      } catch (err) {
+        setError(err.message);
+        return;
+      }
+    }
 
     if (!isAutoFix) {
       // Every request this prompt causes counts as this one message on the Free option.
@@ -1892,6 +1903,8 @@ export default function App({ coldStart = false }) {
       logError(isAutoFix ? 'Auto-fix failed' : 'Generation failed', err);
       setError(isAutoFix ? AUTO_FIX_FAILURE : err.message);
       if (!isAutoFix) setPrompt(currentPrompt); // Restore the user's request, never internal diagnostics
+      // The Free AI sign-in ended (or was never made): offer it again.
+      if (err.needsFreeSignIn) openFreeSignIn().catch((signInErr) => logError('Could not open the Free AI sign-in', signInErr));
       // Clear the pending job on a hard error — user can see the error message
       // and re-submit themselves; stale job records would be confusing.
       clearPendingJob();

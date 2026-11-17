@@ -353,8 +353,8 @@ const KINDS = { '/api/web/status': 'status', '/api/web/search': 'search', '/api/
 
 // `request` has been through withSavedProvider. `freeLimits` (freeLimits.js)
 // limits calls paid by the environment provider per `visitor`; server.js
-// passes both.
-export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globalThis.fetch, freeLimits = null, visitor = '', messageId = '' } = {}) {
+// passes both, and `checkSignIn` as for /api/chat (chatProxy.js).
+export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globalThis.fetch, freeLimits = null, visitor = '', messageId = '', checkSignIn = null } = {}) {
   const kind = KINDS[new URL(request.url).pathname.replace(/\/+$/, '')];
   if (!kind) return json(404, { error: 'Not found.' });
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
@@ -383,10 +383,16 @@ export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globa
   const invalid = validate(kind, payload);
   if (invalid) return json(400, { error: invalid });
 
-  // The Free option: counted per visitor like an AI request.
+  // The Free option: signed in if the server asks, then counted per visitor
+  // like an AI request.
+  if (checkSignIn && !own) {
+    const signedIn = await checkSignIn(request);
+    if (signedIn.refused) return json(401, { error: signedIn.refused, source: 'free-sign-in', stop: true });
+    if (signedIn.user) visitor = `user:${signedIn.user}`;
+  }
   let ticket = null;
   if (freeLimits && !own) {
-    const started = freeLimits.begin(visitor, messageId);
+    const started = await freeLimits.begin(visitor, messageId);
     if (started.refused) {
       const { error, retryAfter } = started.refused;
       return json(429, { error, source: 'free-limit', stop: true }, retryAfter ? { 'retry-after': String(retryAfter) } : {});

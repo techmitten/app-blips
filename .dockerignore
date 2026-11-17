@@ -24,3 +24,5 @@ docs
 # build output and keystore.properties (signing passwords).
 android
 capacitor.config.json
+.dev.vars*
+.wrangler

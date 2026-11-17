@@ -7,6 +7,7 @@ import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
 import useTestCooldown from '../hooks/useTestCooldown';
+import FreeSignInRow from './FreeSignInRow';
 import { PROVIDER_LOGOS, ONBOARDING_PROVIDER_LOGOS } from './providerLogos';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
@@ -300,12 +301,13 @@ export default function DesktopProviderSettings({ guardRef }) {
               options={[...(saved?.envConfigured ? [{ id: FREE_PROVIDER_ID, label: FREE_PROVIDER_LABEL }] : []), ...USER_PROVIDER_OPTIONS]}
             />
           </div>
-          {isFree ? (
+          {isFree ? (<>
             <p className="text-xs text-slate-500 leading-snug">
               No key or model to choose. It may be slower or limited when busy; pick a provider with your own key for more control.
               {saved?.enabled && ' Saving switches off your own provider; its key stays saved.'}
             </p>
-          ) : (<>
+            {!isDesktop && saved?.freeSignIn && <FreeSignInRow />}
+          </>) : (<>
           <label className="block text-sm text-slate-600">
             {draft.id ? `${providerLabel(draft.id)} API key` : 'API key'}
             <div className="relative">

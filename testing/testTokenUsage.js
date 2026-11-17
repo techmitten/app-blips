@@ -18,7 +18,9 @@ try {
     [...chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`), 'data: [DONE]\n\n'].join(''),
     { headers: { 'content-type': 'text/event-stream' } },
   );
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (url) => {
+    // The Free AI sign-in check (src/lib/freeSignIn.js): no sign-in here.
+    if (url === '/api/provider') return Response.json({});
     const next = responses.shift();
     assert.ok(next, 'unexpected API request');
     return next();

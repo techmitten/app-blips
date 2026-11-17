@@ -263,6 +263,8 @@ export const webProviderStore = {
       // nothing is saved here, so onboarding doesn't ask for a key.
       envConfigured: server.envConfigured === true,
       ...(server.envProvider ? { envProvider: server.envProvider } : {}),
+      // Free AI needs a Google or GitHub sign-in on this server (freeSignIn.js).
+      ...(server.freeSignIn ? { freeSignIn: server.freeSignIn } : {}),
     };
   },
   async set(info) {

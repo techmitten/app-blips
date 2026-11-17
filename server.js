@@ -34,6 +34,7 @@ import { createUnsplashApi } from './electron/server/unsplashApi.js';
 import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
+import { checkFreeSignIn } from './electron/server/freeAuth.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 import { resolveAddresses } from './electron/server/dnsLookup.js';
 
@@ -56,6 +57,8 @@ const handleUnsplashApi = createUnsplashApi();
 // Limits on the Free option (the .env provider) for a server many people can
 // reach; APPBLIPS_FREE_LIMITS=off turns them off (freeLimits.js).
 const freeLimits = freeLimitsEnabled(process.env) ? createFreeLimits(process.env) : null;
+// With Clerk keys set, Free AI needs a Google or GitHub sign-in (freeAuth.js).
+const checkSignIn = (request) => checkFreeSignIn(request, process.env);
 removeLegacyKeyFiles();
 
 const sendText = (res, status, text, headers = {}) => {
@@ -141,7 +144,7 @@ const server = createServer((req, res) => {
       // For checking how a hosting platform forwards addresses; off by default.
       if (process.env.APPBLIPS_DEBUG_CLIENT_IP) console.log(`[free-limits] x-forwarded-for="${req.headers['x-forwarded-for'] || ''}" peer=${req.socket.remoteAddress} -> ${ip}`);
       const visitor = visitorKey(ip);
-      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env, { freeLimits, visitor, messageId: String(req.headers['x-appblips-message'] || '') }));
+      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env, { freeLimits, visitor, messageId: String(req.headers['x-appblips-message'] || ''), checkSignIn }));
       sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
     };
     handle().catch(fail);
@@ -194,7 +197,7 @@ const server = createServer((req, res) => {
   if (req.url.startsWith('/api/web/')) {
     const visitor = visitorKey(clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress));
     toFetchRequest(req, res)
-      .then((request) => withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), process.env, { freeLimits, visitor, messageId: String(req.headers['x-appblips-message'] || '') })))
+      .then((request) => withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), process.env, { freeLimits, visitor, messageId: String(req.headers['x-appblips-message'] || ''), checkSignIn })))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

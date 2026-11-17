@@ -155,7 +155,11 @@ export const UPSTREAM_CONNECT_MS = 120_000;
 
 // `freeLimits` (freeLimits.js) limits requests answered with the env
 // provider (the Free option) per `visitor`; server.js passes both.
-export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '', messageId = '' } = {}) {
+// `checkSignIn(request)` (freeAuth.js checkFreeSignIn), when given, must
+// accept a Free request first: { user } or { refused }; a signed-in user is
+// then counted as themselves instead of by address. The desktop app passes
+// none of these.
+export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '', messageId = '', checkSignIn = null } = {}) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -186,10 +190,22 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   if (picked.response) return picked.response;
   const { provider } = picked;
 
-  // The Free option: counted per visitor (and its output capped, if set).
+  // The Free option: signed in, if the server asks for it, then counted per
+  // visitor (and its output capped, if set).
+  if (checkSignIn && !provider.userSupplied) {
+    const signedIn = await checkSignIn(request);
+    if (signedIn.refused) {
+      return new Response(JSON.stringify({ error: signedIn.refused, source: 'free-sign-in', stop: true }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (signedIn.user) visitor = `user:${signedIn.user}`;
+  }
   let ticket = null;
   if (freeLimits && !provider.userSupplied) {
-    const started = freeLimits.begin(visitor, messageId);
+    // Synchronous in server.js; a promise in the Cloudflare Worker.
+    const started = await freeLimits.begin(visitor, messageId);
     if (started.refused) {
       const { error, retryAfter } = started.refused;
       return new Response(JSON.stringify({ error, source: 'free-limit' }), {
