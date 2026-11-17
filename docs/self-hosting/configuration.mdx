@@ -68,7 +68,7 @@ An API key is a secret code from an AI provider that lets AppBlips use your acco
 
 ## Limits on the Free option
 
-When the server has its own provider, its **Free** option is limited, so one person can't use up your budget. The limits count each visitor by their IP address (the address their internet connection uses). People who build with their own key in **Settings → AI** are never limited.
+When the server has its own provider, its **Free** option is limited, so one person can't use up your budget. The limits count each visitor by their IP address (the address their internet connection uses), or by account when you turn on [sign-in for the Free option](#sign-in-for-the-free-option). People who build with their own key in **Settings → AI** are never limited.
 
 The counts are kept in memory, so restarting AppBlips resets them. Your provider's own spending limit is still the final safeguard.
 
@@ -78,33 +78,65 @@ When someone reaches a limit, AppBlips tells them when they can build again and 
   Set it to `off` to turn every limit off. Do this when only you use this copy of AppBlips.
 </ParamField>
 
-<ParamField body="APPBLIPS_FREE_MESSAGES_PER_MINUTE" type="number" default="6">
-  How many chat messages one visitor may send in a minute. The AI's own follow-up requests while it works on a message don't count. `0` removes this limit.
+<ParamField body="APPBLIPS_FREE_MESSAGES_PER_MINUTE" type="number">
+  Limits how many chat messages one visitor may send in a minute. The AI's own follow-up requests while it works on a message don't count. `0` removes this limit.
 </ParamField>
 
-<ParamField body="APPBLIPS_FREE_MESSAGE_GAP_SECONDS" type="number" default="3">
-  The shortest wait between one visitor's chat messages. `0` removes this limit.
+<ParamField body="APPBLIPS_FREE_MESSAGE_GAP_SECONDS" type="number">
+  Sets the shortest wait between one visitor's chat messages. `0` removes this limit.
 </ParamField>
 
-<ParamField body="APPBLIPS_FREE_REQUESTS_PER_HOUR" type="number" default="120">
-  How many requests one visitor may send in an hour. `0` removes this limit.
+<ParamField body="APPBLIPS_FREE_REQUESTS_PER_HOUR" type="number">
+  Limits how many requests one visitor may send in an hour. `0` removes this limit.
 </ParamField>
 
-<ParamField body="APPBLIPS_FREE_CONCURRENT" type="number" default="4">
-  How many requests one visitor may have running at the same time. `0` removes this limit.
+<ParamField body="APPBLIPS_FREE_CONCURRENT" type="number">
+  Limits how many requests one visitor may have running at the same time. `0` removes this limit.
 </ParamField>
 
-<ParamField body="APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY" type="number" default="2,000,000">
-  How many tokens one visitor may use in a day. A token is a small piece of text, about three-quarters of a word, and providers bill by the token. Days run from midnight to midnight UTC. `0` removes this limit.
+<ParamField body="APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY" type="number">
+  Limits how many tokens one visitor may use in a day. A token is a small piece of text, about three-quarters of a word, and providers bill by the token. Days run from midnight to midnight UTC. `0` removes this limit.
 </ParamField>
 
-<ParamField body="APPBLIPS_FREE_TOKENS_PER_DAY" type="number" default="30,000,000">
-  How many tokens everyone together may use in a day (UTC). `0` removes this limit.
+<ParamField body="APPBLIPS_FREE_TOKENS_PER_DAY" type="number">
+  Limits how many tokens everyone together may use in a day (UTC). `0` removes this limit.
 </ParamField>
 
 <ParamField body="APPBLIPS_FREE_MAX_OUTPUT_TOKENS" type="number">
-  The longest reply, in tokens, that one Free request may get. Leave it empty to keep the app's own limit: 64,000 tokens, or whatever the person set under **Settings → AI → Output tokens: building**.
+  The longest reply, in tokens, that one Free request may get. Leave it empty to keep the app's own limit, or whatever the person set under **Settings → AI → Output tokens: building**.
 </ParamField>
+
+## Sign-in for the Free option
+
+If you open your copy of AppBlips to the public, you can require people to sign in before they use the **Free** option. Sign-in is handled by [Clerk](https://clerk.com), a service that runs sign-in for websites. Visitors choose Google or GitHub, and the limits above then count each account instead of each IP address. People who use their own API key never sign in. The desktop app never asks for it.
+
+It's off unless you set both keys below.
+
+<Steps>
+  <Step title="Create a Clerk application">
+    Create a free account at [clerk.com](https://clerk.com) and add an application.
+  </Step>
+  <Step title="Allow only Google and GitHub">
+    In the Clerk dashboard, open the sign-in options and switch on **Google** and **GitHub** only. Switch off email and every other method.
+  </Step>
+  <Step title="Copy the two keys">
+    In the dashboard, open **API keys**. Copy the **Publishable key** and the **JWT public key** into your `.env` file as the two settings below, then restart AppBlips.
+  </Step>
+</Steps>
+
+<ParamField body="CLERK_PUBLISHABLE_KEY" type="string">
+  The publishable key, which starts with `pk_live_` or `pk_test_`. It isn't secret: the page uses it to load the sign-in window.
+</ParamField>
+
+<ParamField body="CLERK_JWT_KEY" type="string">
+  The instance's PEM public key, from **API keys → JWT public key**. The server uses it to check each sign-in itself, without contacting Clerk. If your `.env` file needs it on one line, write the line breaks as `\n`.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_SIGN_IN" type="string">
+  Set it to `off` to turn sign-in off while keeping the two keys in place.
+</ParamField>
+
+Each sign-in is accepted only when it was issued to the address your copy of AppBlips is opened from. If you also serve it from other addresses, list them in `APPBLIPS_CHAT_ALLOWED_ORIGINS`.
 
 ## Photo library
 

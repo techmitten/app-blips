@@ -210,11 +210,19 @@ Find the message or symptom you see below. Each entry explains what it means and
     - **Your provider's own limits** on how many requests you can send. Wait a minute and try again, or check your account's limits.
   </Accordion>
 
+  <Accordion title="&quot;Sign in with Google or GitHub to use Free AI&quot; or the Free AI sign-in won't load">
+    Some copies of AppBlips, such as [web.appblips.com](/quickstart-browser), ask you to sign in before you use **Free (no key needed)**.
+
+    - **Sign in:** open **Settings → AI**, choose **Free (no key needed)** and click **Sign in**. Choose Google or GitHub in the window that opens. If nothing appears, allow pop-ups for the site.
+    - **If the message is `The Free AI sign-in couldn't load`:** check your internet connection and any extension that blocks sign-in pages, then reload the page. AppBlips tries once per page load.
+    - **To skip signing in:** use your own API key. Open **Settings → AI**, choose a provider, paste your key, choose a model and click **Save**. Your own key never needs a sign-in.
+  </Accordion>
+
   <Accordion title="&quot;You've used today's Free AI allowance&quot; or another Free AI limit">
     The **Free (no key needed)** option has limits, set by whoever runs that copy of AppBlips, so it stays available for everyone. The message says when you can build again:
 
-    - `You’ve reached the Free AI limit of … requests an hour.` Wait the number of minutes it shows.
-    - `You’ve used today’s Free AI allowance.` or `Free AI has used up today’s allowance for everyone.` It resets at midnight UTC.
+    - `You’ve reached the Free AI limit …` Wait the number of minutes it shows.
+    - `You’ve used today’s Free AI allowance.` or `Free AI has used up today’s allowance for everyone.` It resets the next day.
     - `Free AI is still answering your other requests.` Wait for your other builds to finish.
 
     To keep building now, use your own API key: open **Settings → AI**, choose a provider, paste your key, choose a model and click **Save**. Your own key is never limited. See [Choose an AI provider](/ai-providers).
