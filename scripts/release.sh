@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# One-command desktop release: npm run release [patch|minor|major]
+# One-command desktop release: npm run release [patch|minor|major|store]
 #
 # Bumps the version, pushes the matching v* tag (which starts the Desktop
 # workflow), waits for GitHub to build the installers into a draft release,
 # then publishes that draft once you confirm.
+# `npm run release store` skips all of that: it only builds and submits the
+# Microsoft Store package for the latest release tag, or another one: `npm run release store v0.1.35` (no version bump).
 # See notes/RELEASING.md for the manual steps this automates.
 set -euo pipefail
 
@@ -11,8 +13,8 @@ cd "$(dirname "$0")/.."
 
 bump="${1:-patch}"
 case "$bump" in
-  patch|minor|major) ;;
-  *) echo "Usage: npm run release [patch|minor|major]   (default: patch)"; exit 1 ;;
+  patch|minor|major|store) ;;
+  *) echo "Usage: npm run release [patch|minor|major|store]   (default: patch)"; exit 1 ;;
 esac
 
 say()  { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
@@ -22,6 +24,47 @@ ask()  { local reply; read -r -p "$1 [y/N] " reply; [[ "$reply" =~ ^[Yy]$ ]]; }
 # --- Safety checks: only release a clean, pushed master ----------------------
 command -v gh >/dev/null || fail "The GitHub CLI (gh) is not installed."
 gh auth status >/dev/null 2>&1 || fail "Not signed in to GitHub. Run: gh auth login"
+
+# --- Store only: build and submit just the Microsoft Store package -----------
+if [ "$bump" = "store" ]; then
+  git fetch --quiet --tags origin
+  git show origin/master:.github/workflows/desktop.yml 2>/dev/null | grep -q store_only \
+    || fail "GitHub's master doesn't have the Store workflow yet. Commit and push first."
+  tag="${2:-$(git describe --tags --abbrev=0 --match 'v*' origin/master 2>/dev/null || true)}"
+  git rev-parse -q --verify "refs/tags/$tag" >/dev/null || fail "Tag '$tag' not found."
+  say "Microsoft Store only: build $tag and submit it (no version bump, no Linux build, no GitHub release)"
+  echo "The Store rejects a version it already has. To use another tag: npm run release store vX.Y.Z"
+  ask "Submit $tag to the Microsoft Store?" || fail "Cancelled. Nothing was changed."
+  gh workflow run desktop.yml --ref master -f store_only=true -f tag="$tag"
+  sleep 8
+  run_id="$(gh run list --workflow desktop.yml --branch master --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
+  say "Building and submitting (a few minutes)…"
+  gh run watch "$run_id" --exit-status --interval 20 || fail "The Store job failed. See: $(gh run view "$run_id" --json url --jq .url)"
+  say "Submitted $tag to Partner Center. Microsoft's review takes a few days."
+  exit 0
+fi
+
+# --- Safety checks: only release a clean, pushed master ----------------------
+command -v gh >/dev/null || fail "The GitHub CLI (gh) is not installed."
+gh auth status >/dev/null 2>&1 || fail "Not signed in to GitHub. Run: gh auth login"
+
+# --- Store only: re-run just the Microsoft Store job for the latest tag -------
+if [ "$bump" = "store" ]; then
+  git fetch --quiet --tags origin
+  tag="$(git describe --tags --abbrev=0 --match 'v*' origin/master 2>/dev/null || true)"
+  [ -n "$tag" ] || fail "No release tag found."
+  say "Microsoft Store only: build and submit $tag (no version bump, no Linux build)"
+  echo "The Store rejects a version it already has, so this is for retrying a failed submission."
+  ask "Submit $tag to the Microsoft Store?" || fail "Cancelled. Nothing was changed."
+  gh workflow run desktop.yml --ref "$tag" -f store_only=true
+  sleep 8
+  run_id="$(gh run list --workflow desktop.yml --branch "$tag" --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
+  say "Building and submitting (a few minutes)…"
+  gh run watch "$run_id" --exit-status --interval 20 || fail "The Store job failed. See: $(gh run view "$run_id" --json url --jq .url)"
+  say "Submitted $tag to Partner Center. Microsoft's review takes a few days."
+  exit 0
+fi
+
 [ "$(git branch --show-current)" = "master" ] || fail "You are not on master. Switch with: git checkout master"
 [ -z "$(git status --porcelain)" ] || fail "You have unsaved (uncommitted) changes. Commit or discard them first."
 git fetch --quiet origin

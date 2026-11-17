@@ -19,6 +19,15 @@ name: Desktop
 
 on:
   workflow_dispatch:
+    inputs:
+      store_only:
+        description: Only build and submit the Microsoft Store package
+        type: boolean
+        default: false
+      tag:
+        description: With store_only, the release tag to build the Store package from (e.g. v0.1.35)
+        type: string
+        default: ''
   push:
     tags: ['v*']
 
@@ -27,6 +36,7 @@ permissions:
 
 jobs:
   build:
+    if: ${{ !inputs.store_only }}
     # 24.04 explicitly: the core24 snap is built on it, and ubuntu-latest moves
     # to newer releases on its own.
     runs-on: ubuntu-24.04
@@ -77,3 +87,39 @@ jobs:
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: snapcraft upload --release=stable dist-desktop/*.snap
+
+  # Builds the Microsoft Store package on Windows and submits it to Partner
+  # Center. The .appx is never uploaded anywhere else (not to the GitHub
+  # release). Runs for v* tags, or by hand with store_only (npm run release store). Needs these repository secrets, from
+  # Partner Center → Account settings → Microsoft Entra ID (app with the
+  # Manager role) and the app's Product identity: MSSTORE_TENANT_ID,
+  # MSSTORE_SELLER_ID, MSSTORE_CLIENT_ID, MSSTORE_CLIENT_SECRET,
+  # MSSTORE_PRODUCT_ID. Microsoft's certification takes days; this job only
+  # submits.
+  store:
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.store_only
+    runs-on: windows-latest
+    steps:
+      # store_only runs come from master (so they use this workflow file) but
+      # build the code of the tag given in `tag`.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:store
+      - uses: microsoft/setup-msstore-cli@v1
+      - name: Submit to the Microsoft Store
+        shell: bash
+        env:
+          MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+          MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
+        run: |
+          msstore reconfigure --tenantId "$MSSTORE_TENANT_ID" --sellerId "$MSSTORE_SELLER_ID" --clientId "$MSSTORE_CLIENT_ID" --clientSecret "$MSSTORE_CLIENT_SECRET"
+          msstore publish dist-desktop -i dist-desktop -id "$MSSTORE_PRODUCT_ID" -v
