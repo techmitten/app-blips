@@ -4,7 +4,7 @@
     "app": [
       "@anthropic-ai/sdk@0.133.0",
       "@babel/runtime@7.29.10",
-      "@capacitor/core@8.6.0",
+      "@capacitor/core@8.6.2",
       "@clerk/clerk-js@6.42.2",
       "@clerk/localizations@4.25.0",
       "@clerk/shared@4.46.0",
@@ -35,7 +35,7 @@
       "@wallet-standard/app@1.1.1",
       "acorn-jsx@5.3.2",
       "acorn@8.19.0",
-      "capacitor-secure-storage-plugin@0.13.0",
+      "capacitor-secure-storage-plugin@0.14.2",
       "copy-to-clipboard@3.3.3",
       "dequal@2.0.3",
       "esbuild-wasm@0.28.2",
@@ -116,7 +116,7 @@
     },
     {
       "name": "@capacitor/core",
-      "version": "8.6.0",
+      "version": "8.6.2",
       "license": "MIT",
       "author": "Ionic Team",
       "homepage": "https://capacitorjs.com",
@@ -380,7 +380,7 @@
     },
     {
       "name": "capacitor-secure-storage-plugin",
-      "version": "0.13.0",
+      "version": "0.14.2",
       "license": "MIT",
       "author": "martinkasa",
       "homepage": "https://github.com/martinkasa/capacitor-secure-storage-plugin",

@@ -8,7 +8,9 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Electron is only needed for the desktop app; skip its ~100 MB download.
-ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
+# onnxruntime-node's Linux CUDA binary download fails with 404 and isn't used.
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
+    ONNXRUNTIME_NODE_INSTALL_CUDA=skip
 
 COPY package.json package-lock.json ./
 # package.json overrides minimatch with this local folder (see its README).

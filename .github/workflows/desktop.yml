@@ -47,6 +47,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
       # electron-builder builds the snap with snapcraft inside an LXD container
       # (snapcraft.core24.useLXD in electron-builder.yml); snapcraft also
       # uploads it.
@@ -125,6 +127,8 @@ jobs:
           MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
         run: node .ci/scripts/store-submit.js --check
       - run: npm ci
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
       - run: npm run desktop:store
       - name: Zip the package
         shell: bash
