@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, X, Paperclip, Camera, Send, Mic, Globe } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
+import ConfirmModal from './ConfirmModal';
+import { MODEL_SIZE_LABEL } from '../lib/whisperModel';
 
 // The mode control is one slot-machine reel with two stops; clicking it
 // advances Build -> Ask -> Build.
@@ -58,7 +61,10 @@ export default function PromptInput({
   // text is transcribed when the user stops, and appended after whatever was
   // already typed when listening began.
   const voiceBaseRef = useRef('');
-  const { supported: voiceSupported, listening, transcribing, error: voiceError, start: startVoice, stop: stopVoice, cancel: cancelVoice } = useSpeechRecognition({
+  const {
+    supported: voiceSupported, starting: voiceStarting, listening, transcribing, error: voiceError, start: startVoice, stop: stopVoice, cancel: cancelVoice,
+    downloadPrompt, downloadModel, dismissDownload, downloading, modelProgress, modelReady,
+  } = useSpeechRecognition({
     onTranscript: (text) => onPromptChange(voiceBaseRef.current + text.trim()),
   });
   // Sending mid-transcription would drop what the user just said.
@@ -69,6 +75,11 @@ export default function PromptInput({
       stopVoice();
       return;
     }
+    // Nothing has been heard yet, so there's nothing to transcribe.
+    if (voiceStarting) {
+      cancelVoice();
+      return;
+    }
     const typed = prompt.trimEnd();
     voiceBaseRef.current = typed ? `${typed} ` : '';
     startVoice();
@@ -76,7 +87,7 @@ export default function PromptInput({
   // Anything that rewrites the prompt itself must end dictation first, or a
   // late transcript would overwrite the edit (or resurrect a sent prompt).
   const handleChange = (value) => {
-    if (listening || transcribing) cancelVoice();
+    if (voiceStarting || listening || transcribing) cancelVoice();
     onPromptChange(value);
   };
   const submit = () => {
@@ -335,6 +346,11 @@ export default function PromptInput({
           )}
           {showVoice && (
             <>
+              {voiceStarting && (
+                <span role="status" className="voice-listening-label text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Starting microphone…
+                </span>
+              )}
               {listening && (
                 <span role="status" className="voice-listening-label text-xs font-semibold text-rose-500 dark:text-rose-400">
                   Listening…
@@ -345,16 +361,26 @@ export default function PromptInput({
                   Transcribing…
                 </span>
               )}
+              {downloading && (
+                <span role="status" className="voice-listening-label text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {modelProgress != null ? `Downloading voice model… ${modelProgress}%` : 'Preparing voice input…'}
+                </span>
+              )}
+              {modelReady && (
+                <span role="status" className="voice-listening-label text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Voice input is ready. Click the microphone to speak.
+                </span>
+              )}
               <button
                 type="button"
                 onClick={toggleVoice}
-                disabled={transcribing}
-                aria-pressed={listening}
-                aria-label={listening ? 'Stop voice input' : transcribing ? 'Transcribing voice input' : 'Start voice input'}
-                title={listening ? 'Stop voice input' : transcribing ? 'Transcribing…' : 'Speak your prompt'}
+                disabled={transcribing || downloading}
+                aria-pressed={listening || voiceStarting}
+                aria-label={listening ? 'Stop voice input' : voiceStarting ? 'Cancel voice input' : transcribing ? 'Transcribing voice input' : downloading ? 'Downloading the voice model' : 'Start voice input'}
+                title={listening ? 'Stop voice input' : voiceStarting ? 'Starting the microphone… Click to cancel.' : transcribing ? 'Transcribing…' : downloading ? 'Downloading the voice model…' : 'Speak your prompt'}
                 className={`composer-key rounded-full! ${listening ? 'composer-key-danger voice-listening' : ''}`}
               >
-                {transcribing ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
+                {transcribing || downloading ? <Loader2 className="animate-spin" size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
               </button>
             </>
           )}
@@ -373,6 +399,26 @@ export default function PromptInput({
           </button>
         </div>
       </div>
+      {/* Portaled: the composer's own styling would otherwise contain a fixed overlay. */}
+      {downloadPrompt && createPortal(
+        <ConfirmModal
+          title="Download the voice model?"
+          subtitle={`A one-time download of ${MODEL_SIZE_LABEL}`}
+          onClose={dismissDownload}
+          onConfirm={downloadModel}
+          confirmLabel="Download"
+          cancelLabel="Not now"
+          confirmClass="brand-fill-text rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+        >
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Voice input uses Whisper, an open-source speech recognition model, to turn your speech into text. To use it, AppBlips needs to download the model from Hugging Face. This happens only once.
+          </p>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            After the download, your recordings are transcribed on this device and are never uploaded.
+          </p>
+        </ConfirmModal>,
+        document.body,
+      )}
     </div>
   );
 }

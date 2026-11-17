@@ -16,7 +16,6 @@ import { handleSeoScanApi } from './electron/server/seoScanApi.js'
 import { resolveAddresses } from './electron/server/dnsLookup.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
-import { ensureWhisperAssets } from './scripts/fetch-whisper-model.js'
 import { licensePlugin } from './scripts/licenses.js'
 
 // Vite's connect server does not catch rejections from async middleware; on
@@ -185,18 +184,6 @@ function llmProxyDevMiddleware(mode) {
   }
 }
 
-// Voice input's Whisper model lives in public/whisper/
-// (gitignored); this fetches them before Vite copies public/ or serves it, so
-// dev, every build and Docker/CI have them without a separate step.
-function whisperAssetsPlugin() {
-  return {
-    name: 'appblips-whisper-assets',
-    async buildStart() {
-      await ensureWhisperAssets()
-    },
-  }
-}
-
 // Packages bundled into the app and its voice-input worker, for Settings →
 // Licenses. The worker is a separate build that finishes before the app's, so
 // both feed one collection and the app's plugin checks it (scripts/licenses.js).
@@ -209,7 +196,7 @@ export default defineConfig(({ mode }) => ({
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   },
   plugins: [
-    react(), whisperAssetsPlugin(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode),
+    react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode),
     licensePlugin('app', { collected: appLicenseModules }),
   ],
   // The voice-input worker imports transformers.js, which splits into chunks;
