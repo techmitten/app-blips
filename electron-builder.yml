@@ -2,7 +2,7 @@
 # built by the CI workflow in .github/workflows/desktop.yml (which uploads the
 # snap to the Snap Store, the source of Ubuntu's App Center). Windows is distributed
 # only through the Microsoft Store (npm run desktop:store, built by hand on a
-# Windows PC, see RELEASING.md); the win: section below exists only to give
+# Windows PC, see notes/RELEASING.md); the win: section below exists only to give
 # that package an icon, not to build a Windows installer.
 appId: com.appblips.desktop
 productName: AppBlips
@@ -77,7 +77,7 @@ linux:
 deb:
   afterInstall: build/linux/after-install.tpl
 # Snap Store package, for Ubuntu's App Center. The Desktop workflow uploads it
-# to the stable channel (see RELEASING.md). snapd updates it;
+# to the stable channel (see notes/RELEASING.md). snapd updates it;
 # electron/updater.js checks the Snap Store for update notices.
 # The name is package.json's "name" (appblips).
 # core24 is built by snapcraft inside an LXD container (useLXD), with the gnome
@@ -95,7 +95,7 @@ deb:
 # until the Snap Store grants auto-connection; until then the user runs
 # `snap connect appblips:<plug>`.
 # The summary, description and icon are also the store listing's: after a
-# change, push them with `snapcraft upload-metadata` (see RELEASING.md).
+# change, push them with `snapcraft upload-metadata` (see notes/RELEASING.md).
 snapcraft:
   base: core24
   core24:

@@ -4,7 +4,7 @@
 # Bumps the version, pushes the matching v* tag (which starts the Desktop
 # workflow), waits for GitHub to build the installers into a draft release,
 # then publishes that draft once you confirm and pushes to Hugging Face.
-# See RELEASING.md for the
+# See notes/RELEASING.md for the
 # manual steps this automates.
 set -euo pipefail
 

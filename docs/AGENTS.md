@@ -56,7 +56,7 @@ Most readers are beginners who have never used an API key or a terminal.
 
 ## Content boundaries
 
-- Don't describe planned or unfinished features as if they exist (signing, macOS installer, and so on). Check signing and release claims against `RELEASING.md` and `.github/workflows/`
+- Don't describe planned or unfinished features as if they exist (signing, macOS installer, and so on). Check signing and release claims against `notes/RELEASING.md` and `.github/workflows/`
 - Privacy and network claims must match the code: everything AppBlips connects to is listed in the FAQ entry "What does AppBlips connect to?". Update it when that changes
 - Don't use version-relative wording such as "the new version" or "before this change". Name the version number instead
 - Keep developer-only commands (`npm run dev`, release scripts, tests) out of user pages. Commands to run AppBlips belong in `quickstart-source.mdx` and the self-hosting pages

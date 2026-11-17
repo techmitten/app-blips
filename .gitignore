@@ -51,20 +51,16 @@ USAGE_TRACKING.md
 .vscode/users.json
 .mcp.json
 
-# Local-only docs, kept out of the repo
-RELEASING.md
+# Local-only docs and notes (RELEASING.md and others), kept out of the repo
+/notes/
 
 
 # Pinokio launcher scripts, kept local
 pinokio/
 
-# Hosted billing store (SQLite)
-appblips.db
-appblips.db-*
 # Local AI-assistant config (OpenCode); keep off GitHub
 opencode.json
 # Wrangler's local state from `wrangler dev` (local D1 copy, temp builds)
 .wrangler/
-searchfetch.md
 # Cloudflare Worker (wrangler.jsonc): local settings for wrangler dev
 .dev.vars*
