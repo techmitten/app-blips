@@ -2,7 +2,7 @@
 // the AI provider key, the Surge sign-in, the Pollinations key, the Pixabay
 // and Tavily keys. They live in each visitor's own browser (localStorage,
 // src/lib/browserKeys.js), not on the server, so one server can serve many
-// people, like a public Hugging Face Space, without anyone's key reaching
+// people, like a public host, without anyone's key reaching
 // anyone else. The desktop app keeps its keys in the OS keychain instead and
 // the Android app in its Keystore; neither uses this.
 //

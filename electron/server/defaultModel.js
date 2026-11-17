@@ -1,6 +1,6 @@
 // The model for an environment provider that has a key but no
-// OPENAI_LLM_MODEL (providers.js marks it `autoModel`). Hosting setups such
-// as a Hugging Face Space often get just the one secret, OPENAI_API_KEY; the
+// OPENAI_LLM_MODEL (providers.js marks it `autoModel`). Hosting setups
+// often get just the one secret, OPENAI_API_KEY; the
 // newest general model the key can use is picked from the provider's own
 // model list, so no model name here goes stale. Looked up once per key.
 import { listProviderModels } from './providerModels.js';
@@ -51,8 +51,7 @@ export const defaultModel = (provider, { fetchImpl = globalThis.fetch } = {}) =>
       .then((models) => {
         const model = chooseModel(provider.id, models.map((m) => m.id));
         if (!model) throw new Error(`${provider.label} listed no models for this key.`);
-        // Not on a Hugging Face Space (SPACE_ID), whose logs can be shown to others.
-        if (!globalThis.process?.env?.SPACE_ID) console.log(`[llm] OPENAI_LLM_MODEL is empty; using ${provider.label}'s ${model}.`);
+        console.log(`[llm] OPENAI_LLM_MODEL is empty; using ${provider.label}'s ${model}.`);
         return model;
       })
       .catch((err) => {

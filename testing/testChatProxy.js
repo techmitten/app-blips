@@ -272,7 +272,7 @@ test('a custom endpoint with a key but no model names the missing variable', asy
   assert.match((await response.json()).error, /OPENAI_LLM_MODEL/);
 });
 
-// Hosting setups (a Hugging Face Space, say) often set only OPENAI_API_KEY.
+// Hosting setups often set only OPENAI_API_KEY.
 test('an OpenAI key on its own goes to OpenAI with its newest model', async (t) => {
   const calls = [];
   t.mock.method(globalThis, 'fetch', async (url, options = {}) => {

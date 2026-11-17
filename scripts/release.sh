@@ -3,9 +3,8 @@
 #
 # Bumps the version, pushes the matching v* tag (which starts the Desktop
 # workflow), waits for GitHub to build the installers into a draft release,
-# then publishes that draft once you confirm and pushes to Hugging Face.
-# See notes/RELEASING.md for the
-# manual steps this automates.
+# then publishes that draft once you confirm.
+# See notes/RELEASING.md for the manual steps this automates.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -23,8 +22,6 @@ ask()  { local reply; read -r -p "$1 [y/N] " reply; [[ "$reply" =~ ^[Yy]$ ]]; }
 # --- Safety checks: only release a clean, pushed master ----------------------
 command -v gh >/dev/null || fail "The GitHub CLI (gh) is not installed."
 gh auth status >/dev/null 2>&1 || fail "Not signed in to GitHub. Run: gh auth login"
-git remote get-url space >/dev/null 2>&1 || fail "The Hugging Face remote is missing. Add it with: git remote add space https://huggingface.co/spaces/inpectorgadget/app-blips"
-command -v timeout >/dev/null || fail "Install GNU coreutils (timeout) to deploy to Hugging Face."
 [ "$(git branch --show-current)" = "master" ] || fail "You are not on master. Switch with: git checkout master"
 [ -z "$(git status --porcelain)" ] || fail "You have unsaved (uncommitted) changes. Commit or discard them first."
 git fetch --quiet origin
@@ -92,6 +89,3 @@ if ask "Publish $tag now? Users will start getting the update."; then
 else
   say "Left as a draft. Publish it later at: $(gh release view "$tag" --json url --jq .url)"
 fi
-
-# --- Deploy the browser demo (including when GitHub is left as a draft) -------
-bash scripts/push-space.sh "$tag"

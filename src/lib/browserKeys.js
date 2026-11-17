@@ -1,4 +1,4 @@
-// The browser version's saved keys (server.js, Docker, a Hugging Face Space,
+// The browser version's saved keys (server.js, Docker,
 // `npm run dev`): the AI provider key, the Surge sign-in, and the
 // Pollinations, Pixabay and Tavily keys are kept in this browser's
 // localStorage, never on the server, so a server shared by many people never
