@@ -269,7 +269,7 @@ export const webProviderStore = {
   },
   async set(info) {
     const previous = readWebProvider();
-    // "Skip for now" in onboarding: remember it without saving a provider.
+    // "Skip" in onboarding: remember it without saving a provider.
     // With enabled: false (the Free option) the saved provider is also
     // switched off, keeping its key for later.
     if (info.onboardingComplete === true && info.id === undefined) {

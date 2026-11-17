@@ -171,11 +171,12 @@
 .tour-invite-icon { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 11px; color: var(--color-brand); background: var(--color-indigo-50); }
 :is(html.dark, .force-dark) .tour-invite-icon { color: var(--color-accent); background: rgb(255 255 255 / 0.07); }
 @media (max-width: 639px) {
-  /* The prompt dock owns the bottom of a phone screen; drop in under the header. */
-  .tour-invite { left: 16px; right: 16px; width: auto; bottom: auto; top: calc(var(--chrome-row-h) + env(safe-area-inset-top) + 10px); animation-name: tour-invite-drop; }
+  /* Bottom of the screen, resting just above the prompt dock. GuidedTour.jsx
+     sets --tour-invite-bottom from the dock's measured height (it grows as you
+     type); the fallback covers screens without a dock. */
+  .tour-invite { left: 16px; right: 16px; width: auto; bottom: var(--tour-invite-bottom, max(12px, env(safe-area-inset-bottom))); }
 }
 @keyframes tour-invite-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
-@keyframes tour-invite-drop { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
 /* Ignored invitations fade out in place (see INVITE_FADE_MS) instead of
    disappearing abruptly mid-read. */
 .tour-invite.is-leaving { animation: tour-invite-out 0.4s ease forwards; pointer-events: none; }

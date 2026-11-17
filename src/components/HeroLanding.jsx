@@ -82,7 +82,7 @@ export default function HeroLanding({
         <main className="hero-stage flex-1 min-w-0 overflow-y-auto chat-scrollbar animate-fade-in">
           <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col items-center justify-center gap-6 px-4 py-10 sm:px-8">
             <div className="flex flex-col items-center gap-3 text-center animate-stagger-1">
-              <h1 className="hero-title text-3xl sm:text-4xl lg:text-[2.6rem] font-black tracking-tight leading-[1.1]">
+              <h1 className="hero-title text-[clamp(1rem,5.2vw,1.875rem)] whitespace-nowrap sm:whitespace-normal sm:text-4xl lg:text-[2.6rem] font-black tracking-tight leading-[1.1]">
                 {copy.title}
               </h1>
               <p className="hero-subtitle max-w-[52ch] text-sm font-medium leading-relaxed">

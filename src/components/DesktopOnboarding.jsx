@@ -333,7 +333,7 @@ function FreeAiPanel({ formRef, onSubmit, needsSignIn }) {
 // are hosted online and aren't affected.
 function StoragePanel({ formRef, onSubmit }) {
   const points = [
-    { icon: HardDrive, title: 'Kept in this browser', text: 'Your projects are stored in this browser’s storage, not as files on your computer, and not on AppBlips’ servers.' },
+    { icon: HardDrive, title: 'Kept in the app', text: 'Your projects are stored inside AppBlips on this device, not as files on your computer, and not on AppBlips’ servers.' },
     { icon: Trash2, title: 'Clearing browser data deletes them', text: 'Clearing your cache, cookies, or site data, using a private window, or switching browsers or devices will remove your projects.' },
     { icon: Globe, title: 'Published sites stay online', text: 'Anything you publish is hosted online, so clearing your browser won’t take it down.' },
     { icon: Download, title: 'Keep a backup', text: 'Use Settings → Data → Export all apps to save a backup file you can import later.' },
@@ -466,7 +466,7 @@ function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFold
 
 // `onExit` is only passed when onboarding is replayed from Settings: the user
 // already has (or deliberately skipped) a setup, so they may leave without
-// re-entering a key. A first run offers "Skip for now" instead, which saves
+// re-entering a key. A first run offers "Skip" instead, which saves
 // that onboarding is done so it doesn't come back on the next launch.
 // `termsOnly` shows just the terms slide, to a returning user after the terms
 // or privacy policy change (App.jsx); `onAgree` saves the agreement.
@@ -676,7 +676,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               </h1>
             ) : isStorage ? (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
-                Your projects live <span className="onboarding-title-accent">in this browser.</span>
+                Your projects live <span className="onboarding-title-accent">in the app.</span>
               </h1>
             ) : isFreeStep ? (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
@@ -756,7 +756,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             )}
             {!onExit && !isTerms && (
               <button type="button" className="onboarding-skip" onClick={skip} disabled={busy}>
-                Skip for now
+                Skip
               </button>
             )}
           </div>

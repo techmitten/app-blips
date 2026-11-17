@@ -32,18 +32,43 @@ const INVITE_TIMEOUT_MS = 20000;
 // Must match the .tour-invite.is-leaving animation duration in tour.css.
 const INVITE_FADE_MS = 400;
 
-export function TourInvitation({ onStart }) {
+export function TourInvitation({ onStart, building = false }) {
+  // On a phone the toast would cover the build in progress, so it waits.
+  const wideScreen = useMediaQuery(WIDE_LAYOUT_QUERY);
+  const held = building && !wideScreen;
   const [visible, setVisible] = useState(() => getTourState() == null);
+  const asideRef = useRef(null);
   const [leaving, setLeaving] = useState(false);
   // Hovering or focusing the toast pauses the countdown, so it cannot vanish
   // from under someone who is reading or about to click it.
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {
-    if (!visible || paused || leaving) return;
+    if (!visible || held || paused || leaving) return;
     const timer = setTimeout(() => setLeaving(true), INVITE_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [visible, paused, leaving]);
+  }, [visible, held, paused, leaving]);
+
+  // On a phone the toast sits above the prompt dock, whose height changes as
+  // the prompt grows, so track it instead of guessing.
+  const shown = visible && !held;
+  useEffect(() => {
+    const aside = asideRef.current;
+    if (!shown || wideScreen || !aside) return;
+    const composer = document.querySelector('.build-panel-composer');
+    if (!composer) return;
+    const update = () => {
+      // Hidden while the Preview view is showing; then the toast rests at the screen edge.
+      if (!composer.offsetParent) { aside.style.removeProperty('--tour-invite-bottom'); return; }
+      const height = window.innerHeight - composer.getBoundingClientRect().top;
+      aside.style.setProperty('--tour-invite-bottom', `${Math.max(0, Math.round(height)) + 10}px`);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(composer);
+    window.addEventListener('resize', update);
+    return () => { observer.disconnect(); window.removeEventListener('resize', update); };
+  }, [shown, wideScreen]);
 
   // Unmount after the fade. A timer rather than animationend so it still
   // finishes when reduced-motion turns the animation off.
@@ -56,10 +81,11 @@ export function TourInvitation({ onStart }) {
     return () => clearTimeout(timer);
   }, [leaving]);
 
-  if (!visible) return null;
+  if (!visible || held) return null;
   const dismiss = () => { setVisible(false); setTourState('dismissed'); };
   return (
     <aside
+      ref={asideRef}
       className={`tour-invite bg-surface text-slate-900${leaving ? ' is-leaving' : ''}`}
       aria-label="Welcome to AppBlips"
       inert={leaving || undefined}

@@ -16,10 +16,13 @@ export const SECONDARY_BUTTON = 'inline-flex items-center gap-1.5 rounded-lg bor
 // rows under its own section headings (About) passes 4.
 export function SettingRow({ id, title, description, children, details, headingLevel = 3 }) {
   const Heading = `h${headingLevel}`;
+  // A lone switch is small, so it stays beside its label on phones instead of
+  // dropping onto its own line.
+  const inlineSwitch = children?.type === Switch;
   return (
     <div className="py-4 first:pt-0 last:pb-0">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-x-6 gap-y-2.5">
-        <div className="min-w-0 sm:max-w-[60%]">
+      <div className={`flex ${inlineSwitch ? 'flex-row items-center justify-between gap-x-4' : 'flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2.5'} sm:gap-x-6`}>
+        <div className={`min-w-0 ${inlineSwitch ? 'flex-1 sm:flex-none' : ''} sm:max-w-[60%]`}>
           <Heading id={id} className="text-sm font-semibold text-slate-900">{title}</Heading>
           {description && <p className="mt-0.5 text-xs text-slate-600 leading-snug">{description}</p>}
         </div>

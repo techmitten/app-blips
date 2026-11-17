@@ -512,6 +512,10 @@
   .onboarding-stage { overflow-y: visible; align-content: start; }
   .onboarding-stage, .desktop-onboarding-card.is-setup .onboarding-stage { grid-template-columns: 1fr; gap: 1.5rem; padding: 1.5rem; }
   .onboarding-copy { text-align: center; }.onboarding-copy h1, .onboarding-copy > p { margin-inline: auto; }
+  /* The desktop width cap and size would wrap the plain half of the title
+     mid-phrase ("First, a quick look / at / our terms."). Size it so that half
+     fits one line; the accent half already sits on its own line. */
+  .onboarding-copy h1 { max-width: none; font-size: clamp(1.5rem, 8.5cqi, 2.6rem); }
   .onboarding-greeting, .onboarding-provider-row { justify-content: center; }
   .desktop-onboarding-card.is-setup .onboarding-stage { padding-block: 1.5rem; }.desktop-onboarding-setup { max-width: 590px; width: 100%; margin: 0 auto; }
   /* The form sits below the copy here, so point the nudge down at it. */
@@ -526,6 +530,10 @@
   .onboarding-topbar { height: 58px; }.onboarding-topbar img { width: 68px; }.onboarding-topbar .onboarding-brand-icon { width: 22px; height: 22px; }
   .onboarding-stage, .desktop-onboarding-card.is-setup .onboarding-stage { padding: 1.15rem; }
   .onboarding-copy > p { margin-top: .8rem; line-height: 1.55; }
+  /* Six 46px tiles don't fit a phone's width, which left the last one alone on
+     a second line. Keep one row and let the tiles share the space. */
+  .onboarding-provider-row { flex-wrap: nowrap; gap: 8px; }
+  .onboarding-provider-row li { flex: 1 1 0; width: auto; max-width: 46px; height: auto; aspect-ratio: 1; min-width: 0; }
   .onboarding-footer { min-height: 70px; }.onboarding-error { position: absolute; left: 1.2rem; bottom: 4.4rem; padding: .5rem; border-radius: 8px; background: #1c1414; }
   .onboarding-model-copy small, .onboarding-recommended { display: none; }
   .desktop-onboarding-setup { padding: 1.1rem; }

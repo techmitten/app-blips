@@ -2822,7 +2822,7 @@ export default function App({ coldStart = false }) {
       />
       )}
 
-      {!showHero && !isResumingProject && <TourInvitation onStart={startTour} />}
+      {!showHero && !isResumingProject && <TourInvitation onStart={startTour} building={isGenerating} />}
       {isTourOpen && (
         <GuidedTour onClose={closeTour} onViewChange={setMobileView} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
       )}
