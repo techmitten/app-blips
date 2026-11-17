@@ -185,6 +185,37 @@ function llmProxyDevMiddleware(mode) {
   }
 }
 
+// Packages only Clerk uses (the Free AI sign-in, which src/lib/freeSignIn.js
+// loads with import() when a Free AI prompt is sent): Clerk's dependencies,
+// minus anything the app's own dependencies also need (React, for one). They
+// stay out of the eager vendor chunks, so visitors who never use Free AI never
+// load them.
+const packageJson = (name) => {
+  try { return JSON.parse(readFileSync(new URL(`./node_modules/${name}/package.json`, import.meta.url), 'utf8')) } catch { return null }
+}
+const dependencyClosure = (names) => {
+  const seen = new Set()
+  const stack = [...names]
+  while (stack.length) {
+    const name = stack.pop()
+    if (seen.has(name)) continue
+    seen.add(name)
+    const pkg = packageJson(name)
+    if (pkg) stack.push(...Object.keys(pkg.dependencies || {}), ...Object.keys(pkg.peerDependencies || {}))
+  }
+  return seen
+}
+const CLERK_ENTRIES = ['@clerk/clerk-js', '@clerk/ui']
+const appDependencies = Object.keys(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).dependencies || {})
+  .filter((name) => !name.startsWith('@clerk/'))
+const sharedWithApp = dependencyClosure(appDependencies)
+const CLERK_ONLY = new Set([...dependencyClosure(CLERK_ENTRIES)].filter((name) => !sharedWithApp.has(name)))
+// The package a module belongs to: the last node_modules/<name> in its path.
+const packageOf = (id) => {
+  const match = id.replace(/\\/g, '/').match(/.*\/node_modules\/((?:@[^/]+\/)?[^/]+)/)
+  return match ? match[1] : ''
+}
+
 // Packages bundled into the app and its voice-input worker, for Settings →
 // Licenses. The worker is a separate build that finishes before the app's, so
 // both feed one collection and the app's plugin checks it (scripts/licenses.js).
@@ -249,6 +280,11 @@ export default defineConfig(({ mode }) => ({
           // first needs it (vendor_android), which every page then preloads.
           if (id.includes('vite/preload-helper')) return 'vendor';
           if (id.includes('node_modules')) {
+            // Left to the bundler, which keeps code reached only through
+            // import() in on-demand chunks. Naming a chunk for them pulled
+            // react-dom in with them, and the main bundle with it. Before the
+            // name rules below ('react' would catch @emotion/react).
+            if (CLERK_ONLY.has(packageOf(id))) return undefined
             // Only imported codebases use these, through dynamic import(), so
             // keep them out of the eager vendor chunk.
             if (id.includes('esbuild-wasm') || id.includes('fflate')) return 'vendor_codebase';

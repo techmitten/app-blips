@@ -2,8 +2,8 @@
 // (electron/server/freeAuth.js: GET /api/provider reports `freeSignIn` with
 // the Clerk publishable key). Only Free AI requests need it: with the user's
 // own API key, or in the desktop app, nothing here runs and Clerk is never
-// loaded. Clerk itself (and its sign-in screens, from the Clerk instance's
-// domain) loads the first time a Free AI request is about to be sent.
+// loaded. Clerk and its sign-in screens (@clerk/clerk-js and @clerk/ui, in
+// their own chunks) load the first time a Free AI request is about to be sent.
 //
 // Sign-in is Google or GitHub only (set in the Clerk dashboard). OAuth opens
 // in a popup, so the page, and the prompt being typed, stay as they are.
@@ -60,9 +60,12 @@ export const loadFreeSignIn = async () => {
     });
     try {
       const clerk = await Promise.race([timeout, (async () => {
-        const { Clerk } = await import('@clerk/clerk-js');
+        // Clerk's sign-in screens are a separate package (@clerk/ui), bundled
+        // here rather than fetched from Clerk at run time.
+        const [{ Clerk }, { ui }] = await Promise.all([import('@clerk/clerk-js'), import('@clerk/ui')]);
         const instance = new Clerk(config.publishableKey);
         await instance.load({
+          ui,
           localization: {
             signIn: { start: { subtitle: 'Sign in with Google or GitHub to use Free AI.' } },
             signUp: { start: { subtitle: 'Sign in with Google or GitHub to use Free AI.' } },
