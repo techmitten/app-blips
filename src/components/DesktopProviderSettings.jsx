@@ -348,18 +348,14 @@ export default function DesktopProviderSettings({ guardRef }) {
           </label>
           <p className="text-xs text-slate-500 leading-snug">
             {isDesktop
-              ? 'Your key is encrypted with your system keychain and stored only on this computer, never in your projects.'
+              ? saved?.weakEncryption
+                ? 'Your key is stored only on this computer, never in your projects. For extra protection, set up a system keyring such as GNOME Keyring or KWallet.'
+                : 'Your key is encrypted with your system keychain and stored only on this computer, never in your projects.'
               : 'Your key is saved in this browser only and sent to AppBlips’ server with each request. It is never stored on the server or in your projects.'}
           </p>
           {['anthropic', 'openai', 'gemini', 'xai', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
             <ConfirmedLink why="To sign in to your provider's account and create an API key. AppBlips needs a key to send your prompts to that provider." href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : draft.id === 'xai' ? 'https://console.x.ai/team/default/api-keys' : 'https://platform.deepseek.com/api_keys'} >Create a {providerLabel(draft.id)} API key</ConfirmedLink>.
           </p>}
-          {saved?.weakEncryption && (
-            <p className="flex items-start gap-1.5 text-xs text-amber-600 leading-snug">
-              <TriangleAlert size={14} className="shrink-0 mt-px" />
-              No system keychain was found, so the key is stored with weak encryption. Installing GNOME Keyring or KWallet protects it properly.
-            </p>
-          )}
           <label className="block text-sm text-slate-600">
             Model
             <ModelCombobox

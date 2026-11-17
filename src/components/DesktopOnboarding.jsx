@@ -258,7 +258,7 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
           {keyUrl && <a href={keyUrl} target="_blank" rel="noopener noreferrer">Get a key <ArrowUpRight size={15} /></a>}
         </p>
         {isDesktop && weakEncryption && (
-          <p className="onboarding-key-warning">A system keychain was not found. Install GNOME Keyring or KWallet for stronger protection.</p>
+          <p className="onboarding-key-help">For extra protection, set up a system keyring such as GNOME Keyring or KWallet.</p>
         )}
       </SetupField>
 

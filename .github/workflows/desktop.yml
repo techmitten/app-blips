@@ -1,21 +1,21 @@
 name: Desktop
 
-# Builds the Linux desktop installers (AppImage, .deb and snap) on
-# Ubuntu 24.04. Run it by hand from the Actions tab, or push a tag like v0.1.0
-# to also publish them as a draft GitHub Release (bump "version" in
-# package.json to match first) and upload the snap to the Snap Store's
-# stable channel, using the SNAPCRAFT_STORE_CREDENTIALS secret (made with
-# `snapcraft export-login` with stable channel access). This publishes the snap
-# to Ubuntu's App Center during the build (see notes/RELEASING.md). It isn't
-# attached to the GitHub release: snaps are installed from the store. Publishing that draft is what rolls the update out: installed
-# AppImage builds check the latest published release, using the latest*.yml
-# file uploaded alongside. Windows is distributed only through the Microsoft
-# Store, built by hand (see notes/RELEASING.md) — this workflow never builds it. It
-# does attach build/windows/AppBlips-Windows-Installer.exe, the small installer
-# Microsoft generates for the Store listing: it holds no app, just AppBlips'
-# Store ID (stamped into its signature, so renaming it is safe), and installs
-# whatever version the Store currently serves. It never needs replacing per
-# release.
+# Builds the desktop packages: the Linux installers (AppImage, .deb and snap)
+# on Ubuntu 24.04 and the Microsoft Store package on Windows. Pushing a tag
+# like v0.1.0 (npm run release) also publishes them, but only once every
+# build has succeeded (the publish job): a draft GitHub Release, a draft
+# Microsoft Store submission, and the snap on the Snap Store's stable channel
+# (Ubuntu's App Center; SNAPCRAFT_STORE_CREDENTIALS, made with
+# `snapcraft export-login` with stable channel access; see notes/RELEASING.md).
+# Run by hand from the Actions tab it only builds, or with store_only it
+# builds and submits just the Store package (npm run release store).
+# Publishing the GitHub draft is what rolls the update out: installed AppImage
+# builds check the latest published release, using the latest*.yml file
+# uploaded alongside. The release also gets
+# build/windows/AppBlips-Windows-Installer.exe, the small installer Microsoft
+# generates for the Store listing: it holds no app, just AppBlips' Store ID
+# (stamped into its signature, so renaming it is safe), and installs whatever
+# version the Store currently serves. It never needs replacing per release.
 
 on:
   workflow_dispatch:
@@ -70,7 +70,113 @@ jobs:
             sha256sum "$f" >> SHA256SUMS.txt
           done
           cat SHA256SUMS.txt
+      # Nothing is published here: the publish job does that once this and
+      # the Store build have both succeeded.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            dist-desktop/*.AppImage
+            dist-desktop/*.deb
+            dist-desktop/*.snap
+            dist-desktop/AppBlips-Windows-Installer.exe
+            dist-desktop/*.blockmap
+            dist-desktop/latest*.yml
+            dist-desktop/SHA256SUMS.txt
+
+  # Builds the Microsoft Store package on Windows. Like build, it publishes
+  # nothing. Runs for v* tags, or by hand with store_only (npm run release
+  # store). Needs these repository secrets, from Partner Center → Account
+  # settings → Microsoft Entra ID (app with the Manager role) and the app's
+  # Product identity: MSSTORE_TENANT_ID, MSSTORE_CLIENT_ID,
+  # MSSTORE_CLIENT_SECRET, MSSTORE_PRODUCT_ID.
+  store:
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.store_only
+    runs-on: windows-latest
+    steps:
+      # store_only runs come from master (so they use this workflow file) but
+      # build the code of the tag given in `tag`.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      # The upload script comes from the workflow's own commit, because an
+      # older tag's checkout doesn't have it.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .ci
+          sparse-checkout: scripts/store-submit.js
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Fail before building if Partner Center can't take a new draft (bad
+      # secrets, or a submission still pending), so the release stops before
+      # anything is published.
+      - name: Check Partner Center
+        shell: bash
+        env:
+          MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
+        run: node .ci/scripts/store-submit.js --check
+      - run: npm ci
+      - run: npm run desktop:store
+      - name: Zip the package
+        shell: bash
+        run: |
+          # The submission API takes a zip containing the package.
+          appx="$(cd dist-desktop && ls AppBlips-Store-*.appx | head -1)"
+          # 7-Zip (preinstalled on Windows runners), not tar: in this bash
+          # shell tar is GNU tar, which can't write zips.
+          (cd dist-desktop && 7z a -tzip AppBlips-Store.zip "$appx" >/dev/null)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: store
+          retention-days: 7
+          if-no-files-found: error
+          path: dist-desktop/AppBlips-Store.zip
+
+  # Publishes only once every build has succeeded, so a failed build leaves
+  # nothing published anywhere. Order: the Microsoft Store draft, then the
+  # GitHub draft release, then the snap to the Snap Store's stable channel
+  # (the only step users see straight away), last. If a step fails, the drafts
+  # made before it are deleted again. The Store draft is never committed: you
+  # review it in Partner Center and click Submit to the Store (Microsoft's
+  # certification takes days and only starts then). The .appx is never
+  # uploaded anywhere else. store_only runs do just the Store draft.
+  publish:
+    needs: [build, store]
+    if: >-
+      always() && needs.store.result == 'success'
+      && (needs.build.result == 'success' || (inputs.store_only && needs.build.result == 'skipped'))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/store-submit.js
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-desktop
+          merge-multiple: true
+      - name: Upload the package to Partner Center as a draft
+        id: store
+        env:
+          MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
+        run: node scripts/store-submit.js dist-desktop/AppBlips-Store.zip "$(unzip -Z1 dist-desktop/AppBlips-Store.zip | head -1)"
       - name: Create draft release
+        id: release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
@@ -82,50 +188,28 @@ jobs:
             dist-desktop/*.blockmap
             dist-desktop/latest*.yml
             dist-desktop/SHA256SUMS.txt
+      - name: Install snapcraft
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: sudo snap install snapcraft --classic --channel=8.x/stable
       - name: Upload the snap to the Snap Store (stable)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: snapcraft upload --release=stable dist-desktop/*.snap
-
-  # Builds the Microsoft Store package on Windows and uploads it to Partner
-  # Center as a DRAFT submission (--noCommit); you review it and click Submit
-  # to the Store there. The .appx is never uploaded anywhere else (not to the GitHub
-  # release). Runs for v* tags, or by hand with store_only (npm run release store). Needs these repository secrets, from
-  # Partner Center → Account settings → Microsoft Entra ID (app with the
-  # Manager role) and the app's Product identity: MSSTORE_TENANT_ID,
-  # MSSTORE_SELLER_ID, MSSTORE_CLIENT_ID, MSSTORE_CLIENT_SECRET,
-  # MSSTORE_PRODUCT_ID. Microsoft's certification takes days and only
-  # starts when you submit the draft.
-  store:
-    if: startsWith(github.ref, 'refs/tags/v') || inputs.store_only
-    runs-on: windows-latest
-    steps:
-      # store_only runs come from master (so they use this workflow file) but
-      # build the code of the tag given in `tag`.
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag || github.ref }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run desktop:store
-      - uses: microsoft/setup-msstore-cli@v1
-      - name: Submit to the Microsoft Store
-        shell: bash
+      # Undo the drafts if a later step failed.
+      - name: Delete the GitHub draft release
+        if: failure() && steps.release.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true ]; then
+            gh release delete "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --yes
+          fi
+      - name: Delete the Partner Center draft
+        if: failure() && steps.store.outputs.submission != ''
         env:
           MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
-          MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
           MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
           MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
           MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
-        run: |
-          msstore reconfigure --tenantId "$MSSTORE_TENANT_ID" --sellerId "$MSSTORE_SELLER_ID" --clientId "$MSSTORE_CLIENT_ID" --clientSecret "$MSSTORE_CLIENT_SECRET"
-          # -i must be the package file itself; given only a folder, msstore
-          # looks for a project to build and fails. The Store accepts the
-          # electron-builder .appx; msstore wants an .msix name, so copy it.
-          appx="$(ls dist-desktop/AppBlips-Store-*.appx | head -1)"
-          cp "$appx" dist-desktop/AppBlips-Store.msix
-          msstore publish dist-desktop -i dist-desktop/AppBlips-Store.msix -id "$MSSTORE_PRODUCT_ID" --noCommit -v
+        run: node scripts/store-submit.js --delete "${{ steps.store.outputs.submission }}"
