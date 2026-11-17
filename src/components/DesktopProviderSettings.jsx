@@ -6,6 +6,7 @@ import ConfirmModal from './ConfirmModal';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
+import useTestCooldown from '../hooks/useTestCooldown';
 import { PROVIDER_LOGOS, ONBOARDING_PROVIDER_LOGOS } from './providerLogos';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
@@ -144,6 +145,7 @@ export default function DesktopProviderSettings({ guardRef }) {
   const [replaceKey, setReplaceKey] = useState(false);
   const keyInputRef = useRef(null);
   const [status, setStatus] = useState(null); // { kind: 'busy' | 'ok' | 'error', text }
+  const testCooldown = useTestCooldown('ai');
   const isFree = draft.id === FREE_PROVIDER_ID;
   const modelList = useProviderModels({
     ...draft,
@@ -241,6 +243,7 @@ export default function DesktopProviderSettings({ guardRef }) {
 
   // An empty apiKey reuses this provider’s saved key in desktop or browser mode.
   const onTest = async () => {
+    if (testCooldown.secondsLeft) return;
     setStatus({ kind: 'busy', text: 'Testing…' });
     try {
       await requestModelText({
@@ -253,11 +256,14 @@ export default function DesktopProviderSettings({ guardRef }) {
         // Free is tested as saved (no provider of the user's own attached).
         ...(isFree ? {} : { userProvider: { id: draft.id, model: draft.model.trim(), apiKey: draft.apiKey.trim() } }),
         retry: false,
+        standalone: true,
       });
       setStatus({ kind: 'ok', text: isFree ? 'Free AI is working.' : `Connected to ${providerLabel(draft.id)}.` });
     } catch (err) {
       logError(`AI provider test request failed (${draft.id}, ${draft.model.trim()})`, err);
       setStatus({ kind: 'error', text: err?.message || 'The test request failed.' });
+    } finally {
+      testCooldown.start();
     }
   };
 
@@ -381,8 +387,14 @@ export default function DesktopProviderSettings({ guardRef }) {
             >
               Save
             </button>
-            <button type="button" onClick={onTest} disabled={!complete || busy || (isFree && dirty)} className={SECONDARY_BUTTON}>
-              Test connection
+            <button
+              type="button"
+              onClick={onTest}
+              disabled={!complete || busy || (isFree && dirty) || testCooldown.secondsLeft > 0}
+              title={testCooldown.secondsLeft ? 'You can test again in a few seconds.' : undefined}
+              className={SECONDARY_BUTTON}
+            >
+              {testCooldown.secondsLeft ? `Test again in ${testCooldown.secondsLeft}s` : 'Test connection'}
             </button>
             <button type="button" onClick={() => setConfirmClear(true)} disabled={!saved?.id || isFree || busy} className={SECONDARY_BUTTON}>
               Clear

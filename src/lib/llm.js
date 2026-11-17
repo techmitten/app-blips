@@ -1,4 +1,5 @@
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply, extractUserNotes, invalidArgumentsError } from './edits';
+import { messageHeaders } from './messageId';
 import { isDesktop, webProviderStore } from './desktop';
 import { loadOutputTokenLimit, loadPromptSuggestions } from './config';
 import { describeProjectForSuggestions, recentRequests, parseSuggestions, MAX_SUGGESTIONS } from './promptSuggestions';
@@ -427,7 +428,9 @@ export const requestModelText = async ({
   // (the settings "Test connection" button); undefined = read the saved one.
   userProvider = undefined,
   // false = fail fast instead of backing off (a one-shot connection test).
-  retry = true
+  retry = true,
+  // true = not part of a chat message (a connection test); counted by itself.
+  standalone = false
 }) => {
   const delays = [1000, 2000, 4000, 8000, 16000];
   // Feeds the live token counter; a retry is tracked as its own request.
@@ -435,6 +438,7 @@ export const requestModelText = async ({
   try {
     const headers = {
       'Content-Type': 'application/json',
+      ...messageHeaders({ standalone }),
     };
 
     const bodyObj = {

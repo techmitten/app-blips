@@ -14,6 +14,7 @@ import ProfileAvatar from './ProfileAvatar';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
+import useTestCooldown from '../hooks/useTestCooldown';
 import { ONBOARDING_PROVIDER_LOGOS } from './providerLogos';
 
 // One labelled field. `error` appears only after the user has tried to
@@ -179,7 +180,8 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
   const testFor = `${provider?.id || ''}\n${model.trim()}\n${apiKey.trim()}`;
   const [test, setTest] = useState(null); // { for, kind: 'busy' | 'ok' | 'error', text }
   const testShown = test?.for === testFor ? test : null;
-  const canTest = Boolean(provider && apiKey.trim() && model.trim()) && testShown?.kind !== 'busy';
+  const testCooldown = useTestCooldown('ai');
+  const canTest = Boolean(provider && apiKey.trim() && model.trim()) && testShown?.kind !== 'busy' && !testCooldown.secondsLeft;
 
   // The same one-word request as Settings → AI's "Test connection", sent with
   // the typed (unsaved) key, so a wrong key or model shows up here instead of
@@ -197,11 +199,14 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
         reasoningEffort: CHAT_REASONING_EFFORT,
         userProvider: { id: provider.id, model: model.trim(), apiKey: apiKey.trim() },
         retry: false,
+        standalone: true,
       });
       setTest((t) => (t?.for === runFor ? { for: runFor, kind: 'ok', text: 'Connected' } : t));
     } catch (err) {
       logError(`AI provider test request failed during setup (${provider.id}, ${model.trim()})`, err);
       setTest((t) => (t?.for === runFor ? { for: runFor, kind: 'error', text: 'Connection failed' } : t));
+    } finally {
+      testCooldown.start();
     }
   };
 
@@ -274,7 +279,7 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
       <div className="onboarding-test">
         <button type="button" className="onboarding-test-button" onClick={runTest} disabled={!canTest}>
           {testShown?.kind === 'busy' ? <Loader2 size={17} className="animate-spin" /> : <Plug size={17} />}
-          Test connection
+          {testCooldown.secondsLeft ? `Test again in ${testCooldown.secondsLeft}s` : 'Test connection'}
         </button>
         <p
           className={`onboarding-test-status${testShown ? ` is-${testShown.kind}` : ''}`}

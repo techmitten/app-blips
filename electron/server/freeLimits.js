@@ -5,6 +5,8 @@
 // use. The counts live in memory, so a restart clears them; the provider's
 // own spending cap stays the hard ceiling.
 //
+//   APPBLIPS_FREE_MESSAGES_PER_MINUTE    per visitor, chat messages (default 6)
+//   APPBLIPS_FREE_MESSAGE_GAP_SECONDS    per visitor, between messages (default 3)
 //   APPBLIPS_FREE_REQUESTS_PER_HOUR      per visitor              (default 120)
 //   APPBLIPS_FREE_CONCURRENT             per visitor, at once     (default 4)
 //   APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY  per visitor, UTC day     (default 2,000,000)
@@ -15,12 +17,23 @@
 // connection usually holds a whole /64).
 
 const DEFAULTS = {
+  messagesPerMinute: ['APPBLIPS_FREE_MESSAGES_PER_MINUTE', 6],
+  messageGapSeconds: ['APPBLIPS_FREE_MESSAGE_GAP_SECONDS', 3],
   requestsPerHour: ['APPBLIPS_FREE_REQUESTS_PER_HOUR', 120],
   concurrent: ['APPBLIPS_FREE_CONCURRENT', 4],
   tokensPerIpPerDay: ['APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY', 2_000_000],
   tokensPerDay: ['APPBLIPS_FREE_TOKENS_PER_DAY', 30_000_000],
   maxOutputTokens: ['APPBLIPS_FREE_MAX_OUTPUT_TOKENS', 0],
 };
+const MINUTE_MS = 60_000;
+// One chat message makes many requests (the AI's turns, tool calls, repairs),
+// and the page tags them all with the message's id. Requests with an id seen
+// recently are part of that message and not counted again, up to a cap each,
+// so a script can't ride one id forever.
+const MESSAGE_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
+const MESSAGE_TTL_MS = 30 * 60_000;
+const MAX_REQUESTS_PER_MESSAGE = 60;
+const MAX_MESSAGES_TRACKED = 50;
 const HOUR_MS = 3_600_000;
 const MAX_VISITORS = 50_000;
 
@@ -216,11 +229,12 @@ export function createFreeLimits(env, { now = Date.now } = {}) {
         for (const [k, v] of visitors) if (v.day !== day && !v.inFlight) visitors.delete(k);
         if (visitors.size >= MAX_VISITORS) visitors.delete(visitors.keys().next().value);
       }
-      visitor = { day, tokens: 0, hourStart: now(), hourCount: 0, inFlight: 0 };
+      visitor = { day, tokens: 0, hourStart: now(), hourCount: 0, minuteStart: now(), minuteCount: 0, lastMessageAt: null, messages: new Map(), inFlight: 0 };
       visitors.set(key, visitor);
     }
     if (visitor.day !== day) Object.assign(visitor, { day, tokens: 0 });
     if (now() - visitor.hourStart >= HOUR_MS) Object.assign(visitor, { hourStart: now(), hourCount: 0 });
+    if (now() - visitor.minuteStart >= MINUTE_MS) Object.assign(visitor, { minuteStart: now(), minuteCount: 0 });
     return visitor;
   };
 
@@ -233,7 +247,7 @@ export function createFreeLimits(env, { now = Date.now } = {}) {
 
   return {
     limits,
-    begin(key) {
+    begin(key, messageId = '') {
       const visitor = visitorFor(key);
       if (limits.tokensPerDay && site.tokens >= limits.tokensPerDay) {
         return refusal(`Free AI has used up today’s allowance for everyone. It resets at midnight UTC. ${OWN_KEY}`, secondsToMidnight());
@@ -245,10 +259,35 @@ export function createFreeLimits(env, { now = Date.now } = {}) {
         const wait = Math.max(1, Math.ceil((visitor.hourStart + HOUR_MS - now()) / 1000));
         return refusal(`You’ve reached the Free AI limit of ${limits.requestsPerHour} requests an hour. Try again in about ${Math.ceil(wait / 60)} min. ${OWN_KEY}`, wait);
       }
+      // Another request of a message already counted is free of the message limits.
+      const id = MESSAGE_ID_RE.test(String(messageId)) ? String(messageId) : '';
+      const known = id ? visitor.messages.get(id) : null;
+      const continues = known && now() - known.at < MESSAGE_TTL_MS && known.requests < MAX_REQUESTS_PER_MESSAGE;
+      if (!continues) {
+        if (limits.messageGapSeconds && visitor.lastMessageAt != null && now() - visitor.lastMessageAt < limits.messageGapSeconds * 1000) {
+          const wait = Math.max(1, Math.ceil((visitor.lastMessageAt + limits.messageGapSeconds * 1000 - now()) / 1000));
+          return refusal(`You’re sending messages too quickly. Wait ${wait}s and try again.`, wait);
+        }
+        if (limits.messagesPerMinute && visitor.minuteCount >= limits.messagesPerMinute) {
+          const wait = Math.max(1, Math.ceil((visitor.minuteStart + MINUTE_MS - now()) / 1000));
+          return refusal(`You’re sending messages too quickly. Wait ${wait}s and try again.`, wait);
+        }
+      }
       if (limits.concurrent && visitor.inFlight >= limits.concurrent) {
         return refusal('Free AI is still answering your other requests. Try again when they finish.', 5);
       }
       visitor.hourCount += 1;
+      if (continues) {
+        known.requests += 1;
+      } else {
+        visitor.minuteCount += 1;
+        visitor.lastMessageAt = now();
+        if (id) {
+          visitor.messages.delete(id);
+          visitor.messages.set(id, { at: now(), requests: 1 });
+          if (visitor.messages.size > MAX_MESSAGES_TRACKED) visitor.messages.delete(visitor.messages.keys().next().value);
+        }
+      }
       visitor.inFlight += 1;
       let ended = false;
       return {

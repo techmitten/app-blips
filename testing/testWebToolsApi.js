@@ -139,7 +139,7 @@ test('DeepSeek errors become plain messages, and a bad key or empty balance stop
 });
 
 test('the Free option counts billed calls against the visitor, the user\'s own key never', async () => {
-  const freeLimits = createFreeLimits({ APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: String(WEB_CALL_TOKENS * 2), APPBLIPS_FREE_REQUESTS_PER_HOUR: '100' });
+  const freeLimits = createFreeLimits({ APPBLIPS_FREE_MESSAGES_PER_MINUTE: '0', APPBLIPS_FREE_MESSAGE_GAP_SECONDS: '0', APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: String(WEB_CALL_TOKENS * 2), APPBLIPS_FREE_REQUESTS_PER_HOUR: '100' });
   const found = deepseek(() => jsonResponse(RESULTS));
   const empty = deepseek(() => jsonResponse({ results: [] }));
   const free = (stub) => call('/api/web/search', { query: 'x' }, ENV, { ...stub, freeLimits, visitor: 'v1' });

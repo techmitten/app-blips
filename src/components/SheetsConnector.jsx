@@ -4,6 +4,7 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { SettingRow, Switch, FIELD_CLASS, PRIMARY_BUTTON } from './SettingControls';
 import { CONNECTOR_DEFINITIONS, connectorStatus } from '../lib/connectors';
 import { SHEETS_SCRIPT, SHEETS_SCRIPT_VERSION, pingSheetsScript } from '../lib/sheetsHelper';
+import useTestCooldown from '../hooks/useTestCooldown';
 
 // Settings → Extensions → Google Sheets Backend (ConnectorsSettings.jsx). The
 // plain connector page asks for the key first, but here the URL only exists
@@ -90,6 +91,7 @@ export default function SheetsConnector({ state, onChange }) {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [testing, setTesting] = useState(false);
+  const testCooldown = useTestCooldown('sheets');
   // { url, outcome }: only shown while it is about the URL in the box.
   const [tested, setTested] = useState(null);
   const result = tested?.url === url ? tested.outcome : null;
@@ -111,10 +113,12 @@ export default function SheetsConnector({ state, onChange }) {
   };
 
   const test = async () => {
+    if (testCooldown.secondsLeft) return;
     setTesting(true);
     setTested(null);
     const answer = await pingSheetsScript(url);
     setTesting(false);
+    testCooldown.start();
     const outcome = !answer.ok ? answer.reason : answer.version < SHEETS_SCRIPT_VERSION ? 'outdated' : 'ok';
     setTested({ url, outcome });
   };
@@ -191,9 +195,9 @@ export default function SheetsConnector({ state, onChange }) {
             </p>
             <p id="set-sheets-help" className="text-xs leading-snug text-slate-600">{page.keyHelp}</p>
             <div>
-              <button type="button" onClick={test} disabled={status !== 'connected' || testing} className={TEST_BUTTON}>
+              <button type="button" onClick={test} disabled={status !== 'connected' || testing || testCooldown.secondsLeft > 0} className={TEST_BUTTON}>
                 {testing && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
-                Test connection
+                {testCooldown.secondsLeft ? `Test again in ${testCooldown.secondsLeft}s` : 'Test connection'}
               </button>
             </div>
             {result === 'ok' && (

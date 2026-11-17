@@ -155,7 +155,7 @@ export const UPSTREAM_CONNECT_MS = 120_000;
 
 // `freeLimits` (freeLimits.js) limits requests answered with the env
 // provider (the Free option) per `visitor`; server.js passes both.
-export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '' } = {}) {
+export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '', messageId = '' } = {}) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -189,7 +189,7 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   // The Free option: counted per visitor (and its output capped, if set).
   let ticket = null;
   if (freeLimits && !provider.userSupplied) {
-    const started = freeLimits.begin(visitor);
+    const started = freeLimits.begin(visitor, messageId);
     if (started.refused) {
       const { error, retryAfter } = started.refused;
       return new Response(JSON.stringify({ error, source: 'free-limit' }), {

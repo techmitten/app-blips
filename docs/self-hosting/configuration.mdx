@@ -78,6 +78,14 @@ When someone reaches a limit, AppBlips tells them when they can build again and 
   Set it to `off` to turn every limit off. Do this when only you use this copy of AppBlips.
 </ParamField>
 
+<ParamField body="APPBLIPS_FREE_MESSAGES_PER_MINUTE" type="number" default="6">
+  How many chat messages one visitor may send in a minute. The AI's own follow-up requests while it works on a message don't count. `0` removes this limit.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_MESSAGE_GAP_SECONDS" type="number" default="3">
+  The shortest wait between one visitor's chat messages. `0` removes this limit.
+</ParamField>
+
 <ParamField body="APPBLIPS_FREE_REQUESTS_PER_HOUR" type="number" default="120">
   How many requests one visitor may send in an hour. `0` removes this limit.
 </ParamField>

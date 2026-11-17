@@ -19,6 +19,7 @@
 import { isDesktop, webProviderStore } from './desktop.js';
 import { loadWebSearch } from './config.js';
 import { providerSearchEnabled } from './connectors.js';
+import { messageHeaders } from './messageId.js';
 
 // The browser version names the provider in use (without its key), as it does
 // for /api/chat; the desktop app's main process knows it already.
@@ -32,7 +33,7 @@ async function call(path, body, { signal = null } = {}) {
   try {
     response = await fetch(path, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...messageHeaders() },
       body: JSON.stringify(withProvider(body)),
       signal,
     });

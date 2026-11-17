@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { startUserMessage } from './lib/messageId';
 import { flushSync } from 'react-dom';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
@@ -1511,6 +1512,8 @@ export default function App({ coldStart = false }) {
     if (!currentPrompt.trim()) return;
 
     if (!isAutoFix) {
+      // Every request this prompt causes counts as this one message on the Free option.
+      startUserMessage();
       cancelPendingReload();
       runtimeErrorRetriesRef.current = 0;
       syntaxErrorRetriesRef.current = 0;
