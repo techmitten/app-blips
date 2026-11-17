@@ -1,9 +1,12 @@
 import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useExternalConfirm } from '../hooks/useExternalConfirm';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CircleAlert, CircleCheck, ExternalLink, TriangleAlert } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 import { SettingRow, Switch, FIELD_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from './SettingControls';
 import { CONNECTOR_DEFINITIONS, SITE_KEY_RE } from '../lib/connectors';
+import { openExternalNow } from '../lib/externalLinks';
 import { POLLINATIONS_EARNINGS, POLLINATIONS_FEE_NOTE } from '../lib/pollinationsApp';
 import {
   checkSiteKey, pollinationsCheckLogin, pollinationsSignOut, pollinationsStartLogin, pollinationsStatus,
@@ -16,6 +19,7 @@ import {
 // sites; the site key, if they pick it, is the one secret value that does go
 // into them, hence the warnings and the budget check.
 const POLL_MS = 3000;
+const KEYS_DOCS_URL = 'https://gen.pollinations.ai/docs#tag/authentication';
 
 const formatPollen = (value) => (typeof value === 'number' ? `${Math.round(value * 100) / 100} Pollen` : '');
 
@@ -167,14 +171,6 @@ function SiteKey({ state, onChange }) {
 
   return (
     <div className="space-y-3 rounded-lg border border-slate-200 p-3">
-      <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-500/10 p-3 text-xs leading-snug text-amber-900 dark:text-amber-200">
-        <TriangleAlert size={14} className="mt-px shrink-0" aria-hidden="true" />
-        <p>
-          This key has to be inside your sites so visitors’ browsers can use it. AppBlips scrambles it so it isn’t in plain
-          sight, but <strong>this is not foolproof</strong>: anyone with a little know-how can find it and spend its Pollen.
-          Use a key made only for this, with a small budget, so the most you can lose is that budget.
-        </p>
-      </div>
       <details className="text-xs leading-snug text-slate-700">
         <summary className="cursor-pointer font-semibold text-indigo-600">How to make a safe key</summary>
         <ol className="mt-2 list-decimal space-y-1 pl-5">
@@ -269,7 +265,14 @@ const PAYERS = [
   },
 ];
 
+// Choosing "My key pays" puts a secret key into the user's sites, so it only
+// takes effect after they acknowledge the risk in a modal.
 function AiPayer({ state, onChange }) {
+  const [confirmSite, setConfirmSite] = useState(false);
+  const choose = (value) => {
+    if (value === 'site' && state.aiPayer !== 'site') setConfirmSite(true);
+    else onChange({ aiPayer: value });
+  };
   return (
     <fieldset className="py-4 space-y-3">
       <legend className="text-sm font-semibold text-slate-900">AI features in your sites</legend>
@@ -284,7 +287,7 @@ function AiPayer({ state, onChange }) {
             name="pollinations-ai-payer"
             className="mt-1"
             checked={state.aiPayer === value}
-            onChange={() => onChange({ aiPayer: value })}
+            onChange={() => choose(value)}
           />
           <span>
             <span className="block font-semibold">{label}</span>
@@ -293,6 +296,46 @@ function AiPayer({ state, onChange }) {
         </label>
       ))}
       {state.aiPayer === 'site' && <SiteKey state={state} onChange={onChange} />}
+      {/* Portaled out of the settings card: a fixed overlay inside it would be
+          clipped by the card's overflow. */}
+      {confirmSite && createPortal(
+        <ConfirmModal
+          title="This is not secure"
+          subtitle="Anyone could find it and spend its Pollen."
+          onClose={() => setConfirmSite(false)}
+          onConfirm={() => {
+            setConfirmSite(false);
+            onChange({ aiPayer: 'site' });
+          }}
+          confirmLabel="I understand"
+          confirmClass="brand-fill-text rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+        >
+          <div className="-mt-2 flex items-start gap-3">
+            <TriangleAlert size={18} className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
+            <p className="text-sm text-slate-600 leading-relaxed">
+              This key has to be inside your sites so visitors’ browsers can use it. AppBlips scrambles it so it isn’t in plain
+              sight, but <strong>this is not foolproof</strong>: anyone with technical knowledge can find it and spend its Pollen.
+              Use a key made only for this, with a small budget, so the most you can lose is that budget.
+            </p>
+          </div>
+          {/* Opens straight away: the user is already reading a warning, so a
+              second "this leaves AppBlips" dialog on top would be noise. The
+              preventDefault also tells ExternalLinkGuard to leave it alone. */}
+          <a
+            href={KEYS_DOCS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
+              openExternalNow(KEYS_DOCS_URL);
+            }}
+            className="ml-[30px] inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:underline"
+          >
+            Learn more about keys<ExternalLink size={12} aria-hidden="true" />
+          </a>
+        </ConfirmModal>,
+        document.body,
+      )}
     </fieldset>
   );
 }
