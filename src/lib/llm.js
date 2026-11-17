@@ -895,9 +895,14 @@ const createMissingPages = async ({ files, request, signal, onChunk, projectName
     onChunk(JSON.stringify({ page: LANDING_PAGE, html: getLanding(files) }), 'live_page_done');
   }
   // Only the live views need the stream; the text deltas must not reach the
-  // transcript as chat.
+  // transcript as chat. The thinking markers pass through: with reasoning on,
+  // each page starts with the model thinking silently, and without them the
+  // UI sits on the last page's finished code as if the build had stalled.
   const forwardLive = onChunk
-    ? (chunk, kind) => { if (kind === 'content') onChunk(chunk, 'page_stream'); }
+    ? (chunk, kind) => {
+      if (kind === 'content') onChunk(chunk, 'page_stream');
+      else if (kind === 'thinking_start' || kind === 'thinking_end') onChunk(chunk, kind);
+    }
     : null;
   for (const [i, pageName] of targets.entries()) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
