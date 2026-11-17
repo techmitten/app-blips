@@ -7,11 +7,15 @@
 // and Docker don't use any of this.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "appblips-web",
+  "name": "app-blips",
   "main": "worker/index.js",
   "compatibility_date": "2025-11-01",
   // Buffer, node:stream and friends, used by the shared handlers.
   "compatibility_flags": ["nodejs_compat"],
+  // Settings live in the dashboard. Without this, each deploy from GitHub
+  // replaces the dashboard's plain-text variables with this file's (none),
+  // wiping OPENAI_LLM_MODEL and the like; secrets are never touched.
+  "keep_vars": true,
   "build": {
     "command": "npm run build && cp worker/_headers dist/_headers"
   },
