@@ -88,14 +88,15 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: snapcraft upload --release=stable dist-desktop/*.snap
 
-  # Builds the Microsoft Store package on Windows and submits it to Partner
-  # Center. The .appx is never uploaded anywhere else (not to the GitHub
+  # Builds the Microsoft Store package on Windows and uploads it to Partner
+  # Center as a DRAFT submission (--noCommit); you review it and click Submit
+  # to the Store there. The .appx is never uploaded anywhere else (not to the GitHub
   # release). Runs for v* tags, or by hand with store_only (npm run release store). Needs these repository secrets, from
   # Partner Center → Account settings → Microsoft Entra ID (app with the
   # Manager role) and the app's Product identity: MSSTORE_TENANT_ID,
   # MSSTORE_SELLER_ID, MSSTORE_CLIENT_ID, MSSTORE_CLIENT_SECRET,
-  # MSSTORE_PRODUCT_ID. Microsoft's certification takes days; this job only
-  # submits.
+  # MSSTORE_PRODUCT_ID. Microsoft's certification takes days and only
+  # starts when you submit the draft.
   store:
     if: startsWith(github.ref, 'refs/tags/v') || inputs.store_only
     runs-on: windows-latest
@@ -122,4 +123,9 @@ jobs:
           MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
         run: |
           msstore reconfigure --tenantId "$MSSTORE_TENANT_ID" --sellerId "$MSSTORE_SELLER_ID" --clientId "$MSSTORE_CLIENT_ID" --clientSecret "$MSSTORE_CLIENT_SECRET"
-          msstore publish dist-desktop -i dist-desktop -id "$MSSTORE_PRODUCT_ID" -v
+          # -i must be the package file itself; given only a folder, msstore
+          # looks for a project to build and fails. The Store accepts the
+          # electron-builder .appx; msstore wants an .msix name, so copy it.
+          appx="$(ls dist-desktop/AppBlips-Store-*.appx | head -1)"
+          cp "$appx" dist-desktop/AppBlips-Store.msix
+          msstore publish dist-desktop -i dist-desktop/AppBlips-Store.msix -id "$MSSTORE_PRODUCT_ID" --noCommit -v

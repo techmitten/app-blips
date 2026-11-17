@@ -32,15 +32,15 @@ if [ "$bump" = "store" ]; then
     || fail "GitHub's master doesn't have the Store workflow yet. Commit and push first."
   tag="${2:-$(git describe --tags --abbrev=0 --match 'v*' origin/master 2>/dev/null || true)}"
   git rev-parse -q --verify "refs/tags/$tag" >/dev/null || fail "Tag '$tag' not found."
-  say "Microsoft Store only: build $tag and submit it (no version bump, no Linux build, no GitHub release)"
+  say "Microsoft Store only: build $tag and upload it as a draft (no version bump, no Linux build, no GitHub release)"
   echo "The Store rejects a version it already has. To use another tag: npm run release store vX.Y.Z"
-  ask "Submit $tag to the Microsoft Store?" || fail "Cancelled. Nothing was changed."
+  ask "Upload $tag to the Microsoft Store as a draft?" || fail "Cancelled. Nothing was changed."
   gh workflow run desktop.yml --ref master -f store_only=true -f tag="$tag"
   sleep 8
   run_id="$(gh run list --workflow desktop.yml --branch master --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
-  say "Building and submitting (a few minutes)…"
+  say "Building and uploading (a few minutes)…"
   gh run watch "$run_id" --exit-status --interval 20 || fail "The Store job failed. See: $(gh run view "$run_id" --json url --jq .url)"
-  say "Submitted $tag to Partner Center. Microsoft's review takes a few days."
+  say "Draft uploaded. Open Partner Center → AppBlips, check it and click Submit to the Store."
   exit 0
 fi
 
