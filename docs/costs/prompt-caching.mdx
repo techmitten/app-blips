@@ -1,0 +1,46 @@
+---
+title: "Prompt caching"
+sidebarTitle: "Prompt caching"
+description: "What prompt caching is, why it makes builds cheaper and faster, and why you don't need to set anything up for it in AppBlips."
+---
+
+Every time AppBlips asks the AI to build or change something, it sends the AI a request. Many of those requests start with the same text. **Prompt caching** lets your AI provider remember that shared text, so it doesn't charge full price to read it again.
+
+You don't need to do anything to use it. AppBlips sets up every request so caching works with every [supported provider](/ai-providers#supported-providers).
+
+## What caching is
+
+When your AI provider reads a request, it measures it in **tokens**: small pieces of text, each roughly three-quarters of a word. You pay for every token the AI reads and every token it writes.
+
+A cache is a short-term memory. After the provider reads a request, it keeps that request's opening text for a few minutes. If the next request starts with exactly the same text, the provider reuses what it already has instead of reading it again. Those reused tokens cost much less than new ones, and the AI starts answering sooner.
+
+Caching only reuses text the AI **reads**. The code it **writes** is new every time, and it's charged as usual.
+
+## What gets reused in AppBlips
+
+A lot of what AppBlips sends the AI is the same from one request to the next:
+
+- **The instructions.** Every build starts with the same detailed instructions on how to write a good app, website or game.
+- **Your home page, when building a multi-page website.** In the Website studio, AppBlips writes your home page first, then writes each of the other pages (About, Menu, Contact and so on) as a separate request. Each of those requests includes your finished home page, so the new page gets the same look, navigation bar and footer. With caching, your provider reads the home page in full once and reuses it for the pages after.
+- **Earlier steps of an edit.** When you ask for a change, the AI often works in several steps: it looks at your code, makes changes, then checks them. Each step resends everything from the steps before it, and caching reuses that.
+
+## You don't need to set anything up
+
+Caching works automatically in every studio and with every provider. There's no setting to turn on.
+
+- **OpenAI, Gemini, xAI and DeepSeek** cache automatically. AppBlips orders every request so the shared text comes first, which is what lets the provider recognise it.
+- **Anthropic**, and **Claude models through OpenRouter**, only cache text that a request marks as reusable. AppBlips adds those marks for you.
+
+## The benefits
+
+- **Lower cost.** Reused tokens are charged at a fraction of the normal price. How big the discount is depends on your provider and model, so check their pricing page for the exact rate.
+- **Faster responses.** The provider skips re-reading text it already has, so the AI starts writing sooner.
+- **The most savings on bigger jobs.** Multi-page websites and edits that take several steps resend the most text, so they get the most out of caching.
+
+If you use **Free (no key needed)**, you aren't charged for tokens, but caching still makes responses faster.
+
+## Good to know
+
+- **The cache lasts a few minutes.** Providers keep it for about five minutes after its last use. Work you do steadily benefits the most. If you come back after a break, the first request reads everything in full again.
+- **Claude charges a little extra to save text to the cache.** With Anthropic, or Claude models through OpenRouter, text costs about a quarter more than the normal price the first time it's saved. The first reuse more than makes that back. The other providers don't charge extra to save text.
+- **AppBlips' token count doesn't show the savings.** The count in AppBlips includes every token sent, whether or not the provider reused it. To see how much was cached, check the usage or billing page on your provider's website.

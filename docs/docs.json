@@ -28,6 +28,7 @@
             "group": "Core Features",
             "pages": [
               "features/building-apps",
+              "features/multi-page-websites",
               "features/live-preview",
               "features/editing-apps",
               "features/connectors",
@@ -37,6 +38,12 @@
               "features/showcase",
               "features/importing-sites",
               "features/cancel-or-delete"
+            ]
+          },
+          {
+            "group": "Cost and speed",
+            "pages": [
+              "costs/prompt-caching"
             ]
           },
           {
