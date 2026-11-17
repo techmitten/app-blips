@@ -288,6 +288,14 @@
   line-height: 1.75;
 }
 .is-setup .onboarding-copy > p { max-width: 26rem; margin-top: 1.9rem; color: #b3b3b3; font-size: clamp(1rem, 4.9cqi, 1.36rem); font-weight: 300; line-height: 1.6; }
+/* The terms step: each document's title is its link. */
+.onboarding-terms-link { display: inline-flex; align-items: center; gap: 6px; color: #f5f5f5; text-decoration: underline; text-decoration-color: var(--ob-red); text-underline-offset: 3px; }
+.onboarding-terms-link:hover { color: #ffffff; text-decoration-thickness: 2px; }
+.onboarding-terms-link svg { color: var(--ob-red); }
+/* The AI step: one tile per provider the user can connect. */
+.onboarding-provider-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 1.6rem 0 0; padding: 0; list-style: none; }
+.onboarding-provider-row li { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid rgb(255 255 255 / 0.12); border-radius: 12px; color: #f5f5f5; background: rgb(0 0 0 / 0.35); }
+.onboarding-provider-row .onboarding-provider-logo { width: 22px; height: 22px; }
 
 
 
@@ -505,7 +513,7 @@
   .onboarding-stage { overflow-y: visible; align-content: start; }
   .onboarding-stage, .desktop-onboarding-card.is-setup .onboarding-stage { grid-template-columns: 1fr; gap: 1.5rem; padding: 1.5rem; }
   .onboarding-copy { text-align: center; }.onboarding-copy h1, .onboarding-copy > p { margin-inline: auto; }
-  .onboarding-greeting { justify-content: center; }
+  .onboarding-greeting, .onboarding-provider-row { justify-content: center; }
   .desktop-onboarding-card.is-setup .onboarding-stage { padding-block: 1.5rem; }.desktop-onboarding-setup { max-width: 590px; width: 100%; margin: 0 auto; }
   /* The form sits below the copy here, so point the nudge down at it. */
   .desktop-onboarding-card.is-setup::before, .desktop-onboarding-card.is-setup::after { display: none; }

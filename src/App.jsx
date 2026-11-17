@@ -25,6 +25,7 @@ import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 import GitHubStarNotice from './components/GitHubStarNotice';
 import DesktopOnboarding from './components/DesktopOnboarding';
+import { BUNDLED_LEGAL_DATES, fetchLegalDates, loadAgreement, needsAgreement, saveAgreement } from './lib/legal';
 import ImportSiteDialog from './components/ImportSiteDialog';
 import ShowcaseModal from './components/ShowcaseModal';
 import PublishDialog from './components/PublishDialog';
@@ -144,6 +145,17 @@ export default function App({ coldStart = false }) {
   // process owns the durable flag so clearing a provider later does not replay
   // onboarding, while a truly fresh install still gets it.
   const [desktopOnboarding, setDesktopOnboarding] = useState({ loading: true });
+  // Terms of Use / Privacy Policy agreement (lib/legal.js). The dates start as
+  // this build's and are replaced by the landing site's once fetched, which
+  // never holds up startup.
+  const [legalDates, setLegalDates] = useState(BUNDLED_LEGAL_DATES);
+  const [legalAgreement, setLegalAgreement] = useState(loadAgreement);
+  useEffect(() => {
+    let cancelled = false;
+    fetchLegalDates().then((dates) => { if (!cancelled) setLegalDates(dates); });
+    return () => { cancelled = true; };
+  }, []);
+  const agreeToLegal = () => setLegalAgreement(saveAgreement(legalDates));
   useEffect(() => {
     let cancelled = false;
     providerApi.get().then((info) => {
@@ -2626,11 +2638,20 @@ export default function App({ coldStart = false }) {
         providerInfo={desktopOnboarding.info}
         onComplete={() => setDesktopOnboarding(null)}
         onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
+        onAgree={agreeToLegal}
       />
       <UpdateNotice aboveOverlay />
       </>
     );
   }
+
+  // A returning user who hasn't agreed to the current terms (or never did,
+  // from before the terms slide existed): just that slide, until they agree.
+  // An overlay over the app rather than in its place, so dates that arrive
+  // mid-session don't unmount an open project.
+  const legalGate = needsAgreement(legalAgreement, legalDates) && (
+    <DesktopOnboarding termsOnly onAgree={agreeToLegal} onComplete={() => {}} />
+  );
 
   // Settings → Tools → SEO. Saving keeps what the AI was last told, so
   // only a real change makes the answers pending again (lib/seo.js).
@@ -2753,6 +2774,7 @@ export default function App({ coldStart = false }) {
         {settingsModal}
         <DesktopStorageNotice />
         <UpdateNotice />
+        {legalGate}
         {showStarPrompt && !isGenerating && <GitHubStarNotice onDismiss={dismissGitHubStarPrompt} />}
         {isProjectsListOpen && (
           <ProjectsListModal
@@ -2917,6 +2939,7 @@ export default function App({ coldStart = false }) {
       <UpdateNotice />
       {showStarPrompt && !isGenerating && <GitHubStarNotice onDismiss={dismissGitHubStarPrompt} />}
       <DesktopStorageNotice />
+      {legalGate}
 
       {isResumingProject ? null : showHero ? (
         <HeroLanding

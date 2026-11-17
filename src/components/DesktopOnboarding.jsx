@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Eye, EyeOff,
-  FolderOpen, Gift, Info, KeyRound, Laptop, Loader2, Plug, Settings, Sparkles, UserRound, X, Zap,
+  ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Download, Eye, EyeOff,
+  FileText, FolderOpen, Gift, Globe, HardDrive, Info, KeyRound, Laptop, Loader2, Plug, Settings, ShieldCheck, Sparkles, Trash2, UserRound, X, Zap,
 } from 'lucide-react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
@@ -16,6 +16,7 @@ import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
 import useTestCooldown from '../hooks/useTestCooldown';
 import { ONBOARDING_PROVIDER_LOGOS } from './providerLogos';
+import { PRIVACY_URL, TERMS_URL } from '../lib/legal';
 
 // One labelled field. `error` appears only after the user has tried to
 // continue, so an untouched form doesn't open covered in red.
@@ -298,9 +299,13 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
 
 // Shown only when the host's environment variables supply AI: what the Free
 // choice on the next slide is, before the provider list offers it.
-function FreeAiPanel({ formRef, onSubmit }) {
+// `needsSignIn`: the browser version asks for a Google or GitHub sign-in
+// before Free AI requests (lib/freeSignIn.js); the desktop app never does.
+function FreeAiPanel({ formRef, onSubmit, needsSignIn }) {
   const points = [
-    { icon: Zap, title: 'No key, no account', text: 'Start building right away. There is nothing to sign up for or paste in.' },
+    needsSignIn
+      ? { icon: Zap, title: 'No API key needed', text: 'Sign in with your Google or GitHub account the first time you use it. There is no key to find or paste in.' }
+      : { icon: Zap, title: 'No key, no account', text: 'Start building right away. There is nothing to sign up for or paste in.' },
     { icon: Cpu, title: 'Runs on various models', text: (
       <>
         For a limited time, AppBlips provides a free AI option. By using the free tier, you agree to our{' '}
@@ -323,7 +328,63 @@ function FreeAiPanel({ formRef, onSubmit }) {
   );
 }
 
-// First slide: only the user's name, so the opening question is a single box.
+// Browser version only: projects live in this browser's storage, not as
+// files on the computer, so clearing site data deletes them. Published sites
+// are hosted online and aren't affected.
+function StoragePanel({ formRef, onSubmit }) {
+  const points = [
+    { icon: HardDrive, title: 'Kept in this browser', text: 'Your projects are stored in this browser’s storage, not as files on your computer, and not on AppBlips’ servers.' },
+    { icon: Trash2, title: 'Clearing browser data deletes them', text: 'Clearing your cache, cookies, or site data, using a private window, or switching browsers or devices will remove your projects.' },
+    { icon: Globe, title: 'Published sites stay online', text: 'Anything you publish is hosted online, so clearing your browser won’t take it down.' },
+    { icon: Download, title: 'Keep a backup', text: 'Use Settings → Data → Export all apps to save a backup file you can import later.' },
+  ];
+  return (
+    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      <ul className="onboarding-free-list">
+        {points.map(({ icon: Icon, title, text }) => (
+          <li key={title}>
+            <span className="onboarding-free-icon"><Icon size={18} /></span>
+            <span><strong>{title}</strong><span>{text}</span></span>
+          </li>
+        ))}
+      </ul>
+      <p className="onboarding-key-help">
+        AppBlips is not responsible for any lost data, including projects removed from your browser’s storage. Please export backups regularly.
+      </p>
+    </form>
+  );
+}
+
+// First slide: the Terms of Service and Privacy Policy, agreed to with the
+// "I agree" button before anything else.
+function TermsPanel({ formRef, onSubmit }) {
+  const documents = [
+    { icon: FileText, title: 'Terms of Service', href: TERMS_URL, text: 'The rules for using AppBlips and the projects you build with it.' },
+    { icon: ShieldCheck, title: 'Privacy Policy', href: PRIVACY_URL, text: 'What information is collected, how it is used, and the choices you have.' },
+  ];
+  return (
+    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      <ul className="onboarding-free-list">
+        {documents.map(({ icon: Icon, title, href, text }) => (
+          <li key={title}>
+            <span className="onboarding-free-icon"><Icon size={18} /></span>
+            <span>
+              <strong>
+                <a className="onboarding-terms-link" href={href} target="_blank" rel="noopener noreferrer">
+                  {title} <ArrowUpRight size={15} aria-hidden="true" />
+                </a>
+              </strong>
+              <span>{text}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="onboarding-key-help">By selecting I agree, you confirm that you have read and accept the Terms of Service and Privacy Policy.</p>
+    </form>
+  );
+}
+
+// Second slide: only the user's name, so the opening question is a single box.
 function NameForm({ formRef, onSubmit, name, setName, errors }) {
   return (
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
@@ -348,7 +409,7 @@ function NameForm({ formRef, onSubmit, name, setName, errors }) {
   );
 }
 
-// Second slide: the chat avatar and (desktop only) where projects are saved.
+// Third slide: the chat avatar and (desktop only) where projects are saved.
 // The folder picker is the same one as Settings → Data, so the main process
 // still decides whether existing projects move.
 function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFolder, folderStatus }) {
@@ -407,13 +468,15 @@ function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFold
 // already has (or deliberately skipped) a setup, so they may leave without
 // re-entering a key. A first run offers "Skip for now" instead, which saves
 // that onboarding is done so it doesn't come back on the next launch.
-export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup }) {
-  const [step, setStep] = useState('name');
+// `termsOnly` shows just the terms slide, to a returning user after the terms
+// or privacy policy change (App.jsx); `onAgree` saves the agreement.
+export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup, termsOnly = false, onAgree }) {
+  const [step, setStep] = useState('terms');
   // Slide direction follows the step order; only updated when the step
   // changes so unrelated re-renders don't restart the animation.
   const [slide, setSlide] = useState({ step, rank: 0, dir: 'forward' });
   if (slide.step !== step) {
-    const rank = { name: 0, avatar: 1, free: 2, ai: 3 }[step];
+    const rank = { terms: 0, name: 1, avatar: 2, storage: 3, free: 4, ai: 5 }[step];
     setSlide({ step, rank, dir: rank < slide.rank ? 'back' : 'forward' });
   }
   const [profile] = useState(loadProfile);
@@ -492,10 +555,13 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     keepProfile();
     setStep('avatar');
   };
-  // After the avatar: the Free explainer when there is one, then the AI form.
+  // After the avatar: how browser storage works (web only), then the Free
+  // explainer when there is one, then the AI form.
+  const hasStorage = !isDesktop;
+  const afterStorage = hasFree ? 'free' : 'ai';
   const continueToAi = () => {
     keepProfile();
-    setStep(hasFree ? 'free' : 'ai');
+    setStep(hasStorage ? 'storage' : afterStorage);
   };
 
   const needsProvider = !provider;
@@ -543,23 +609,33 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     onComplete();
   };
 
+  const isTerms = step === 'terms';
   const isName = step === 'name';
   const isAvatar = step === 'avatar';
+  const isStorage = step === 'storage';
   const isFreeStep = step === 'free';
   const isLast = step === 'ai';
-  const back = { avatar: 'name', free: 'avatar', ai: hasFree ? 'free' : 'avatar' }[step];
-  const stepCount = hasFree ? 4 : 3;
-  const stepNumber = { avatar: 2, free: 3, ai: hasFree ? 4 : 3 }[step];
+  // The slides in order; storage and Free only appear where they apply.
+  const steps = termsOnly ? ['terms'] : ['terms', 'name', 'avatar', ...(hasStorage ? ['storage'] : []), ...(hasFree ? ['free'] : []), 'ai'];
+  const stepIndex = steps.indexOf(step);
+  const back = stepIndex > 0 ? steps[stepIndex - 1] : null;
+  const stepCount = steps.length;
+  const stepNumber = stepIndex + 1;
   const goBack = () => {
     setStatus(null);
     setStep(back);
   };
-  const next = isName ? continueToAvatar : isFreeStep ? () => setStep('ai') : continueToAi;
+  const agree = () => {
+    onAgree?.();
+    if (termsOnly) onComplete();
+    else setStep('name');
+  };
+  const next = isTerms ? agree : isName ? continueToAvatar : isStorage ? () => setStep(afterStorage) : isFreeStep ? () => setStep('ai') : continueToAi;
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
       <div className="onboarding-backdrop" aria-hidden="true"><i /><i /><i /></div>
-      <main className={`desktop-onboarding-card is-setup${isName ? ' is-welcome' : ''}`}>
+      <main className={`desktop-onboarding-card is-setup${isTerms ? ' is-welcome' : ''}`}>
         <header className="onboarding-topbar">
           <div className="onboarding-brand">
             <img src="/favicon.svg" alt="" aria-hidden="true" className="onboarding-brand-icon" />
@@ -570,7 +646,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <button type="button" className="onboarding-exit" onClick={onExit} disabled={status?.kind === 'busy'}>
                 Exit setup <X size={15} />
               </button>
-            ) : (
+            ) : !termsOnly && (
               <span><Laptop size={20} /> {isDesktop ? 'Desktop setup' : 'Setup'}</span>
             )}
           </div>
@@ -578,7 +654,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
 
         <div className="onboarding-stage" key={step} data-dir={slide.dir}>
           <section className="onboarding-copy has-panel">
-            <span className="onboarding-eyebrow"><Sparkles size={14} /> {isName ? 'Welcome to AppBlips' : `Step ${stepNumber} of ${stepCount}`}</span>
+            <span className="onboarding-eyebrow"><Sparkles size={14} /> {termsOnly ? 'Updated terms' : isTerms ? 'Welcome to AppBlips' : `Step ${stepNumber} of ${stepCount}`}</span>
             {/* Greeted once, right after they give their name, not again on the AI step. */}
             {isAvatar && cleanName(name) && (
               <div className="onboarding-greeting">
@@ -586,13 +662,21 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 <span>Hi, {cleanName(name)}!</span>
               </div>
             )}
-            {isName ? (
+            {isTerms ? (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
-                First, what should <span className="onboarding-title-accent">we call you?</span>
+                {termsOnly ? 'We’ve updated ' : 'First, a quick look at '}<span className="onboarding-title-accent">our terms.</span>
+              </h1>
+            ) : isName ? (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                Now, what should <span className="onboarding-title-accent">we call you?</span>
               </h1>
             ) : isAvatar ? (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Now pick <span className="onboarding-title-accent">your avatar.</span>
+              </h1>
+            ) : isStorage ? (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                Your projects live <span className="onboarding-title-accent">in this browser.</span>
               </h1>
             ) : isFreeStep ? (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
@@ -603,12 +687,18 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
               </h1>
             )}
-            {isName ? (
+            {isTerms ? (
+              <p>{termsOnly
+                ? 'Please review the latest Terms of Service and Privacy Policy before you continue using AppBlips.'
+                : 'Please review how AppBlips works and how your data is handled before you continue.'}</p>
+            ) : isName ? (
               <p>Type your name or a nickname. It appears next to your messages in the chat.</p>
             ) : isAvatar ? (
               <p>{isDesktop
                 ? 'Pick a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
                 : 'Pick a fun avatar for your chat messages.'}</p>
+            ) : isStorage ? (
+              <p>Before you start, here is how saving works in the web version of AppBlips.</p>
             ) : isFreeStep ? (
               <p>On the next step it is the <strong>Free</strong> option in the provider list.</p>
             ) : (
@@ -616,9 +706,21 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 ? 'Keep Free, or connect your own key through Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter. You can change this later in Settings.'
                 : 'Connect through Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter. You can change this later in Settings.'}</p>
             )}
+            {isLast && (
+              <ul className="onboarding-provider-row" aria-label="Supported AI providers">
+                {USER_PROVIDER_OPTIONS.map(({ id, label }) => (
+                  <li key={id} title={label}>
+                    <ProviderGlyph id={id} />
+                    <span className="sr-only">{label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
           <section className="onboarding-visual-wrap">
-            {isName ? (
+            {isTerms ? (
+              <TermsPanel formRef={formRef} onSubmit={agree} />
+            ) : isName ? (
               <NameForm formRef={formRef} onSubmit={continueToAvatar} {...{ name, setName }} errors={profileErrors} />
             ) : isAvatar ? (
               <AvatarForm
@@ -627,8 +729,10 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 {...{ avatar, setAvatar, folder, folderStatus }}
                 onChooseFolder={chooseFolder}
               />
+            ) : isStorage ? (
+              <StoragePanel formRef={formRef} onSubmit={() => setStep(afterStorage)} />
             ) : isFreeStep ? (
-              <FreeAiPanel formRef={formRef} onSubmit={() => setStep('ai')} />
+              <FreeAiPanel formRef={formRef} onSubmit={() => setStep('ai')} needsSignIn={!isDesktop} />
             ) : (
               <SetupForm
                 formRef={formRef}
@@ -650,7 +754,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 <ArrowLeft size={16} /> Back
               </button>
             )}
-            {!onExit && (
+            {!onExit && !isTerms && (
               <button type="button" className="onboarding-skip" onClick={skip} disabled={busy}>
                 Skip for now
               </button>
@@ -660,7 +764,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             {isLast && status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
             {!isLast ? (
               <button type="button" className="onboarding-next" onClick={next}>
-                Continue <ArrowRight size={18} />
+                {isTerms ? 'I agree' : isStorage ? 'I understand' : 'Continue'} <ArrowRight size={18} />
               </button>
             ) : (
               <button
