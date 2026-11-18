@@ -352,13 +352,13 @@ export const loadReasoningEffort = () => {
 
 export const HERO_RAIL_COLLAPSED_KEY = 'orion-hero-rail-collapsed';
 
-// Boolean: whether the first-build screen's side rail is icon-only. Expanded
-// (with labels) by default.
+// Boolean: whether the studio shell's side rail is icon-only. Collapsed by
+// default; it stays expanded only for someone who has expanded it.
 export const loadHeroRailCollapsed = () => {
   try {
-    return safeStorage('local')?.getItem(HERO_RAIL_COLLAPSED_KEY) === 'true';
+    return safeStorage('local')?.getItem(HERO_RAIL_COLLAPSED_KEY) !== 'false';
   } catch {
-    return false;
+    return true;
   }
 };
 

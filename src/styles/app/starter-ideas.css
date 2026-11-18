@@ -53,47 +53,61 @@
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='indigo'] { color: #81afda; background: rgba(57, 135, 208, 0.2); }
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='fuchsia'] { color: #f9a8d4; background: rgba(236, 72, 153, 0.18); }
 
-/* Chip variant (first-build hero). A frosted pill on the hero gradient; its
-   colours come from the hero's theme variables (hero-landing.css). */
+/* Chip variant (first-build hero). Quiet pills that sit straight on the stage,
+   flush with the composer's edges; colours come from the hero's theme
+   variables (hero-landing.css). */
 .starter-chip {
   border: 1px solid var(--hero-chip-border);
   background: var(--hero-chip-bg);
   color: var(--hero-chip-fg);
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .starter-chip:hover {
   border-color: var(--hero-chip-border-hover);
   background: var(--hero-chip-bg-hover);
+  color: var(--hero-chip-fg-hover, var(--hero-chip-fg));
 }
 
 .starter-chip:active {
   transform: translateY(0.5px);
 }
 
-.starter-chip:focus-visible {
+.starter-chip:focus-visible,
+.starter-arrow:focus-visible {
   outline: 2px solid var(--color-indigo-500);
   outline-offset: 2px;
 }
 
-/* The hero's chip row sits in a tray of its own: a defined edge under the
-   composer, so the chips read as one group rather than loose pills floating
-   on the backdrop. The arrows live inside it. */
-.starter-tray {
-  border: 1px solid var(--hero-tray-border, rgb(255 255 255 / 0.12));
-  background: var(--hero-tray-bg, rgb(10 8 8 / 0.4));
-  box-shadow: var(--hero-tray-shadow, inset 0 1px 0 rgb(255 255 255 / 0.05), 0 10px 24px -14px rgb(0 0 0 / 0.7));
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
+/* Scroll arrows: opaque discs over the row's faded ends. Touch screens swipe
+   the row instead, so the arrows are a pointer-only control. */
+.starter-arrow {
+  position: absolute;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-top: -1rem;
+  border: 1px solid var(--hero-chip-border);
+  border-radius: 999px;
+  background: var(--hero-arrow-bg, #1c1c1c);
+  color: var(--hero-chip-fg);
+  box-shadow: var(--hero-arrow-shadow, 0 4px 12px -4px rgb(0 0 0 / 0.7));
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
 
-/* Inside the tray the chips are flat buttons with a clear border; a drop
-   shadow would be clipped by the scrolling row and leave them edgeless. */
-.starter-tray .starter-chip {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+.starter-arrow:hover {
+  border-color: var(--hero-chip-border-hover);
+  color: var(--hero-chip-fg-hover, var(--hero-chip-fg));
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .starter-arrow {
+    display: none;
+  }
 }
 
 /* Sliding rows. Touch and trackpads scroll natively; StarterIdeas adds mouse
@@ -126,18 +140,18 @@
 }
 
 .starter-chip-row[data-fade-start] {
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 2rem);
-  mask-image: linear-gradient(to right, transparent, #000 2rem);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 3rem);
+  mask-image: linear-gradient(to right, transparent, #000 3rem);
 }
 
 .starter-chip-row[data-fade-end] {
-  -webkit-mask-image: linear-gradient(to left, transparent, #000 2rem);
-  mask-image: linear-gradient(to left, transparent, #000 2rem);
+  -webkit-mask-image: linear-gradient(to left, transparent, #000 3rem);
+  mask-image: linear-gradient(to left, transparent, #000 3rem);
 }
 
 .starter-chip-row[data-fade-start][data-fade-end] {
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
-  mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 3rem, #000 calc(100% - 3rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 3rem, #000 calc(100% - 3rem), transparent);
 }
 
 /* Suggested prompts above the chat box (PromptSuggestions.jsx). Same hidden

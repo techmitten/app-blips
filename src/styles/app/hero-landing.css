@@ -4,15 +4,15 @@
    --color-slate-50) with the coral from the app icon (#eb6150) as the one
    accent colour -- a quiet SaaS backdrop rather than a multicolour gradient.
    Light: the studio picker's look (studio-choice.css) so the jump from one to
-   the other feels continuous -- slate ground, pastel colour blobs under a
-   fine grid, solid white surfaces with layered shadows. The light overrides
-   are the `:not(.dark)` blocks below; HeroLanding only adds `dark force-dark`
-   when the theme is dark. */
+   the other feels continuous -- slate ground, the picker's pastel colours
+   kept to the stage corners, solid white surfaces with layered shadows. The
+   light overrides are the `:not(.dark)` blocks below; HeroLanding only adds
+   `dark force-dark` when the theme is dark. */
 
-/* Dark values: mostly flat black, with two faint coral blooms (top-left,
-   bottom-right) so the colour travels on a diagonal instead of sitting
-   dead-centre. In dark the root also carries `dark force-dark`, so the
-   composer and chips take their dark styles. */
+/* Dark values: flat near-black with one coral bloom low on the right and a
+   much fainter one drifting at the top, so the colour frames the composer
+   instead of sitting behind it. In dark the root also carries
+   `dark force-dark`, so the composer and chips take their dark styles. */
 .hero-landing {
   /* Positioning context for the mobile slide-out menu (absolute, like the
      studio picker's, so no ancestor transform can trap it). */
@@ -21,25 +21,37 @@
   background: var(--hero-ground);
   --hero-ground: #080808;
   --hero-title: #fff;
-  --hero-title-shadow: 0 2px 24px rgb(0 0 0 / 0.6);
-  --hero-subtitle: rgb(255 255 255 / 0.78);
-  --hero-subtitle-shadow: 0 1px 12px rgb(0 0 0 / 0.6);
-  --hero-stage-edge: rgb(255 255 255 / 0.06);
-  --hero-drift: rgb(235 97 80 / 0.22);
+  --hero-subtitle: rgb(255 255 255 / 0.64);
+  /* The stage is a clear step above the rail's ground and carries a visible
+     edge, so the rail and the pane beside it read as two surfaces. */
+  --hero-stage-edge: rgb(255 255 255 / 0.11);
+  --hero-drift: rgb(235 97 80 / 0.06);
   --hero-stage-bg:
-    radial-gradient(48% 42% at 88% 96%, rgb(235 97 80 / 0.16), transparent 70%),
-    radial-gradient(42% 38% at 8% 4%, rgb(235 97 80 / 0.09), transparent 70%),
-    linear-gradient(165deg, #0c0a0a 0%, #0a0909 45%, #070707 100%);
+    radial-gradient(46% 40% at 92% 104%, rgb(235 97 80 / 0.18), transparent 70%),
+    #131313;
   --hero-rail-fg: rgb(255 255 255 / 0.72);
   --hero-rail-fg-strong: #fff;
   --hero-rail-hover: rgb(255 255 255 / 0.08);
-  --hero-rail-primary: transparent;
+  --hero-rail-primary: rgb(255 255 255 / 0.06);
+  --hero-rail-primary-edge: rgb(255 255 255 / 0.1);
   --hero-rail-muted: rgb(255 255 255 / 0.5);
-  --hero-chip-bg: rgb(10 8 8 / 0.5);
-  --hero-chip-bg-hover: rgb(10 8 8 / 0.72);
-  --hero-chip-border: rgb(255 255 255 / 0.2);
-  --hero-chip-border-hover: rgb(235 97 80 / 0.4);
-  --hero-chip-fg: rgb(255 255 255 / 0.9);
+  --hero-chip-bg: rgb(255 255 255 / 0.04);
+  --hero-chip-bg-hover: rgb(255 255 255 / 0.08);
+  --hero-chip-border: rgb(255 255 255 / 0.12);
+  --hero-chip-border-hover: rgb(255 255 255 / 0.26);
+  --hero-chip-fg: rgb(255 255 255 / 0.8);
+  --hero-chip-fg-hover: #fff;
+}
+
+/* The studio picker's typeface, so the shell reads as the same product as the
+   screen before it. --font-sans is redefined too because the global h1-h3
+   rule (index.css) reads it, not font-family. The workspace inside the stage
+   keeps the app's own face. */
+.hero-rail,
+.hero-menu,
+.hero-stage-first {
+  --font-sans: 'Plus Jakarta Sans', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* Inset rounded stage the gradient lives in, with the rail sitting on the
@@ -75,26 +87,62 @@
   .hero-stage::before { animation: none; }
 }
 
+/* One column, the composer's width: title, composer and starter chips share
+   its left and right edges. Sits a little above true centre, where a single
+   focal block looks centred. */
+.hero-column {
+  padding-top: 2.5rem;
+  padding-bottom: clamp(2.5rem, 9vh, 5.5rem);
+}
+
 .hero-title {
   color: var(--hero-title);
-  text-shadow: var(--hero-title-shadow);
+  font-size: clamp(1.625rem, 1.05rem + 2.3vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
 }
 
 .hero-subtitle {
+  max-width: 46ch;
   color: var(--hero-subtitle);
-  text-shadow: var(--hero-subtitle-shadow);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-wrap: balance;
 }
 
-/* The composer sits on saturated colour, so lift it off the gradient. */
+/* The composer is the one raised surface on the stage: a clear two steps
+   lighter than the stage, with an edge that holds on its own. */
 .hero-composer .prompt-input-dock {
-  border-color: rgb(255 255 255 / 0.16);
-  background: rgb(10 16 24 / 0.86);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  border-color: rgb(255 255 255 / 0.2);
+  border-radius: 1.375rem;
+  background: #262626;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   box-shadow:
-    0 30px 60px -20px rgb(2 8 14 / 0.75),
-    0 8px 20px -6px rgb(2 8 14 / 0.5),
+    0 28px 56px -24px rgb(0 0 0 / 0.9),
+    0 6px 16px -8px rgb(0 0 0 / 0.6),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.hero-composer .prompt-input-dock:focus-within {
+  border-color: rgb(255 255 255 / 0.4);
+  box-shadow:
+    0 0 0 4px rgb(255 255 255 / 0.05),
+    0 28px 56px -24px rgb(0 0 0 / 0.9),
+    0 6px 16px -8px rgb(0 0 0 / 0.6),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+/* Room to write: a taller field at reading size (16px also stops iOS from
+   zooming the page on focus). */
+.hero-composer .prompt-input-field {
+  min-height: 5.25rem;
+  padding: 1.125rem 1.25rem 0.5rem;
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
 /* ===== Side rail ===== */
@@ -149,8 +197,14 @@
 }
 
 .hero-rail-item-primary {
+  margin-bottom: 0.25rem;
   background: var(--hero-rail-primary);
+  box-shadow: inset 0 0 0 1px var(--hero-rail-primary-edge);
   color: var(--hero-rail-fg-strong);
+}
+
+.hero-rail-item-primary:hover {
+  background: var(--hero-rail-primary-hover, rgb(255 255 255 / 0.1));
 }
 
 .hero-rail-toggle:focus-visible,
@@ -174,11 +228,41 @@
   background: var(--hero-rail-hover);
 }
 
+/* History availability dot -- state, deliberately not a count. Sits at the
+   label's end when expanded and on the icon's corner when collapsed. */
+.hero-rail-item {
+  position: relative;
+}
+
+.hero-rail-dot {
+  flex: none;
+  width: 0.375rem;
+  height: 0.375rem;
+  margin-left: auto;
+  border-radius: 999px;
+  background: var(--hero-rail-muted);
+}
+
+.hero-rail-item.is-collapsed .hero-rail-dot {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+}
+
+.hero-rail-item-active {
+  background: var(--hero-rail-hover);
+  color: var(--hero-rail-fg-strong);
+}
+
+.hero-rail-item-active .hero-rail-dot {
+  background: #3987d0;
+  box-shadow: 0 0 8px 1px rgb(57 135 208 / 0.9);
+}
+
 .hero-rail-heading {
   padding: 0 0.6rem 0.35rem;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
   color: var(--hero-rail-muted);
 }
 
@@ -200,6 +284,35 @@
 .hero-rail-recent:hover {
   background: var(--hero-rail-hover);
   color: var(--hero-rail-fg-strong);
+}
+
+/* Desktop: the brand row is the rail's header. It takes the pane headers'
+   height and starts at the stage's top inset, so the logo, the Build title
+   and the preview toolbar share one centre line. */
+@media (min-width: 1024px) and (not ((hover: none) and (pointer: coarse))) {
+  .hero-rail {
+    padding-top: 0.375rem;
+  }
+
+  .hero-rail-brand {
+    flex: none;
+    height: var(--chrome-row-h);
+    margin-bottom: 0.375rem;
+  }
+
+  /* Collapsed, the logo keeps that centre line and the toggle drops below. */
+  .hero-rail-brand.is-collapsed {
+    height: auto;
+    padding-top: calc((var(--chrome-row-h) - 1.5rem) / 2);
+    padding-bottom: 0.25rem;
+  }
+
+  /* The picker's theme rule for the light wordmark (studio-choice.css) sets
+     display with more weight than Tailwind's `lg:hidden`, so the collapsed
+     rail hides both wordmarks here. */
+  .hero-rail .hero-rail-brand.is-collapsed .hero-rail-wordmark-img {
+    display: none;
+  }
 }
 
 /* Collapsed rail: icon keys centered in the strip. */
@@ -255,89 +368,58 @@
 .hero-landing:not(.dark) {
   /* A cool slate rather than near-white, as on the picker, so the white
      surfaces and dark text have something to stand against. */
-  --hero-ground: #dde3ed;
+  --hero-ground: #d3dae6;
   --hero-title: #0b1220;
-  --hero-title-shadow: none;
-  --hero-subtitle: rgb(11 18 32 / 0.74);
-  --hero-subtitle-shadow: none;
-  --hero-stage-edge: rgb(15 23 42 / 0.13);
-  --hero-drift: rgb(125 211 252 / 0.4);
-  /* The picker's mesh (sky, cyan, peach, mint -- no purple, per the brand),
-     static here; the ::before bloom below supplies the movement. */
+  --hero-subtitle: rgb(11 18 32 / 0.66);
+  --hero-stage-edge: rgb(15 23 42 / 0.14);
+  --hero-drift: rgb(125 211 252 / 0.22);
+  /* The picker's mesh (sky, cyan, peach, mint -- no purple, per the brand)
+     pushed out to the corners and turned well down, so the middle of the
+     stage is a calm slate field the white composer stands clear of. */
   --hero-stage-bg:
-    radial-gradient(44% 50% at 12% 10%, rgb(56 189 248 / 0.5), transparent 72%),
-    radial-gradient(40% 46% at 90% 8%, rgb(34 211 238 / 0.36), transparent 72%),
-    radial-gradient(42% 46% at 90% 94%, rgb(251 168 90 / 0.44), transparent 74%),
-    radial-gradient(44% 46% at 8% 92%, rgb(52 211 153 / 0.38), transparent 74%),
-    radial-gradient(54% 36% at 50% 50%, rgb(186 230 253 / 0.55), transparent 74%),
-    #e4eaf3;
+    radial-gradient(40% 44% at 4% 0%, rgb(56 189 248 / 0.3), transparent 72%),
+    radial-gradient(36% 40% at 98% 0%, rgb(34 211 238 / 0.2), transparent 72%),
+    radial-gradient(40% 42% at 98% 102%, rgb(251 168 90 / 0.28), transparent 74%),
+    radial-gradient(38% 40% at 2% 102%, rgb(52 211 153 / 0.2), transparent 74%),
+    #e1e7f0;
   --hero-rail-fg: rgb(11 18 32 / 0.76);
   --hero-rail-fg-strong: #0b1220;
   --hero-rail-hover: rgb(15 23 42 / 0.08);
   --hero-rail-primary: #ffffff;
+  --hero-rail-primary-edge: rgb(15 23 42 / 0.12);
+  --hero-rail-primary-hover: #ffffff;
   --hero-rail-muted: rgb(11 18 32 / 0.6);
-  --hero-chip-bg: rgb(255 255 255 / 0.9);
+  --hero-chip-bg: rgb(255 255 255 / 0.7);
   --hero-chip-bg-hover: #ffffff;
-  --hero-chip-border: rgb(15 23 42 / 0.14);
-  --hero-chip-border-hover: rgb(15 23 42 / 0.3);
-  --hero-chip-fg: #0b1220;
-  --hero-tray-bg: rgb(248 250 252 / 0.75);
-  --hero-tray-border: rgb(15 23 42 / 0.12);
-  --hero-tray-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 10px 22px -14px rgb(15 23 42 / 0.35);
-}
-
-/* The picker's fine line grid, fading out towards the edges. */
-.hero-landing:not(.dark) .hero-stage::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    linear-gradient(to right, rgb(15 23 42 / 0.07) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(15 23 42 / 0.07) 1px, transparent 1px);
-  background-size: 48px 48px;
-  background-position: center top;
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 80%);
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 80%);
+  --hero-chip-border: rgb(15 23 42 / 0.12);
+  --hero-chip-border-hover: rgb(15 23 42 / 0.28);
+  --hero-chip-fg: rgb(11 18 32 / 0.82);
+  --hero-chip-fg-hover: #0b1220;
+  --hero-arrow-bg: #ffffff;
+  --hero-arrow-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 6px 14px -6px rgb(15 23 42 / 0.3);
 }
 
 /* Composer: a solid white card with the picker's layered shadow (a tight
    contact shadow plus a long soft one), and a soft blue halo while typing. */
 .hero-landing:not(.dark) .hero-composer .prompt-input-dock {
-  border: 1px solid rgb(15 23 42 / 0.14);
-  background: rgb(255 255 255 / 0.94);
-  backdrop-filter: blur(12px) saturate(130%);
-  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  border: 1px solid rgb(15 23 42 / 0.12);
+  background: #ffffff;
   box-shadow:
-    inset 0 1px 0 #fff,
-    0 1px 2px rgb(15 23 42 / 0.08),
-    0 18px 38px -16px rgb(15 23 42 / 0.32);
+    0 1px 2px rgb(15 23 42 / 0.06),
+    0 22px 44px -22px rgb(15 23 42 / 0.3);
 }
 
 .hero-landing:not(.dark) .hero-composer .prompt-input-dock:focus-within {
-  border-color: rgb(14 116 144 / 0.5);
+  border-color: rgb(15 23 42 / 0.34);
   box-shadow:
-    inset 0 1px 0 #fff,
-    0 0 0 4px rgb(56 189 248 / 0.22),
-    0 2px 4px rgb(15 23 42 / 0.1),
-    0 24px 46px -16px rgb(15 23 42 / 0.4);
+    0 0 0 4px rgb(15 23 42 / 0.06),
+    0 1px 2px rgb(15 23 42 / 0.06),
+    0 22px 44px -22px rgb(15 23 42 / 0.34);
 }
 
-/* A tight shadow that fits inside the scrolling row (a deeper one is cut off
-   at the row's edge and makes the chips look unfinished). */
-.hero-landing:not(.dark) .starter-chip {
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.1);
-}
-
-.hero-landing:not(.dark) .starter-chip:hover {
-  box-shadow: 0 1px 3px rgb(15 23 42 / 0.16);
-}
-
-/* The rail's primary key becomes a white card, like the picker's. */
+/* The rail's primary key is a white card, like the picker's. */
 .hero-landing:not(.dark) .hero-rail-item-primary {
-  border: 1px solid rgb(15 23 42 / 0.13);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 8px 16px -10px rgb(15 23 42 / 0.3);
+  box-shadow: inset 0 0 0 1px var(--hero-rail-primary-edge), 0 1px 2px rgb(15 23 42 / 0.06);
 }
 
 /* The slide-out menu reuses the studio picker's panel classes, which read
@@ -370,4 +452,130 @@
 .hero-menu-btn:focus-visible { outline: 2px solid var(--color-indigo-500); outline-offset: 1px; }
 @media (min-width: 1024px) {
   .hero-rail .hero-menu-btn { display: none; }
+}
+
+/* ===== Workspace inside the stage =====
+   After the first prompt the stage holds the build workspace (HistorySidebar,
+   BuildPanel, PreviewPane) instead of the centered composer. The panes drop
+   their own opaque grounds so the chat and the device mockups sit on the
+   stage gradient; hairlines in the stage's edge colour separate them, and
+   the pane headers become frosted strips. */
+.hero-landing-workspace {
+  --hero-pane-tint: rgb(22 22 22 / 0.5);
+  --hero-pane-head: rgb(26 26 26 / 0.7);
+  --hero-pane-line: rgb(255 255 255 / 0.09);
+}
+
+.hero-landing-workspace:not(.dark) {
+  --hero-pane-tint: rgb(255 255 255 / 0.5);
+  --hero-pane-head: rgb(255 255 255 / 0.66);
+  --hero-pane-line: rgb(15 23 42 / 0.1);
+}
+
+.hero-stage-workspace > .workspace {
+  border-radius: inherit;
+}
+
+/* `.hero-landing` in front lifts these above the app's own dark-theme pane
+   rules (build-panel.css, same specificity otherwise), which would repaint
+   the chat in the rail's near-black and merge the two. */
+.hero-landing .hero-stage-workspace .build-panel,
+.hero-landing .hero-stage-workspace .build-panel-rail {
+  background: var(--hero-pane-tint);
+  border-color: var(--hero-pane-line);
+  box-shadow: none;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* The pane's recessed vignette is drawn for a free-standing panel; inside the
+   stage the pane divider is the only line it needs. */
+.hero-landing .hero-stage-workspace .build-panel::before {
+  box-shadow: none;
+}
+
+.hero-landing .hero-stage-workspace .build-panel-scroll {
+  background: transparent;
+  box-shadow: none;
+}
+
+.hero-landing .hero-stage-workspace .build-panel-composer {
+  background: transparent;
+  border-top: 1px solid var(--hero-pane-line);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.hero-stage-workspace .prompt-atmosphere {
+  display: none;
+}
+
+.hero-landing .hero-stage-workspace :is(.build-panel-header, .preview-pane-header) {
+  background: var(--hero-pane-head);
+  border-color: var(--hero-pane-line);
+  box-shadow: none;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* The preview canvas is the stage itself: the phone, tablet and desktop
+   frames float on the gradient. */
+.hero-stage-workspace .preview-pane.inset-shadow-preview {
+  background: transparent;
+  box-shadow: none;
+}
+
+.hero-stage-workspace .preview-pane.noise-texture::before,
+.hero-stage-workspace .preview-pane.noise-texture::after {
+  display: none;
+}
+
+.hero-stage-workspace .pane-divider {
+  width: 1px;
+  background: var(--hero-pane-line);
+  border: 0;
+}
+
+.hero-stage-workspace .pane-divider::before {
+  display: none;
+}
+
+.hero-stage-workspace :is(.history-sidebar, .history-bg, .history-header-bg) {
+  background: var(--hero-pane-head);
+  background-image: none;
+  border-color: var(--hero-pane-line);
+}
+
+.hero-stage-workspace .history-sidebar {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* The workspace composer gets the same lifted card as the hero's. */
+.hero-stage-workspace .build-panel .prompt-input-dock {
+  border-color: rgb(255 255 255 / 0.2);
+  background: #262626;
+  box-shadow:
+    0 20px 44px -20px rgb(0 0 0 / 0.9),
+    0 6px 16px -8px rgb(0 0 0 / 0.6),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.hero-landing.dark .hero-stage-workspace .build-panel .prompt-input-dock:focus-within {
+  border-color: rgb(255 255 255 / 0.4);
+}
+
+/* Placeholder ink on the lighter dock (dark only). */
+.hero-landing.dark :is(.hero-composer, .hero-stage-workspace) .prompt-input-field::placeholder {
+  color: rgb(255 255 255 / 0.62);
+}
+
+.hero-landing-workspace:not(.dark) .hero-stage-workspace .build-panel .prompt-input-dock {
+  border: 1px solid rgb(15 23 42 / 0.14);
+  background: rgb(255 255 255 / 0.94);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgb(15 23 42 / 0.08),
+    0 14px 30px -16px rgb(15 23 42 / 0.32);
 }

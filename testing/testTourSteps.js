@@ -5,10 +5,11 @@ import { buildTourSteps } from '../src/lib/tourSteps.js';
 
 // Every anchor a step names must exist somewhere in the UI, or the step loses
 // its spotlight (it falls back to the next anchor, and the last one is final).
+// Rail keys (HeroSidebar's RailItem) take theirs as a `tour="..."` prop.
 const anchors = new Set();
 for (const dir of ['src', 'src/components']) {
   for (const name of readdirSync(dir).filter((file) => file.endsWith('.jsx'))) {
-    for (const [, id] of readFileSync(`${dir}/${name}`, 'utf8').matchAll(/data-tour="([a-z-]+)"/g)) anchors.add(id);
+    for (const [, id] of readFileSync(`${dir}/${name}`, 'utf8').matchAll(/\b(?:data-)?tour="([a-z-]+)"/g)) anchors.add(id);
   }
 }
 

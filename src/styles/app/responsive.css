@@ -195,12 +195,6 @@
 }
 
 @media (max-width: 1023px), ((hover: none) and (pointer: coarse)) {
-  .app-header {
-    padding-left: max(12px, env(safe-area-inset-left));
-    padding-right: max(12px, env(safe-area-inset-right));
-    padding-top: max(10px, env(safe-area-inset-top));
-  }
-  .app-header .nav-btn-icon { min-width: 44px; min-height: 44px; }
   .build-panel-scroll { margin-right: 0; padding-inline: 16px; }
   .build-panel-stage { min-width: 0; overflow-wrap: anywhere; }
   .build-panel-composer {
@@ -225,10 +219,10 @@
 
   /* --- Chrome budget -------------------------------------------------------
      Below lg only one pane is on screen, so the workspace used to stack three
-     full bands before any content: the app header, a CHAT/PREVIEW switch of
+     full bands before any content: the top bar, a CHAT/PREVIEW switch of
      its own, and the build panel's header -- 175px of an 844px phone. The
-     switch and the build panel's single new-chat key both moved into the app
-     header, so those two bands collapse to nothing here. Desktop keeps all
+     switch and the build panel's single new-chat key both live in the rail's
+     top bar (HeroSidebar), so those two bands collapse to nothing here. Desktop keeps all
      three: .build-panel-header still aligns with .preview-pane-header at lg
      and up, which is what --chrome-row-h exists to guarantee. */
   .build-panel-header { display: none; }
@@ -238,7 +232,7 @@
      segmented-control height. 44px segments made the track nearly as tall
      as the header itself. The segments are wide, so the target is still
      easy to hit. */
-  .app-header .header-view-switch { padding: 3px; }
+  .hero-rail .header-view-switch { padding: 3px; }
   .header-view-switch .nav-segmented-btn {
     min-height: 34px;
     padding-block: 0;
@@ -325,7 +319,6 @@
      shrink together -- the token keeps the build panel and preview toolbar
      from drifting apart, which the old build-panel-only override allowed. */
   :root { --chrome-row-h: 2.75rem; }
-  .app-header { padding-block: 4px; min-height: 0; }
   .mobile-view-switch { padding-block: 4px; }
   .build-panel-composer { padding-top: 6px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
   .prompt-input-field { min-height: 44px; padding-top: 8px; }
@@ -366,29 +359,6 @@
    Everything below is scoped to phone widths / a narrow preview pane. The
    desktop header and toolbar keep the raised-key-in-track treatment.
    --------------------------------------------------------------------------- */
-
-/* --- Header menu trigger ------------------------------------------------ */
-/* .app-header is `dark force-dark` at every width, so this key only ever
-   renders dark and needs no light-theme branch. */
-.header-menu-key {
-  width: 2.75rem;
-  height: 2.75rem;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  padding: 0;
-  border-radius: 0.85rem;
-  /* A bare glyph, not a framed tile: rimmed, shadowed keys scattered over
-     the phone's black chrome read as stickers rather than controls. */
-  background: transparent;
-  border: 1px solid transparent;
-  color: #e2e8f0;
-  box-shadow: none;
-}
-
-.header-menu-key:hover {
-  background: rgb(255 255 255 / 0.08);
-  color: #ffffff;
-}
 
 /* --- CHAT / PREVIEW switch ---------------------------------------------- */
 /* Two standalone keys with air between them, not one segmented track. */
@@ -450,7 +420,7 @@
     inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 
-/* The workspace switch in the app header: a flat tinted track with a solid
+/* The workspace switch in the rail's top bar: a flat tinted track with a solid
    lighter thumb (the familiar phone segmented control). The sunken, rimmed
    well with a raised grey key inside read as a sticker on the black header,
    and a faint fill in that well just looked muddy. */
@@ -566,11 +536,10 @@
   }
 }
 
-/* These two live in the app header but belong to the phone layout only. They
-   cannot be hidden with a `lg:hidden` utility: .nav-segmented-group and
-   .nav-btn are unlayered, so their display would beat any Tailwind class.
-   The descendant selector buys the specificity to turn them off instead. */
+/* The switch lives in the rail's top bar but belongs to the phone layout
+   only. It cannot be hidden with a `lg:hidden` utility: .nav-segmented-group
+   is unlayered, so its display would beat any Tailwind class. The descendant
+   selector buys the specificity to turn it off instead. */
 @media (min-width: 1024px) and (not ((hover: none) and (pointer: coarse))) {
-  .app-header .header-view-switch,
-  .app-header .header-new-chat-key { display: none; }
+  .hero-rail .header-view-switch { display: none; }
 }

@@ -38,11 +38,11 @@ async function assertTapTargets(page, width, label) {
 }
 
 // The phone layout budget: below lg the Chat/Preview switch and the new-chat
-// key live in the app header, so the header is the ONLY chrome band above the
-// content. Regressing to a second band costs ~20% of the screen.
+// key live in the rail's top bar, so that bar is the ONLY chrome band above
+// the content. Regressing to a second band costs ~20% of the screen.
 async function assertChromeBudget(page, width) {
   if (width >= 1024) return;
-  const used = await page.evaluate(() => ['.app-header', '.mobile-view-switch', '.build-panel-header']
+  const used = await page.evaluate(() => ['.hero-rail', '.mobile-view-switch', '.build-panel-header']
     .reduce((total, sel) => {
       const el = document.querySelector(sel);
       return total + (el && el.checkVisibility() ? el.getBoundingClientRect().height : 0);
@@ -81,8 +81,8 @@ async function assertPreviewFills(page, width) {
 async function assertHelpLink(page, width, viewport) {
   if (width < 1024) {
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: 'Navigation menu' });
-    // The drawer slides in via a transform on the dialog itself, so waiting on
+    const dialog = page.locator('#hero-mobile-menu');
+    // The drawer slides in via a transform on the panel itself, so waiting on
     // the link's own animations would measure it mid-slide.
     await dialog.evaluate(async el => { await Promise.all(el.getAnimations().map(a => a.finished.catch(() => {}))); });
     const link = dialog.getByRole('link', { name: 'Help', exact: true });
@@ -91,7 +91,7 @@ async function assertHelpLink(page, width, viewport) {
     await dialog.getByRole('button', { name: 'Close menu', exact: true }).click();
     await page.waitForTimeout(350);
   } else {
-    const link = page.locator('.app-header').getByRole('link', { name: 'Help', exact: true });
+    const link = page.locator('.hero-rail').getByRole('link', { name: 'Help', exact: true });
     await assertFits(link, viewport, 'Help link');
     assert.ok(await link.getAttribute('href'), 'Help link has an href');
   }
@@ -100,13 +100,13 @@ async function assertHelpLink(page, width, viewport) {
 async function openNavigation(page, width, name) {
   if (width < 1024) {
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-    const menu = page.getByRole('dialog', { name: 'Navigation menu' });
-    // Match on the accessible name, not text: Apps/History carry a count badge.
-    await menu.getByRole('button', { name, exact: true }).click();
+    const menu = page.locator('#hero-mobile-menu');
+    // Projects and History carry a count after the label.
+    const labels = { Settings: /^Settings$/, Apps: /^Projects/, History: /^History/ };
+    await menu.getByRole('button', { name: labels[name] }).click();
   } else {
-    const labels = { Settings: 'Settings', Help: 'Help', Apps: 'My saved apps', History: 'Show history panel' };
-    if (name === 'History') await page.locator('.app-header [data-tour="history"]').click();
-    else await page.locator('.app-header').getByRole('button', { name: labels[name], exact: true }).click();
+    const anchors = { Settings: 'settings', Apps: 'apps', History: 'history' };
+    await page.locator(`.hero-rail [data-tour="${anchors[name]}"]`).click();
   }
 }
 

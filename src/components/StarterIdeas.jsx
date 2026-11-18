@@ -217,23 +217,14 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
 
   if (isChips) {
     return (
-      <div className="starter-tray flex items-center gap-1 rounded-full p-1 animate-fade-in" style={{ animationDelay: '0.08s' }}>
-        <button
-          type="button"
-          onClick={() => scrollByStep(-1)}
-          aria-label="Previous ideas"
-          tabIndex={atStart ? -1 : 0}
-          className={`starter-chip shrink-0 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer ${atStart ? 'invisible' : ''}`}
-        >
-          <ChevronLeft size={16} aria-hidden="true" />
-        </button>
+      <div className="starter-strip relative animate-fade-in" style={{ animationDelay: '0.08s' }}>
         <div
           ref={scrollerRef}
           role="region"
           aria-label="Starter ideas"
           data-fade-start={atStart ? undefined : 'true'}
           data-fade-end={atEnd ? undefined : 'true'}
-          className="starter-scroller starter-chip-row flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto py-0.5 px-0.5"
+          className="starter-scroller starter-chip-row flex items-center gap-2 overflow-x-auto py-1"
         >
           {pages.flat().map(({ starter, hue }) => {
             const IconComponent = starter.icon || Sparkles;
@@ -256,15 +247,18 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
             );
           })}
         </div>
-        <button
-          type="button"
-          onClick={() => scrollByStep(1)}
-          aria-label="More ideas"
-          tabIndex={atEnd ? -1 : 0}
-          className={`starter-chip shrink-0 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer ${atEnd ? 'invisible' : ''}`}
-        >
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
+        {/* The arrows sit over the row's faded ends and only exist while there
+            is somewhere to go, so the first chip lines up with the composer. */}
+        {!atStart && (
+          <button type="button" onClick={() => scrollByStep(-1)} aria-label="Previous ideas" className="starter-arrow left-0">
+            <ChevronLeft size={16} aria-hidden="true" />
+          </button>
+        )}
+        {!atEnd && (
+          <button type="button" onClick={() => scrollByStep(1)} aria-label="More ideas" className="starter-arrow right-0">
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        )}
       </div>
     );
   }

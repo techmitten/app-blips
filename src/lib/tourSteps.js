@@ -163,7 +163,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
         id: 'apps',
         icon: 'apps',
         target: ['apps'],
-        placement: 'bottom',
+        placement: 'right',
         title: 'All your projects',
         body: `Work saves automatically. Projects (${SHORTCUT_HINTS.apps}) reopens, renames, or deletes projects; New starts another idea in the app, website, or game studio, or imports a site from a .zip.`,
       },
@@ -171,7 +171,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
         id: 'finish',
         icon: 'finish',
         target: ['tour', 'help'],
-        placement: 'bottom',
+        placement: 'right',
         title: 'You are ready',
         body: `${codebase ? 'Try asking for one small change' : `Try describing one small, useful ${noun}`}. You can replay this tour here any time.`,
         tips: [

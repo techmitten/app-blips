@@ -6,7 +6,6 @@ import './App.css';
 import { injectPreviewBridge } from './previewBridge';
 import { isDesktop, providerApi, clearBrowserProjectStore } from './lib/desktop';
 
-import Header from './components/Header';
 import HistorySidebar from './components/HistorySidebar';
 import BuildPanel, { BUILD_PANE_WIDTH } from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
@@ -1498,9 +1497,9 @@ export default function App({ coldStart = false }) {
   const hasVisibleTranscript = versions.length > 0 && currentVersionIndex >= chatContextStartIndex;
   const isChatActive = hasVisibleTranscript || Boolean(generatedCode) || Boolean(pendingPrompt) || isResumingProject || (hasSentFirstPrompt && isGenerating);
   const showStarterIdeas = !isChatActive;
-  // The first-build screen stands in for the whole workspace until the first
-  // prompt is submitted (which flips isChatActive), then it hands off to the
-  // normal Header + build/preview layout for good.
+  // The studio shell (HeroLanding) shows its centered composer until the first
+  // prompt is submitted (which flips isChatActive), then the same shell's stage
+  // holds the build/preview workspace for good.
   const showHero = !isChatActive;
 
   // Opening a saved project mounts the transcript after this effect would have
@@ -2959,26 +2958,6 @@ export default function App({ coldStart = false }) {
   return (
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
       <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} />
-      {!showHero && !isResumingProject && (
-      <Header
-        onNewApp={handleNewApp}
-        onExit={() => setIsExitConfirmOpen(true)}
-        savedAppsCount={myProjects.length}
-        versionsCount={versions.length}
-        onOpenApps={() => setIsProjectsListOpen(true)}
-        isHistoryOpen={isHistoryOpen}
-        onToggleHistory={() => setIsHistoryOpen(!isHistoryOpen)}
-        resolvedTheme={resolvedTheme}
-        onToggleTheme={handleToggleTheme}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onStartTour={startTour}
-        mobileView={mobileView}
-        onMobileViewChange={setMobileView}
-        onNewChat={handleStartNewChat}
-        canNewChat={isChatActive && versions.length > 0 && !isGenerating}
-        freeAccount={freeAccount}
-      />
-      )}
 
       {!showHero && !isResumingProject && <TourInvitation onStart={startTour} building={isGenerating} />}
       {isTourOpen && (
@@ -3099,259 +3078,269 @@ export default function App({ coldStart = false }) {
       <DesktopStorageNotice />
       {legalGate}
 
-      {isResumingProject ? null : showHero ? (
-        <HeroLanding
-          studioMode={studioMode}
-          theme={resolvedTheme}
-          chatMode={chatMode}
-          onChatModeChange={setChatMode}
-          prompt={prompt}
-          onPromptChange={setPrompt}
-          onSubmit={handleGenerate}
-          onCancelGeneration={handleCancelGeneration}
-          isGenerating={isGenerating}
-          attachment={attachment}
-          attachmentError={attachmentError}
-          isCapturingScreenshot={isCapturingScreenshot}
-          onAttachScreenshot={handleAttachScreenshot}
-          onAttachFile={handleAttachFile}
-          onRemoveAttachment={handleRemoveAttachment}
-          webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
-          webSearchProvider={providerWeb.provider}
-          webSearch={webSearchOn}
-          onWebSearchChange={setWebSearchOn}
-          starterIdeas={
-            chatMode === 'ask'
-              ? ASK_STARTER_PRESETS
-              : studioMode === 'website'
-                ? WEBSITE_STARTER_PRESETS
-                : studioMode === 'game'
-                  ? GAME_STARTER_PRESETS
-                  : STARTER_PRESETS
-          }
-          starterSampleSize={chatMode !== 'ask' ? STARTER_SAMPLE_SIZE[studioMode] : undefined}
-          onPickStarter={setPrompt}
-          error={error}
-          interruptedJob={interruptedJob}
-          onRetryInterruptedJob={handleRetryInterruptedJob}
-          onDismissInterruptedJob={handleDismissInterruptedJob}
-          onNewApp={handleNewApp}
-          onOpenApps={() => setIsProjectsListOpen(true)}
-          savedAppsCount={myProjects.length}
-          recents={myProjects}
-          onLoadProject={loadProject}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          onOpenExtensions={() => { setSettingsInitialTab('connectors'); setIsSettingsOpen(true); }}
-          freeAccount={freeAccount}
-        />
-      ) : (
-      <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative animate-fade-in">
-        <HistorySidebar
-          isOpen={isHistoryOpen}
-          versions={versions}
-          chatSessions={chatSessions}
-          currentVersionIndex={currentVersionIndex}
-          onSwitchVersion={switchVersion}
-          onCollapse={() => setIsHistoryOpen(false)}
-        />
+      <HeroLanding
+        studioMode={studioMode}
+        theme={resolvedTheme}
+        chatMode={chatMode}
+        onChatModeChange={setChatMode}
+        prompt={prompt}
+        onPromptChange={setPrompt}
+        onSubmit={handleGenerate}
+        onCancelGeneration={handleCancelGeneration}
+        isGenerating={isGenerating}
+        attachment={attachment}
+        attachmentError={attachmentError}
+        isCapturingScreenshot={isCapturingScreenshot}
+        onAttachScreenshot={handleAttachScreenshot}
+        onAttachFile={handleAttachFile}
+        onRemoveAttachment={handleRemoveAttachment}
+        webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
+        webSearchProvider={providerWeb.provider}
+        webSearch={webSearchOn}
+        onWebSearchChange={setWebSearchOn}
+        starterIdeas={
+          chatMode === 'ask'
+            ? ASK_STARTER_PRESETS
+            : studioMode === 'website'
+              ? WEBSITE_STARTER_PRESETS
+              : studioMode === 'game'
+                ? GAME_STARTER_PRESETS
+                : STARTER_PRESETS
+        }
+        starterSampleSize={chatMode !== 'ask' ? STARTER_SAMPLE_SIZE[studioMode] : undefined}
+        onPickStarter={setPrompt}
+        error={error}
+        interruptedJob={interruptedJob}
+        onRetryInterruptedJob={handleRetryInterruptedJob}
+        onDismissInterruptedJob={handleDismissInterruptedJob}
+        onNewApp={handleNewApp}
+        onOpenApps={() => setIsProjectsListOpen(true)}
+        savedAppsCount={myProjects.length}
+        recents={myProjects}
+        onLoadProject={loadProject}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenExtensions={() => { setSettingsInitialTab('connectors'); setIsSettingsOpen(true); }}
+        freeAccount={freeAccount}
+        isResuming={isResumingProject}
+        versionsCount={versions.length}
+        isHistoryOpen={isHistoryOpen}
+        onToggleHistory={() => setIsHistoryOpen((open) => !open)}
+        onStartTour={startTour}
+        onToggleTheme={handleToggleTheme}
+        onExit={() => setIsExitConfirmOpen(true)}
+        mobileView={mobileView}
+        onMobileViewChange={setMobileView}
+        onNewChat={handleStartNewChat}
+        canNewChat={isChatActive && versions.length > 0 && !isGenerating}
+        workspace={showHero || isResumingProject ? null : (
+        <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative animate-fade-in">
+          <HistorySidebar
+            isOpen={isHistoryOpen}
+            versions={versions}
+            chatSessions={chatSessions}
+            currentVersionIndex={currentVersionIndex}
+            onSwitchVersion={switchVersion}
+            onCollapse={() => setIsHistoryOpen(false)}
+          />
 
-        {/* Main Workspace */}
-        <main className="flex-1 min-w-0 min-h-0 flex overflow-hidden relative">
+          {/* Main Workspace */}
+          <main className="flex-1 min-w-0 min-h-0 flex overflow-hidden relative">
 
-          {/* Prompt/Chat Sidebar (left by default, right via Settings) - Build Panel.
-              Collapsing animates only this wrapper's width (200ms); the pane
-              inside keeps its width and is clipped, and on the right side
-              justify-end clips its inner edge so the outer edge stays put. */}
-          <div
-            className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex h-full w-full ${isBuildPaneCollapsed ? 'lg:w-12' : BUILD_PANE_WIDTH} flex-1 lg:flex-none min-w-0 min-h-0 relative lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out motion-reduce:transition-none ${buildPaneSide === 'right' ? 'build-pane-right lg:order-2 lg:justify-end' : ''}`}
-          >
-            <BuildPanel
-              isChatActive={isChatActive}
-              isResumingProject={isResumingProject}
-              chatMode={chatMode}
-              studioMode={studioMode}
-              onChatModeChange={setChatMode}
-              onRewind={setRewindTargetIndex}
-              onApproveImages={handleApproveImages}
-              gallery={chatGallery}
-              projectId={currentProjectId}
-              generatedCode={generatedCode}
-              showStarterIdeas={showStarterIdeas}
-              starterIdeas={
-                chatMode === 'ask'
-                  ? ASK_STARTER_PRESETS
-                  : studioMode === 'website'
-                    ? WEBSITE_STARTER_PRESETS
-                    : studioMode === 'game'
-                      ? GAME_STARTER_PRESETS
-                      : STARTER_PRESETS
-              }
-              starterSampleSize={chatMode !== 'ask' ? STARTER_SAMPLE_SIZE[studioMode] : undefined}
-              onPickStarter={setPrompt}
-              versions={versions}
-              currentVersionIndex={currentVersionIndex}
-              chatContextStartIndex={chatContextStartIndex}
-              pendingPrompt={pendingPrompt}
-              pendingAttachment={pendingAttachment}
-              streamingReply={streamingReply}
-              isGenerating={isGenerating}
-              generationStatus={generationStatus}
-              thinkingSince={thinkingSince}
-              isAutoFixing={isAutoFixing}
-              error={error}
-              prompt={prompt}
-              onPromptChange={setPrompt}
-              onSubmit={handleGenerate}
-              onCancelGeneration={handleCancelGeneration}
-              attachment={attachment}
-              attachmentError={attachmentError}
-              isCapturingScreenshot={isCapturingScreenshot}
-              onAttachScreenshot={handleAttachScreenshot}
-              onAttachFile={handleAttachFile}
-              onRemoveAttachment={handleRemoveAttachment}
-              webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
-              webSearchProvider={providerWeb.provider}
-              webSearch={webSearchOn}
-              onWebSearchChange={setWebSearchOn}
-              onNewChat={handleStartNewChat}
-              isHistoryOpen={isHistoryOpen}
-              onToggleHistory={() => setIsHistoryOpen((open) => !open)}
-              side={buildPaneSide}
-              suggestions={promptSuggestions ? versions[currentVersionIndex]?.suggestions : null}
-              onPickSuggestion={handlePickSuggestion}
-              isCollapsed={isBuildPaneCollapsed}
-              onToggleCollapsed={() => setIsBuildPaneCollapsed((collapsed) => !collapsed)}
-              chatBottomRef={chatBottomRef}
-              interruptedJob={interruptedJob}
-              onRetryInterruptedJob={handleRetryInterruptedJob}
-              onDismissInterruptedJob={handleDismissInterruptedJob}
-            />
-          </div>
-
-          {/* Seam between the two panes (side-by-side layout only). lg:order-1
-              keeps it between them when the build pane is moved to the right
-              (order-2, preview stays 0). Decorative: the panes are not resizable,
-              so it has no drag handle. */}
-          <div className={`pane-divider hidden lg:flex ${buildPaneSide === 'right' ? 'lg:order-1' : ''}`} aria-hidden="true" />
-
-          {/* Preview/Device Area (opposite side) */}
-          <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex h-full w-full flex-1 min-w-0 min-h-0`}>
-            <PreviewPane
-              projectName={projectName}
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-              // Imported sites always get the Files tab: browsing the project
-              // is how people find their way around code they didn't write.
-              showCodeView={showCodeView || isCodebase}
-              versions={versions}
-              currentVersionIndex={currentVersionIndex}
-              previewMode={previewMode}
-              onPreviewModeChange={setPreviewMode}
-              previewOrientation={previewOrientation}
-              onToggleOrientation={handleToggleOrientation}
-              orientationFlipClass={orientationFlipClass}
-              onOrientationFlipEnd={setOrientationFlipClass}
-              zoomLevel={zoomLevel}
-              fillSize={fillSize}
-              isBareFill={isBareFill}
-              isForcedMobile={isForcedMobile}
-              isAutoZoom={isAutoZoom}
-              onZoomIn={handleManualZoom}
-              onZoomOut={handleManualZoom}
-              onResetZoom={resetZoom}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-              hasCode={Boolean(generatedCode)}
-              hasSavedCode={Boolean(generatedCode)}
-              onOpenNewTab={isCodebase ? null : handleOpenInNewTab}
-              onExportHtml={isCodebase ? handleExportCodebase : handleExportHtml}
-              exportTip={isCodebase ? 'Download the project as a .zip (all files, ready for npm install)' : undefined}
-              onExportReactProject={canExportReactProject ? handleExportReactProject : null}
-              onPublish={isCodebase ? null : () => setIsPublishOpen(true)}
-              containerRef={previewContainerRef}
-              iframeRef={setPreviewFrameRef}
-              shutterCount={shutterCount}
-              previewSrcDoc={previewSrcDoc}
-              onReloadPreview={handleReloadPreview}
-              pages={isCodebase ? [] : pageNames(files)}
-              route={isCodebase ? codebaseRoute : null}
-              onNavigateRoute={isCodebase ? handleNavigateCodebaseRoute : null}
-              isPreviewBuilding={isCodebase && codebaseBuild.building && !codebaseBuild.html}
-              codeFiles={codebaseFileList}
-              codeFile={codebaseCodeFile}
-              codeFileIsBinary={Boolean(isCodebase && currentAssets?.[codebaseCodeFile])}
-              onSelectCodeFile={setCodeFile}
-              codeFileChanges={codebaseFileChanges}
-              codeEntryFile={codebaseMeta?.entry || null}
-              codeProjectKey={currentProjectId || 'unsaved'}
-              codeAssetUrl={codebaseAssetUrl}
-              codePages={isCodebase ? [] : codeTabs}
-              codeActivePage={codeViewPage}
-              codeWritingPage={writingPage}
-              onSelectCodePage={handleSelectCodePage}
-              activePage={activePage}
-              onSelectPage={pageNav.goToPage}
-              navState={navState}
-              onNavBack={goBack}
-              onNavForward={goForward}
-              isGenerating={isGenerating && chatMode === 'build'}
-              generationStatus={generationStatus}
-              thinkingSince={thinkingSince}
-              streamingReasoning={streamingReasoning}
-              liveCodeRef={liveCodePreview ? liveCodeRef : null}
-              liveCodePage={studioMode === 'website' ? liveCodePage : null}
-              isAutoFixing={isAutoFixing}
-              onCancelGeneration={handleCancelGeneration}
-              code={codePanelCode}
-              copied={copied}
-              onCopyCode={handleCopyCode}
-              onSaveCode={handleSaveCode}
-              codeAutocomplete={codeAutocomplete}
-              autoFollowCode={autoFollowCode}
-              studioMode={studioMode}
-              isEditMode={isEditMode}
-              isDragMode={isDragMode}
-              onToggleDragMode={handleToggleDragMode}
-              onToggleEditMode={handleToggleEditMode}
-              selectedElement={selectedElement}
-              selectionKey={selectionKey}
-              textSession={textSession}
-              onFormatText={formatInlineText}
-              onHoldText={holdInlineText}
-              onFinishText={finishInlineText}
-              onUndoText={undoInlineText}
-              onRedoText={redoInlineText}
-              elementEditError={elementEditError}
-              onApplyElementEdit={handleApplyElementEdit}
-              onElementAction={handleElementAction}
-              linkTargets={linkTargets}
-              onElementEditWithAI={handleElementEditWithAI}
-              onCancelElementSelection={handleCancelElementSelection}
-              onSelectParentElement={handleSelectParentElement}
-              onSelectChildElement={handleSelectChildElement}
-              onStartSelectedInlineEdit={handleStartSelectedInlineEdit}
-              galleryImages={galleryImages}
-              galleryBytesVersion={gallery.bytesVersion}
-              onUploadGalleryImage={gallery.addFiles}
-            />
-            {insertMenu && isPreviewEditing && activeTab === 'preview' && (
-              <InsertMenu
-                key={insertMenu.key}
-                menu={insertMenu}
-                canPaste={canPasteElement}
-                clipboardLabel={elementClipboard?.label || ''}
-                containerLock={containerLock}
-                onElementAction={handleMenuElementAction}
-                onAskAI={handleMenuAskAI}
-                onAddText={handleInsertText}
-                onAddImage={handleInsertImage}
-                onClose={closeInsertMenu}
+            {/* Prompt/Chat Sidebar (left by default, right via Settings) - Build Panel.
+                Collapsing animates only this wrapper's width (200ms); the pane
+                inside keeps its width and is clipped, and on the right side
+                justify-end clips its inner edge so the outer edge stays put. */}
+            <div
+              className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex h-full w-full ${isBuildPaneCollapsed ? 'lg:w-12' : BUILD_PANE_WIDTH} flex-1 lg:flex-none min-w-0 min-h-0 relative lg:overflow-hidden lg:transition-[width] lg:duration-200 lg:ease-out motion-reduce:transition-none ${buildPaneSide === 'right' ? 'build-pane-right lg:order-2 lg:justify-end' : ''}`}
+            >
+              <BuildPanel
+                isChatActive={isChatActive}
+                isResumingProject={isResumingProject}
+                chatMode={chatMode}
+                studioMode={studioMode}
+                onChatModeChange={setChatMode}
+                onRewind={setRewindTargetIndex}
+                onApproveImages={handleApproveImages}
+                gallery={chatGallery}
+                projectId={currentProjectId}
+                generatedCode={generatedCode}
+                showStarterIdeas={showStarterIdeas}
+                starterIdeas={
+                  chatMode === 'ask'
+                    ? ASK_STARTER_PRESETS
+                    : studioMode === 'website'
+                      ? WEBSITE_STARTER_PRESETS
+                      : studioMode === 'game'
+                        ? GAME_STARTER_PRESETS
+                        : STARTER_PRESETS
+                }
+                starterSampleSize={chatMode !== 'ask' ? STARTER_SAMPLE_SIZE[studioMode] : undefined}
+                onPickStarter={setPrompt}
+                versions={versions}
+                currentVersionIndex={currentVersionIndex}
+                chatContextStartIndex={chatContextStartIndex}
+                pendingPrompt={pendingPrompt}
+                pendingAttachment={pendingAttachment}
+                streamingReply={streamingReply}
+                isGenerating={isGenerating}
+                generationStatus={generationStatus}
+                thinkingSince={thinkingSince}
+                isAutoFixing={isAutoFixing}
+                error={error}
+                prompt={prompt}
+                onPromptChange={setPrompt}
+                onSubmit={handleGenerate}
+                onCancelGeneration={handleCancelGeneration}
+                attachment={attachment}
+                attachmentError={attachmentError}
+                isCapturingScreenshot={isCapturingScreenshot}
+                onAttachScreenshot={handleAttachScreenshot}
+                onAttachFile={handleAttachFile}
+                onRemoveAttachment={handleRemoveAttachment}
+                webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
+                webSearchProvider={providerWeb.provider}
+                webSearch={webSearchOn}
+                onWebSearchChange={setWebSearchOn}
+                onNewChat={handleStartNewChat}
+                isHistoryOpen={isHistoryOpen}
+                onToggleHistory={() => setIsHistoryOpen((open) => !open)}
+                side={buildPaneSide}
+                suggestions={promptSuggestions ? versions[currentVersionIndex]?.suggestions : null}
+                onPickSuggestion={handlePickSuggestion}
+                isCollapsed={isBuildPaneCollapsed}
+                onToggleCollapsed={() => setIsBuildPaneCollapsed((collapsed) => !collapsed)}
+                chatBottomRef={chatBottomRef}
+                interruptedJob={interruptedJob}
+                onRetryInterruptedJob={handleRetryInterruptedJob}
+                onDismissInterruptedJob={handleDismissInterruptedJob}
               />
-            )}
-          </div>
-        </main>
-      </div>
-      )}
+            </div>
+
+            {/* Seam between the two panes (side-by-side layout only). lg:order-1
+                keeps it between them when the build pane is moved to the right
+                (order-2, preview stays 0). Decorative: the panes are not resizable,
+                so it has no drag handle. */}
+            <div className={`pane-divider hidden lg:flex ${buildPaneSide === 'right' ? 'lg:order-1' : ''}`} aria-hidden="true" />
+
+            {/* Preview/Device Area (opposite side) */}
+            <div data-tour="preview" className={`${mobileView === 'preview' ? 'flex' : 'hidden'} lg:flex h-full w-full flex-1 min-w-0 min-h-0`}>
+              <PreviewPane
+                projectName={projectName}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                // Imported sites always get the Files tab: browsing the project
+                // is how people find their way around code they didn't write.
+                showCodeView={showCodeView || isCodebase}
+                versions={versions}
+                currentVersionIndex={currentVersionIndex}
+                previewMode={previewMode}
+                onPreviewModeChange={setPreviewMode}
+                previewOrientation={previewOrientation}
+                onToggleOrientation={handleToggleOrientation}
+                orientationFlipClass={orientationFlipClass}
+                onOrientationFlipEnd={setOrientationFlipClass}
+                zoomLevel={zoomLevel}
+                fillSize={fillSize}
+                isBareFill={isBareFill}
+                isForcedMobile={isForcedMobile}
+                isAutoZoom={isAutoZoom}
+                onZoomIn={handleManualZoom}
+                onZoomOut={handleManualZoom}
+                onResetZoom={resetZoom}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                hasCode={Boolean(generatedCode)}
+                hasSavedCode={Boolean(generatedCode)}
+                onOpenNewTab={isCodebase ? null : handleOpenInNewTab}
+                onExportHtml={isCodebase ? handleExportCodebase : handleExportHtml}
+                exportTip={isCodebase ? 'Download the project as a .zip (all files, ready for npm install)' : undefined}
+                onExportReactProject={canExportReactProject ? handleExportReactProject : null}
+                onPublish={isCodebase ? null : () => setIsPublishOpen(true)}
+                containerRef={previewContainerRef}
+                iframeRef={setPreviewFrameRef}
+                shutterCount={shutterCount}
+                previewSrcDoc={previewSrcDoc}
+                onReloadPreview={handleReloadPreview}
+                pages={isCodebase ? [] : pageNames(files)}
+                route={isCodebase ? codebaseRoute : null}
+                onNavigateRoute={isCodebase ? handleNavigateCodebaseRoute : null}
+                isPreviewBuilding={isCodebase && codebaseBuild.building && !codebaseBuild.html}
+                codeFiles={codebaseFileList}
+                codeFile={codebaseCodeFile}
+                codeFileIsBinary={Boolean(isCodebase && currentAssets?.[codebaseCodeFile])}
+                onSelectCodeFile={setCodeFile}
+                codeFileChanges={codebaseFileChanges}
+                codeEntryFile={codebaseMeta?.entry || null}
+                codeProjectKey={currentProjectId || 'unsaved'}
+                codeAssetUrl={codebaseAssetUrl}
+                codePages={isCodebase ? [] : codeTabs}
+                codeActivePage={codeViewPage}
+                codeWritingPage={writingPage}
+                onSelectCodePage={handleSelectCodePage}
+                activePage={activePage}
+                onSelectPage={pageNav.goToPage}
+                navState={navState}
+                onNavBack={goBack}
+                onNavForward={goForward}
+                isGenerating={isGenerating && chatMode === 'build'}
+                generationStatus={generationStatus}
+                thinkingSince={thinkingSince}
+                streamingReasoning={streamingReasoning}
+                liveCodeRef={liveCodePreview ? liveCodeRef : null}
+                liveCodePage={studioMode === 'website' ? liveCodePage : null}
+                isAutoFixing={isAutoFixing}
+                onCancelGeneration={handleCancelGeneration}
+                code={codePanelCode}
+                copied={copied}
+                onCopyCode={handleCopyCode}
+                onSaveCode={handleSaveCode}
+                codeAutocomplete={codeAutocomplete}
+                autoFollowCode={autoFollowCode}
+                studioMode={studioMode}
+                isEditMode={isEditMode}
+                isDragMode={isDragMode}
+                onToggleDragMode={handleToggleDragMode}
+                onToggleEditMode={handleToggleEditMode}
+                selectedElement={selectedElement}
+                selectionKey={selectionKey}
+                textSession={textSession}
+                onFormatText={formatInlineText}
+                onHoldText={holdInlineText}
+                onFinishText={finishInlineText}
+                onUndoText={undoInlineText}
+                onRedoText={redoInlineText}
+                elementEditError={elementEditError}
+                onApplyElementEdit={handleApplyElementEdit}
+                onElementAction={handleElementAction}
+                linkTargets={linkTargets}
+                onElementEditWithAI={handleElementEditWithAI}
+                onCancelElementSelection={handleCancelElementSelection}
+                onSelectParentElement={handleSelectParentElement}
+                onSelectChildElement={handleSelectChildElement}
+                onStartSelectedInlineEdit={handleStartSelectedInlineEdit}
+                galleryImages={galleryImages}
+                galleryBytesVersion={gallery.bytesVersion}
+                onUploadGalleryImage={gallery.addFiles}
+              />
+              {insertMenu && isPreviewEditing && activeTab === 'preview' && (
+                <InsertMenu
+                  key={insertMenu.key}
+                  menu={insertMenu}
+                  canPaste={canPasteElement}
+                  clipboardLabel={elementClipboard?.label || ''}
+                  containerLock={containerLock}
+                  onElementAction={handleMenuElementAction}
+                  onAskAI={handleMenuAskAI}
+                  onAddText={handleInsertText}
+                  onAddImage={handleInsertImage}
+                  onClose={closeInsertMenu}
+                />
+              )}
+            </div>
+          </main>
+        </div>
+        )}
+      />
     </div>
   );
 }

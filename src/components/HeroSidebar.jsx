@@ -3,19 +3,24 @@ import { createPortal } from 'react-dom';
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Settings,
   CircleHelp, MessageSquare, Plug, Menu, X, Github, ShieldCheck, ScrollText,
+  History, Compass, Sun, Moon, DoorOpen, Power,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
+import { SHORTCUT_HINTS } from '../lib/shortcuts';
+import { isDesktop, desktopBridge } from '../lib/desktop';
 import { DiscordIcon } from './StudioChoice';
 import FeedbackModal from './FeedbackModal';
 import FreeAccountControl from './FreeAccountControl';
 
 const MAX_RECENTS = 5;
 
-// Side rail for the first-build screen. Every entry maps to an action Header
-// already exposes, so this is a second front door to the same handlers, not
-// new behavior. Expanded (icon + label, plus a Recents list) or collapsed to an
-// icon-only strip; below `lg` it folds into a compact top bar of icon keys.
-function RailItem({ icon: Icon, label, collapsed, onClick, href, badge = null, primary = false, active = false }) {
+// Side rail of the studio shell (HeroLanding), shown from the first prompt
+// through the whole build. Expanded (icon + label, plus a Recents list) or
+// collapsed to an icon-only strip; below `lg` it folds into a compact top bar
+// of icon keys. Once a build exists (`workspaceActive`) it also carries the
+// workspace controls: History, Tour, Exit and (desktop) Quit, plus the
+// Chat/Preview switch and new-chat key in the mobile top bar.
+function RailItem({ icon: Icon, label, tip = label, collapsed, onClick, href, badge = null, primary = false, active = false, tour, tipKey, ariaPressed }) {
   const className = `hero-rail-item${primary ? ' hero-rail-item-primary' : ''}${active ? ' hero-rail-item-active' : ''}${collapsed ? ' is-collapsed' : ''}`;
   const content = (
     <>
@@ -25,16 +30,16 @@ function RailItem({ icon: Icon, label, collapsed, onClick, href, badge = null, p
     </>
   );
   // The tooltip only earns its place when the label is hidden.
-  const tip = { 'data-tip': label, 'data-tip-side': 'right' };
+  const tipProps = { 'data-tip': tip, 'data-tip-side': 'right', 'data-tour': tour, 'data-tip-key': tipKey };
   if (href) {
     return (
-      <a href={href} draggable={false} target="_blank" rel="noopener noreferrer" className={className} aria-label={label} {...tip}>
+      <a href={href} draggable={false} target="_blank" rel="noopener noreferrer" className={className} aria-label={label} {...tipProps}>
         {content}
       </a>
     );
   }
   return (
-    <button type="button" onClick={onClick} className={className} aria-label={label} {...tip}>
+    <button type="button" onClick={onClick} className={className} aria-label={label} aria-pressed={ariaPressed} {...tipProps}>
       {content}
     </button>
   );
@@ -51,6 +56,18 @@ export default function HeroSidebar({
   onOpenSettings,
   onOpenExtensions,
   freeAccount = null,
+  workspaceActive = false,
+  versionsCount = 0,
+  isHistoryOpen = false,
+  onToggleHistory,
+  onStartTour,
+  resolvedTheme = 'dark',
+  onToggleTheme,
+  onExit,
+  mobileView,
+  onMobileViewChange,
+  onNewChat,
+  canNewChat = false,
 }) {
   const recentProjects = recents.slice(0, MAX_RECENTS);
 
@@ -67,6 +84,8 @@ export default function HeroSidebar({
   }, [menuOpen]);
   // Closes first so a modal (Settings, Saved apps) doesn't open over the panel.
   const fromMenu = (fn) => () => { setMenuOpen(false); fn?.(); };
+  const themeTip = resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+  const ThemeIcon = resolvedTheme === 'dark' ? Sun : Moon;
 
   return (
     <>
@@ -74,7 +93,7 @@ export default function HeroSidebar({
       className={`hero-rail shrink-0 flex flex-row lg:flex-col items-center lg:items-stretch gap-1 px-2 py-2 lg:px-2.5 lg:py-3 ${collapsed ? 'lg:w-15' : 'lg:w-56'}`}
       aria-label="Studio navigation"
     >
-      <div className={`hero-rail-brand flex items-center gap-2 px-1.5 lg:pb-2 ${collapsed ? 'lg:flex-col lg:gap-3' : 'lg:justify-between'}`}>
+      <div className={`hero-rail-brand flex items-center gap-2 px-1.5 ${collapsed ? 'is-collapsed lg:flex-col lg:gap-3' : 'lg:justify-between'}`}>
         <span className="flex items-center gap-2 min-w-0">
           <img src="/favicon.svg" alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
           {/* Same two wordmarks as the studio picker (one shows per theme). Hidden only when the desktop rail is collapsed to icons. */}
@@ -94,7 +113,45 @@ export default function HeroSidebar({
         </button>
       </div>
 
+      {/* Below lg the workspace shows one pane at a time; the Chat/Preview
+          switch and the new-chat key ride in this top bar. */}
+      {workspaceActive && onMobileViewChange && (
+        <div
+          className="header-view-switch nav-segmented-group nav-segmented-compact lg:hidden min-w-0 flex-1 max-w-56 ml-auto"
+          role="group"
+          aria-label="Workspace view"
+        >
+          <button
+            type="button"
+            onClick={() => onMobileViewChange('chat')}
+            aria-pressed={mobileView === 'chat'}
+            className={`nav-segmented-btn flex-1 text-xs uppercase tracking-wider font-bold ${mobileView === 'chat' ? 'nav-segmented-btn-active' : ''}`}
+          >
+            Chat
+          </button>
+          <button
+            type="button"
+            onClick={() => onMobileViewChange('preview')}
+            aria-pressed={mobileView === 'preview'}
+            className={`nav-segmented-btn flex-1 text-xs uppercase tracking-wider font-bold ${mobileView === 'preview' ? 'nav-segmented-btn-active' : ''}`}
+          >
+            Preview
+          </button>
+        </div>
+      )}
+
       <div className="ml-auto flex items-center gap-1 lg:hidden">
+        {workspaceActive && canNewChat && onNewChat && (
+          <button
+            type="button"
+            onClick={onNewChat}
+            className="hero-menu-btn"
+            data-tip="New chat (keeps version history)"
+            aria-label="New chat (keeps version history)"
+          >
+            <Plus size={20} strokeWidth={2.6} aria-hidden="true" />
+          </button>
+        )}
         {freeAccount?.state?.signedIn && (
           <FreeAccountControl account={freeAccount} variant="header-mobile" />
         )}
@@ -102,6 +159,7 @@ export default function HeroSidebar({
           type="button"
           onClick={() => setMenuOpen(true)}
           className="hero-menu-btn"
+          data-tour="menu"
           aria-label="Open menu"
           aria-expanded={menuOpen}
           aria-controls="hero-mobile-menu"
@@ -111,16 +169,32 @@ export default function HeroSidebar({
       </div>
 
       <nav className="hidden lg:flex flex-col items-stretch gap-1 lg:flex-1 min-h-0" aria-label="Studio actions">
-        <RailItem icon={Plus} label="New" collapsed={collapsed} onClick={onNewApp} primary />
+        <RailItem icon={Plus} label="New" tip="Start something new" collapsed={collapsed} onClick={onNewApp} primary />
         <RailItem
           icon={FolderOpen}
           label="Saved apps"
+          tip="My saved projects"
+          tipKey={SHORTCUT_HINTS.apps}
+          tour="apps"
           collapsed={collapsed}
           onClick={onOpenApps}
           badge={savedAppsCount > 0 ? (
             <span className={`hero-rail-count hidden ${collapsed ? '' : 'lg:inline-flex'}`}>{savedAppsCount}</span>
           ) : null}
         />
+        {workspaceActive && (
+          <RailItem
+            icon={History}
+            label="History"
+            tip={isHistoryOpen ? 'Hide history drawer' : 'Show history drawer'}
+            tour="history"
+            collapsed={collapsed}
+            onClick={onToggleHistory}
+            active={isHistoryOpen}
+            ariaPressed={isHistoryOpen}
+            badge={versionsCount > 0 ? <span className="hero-rail-dot" aria-hidden="true" /> : null}
+          />
+        )}
         {recentProjects.length > 0 && !collapsed && (
           <div className="hidden lg:flex flex-col gap-0.5 mt-4 min-h-0 overflow-y-auto">
             <p className="hero-rail-heading">Recents</p>
@@ -140,10 +214,22 @@ export default function HeroSidebar({
 
         <span className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
+        {workspaceActive && (
+          <RailItem icon={Compass} label="Tour" tip="Take the workspace tour" tour="tour" collapsed={collapsed} onClick={onStartTour} />
+        )}
         <RailItem icon={Plug} label="Extensions" collapsed={collapsed} onClick={onOpenExtensions} />
-        <RailItem icon={Settings} label="Settings" collapsed={collapsed} onClick={onOpenSettings} />
+        <RailItem icon={Settings} label="Settings" tour="settings" collapsed={collapsed} onClick={onOpenSettings} />
         <RailItem icon={MessageSquare} label="Feedback" collapsed={collapsed} onClick={() => setFeedbackOpen(true)} />
-        <RailItem icon={CircleHelp} label="Help" collapsed={collapsed} href={DOCS_URL} />
+        <RailItem icon={CircleHelp} label="Help" tip="Open the AppBlips docs" tipKey={SHORTCUT_HINTS.help} tour="help" collapsed={collapsed} href={DOCS_URL} />
+        <RailItem icon={ThemeIcon} label={resolvedTheme === 'dark' ? 'Light theme' : 'Dark theme'} tip={themeTip} collapsed={collapsed} onClick={onToggleTheme} />
+        {workspaceActive && (
+          <>
+            <RailItem icon={DoorOpen} label="Exit" tip="Exit to the studio picker (app, website or game)" collapsed={collapsed} onClick={onExit} />
+            {isDesktop && (
+              <RailItem icon={Power} label="Quit" tip="Quit AppBlips" collapsed={collapsed} onClick={() => desktopBridge.app.quit()} />
+            )}
+          </>
+        )}
         <FreeAccountControl account={freeAccount} variant="rail" collapsed={collapsed} />
       </nav>
     </aside>
@@ -168,6 +254,11 @@ export default function HeroSidebar({
           <button type="button" className="studio-menu-item" onClick={fromMenu(onOpenApps)}>
             <FolderOpen size={18} aria-hidden="true" /> Projects{savedAppsCount > 0 ? ` (${savedAppsCount})` : ''}
           </button>
+          {workspaceActive && (
+            <button type="button" className="studio-menu-item" aria-expanded={isHistoryOpen} onClick={fromMenu(onToggleHistory)}>
+              <History size={18} aria-hidden="true" /> History{versionsCount > 0 ? ` (${versionsCount})` : ''}
+            </button>
+          )}
           {recentProjects.length > 0 && (
             <>
               <div className="studio-menu-sep" role="separator" />
@@ -192,6 +283,24 @@ export default function HeroSidebar({
           <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
             <CircleHelp size={18} aria-hidden="true" /> Help
           </a>
+          <button type="button" className="studio-menu-item" onClick={fromMenu(onToggleTheme)}>
+            <ThemeIcon size={18} aria-hidden="true" /> {resolvedTheme === 'dark' ? 'Light theme' : 'Dark theme'}
+          </button>
+          {workspaceActive && (
+            <>
+              <button type="button" className="studio-menu-item" onClick={fromMenu(onStartTour)}>
+                <Compass size={18} aria-hidden="true" /> Take the tour
+              </button>
+              <button type="button" className="studio-menu-item" aria-label="Exit to the studio picker" onClick={fromMenu(onExit)}>
+                <DoorOpen size={18} aria-hidden="true" /> Exit
+              </button>
+              {isDesktop && (
+                <button type="button" className="studio-menu-item" aria-label="Quit AppBlips" onClick={() => desktopBridge.app.quit()}>
+                  <Power size={18} aria-hidden="true" /> Quit App
+                </button>
+              )}
+            </>
+          )}
           <div className="studio-menu-sep" role="separator" />
           <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
             <Github size={18} aria-hidden="true" /> GitHub

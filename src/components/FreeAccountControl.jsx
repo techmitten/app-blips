@@ -196,7 +196,7 @@ export default function FreeAccountControl({
       ref={menuRef}
       role="alert"
       style={{ position: 'fixed', left: menuPos.left, top: menuPos.top, bottom: menuPos.bottom, width: menuPos.width, zIndex: 80 }}
-      className="bg-surface border border-slate-200 rounded-xl shadow-xl p-3 text-xs text-slate-700 leading-snug animate-scale-in"
+      className="account-menu rounded-xl p-3 text-xs text-slate-700 leading-snug animate-scale-in"
     >
       <p className="font-semibold text-slate-900 mb-1">Sign-in unavailable</p>
       <p className="text-slate-600">{signInError}</p>
@@ -340,16 +340,16 @@ function AccountDropdown({ ref, pos, state, busy, onDashboard, onSignOut }) {
       role="menu"
       aria-label="Account menu"
       style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, width: pos.width, zIndex: 80 }}
-      className="bg-surface border border-slate-200 rounded-xl shadow-xl py-1.5 text-slate-900 animate-scale-in"
+      className="account-menu rounded-xl py-1.5 text-slate-900 animate-scale-in"
     >
-      <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
+      <div className="account-menu-head px-3.5 py-2.5 flex items-center gap-2.5">
         <AccountAvatar state={state} size={28} />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-slate-900 truncate flex items-center gap-1.5">
             <span className="truncate">{state.displayName || 'Signed in'}</span>
           </p>
           {state.email && (
-            <p className="text-[11px] text-slate-500 truncate">{state.email}</p>
+            <p className="text-[11px] text-slate-600 truncate">{state.email}</p>
           )}
           <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Signed in</p>
         </div>
@@ -361,9 +361,9 @@ function AccountDropdown({ ref, pos, state, busy, onDashboard, onSignOut }) {
           role="menuitem"
           disabled={busy}
           onClick={onDashboard}
-          className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2.5 transition-colors disabled:opacity-50"
+          className="account-menu-item w-full px-3.5 py-2 text-left text-sm flex items-center gap-2.5 transition-colors disabled:opacity-50"
         >
-          <UserCog size={15} aria-hidden="true" className="text-slate-500 shrink-0" />
+          <UserCog size={15} aria-hidden="true" className="shrink-0 opacity-70" />
           <span>Account dashboard</span>
         </button>
         <button
@@ -371,9 +371,9 @@ function AccountDropdown({ ref, pos, state, busy, onDashboard, onSignOut }) {
           role="menuitem"
           disabled={busy}
           onClick={onSignOut}
-          className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2.5 transition-colors disabled:opacity-50"
+          className="account-menu-item w-full px-3.5 py-2 text-left text-sm flex items-center gap-2.5 transition-colors disabled:opacity-50"
         >
-          <LogOut size={15} aria-hidden="true" className="text-slate-500 shrink-0" />
+          <LogOut size={15} aria-hidden="true" className="shrink-0 opacity-70" />
           <span>Sign out</span>
         </button>
       </div>
