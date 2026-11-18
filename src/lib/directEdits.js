@@ -375,6 +375,7 @@ const STYLE_PROPS = {
   backgroundImage: 'background-image',
   backgroundSize: 'background-size',
   backgroundPosition: 'background-position',
+  width: 'width',
   height: 'height',
   aspectRatio: 'aspect-ratio',
 };
@@ -437,10 +438,13 @@ const mergeStylesIntoOpenTag = (html, styles) => {
   if (!match) return null;
   const open = match[0];
   const wanted = {};
+  const removed = {};
   Object.entries(styles).forEach(([prop, value]) => {
     const css = STYLE_PROPS[prop];
+    if (!css) return;
+    if (value === null) { removed[css] = true; return; }
     const clean = cleanStyleFor(prop, value);
-    if (css && clean) wanted[css] = clean;
+    if (clean) wanted[css] = clean;
   });
   if (!Object.keys(wanted).length) return null;
 
@@ -451,7 +455,7 @@ const mergeStylesIntoOpenTag = (html, styles) => {
     const existing = splitDeclarations(styleAttr[2] !== undefined ? styleAttr[2] : styleAttr[3])
       .filter((decl) => {
         const name = decl.slice(0, decl.indexOf(':')).trim().toLowerCase();
-        return !(name in wanted);
+        return !(name in wanted) && !(name in removed);
       });
     const escapeForQuote = (v) => (quote === '"' ? v.replace(/"/g, '&quot;') : v.replace(/'/g, '&#39;'));
     const merged = [...existing, ...Object.entries(wanted).map(([k, v]) => `${k}: ${escapeForQuote(v)}`)].join('; ');
@@ -783,6 +787,33 @@ const applyFitImage = (code, element, natural) => {
   const styles = { height: 'auto', aspectRatio: `${Math.round(w)} / ${Math.round(h)}` };
   const result = rewriteLocatedOpenTag(code, element, (open) => mergeStylesIntoOpenTag(open, styles), 'src-not-found');
   return result.ok ? { ...result, summary: 'resized image to fit' } : result;
+};
+
+// Explicit image dimensions (px), written as inline style so they override
+// utility classes (w-full, h-64, ...) and HTML width/height attributes.
+const applyImageSizeChange = (code, element, imageSize) => {
+  if (!imageSize || typeof imageSize !== 'object') return { ok: false, reason: 'invalid' };
+  const styles = {};
+  if (imageSize.width !== undefined && imageSize.width !== null) {
+    const w = Math.round(Number(imageSize.width));
+    if (!Number.isFinite(w) || w < 1 || w > 10000) return { ok: false, reason: 'invalid' };
+    styles.width = `${w}px`;
+  }
+  if (imageSize.height !== undefined && imageSize.height !== null) {
+    const h = Math.round(Number(imageSize.height));
+    if (!Number.isFinite(h) || h < 1 || h > 10000) return { ok: false, reason: 'invalid' };
+    styles.height = `${h}px`;
+  }
+  if (!Object.keys(styles).length) return { ok: false, reason: 'no-op' };
+  if (styles.width && styles.height) styles.aspectRatio = null;
+  const result = rewriteLocatedOpenTag(
+    code, element, (open) => mergeStylesIntoOpenTag(open, styles), 'src-not-found',
+  );
+  if (!result.ok) return result;
+  const dims = styles.width && styles.height
+    ? `${styles.width} × ${styles.height}`
+    : (styles.width || styles.height);
+  return { ...result, summary: `resized image to ${dims}` };
 };
 
 // Open-in-new-tab toggle for links. `rel` is merged rather than replaced
@@ -1135,7 +1166,7 @@ const STRUCTURE_KEYS = ['remove', 'duplicate', 'move', 'moveTo', 'insert'];
  *
  * @param {string} code current generated HTML (never carries the preview bridge)
  * @param {object} element the bridge's element-selected payload
- * @param {{ text?: string, style?: Record<string, string>, src?: string, fitImage?: { width: number, height: number }, alt?: string, href?: string,
+ * @param {{ text?: string, style?: Record<string, string>, src?: string, fitImage?: { width: number, height: number }, imageSize?: { width?: number, height?: number }, alt?: string, href?: string,
  *   target?: '_blank' | null, backgroundColor?: string, backgroundImage?: string,
  *   remove?: true, duplicate?: true, move?: -1 | 1,
  *   moveTo?: { target: object, position: 'before' | 'after' },
@@ -1201,6 +1232,7 @@ export const applyDirectEdit = (code, element, changes) => {
   // Before src: it locates the element by its original markup.
   const steps = [
     ['fitImage', () => applyFitImage(working, element, changes.fitImage)],
+    ['imageSize', () => applyImageSizeChange(working, element, changes.imageSize)],
     ['src', () => applyImageSrcChange(working, element, changes.src)],
     ['alt', () => applyAttributeChange(working, element, 'alt', changes.alt)],
     ['title', () => applyAttributeChange(working, element, 'title', changes.title)],

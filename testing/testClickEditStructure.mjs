@@ -171,7 +171,7 @@ await fresh();
   const alt = applyDirectEdit(FIXTURE, img, { alt: 'Product screenshot' });
   check('alt added to an image without one', alt.ok && /<img src="https:\/\/example\.test\/photo\.jpg" class="shot" alt="Product screenshot">/.test(alt.code), alt.reason || '');
 
-  const cta = await select('#cta');
+  const cta = await select('#cta', { x: 20, y: 15 });
   check('link snapshot role', cta.role === 'link');
   const link = applyDirectEdit(FIXTURE, cta, { href: 'about.html', target: '_blank', backgroundColor: '#123456' });
   check('href + new tab + fill apply together', link.ok, link.reason || link.summary);

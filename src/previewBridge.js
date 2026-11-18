@@ -362,10 +362,11 @@ const BRIDGE_SOURCE = `(function () {
   var inlineHold = false;
   var inlineEditSequence = 0;
   var pendingCommits = [];
+  var pendingResizes = [];
 
   var EDIT_HOVER_OUTLINE = '2px dashed rgba(57, 135, 208, 0.85)';
   var EDIT_SELECT_OUTLINE = '3px solid rgba(57, 135, 208, 1)';
-  var EDIT_CURSOR_CSS = '* { cursor: crosshair !important; }';
+  var EDIT_CURSOR_CSS = '*:not([data-orion-resize-handle]) { cursor: crosshair !important; }';
   var DRAG_MODE_CURSOR_CSS = '* { cursor: grab !important; }';
   // Drag mode (the parent's secondary toggle): pressing and dragging moves
   // an element, and a click only selects -- no in-place text editing.
@@ -1677,6 +1678,7 @@ const BRIDGE_SOURCE = `(function () {
     if (editSelectedEl && editSelectedEl !== el) restoreOutline(editSelectedEl);
     editSelectedEl = el;
     paintSelection(el);
+    syncResizeOverlay();
     describeElement(el);
   }
 
@@ -1696,6 +1698,12 @@ const BRIDGE_SOURCE = `(function () {
 
   function editOnKeyDown(e) {
     if (!editingActive) return;
+    if (resize && e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      endResize(false);
+      return;
+    }
     if (drag && drag.active && e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -2229,7 +2237,7 @@ const BRIDGE_SOURCE = `(function () {
   }
 
   function dragOnPointerDown(e) {
-    if (!editingActive || !dragModeActive || drag) return;
+    if (!editingActive || !dragModeActive || drag || resize) return;
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
     // A finger drag scrolls the page (and the browser cancels the pointer).
     if (e.pointerType === 'touch') return;
@@ -2338,6 +2346,7 @@ const BRIDGE_SOURCE = `(function () {
     var truncated = list.length > GROUP_MAX;
     if (truncated) list = list.slice(0, GROUP_MAX);
     paintPicked(list);
+    syncResizeOverlay();
     if (list.length === 1) {
       describeElement(list[0]);
       return;
@@ -2448,6 +2457,7 @@ const BRIDGE_SOURCE = `(function () {
       clearGroup();
     }
     m.node = dragChrome('z-index:2147483647;border:1px solid rgba(57,135,208,0.95);background:rgba(57,135,208,0.12);border-radius:2px;', 'marquee');
+    hideResizeOverlay();
     m.moved = true;
     marqueeFrame();
   }
@@ -2473,7 +2483,7 @@ const BRIDGE_SOURCE = `(function () {
   }
 
   function marqueeOnPointerDown(e) {
-    if (!editingActive || dragModeActive || marquee || drag) return;
+    if (!editingActive || dragModeActive || marquee || drag || resize || isResizeHandle(e.target)) return;
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey) return;
     // A finger drag scrolls the page, and so does a plain mouse drag while
     // the touch simulation is on.
@@ -2614,6 +2624,263 @@ const BRIDGE_SOURCE = `(function () {
     dismissInsertMenu();
   }
 
+  // --- Image resize handles ------------------------------------------------
+  var RESIZE_HANDLES = [
+    { dir: 'nw', left: '0%', top: '0%', cursor: 'nwse-resize', sizeCss: 'width:10px;height:10px;margin:0;border-radius:2px;border:2px solid rgb(57,135,208);' },
+    { dir: 'n', left: '50%', top: '0%', cursor: 'ns-resize', sizeCss: 'width:16px;height:6px;margin:0 0 0 -8px;border-radius:999px;border:1.5px solid rgb(57,135,208);' },
+    { dir: 'ne', left: '100%', top: '0%', cursor: 'nesw-resize', sizeCss: 'width:10px;height:10px;margin:0 0 0 -10px;border-radius:2px;border:2px solid rgb(57,135,208);' },
+    { dir: 'e', left: '100%', top: '50%', cursor: 'ew-resize', sizeCss: 'width:6px;height:16px;margin:-8px 0 0 -6px;border-radius:999px;border:1.5px solid rgb(57,135,208);' },
+    { dir: 'se', left: '100%', top: '100%', cursor: 'nwse-resize', sizeCss: 'width:10px;height:10px;margin:-10px 0 0 -10px;border-radius:2px;border:2px solid rgb(57,135,208);' },
+    { dir: 's', left: '50%', top: '100%', cursor: 'ns-resize', sizeCss: 'width:16px;height:6px;margin:-6px 0 0 -8px;border-radius:999px;border:1.5px solid rgb(57,135,208);' },
+    { dir: 'sw', left: '0%', top: '100%', cursor: 'nesw-resize', sizeCss: 'width:10px;height:10px;margin:-10px 0 0 0;border-radius:2px;border:2px solid rgb(57,135,208);' },
+    { dir: 'w', left: '0%', top: '50%', cursor: 'ew-resize', sizeCss: 'width:6px;height:16px;margin:-8px 0 0 0;border-radius:999px;border:1.5px solid rgb(57,135,208);' }
+  ];
+  var resizeOverlay = null;
+  var resizeBadge = null;
+  var resize = null;
+
+  function isResizeHandle(node) {
+    return !!(node && node.getAttribute && node.getAttribute('data-orion-resize-handle'));
+  }
+
+  function hideResizeOverlay() {
+    if (resizeOverlay && resizeOverlay.parentNode) resizeOverlay.parentNode.removeChild(resizeOverlay);
+    resizeOverlay = null;
+    if (resizeBadge && resizeBadge.parentNode) resizeBadge.parentNode.removeChild(resizeBadge);
+    resizeBadge = null;
+  }
+
+  function ensureResizeOverlay() {
+    if (resizeOverlay && resizeOverlay.parentNode) return resizeOverlay;
+    var box = document.createElement('div');
+    box.setAttribute('data-orion-bridge', 'true');
+    box.setAttribute('data-orion-resize-box', 'true');
+    box.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483646;box-sizing:border-box;margin:0;';
+    for (var i = 0; i < RESIZE_HANDLES.length; i++) {
+      var h = RESIZE_HANDLES[i];
+      var handle = document.createElement('div');
+      handle.setAttribute('data-orion-bridge', 'true');
+      handle.setAttribute('data-orion-resize-handle', h.dir);
+      handle.style.cssText = 'position:absolute;left:' + h.left + ';top:' + h.top + ';' + h.sizeCss +
+        'background:#fff;box-shadow:0 1px 3px rgba(15,23,42,0.35);pointer-events:auto;touch-action:none;box-sizing:border-box;' +
+        'cursor:' + h.cursor + ' !important;';
+      box.appendChild(handle);
+    }
+    document.documentElement.appendChild(box);
+    resizeOverlay = box;
+    return box;
+  }
+
+  function syncResizeOverlay() {
+    var activeEl = resize ? resize.el : editSelectedEl;
+    if (!editingActive || dragModeActive || inlineEdit || editGroupEls.length || !activeEl ||
+        detectRole(activeEl) !== 'image' || !document.body || !document.body.contains(activeEl)) {
+      if (!resize) hideResizeOverlay();
+      return;
+    }
+    var r;
+    try { r = activeEl.getBoundingClientRect(); } catch (rectErr) { hideResizeOverlay(); return; }
+    if (!r || r.width < 4 || r.height < 4) { hideResizeOverlay(); return; }
+    var box = ensureResizeOverlay();
+    placeBox(box, r.left, r.top, r.width, r.height);
+    var showEdges = r.width >= 44 && r.height >= 44;
+    var showAllCorners = r.width >= 20 && r.height >= 20;
+    var kids = box.children;
+    for (var i = 0; i < kids.length; i++) {
+      var dir = kids[i].getAttribute('data-orion-resize-handle');
+      var isEdge = dir === 'n' || dir === 'e' || dir === 's' || dir === 'w';
+      if (isEdge) kids[i].style.display = showEdges ? 'block' : 'none';
+      else kids[i].style.display = showAllCorners || dir === 'se' ? 'block' : 'none';
+    }
+  }
+
+  function updateResizeBadge(rect) {
+    if (!resizeBadge) {
+      resizeBadge = document.createElement('div');
+      resizeBadge.setAttribute('data-orion-bridge', 'true');
+      resizeBadge.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;padding:2px 7px;border-radius:5px;' +
+        'background:rgba(15,23,42,0.88);color:#fff;font:600 11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;' +
+        'box-shadow:0 2px 8px rgba(0,0,0,0.28);white-space:nowrap;';
+      document.documentElement.appendChild(resizeBadge);
+    }
+    resizeBadge.textContent = Math.round(rect.width) + ' × ' + Math.round(rect.height);
+    var vw = window.innerWidth || document.documentElement.clientWidth;
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    var bw = resizeBadge.offsetWidth || 72;
+    var bh = resizeBadge.offsetHeight || 20;
+    var left = Math.max(6, Math.min(rect.right - bw, vw - bw - 6));
+    var top = rect.bottom + 8 + bh <= vh ? rect.bottom + 8 : Math.max(6, rect.top - bh - 8);
+    resizeBadge.style.left = left + 'px';
+    resizeBadge.style.top = top + 'px';
+  }
+
+  function readCleanStyleAttr(el) {
+    var saved = el.__orionOutlineSaved;
+    if (saved) {
+      el.style.outline = saved.outline;
+      el.style.outlineOffset = saved.offset;
+    }
+    var attr = el.getAttribute('style');
+    if (saved) {
+      el.style.outline = EDIT_SELECT_OUTLINE;
+      el.style.outlineOffset = '1px';
+    }
+    return attr;
+  }
+
+  function restoreElStyleAttr(el, styleAttr) {
+    var wasPicked = isPicked(el);
+    if (wasPicked) restoreOutline(el);
+    if (styleAttr == null) el.removeAttribute('style');
+    else el.setAttribute('style', styleAttr);
+    if (wasPicked) paintSelection(el);
+  }
+
+  function resizeOnPointerDown(e) {
+    if (!editingActive || dragModeActive || inlineEdit || resize) return;
+    if (e.button !== 0 || !isResizeHandle(e.target) || !editSelectedEl) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var el = editSelectedEl;
+    var dir = e.target.getAttribute('data-orion-resize-handle');
+    var rect = el.getBoundingClientRect();
+    var snapshot = buildElementDescription(el);
+    var origStyleAttr = el.__orionOutlineSaved ? el.__orionOutlineSaved.styleAttr : el.getAttribute('style');
+    try { e.target.setPointerCapture(e.pointerId); } catch (capErr) { /* events still arrive */ }
+    resize = {
+      el: el,
+      handle: e.target,
+      dir: dir,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: Math.max(1, rect.width),
+      startH: Math.max(1, rect.height),
+      aspect: Math.max(1, rect.width) / Math.max(1, rect.height),
+      hasW: dir.indexOf('e') !== -1 || dir.indexOf('w') !== -1,
+      hasH: dir.indexOf('n') !== -1 || dir.indexOf('s') !== -1,
+      signX: dir.indexOf('w') !== -1 ? -1 : 1,
+      signY: dir.indexOf('n') !== -1 ? -1 : 1,
+      snapshot: snapshot,
+      origStyleAttr: origStyleAttr,
+      moved: false
+    };
+    updateResizeBadge(rect);
+  }
+
+  function resizeOnPointerMove(e) {
+    var r = resize;
+    if (!r || e.pointerId !== r.pointerId) return;
+    e.preventDefault();
+    var dx = e.clientX - r.startX;
+    var dy = e.clientY - r.startY;
+    if (!r.moved && Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+    r.moved = true;
+    var rawW = Math.max(16, Math.min(4000, r.startW + r.signX * dx));
+    var rawH = Math.max(16, Math.min(4000, r.startH + r.signY * dy));
+    var nextW = rawW;
+    var nextH = rawH;
+    if (r.hasW && r.hasH && !e.shiftKey) {
+      if (Math.abs(dx) / r.startW >= Math.abs(dy) / r.startH) {
+        nextW = rawW;
+        nextH = Math.max(16, Math.min(4000, nextW / r.aspect));
+      } else {
+        nextH = rawH;
+        nextW = Math.max(16, Math.min(4000, nextH * r.aspect));
+      }
+    }
+    if (r.hasW) r.el.style.width = Math.round(nextW) + 'px';
+    if (r.hasH) r.el.style.height = Math.round(nextH) + 'px';
+    if (r.hasW && r.hasH && r.el.style.aspectRatio) r.el.style.aspectRatio = '';
+    var liveRect = r.el.getBoundingClientRect();
+    syncResizeOverlay();
+    updateResizeBadge(liveRect);
+  }
+
+  function endResize(commit) {
+    var r = resize;
+    if (!r) return;
+    resize = null;
+    try { r.handle.releasePointerCapture(r.pointerId); } catch (relErr) { /* already released */ }
+    if (resizeBadge && resizeBadge.parentNode) resizeBadge.parentNode.removeChild(resizeBadge);
+    resizeBadge = null;
+    dragSuppressClick = true;
+    setTimeout(function () { dragSuppressClick = false; }, 0);
+
+    var finalRect = r.el.getBoundingClientRect();
+    var finalW = r.hasW ? Math.max(1, Math.round(finalRect.width)) : null;
+    var finalH = r.hasH ? Math.max(1, Math.round(finalRect.height)) : null;
+    var changed = commit && r.moved && (
+      (r.hasW && finalW !== Math.round(r.startW)) ||
+      (r.hasH && finalH !== Math.round(r.startH))
+    );
+    if (!changed) {
+      restoreElStyleAttr(r.el, r.origStyleAttr);
+      syncResizeOverlay();
+      return;
+    }
+
+    var cleanStyleAttr = readCleanStyleAttr(r.el);
+    if (r.el.__orionOutlineSaved) r.el.__orionOutlineSaved.styleAttr = cleanStyleAttr;
+    syncResizeOverlay();
+
+    var editId = ++inlineEditSequence;
+    var pending = { id: editId, el: r.el, origStyleAttr: r.origStyleAttr, timer: null };
+    pending.timer = setTimeout(function () { resolveImageResize(false, editId); }, 3000);
+    pendingResizes.push(pending);
+
+    var payload = {};
+    for (var k in r.snapshot) {
+      if (Object.prototype.hasOwnProperty.call(r.snapshot, k)) payload[k] = r.snapshot[k];
+    }
+    if (finalW !== null) payload.width = finalW;
+    if (finalH !== null) payload.height = finalH;
+    payload.editId = editId;
+    payload.newBoundingBox = { x: finalRect.left, y: finalRect.top, width: finalRect.width, height: finalRect.height };
+    payload.newStyleAttr = cleanStyleAttr;
+    post('element-resized', payload);
+  }
+
+  function resizeOnPointerUp(e) {
+    if (!resize || e.pointerId !== resize.pointerId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    endResize(true);
+  }
+
+  function resizeOnPointerCancel(e) {
+    if (resize && e.pointerId === resize.pointerId) endResize(false);
+  }
+
+  function resolveImageResize(ok, editId, sourceSync) {
+    var idx = -1;
+    for (var i = 0; i < pendingResizes.length; i++) {
+      if (pendingResizes[i].id === editId) { idx = i; break; }
+    }
+    if (idx === -1) return;
+    var entry = pendingResizes.splice(idx, 1)[0];
+    if (entry.timer) { clearTimeout(entry.timer); entry.timer = null; }
+    if (!ok) {
+      restoreElStyleAttr(entry.el, entry.origStyleAttr);
+      syncResizeOverlay();
+      return;
+    }
+    if (sourceSync) applySourceSync(entry.el, sourceSync);
+  }
+
+  function applyImageSizeInFrame(size, sourceSync) {
+    var el = editSelectedEl;
+    if (el && size) {
+      restoreOutline(el);
+      if (size.width != null) el.style.width = Math.round(size.width) + 'px';
+      if (size.height != null) el.style.height = Math.round(size.height) + 'px';
+      if (size.width != null && size.height != null && el.style.aspectRatio) el.style.aspectRatio = '';
+      editSelectedEl = null;
+      hideResizeOverlay();
+    }
+    if (sourceSync) applySourceSync(el || null, sourceSync);
+  }
+
   function editSelectParent() {
     if (!editingActive || !editSelectedEl) return;
     abortInlineEdit();
@@ -2623,14 +2890,17 @@ const BRIDGE_SOURCE = `(function () {
     restoreOutline(editSelectedEl);
     editSelectedEl = parent;
     paintSelection(parent);
+    syncResizeOverlay();
     describeElement(parent);
   }
 
   function clearSelection(notify) {
+    endResize(false);
     abortInlineEdit();
     if (editSelectedEl) restoreOutline(editSelectedEl);
     editSelectedEl = null;
     clearGroup();
+    hideResizeOverlay();
     if (notify) post('element-deselected', {});
   }
 
@@ -2640,12 +2910,14 @@ const BRIDGE_SOURCE = `(function () {
   // already blurred it, which is a commit anyway.
   function setDragMode(on) {
     if (on === dragModeActive) return;
+    endResize(false);
     endDrag(false);
     endMarquee(false);
     if (inlineEdit) finishInlineEdit(true, false);
     clearHover();
     dragModeActive = on;
     if (editStyleEl) editStyleEl.textContent = editCursorCss();
+    syncResizeOverlay();
   }
 
   function setEditingEnabled(enabled, dragOn) {
@@ -2653,6 +2925,7 @@ const BRIDGE_SOURCE = `(function () {
       setDragMode(!!enabled && !!dragOn);
       return;
     }
+    endResize(false);
     endDrag(false);
     endMarquee(false);
     clearInsertSpot();
@@ -2661,6 +2934,7 @@ const BRIDGE_SOURCE = `(function () {
     abortInlineEdit();
     clearHover();
     clearSelection(false);
+    hideResizeOverlay();
     if (editingActive) {
       if (!editStyleEl) {
         editStyleEl = document.createElement('style');
@@ -2679,6 +2953,10 @@ const BRIDGE_SOURCE = `(function () {
   document.addEventListener('click', editOnClick, true);
   document.addEventListener('dblclick', editOnDblClick, true);
   document.addEventListener('keydown', editOnKeyDown, true);
+  document.addEventListener('pointerdown', resizeOnPointerDown, true);
+  document.addEventListener('pointermove', resizeOnPointerMove, true);
+  document.addEventListener('pointerup', resizeOnPointerUp, true);
+  document.addEventListener('pointercancel', resizeOnPointerCancel, true);
   document.addEventListener('pointerdown', dragOnPointerDown, true);
   document.addEventListener('pointermove', dragOnPointerMove, true);
   document.addEventListener('pointerup', dragOnPointerUp, true);
@@ -2691,7 +2969,8 @@ const BRIDGE_SOURCE = `(function () {
   document.addEventListener('contextmenu', editOnContextMenu, true);
   document.addEventListener('pointerdown', insertOnPointerDown, true);
   // The line is fixed to the viewport; scrolling would leave it behind.
-  window.addEventListener('scroll', dismissInsertMenu, true);
+  window.addEventListener('scroll', function () { dismissInsertMenu(); syncResizeOverlay(); }, true);
+  window.addEventListener('resize', syncResizeOverlay);
 
   // Dead-link guard. The frame's document is about:srcdoc, so a relative
   // href ("about.html", "/pricing", "") would navigate the frame to a blank
@@ -3290,6 +3569,10 @@ const BRIDGE_SOURCE = `(function () {
       finishInlineEdit(!!(d.payload && d.payload.commit), false);
     } else if (d.type === 'inline-edit-result') {
       resolveInlineEdit(!!(d.payload && d.payload.ok), d.payload ? d.payload.editId : null, d.payload ? d.payload.sourceSync : null);
+    } else if (d.type === 'image-resize-result') {
+      resolveImageResize(!!(d.payload && d.payload.ok), d.payload ? d.payload.editId : null, d.payload ? d.payload.sourceSync : null);
+    } else if (d.type === 'apply-image-size') {
+      applyImageSizeInFrame(d.payload && d.payload.size, d.payload ? d.payload.sourceSync : null);
     } else if (d.type === 'restore-scroll') {
       try {
         window.scrollTo((d.payload && d.payload.x) || 0, (d.payload && d.payload.y) || 0);

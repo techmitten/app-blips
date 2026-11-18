@@ -874,6 +874,10 @@ export default function App({ coldStart = false }) {
   const handleElementTextCommittedTrampoline = useCallback((payload) => {
     elementTextCommittedRef.current?.(payload);
   }, []);
+  const elementResizedRef = useRef(null);
+  const handleElementResizedTrampoline = useCallback((payload) => {
+    elementResizedRef.current?.(payload);
+  }, []);
   // Same for the frame's keyboard shortcuts (handleElementAction below).
   const elementActionRef = useRef(null);
   const handleElementShortcutTrampoline = useCallback((action) => {
@@ -919,7 +923,7 @@ export default function App({ coldStart = false }) {
 
   const {
     requestScreenshot, selectParentElement, deselectElement, clearInsertSpot,
-    replyInlineEditResult, restoreScroll,
+    replyInlineEditResult, replyImageResizeResult, applyImageSizeInFrame, restoreScroll,
     formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState: frameNavState, goBack: frameGoBack, goForward: frameGoForward, scrollToHash,
   } = usePreviewBridge({
@@ -937,6 +941,7 @@ export default function App({ coldStart = false }) {
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
     onElementTextCommitted: handleElementTextCommittedTrampoline,
+    onElementResized: handleElementResizedTrampoline,
     onInlineEditStarted: handleInlineEditStarted,
     onInlineTypography: handleInlineTypography,
     onInlineEditEnded: handleInlineEditEnded,
@@ -1072,7 +1077,9 @@ export default function App({ coldStart = false }) {
 
   const handleApplyElementEdit = useCallback((changes) => {
     if (!selectedElement || isGeneratingRef.current) return;
-    const result = applyElementChangesToSource(selectedElement, changes);
+    const keys = changes && typeof changes === 'object' ? Object.keys(changes).filter((k) => changes[k] !== undefined) : [];
+    const sizeOnly = keys.length === 1 && keys[0] === 'imageSize';
+    const result = applyElementChangesToSource(selectedElement, changes, {}, { preserveFrame: sizeOnly });
     if (!result.ok) {
       if (result.reason === 'no-op' || result.reason === 'no-changes') {
         // Nothing to write (e.g. Apply with untouched fields): just close.
@@ -1088,9 +1095,13 @@ export default function App({ coldStart = false }) {
       setSelectionKey((n) => n + 1);
       return;
     }
+    if (sizeOnly) {
+      const sourceSync = computeSourceSync(result.prevCode, result.code, selectedElement.srcId);
+      applyImageSizeInFrame(changes.imageSize, sourceSync);
+    }
     setElementEditError(null);
     setSelectedElement(null);
-  }, [selectedElement, applyElementChangesToSource, deselectElement]);
+  }, [selectedElement, applyElementChangesToSource, deselectElement, applyImageSizeInFrame]);
 
   // Structure edits (toolbar keys or the frame's keyboard shortcuts) are
   // ordinary direct edits; undo/redo come from the frame because the global
@@ -1285,6 +1296,44 @@ export default function App({ coldStart = false }) {
     }
   }, [replyInlineEditResult, applyElementChangesToSource]);
   elementTextCommittedRef.current = handleElementTextCommitted;
+
+  // Live image resize via drag handles in the preview frame: write the new
+  // width/height to the source as a new version without reloading the frame,
+  // and keep the image selected with updated dimensions in ElementToolbar.
+  const handleElementResized = useCallback((payload) => {
+    if (!payload || isGeneratingRef.current) {
+      replyImageResizeResult(false, payload?.editId);
+      return;
+    }
+    const imageSize = {};
+    if (payload.width != null) imageSize.width = payload.width;
+    if (payload.height != null) imageSize.height = payload.height;
+    const result = applyElementChangesToSource(payload, { imageSize }, {}, { preserveFrame: true });
+    if (result.ok) {
+      const sourceSync = computeSourceSync(result.prevCode, result.code, payload.srcId);
+      replyImageResizeResult(true, payload.editId, sourceSync);
+      setSelectedElement((prev) => {
+        if (!prev || prev.srcId !== payload.srcId) return prev;
+        const nextAttrs = { ...prev.attributes };
+        if (payload.newStyleAttr == null) delete nextAttrs.style;
+        else nextAttrs.style = payload.newStyleAttr;
+        return {
+          ...prev,
+          boundingBox: payload.newBoundingBox || prev.boundingBox,
+          attributes: nextAttrs,
+          srcFingerprint: sourceSync?.fingerprint || prev.srcFingerprint,
+          resizeSeq: (prev.resizeSeq || 0) + 1,
+        };
+      });
+      setElementEditError(null);
+    } else {
+      replyImageResizeResult(false, payload.editId);
+      setSelectedElement(payload);
+      setElementEditError(`${describeDirectEditFailure(result.reason)} Describe the change below and it will be applied with AI.`);
+      setSelectionKey((n) => n + 1);
+    }
+  }, [replyImageResizeResult, applyElementChangesToSource]);
+  elementResizedRef.current = handleElementResized;
 
   // href suggestions for the element bar: only computed while a link or
   // button is selected, since it scans every page's markup.

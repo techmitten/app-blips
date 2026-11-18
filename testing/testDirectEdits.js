@@ -308,6 +308,32 @@ check('image src swap removes a surviving srcset first', () => {
   assert.match(result.code, /src="https:\/\/images\.unsplash\.com\/photo-new"/);
 });
 
+check('imageSize writes width and height styles and clears stale aspect-ratio', () => {
+  const html = '<body><img src="https://example.com/a.jpg" style="aspect-ratio: 16 / 9; border-radius: 8px;"></body>';
+  const element = el({
+    tag: 'img',
+    role: 'image',
+    attributes: { src: 'https://example.com/a.jpg', style: 'aspect-ratio: 16 / 9; border-radius: 8px;' },
+    outerHTML: '<img src="https://example.com/a.jpg" style="aspect-ratio: 16 / 9; border-radius: 8px;">',
+  });
+  const result = applyDirectEdit(html, element, { imageSize: { width: 320, height: 180 } });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /border-radius: 8px; width: 320px; height: 180px;/);
+  assert.doesNotMatch(result.code, /aspect-ratio/);
+  assert.match(result.summary, /resized image to 320px × 180px/);
+});
+
+check('imageSize refuses non-positive or non-numeric sizes', () => {
+  const element = el({
+    tag: 'img',
+    role: 'image',
+    attributes: { src: 'https://images.unsplash.com/photo-bread' },
+  });
+  assert.strictEqual(applyDirectEdit(FIXTURE, element, { imageSize: { width: 0, height: 100 } }).ok, false);
+  assert.strictEqual(applyDirectEdit(FIXTURE, element, { imageSize: { width: -50 } }).ok, false);
+  assert.strictEqual(applyDirectEdit(FIXTURE, element, { imageSize: {} }).ok, false);
+});
+
 check('href swap rewrites the link target', () => {
   const element = el({
     tag: 'a',

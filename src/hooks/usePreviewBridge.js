@@ -14,8 +14,8 @@ import { findFontByStack } from '../lib/fonts';
 // Messages that change the project or open its editing UI (see onMessage).
 const EDITING_MESSAGES = new Set([
   'element-selected', 'elements-selected', 'element-deselected', 'element-text-committed',
-  'inline-edit-started', 'inline-typography', 'inline-history', 'inline-edit-ended',
-  'element-shortcut', 'element-drop', 'insert-menu', 'insert-menu-dismissed',
+  'element-resized', 'inline-edit-started', 'inline-typography', 'inline-history',
+  'inline-edit-ended', 'element-shortcut', 'element-drop', 'insert-menu', 'insert-menu-dismissed',
 ]);
 const ELEMENT_SHORTCUT_ACTIONS = new Set(['delete', 'duplicate', 'move-up', 'move-down', 'undo', 'redo']);
 
@@ -44,6 +44,7 @@ export default function usePreviewBridge({
   onElementSelected,
   onElementDeselected,
   onElementTextCommitted,
+  onElementResized,
   onInlineEditStarted,
   onInlineTypography,
   onInlineEditEnded,
@@ -60,6 +61,7 @@ export default function usePreviewBridge({
   const onElementSelectedRef = useRef(onElementSelected);
   const onElementDeselectedRef = useRef(onElementDeselected);
   const onElementTextCommittedRef = useRef(onElementTextCommitted);
+  const onElementResizedRef = useRef(onElementResized);
   const onInlineEditStartedRef = useRef(onInlineEditStarted);
   const onInlineTypographyRef = useRef(onInlineTypography);
   const onInlineEditEndedRef = useRef(onInlineEditEnded);
@@ -101,6 +103,7 @@ export default function usePreviewBridge({
     onElementSelectedRef.current = onElementSelected;
     onElementDeselectedRef.current = onElementDeselected;
     onElementTextCommittedRef.current = onElementTextCommitted;
+    onElementResizedRef.current = onElementResized;
     onInlineEditStartedRef.current = onInlineEditStarted;
     onInlineTypographyRef.current = onInlineTypography;
     onInlineEditEndedRef.current = onInlineEditEnded;
@@ -272,6 +275,7 @@ export default function usePreviewBridge({
       // Committed in-place text edit: payload is the element snapshot taken
       // BEFORE the typing (the match anchor) plus newText/editId/scroll.
       else if (data.type === 'element-text-committed' && onElementTextCommittedRef.current) onElementTextCommittedRef.current(data.payload);
+      else if (data.type === 'element-resized' && onElementResizedRef.current) onElementResizedRef.current(data.payload);
       // In-place text session lifecycle, for the parent's text toolbar.
       else if (data.type === 'inline-edit-started' && onInlineEditStartedRef.current) onInlineEditStartedRef.current(data.payload);
       else if (data.type === 'inline-typography' && onInlineTypographyRef.current) onInlineTypographyRef.current(data.payload);
@@ -439,6 +443,21 @@ export default function usePreviewBridge({
     });
   }, []);
 
+  const replyImageResizeResult = useCallback((ok, editId, sourceSync = null) => {
+    sendRef.current('image-resize-result', {
+      ok: !!ok,
+      editId: editId == null ? null : editId,
+      ...(sourceSync ? { sourceSync } : {}),
+    });
+  }, []);
+
+  const applyImageSizeInFrame = useCallback((size, sourceSync = null) => {
+    sendRef.current('apply-image-size', {
+      size,
+      ...(sourceSync ? { sourceSync } : {}),
+    });
+  }, []);
+
   // Text toolbar -> live editing session. `format` previews styles on the
   // element being typed in (and reports them with the commit); `hold` keeps
   // the session open while focus is on the toolbar; `finish` is the Done /
@@ -471,7 +490,7 @@ export default function usePreviewBridge({
 
   return {
     requestScreenshot, selectParentElement, deselectElement, clearInsertSpot,
-    replyInlineEditResult, restoreScroll,
+    replyInlineEditResult, replyImageResizeResult, applyImageSizeInFrame, restoreScroll,
     formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState, goBack, goForward, scrollToHash,
   };

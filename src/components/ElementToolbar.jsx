@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ArrowUpToLine, ArrowLeft, Sparkles, Upload, Loader2, Wand2, Link2, Type, Check, AlertTriangle,
-  ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus, Captions,
+  ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus, Captions, Lock, Unlock,
 } from 'lucide-react';
 import { compressImageDataUrl } from '../lib/attachments';
 import Modal, { ModalCloseButton } from './Modal';
@@ -99,6 +99,21 @@ export default function ElementToolbar({
   // Natural size of an uploaded replacement, and whether to resize to it.
   const [uploadedSize, setUploadedSize] = useState(null);
   const [fitToImage, setFitToImage] = useState(false);
+  const initialBoxW = element.boundingBox?.width > 0 ? Math.round(element.boundingBox.width) : null;
+  const initialBoxH = element.boundingBox?.height > 0 ? Math.round(element.boundingBox.height) : null;
+  const [imgWidth, setImgWidth] = useState(initialBoxW ? String(initialBoxW) : '');
+  const [imgHeight, setImgHeight] = useState(initialBoxH ? String(initialBoxH) : '');
+  const [lockAspect, setLockAspect] = useState(true);
+  const [aspectRatio, setAspectRatio] = useState(
+    initialBoxW && initialBoxH ? initialBoxW / initialBoxH : null,
+  );
+  const [prevResizeSeq, setPrevResizeSeq] = useState(element.resizeSeq || 0);
+  if ((element.resizeSeq || 0) !== prevResizeSeq) {
+    setPrevResizeSeq(element.resizeSeq || 0);
+    setImgWidth(initialBoxW ? String(initialBoxW) : '');
+    setImgHeight(initialBoxH ? String(initialBoxH) : '');
+    if (initialBoxW && initialBoxH) setAspectRatio(initialBoxW / initialBoxH);
+  }
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   // A failed in-place apply opens the bar with the error already set -- skip
@@ -142,11 +157,53 @@ export default function ElementToolbar({
     }
   };
 
+  const handleWidthChange = (raw) => {
+    const clean = raw.replace(/[^\d]/g, '').slice(0, 4);
+    setImgWidth(clean);
+    if (fitToImage) setFitToImage(false);
+    const n = parseInt(clean, 10);
+    if (lockAspect && aspectRatio && n > 0) {
+      setImgHeight(String(Math.max(1, Math.round(n / aspectRatio))));
+    }
+  };
+
+  const handleHeightChange = (raw) => {
+    const clean = raw.replace(/[^\d]/g, '').slice(0, 4);
+    setImgHeight(clean);
+    if (fitToImage) setFitToImage(false);
+    const n = parseInt(clean, 10);
+    if (lockAspect && aspectRatio && n > 0) {
+      setImgWidth(String(Math.max(1, Math.round(n * aspectRatio))));
+    }
+  };
+
+  const toggleLockAspect = () => {
+    setLockAspect((wasLocked) => {
+      if (!wasLocked) {
+        const w = parseInt(imgWidth, 10);
+        const h = parseInt(imgHeight, 10);
+        if (w > 0 && h > 0) setAspectRatio(w / h);
+      }
+      return !wasLocked;
+    });
+  };
+
   const handleApply = () => {
     const changes = {};
     if (isImage) {
       if (src.trim() && src.trim() !== (element.attributes?.src || '')) changes.src = src.trim();
       if (changes.src && fitToImage && uploadedSize && src.startsWith('data:')) changes.fitImage = uploadedSize;
+      else {
+        const w = parseInt(imgWidth, 10);
+        const h = parseInt(imgHeight, 10);
+        const wChanged = Number.isFinite(w) && w > 0 && w !== initialBoxW;
+        const hChanged = Number.isFinite(h) && h > 0 && h !== initialBoxH;
+        if (wChanged || hChanged) {
+          changes.imageSize = {};
+          if (w > 0 && (wChanged || (hChanged && initialBoxW))) changes.imageSize.width = w;
+          if (h > 0 && (hChanged || (wChanged && initialBoxH))) changes.imageSize.height = h;
+        }
+      }
       if (alt.trim() !== (element.attributes?.alt || '')) changes.alt = alt.trim();
     }
     if (showLink && href.trim() && href.trim() !== (element.attributes?.href || '')) changes.href = href.trim();
@@ -294,6 +351,45 @@ export default function ElementToolbar({
                 />
                 {fileInput(imageFileRef)}
                 {uploadButton(imageFileRef, 'Upload', 'Replace with an image from your computer')}
+                <div className="element-bar-dims" role="group" aria-label="Image dimensions">
+                  <label className="element-bar-dim" data-tip="Image width in pixels">
+                    <span className="element-bar-dim-tag">W</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={imgWidth}
+                      onChange={(e) => handleWidthChange(e.target.value)}
+                      onKeyDown={submitOnEnter(handleApply)}
+                      aria-label="Image width"
+                      className="element-bar-input element-bar-dim-input"
+                      disabled={busy || fitToImage}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={toggleLockAspect}
+                    aria-pressed={lockAspect}
+                    aria-label={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
+                    data-tip={lockAspect ? 'Aspect ratio locked (proportional)' : 'Aspect ratio unlocked'}
+                    className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon element-bar-toggle"
+                    disabled={busy || fitToImage}
+                  >
+                    {lockAspect ? <Lock size={14} /> : <Unlock size={14} />}
+                  </button>
+                  <label className="element-bar-dim" data-tip="Image height in pixels">
+                    <span className="element-bar-dim-tag">H</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={imgHeight}
+                      onChange={(e) => handleHeightChange(e.target.value)}
+                      onKeyDown={submitOnEnter(handleApply)}
+                      aria-label="Image height"
+                      className="element-bar-input element-bar-dim-input"
+                      disabled={busy || fitToImage}
+                    />
+                  </label>
+                </div>
                 {uploadedSize && src.startsWith('data:') && (
                   <label className="element-bar-field" data-tip="Keep the width, and change the height to match the new image's proportions">
                     <input
