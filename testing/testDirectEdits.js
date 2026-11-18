@@ -1049,3 +1049,78 @@ check('typed text with dollar patterns is written as typed', () => {
   assert.ok(styled.ok, `expected ok, got: ${styled.reason}`);
   assert.ok(styled.code.includes('Pay $$ here'));
 });
+
+check('combined text + href + target + backgroundColor with sourceId applies atomically', () => {
+  const code = '<body>\n  <a href="#old" class="btn">Old Label</a>\n  <button class="cta">Act Now</button>\n</body>';
+  const linkEl = {
+    tag: 'a',
+    role: 'link',
+    srcId: 1,
+    srcFingerprint: sourceFingerprint(code),
+    text: 'Old Label',
+    attributes: { href: '#old', class: 'btn' },
+    outerHTML: '<a href="#old" class="btn">Old Label</a>',
+  };
+  const r1 = applyDirectEdit(code, linkEl, {
+    text: 'New Label',
+    href: 'https://example.com',
+    target: '_blank',
+    backgroundColor: '#0ea5e9',
+  });
+  assert.ok(r1.ok, `expected ok for link, got: ${r1.reason}`);
+  assert.match(r1.code, /<a href="https:\/\/example\.com" class="btn" target="_blank" rel="noopener noreferrer" style="background-color: #0ea5e9;">New Label<\/a>/);
+
+  const btnEl = {
+    tag: 'button',
+    role: 'button',
+    srcId: 2,
+    srcFingerprint: sourceFingerprint(code),
+    text: 'Act Now',
+    attributes: { class: 'cta' },
+    outerHTML: '<button class="cta">Act Now</button>',
+  };
+  const r2 = applyDirectEdit(code, btnEl, {
+    text: 'Go to Pricing',
+    href: '#pricing',
+    backgroundColor: '#10b981',
+  });
+  assert.ok(r2.ok, `expected ok for button, got: ${r2.reason}`);
+  assert.match(r2.code, /<button class="cta" href="#pricing" style="background-color: #10b981;">Go to Pricing<\/button>/);
+});
+
+check('refuses to overwrite a single template occurrence when DOM reports multiple clones without srcId', () => {
+  const code = '<body>\n  <div class="card"><h3>Template Heading</h3></div>\n</body>';
+  const clonedHeading = {
+    tag: 'h3',
+    role: 'heading',
+    srcId: null,
+    srcFingerprint: sourceFingerprint(code),
+    text: 'Template Heading',
+    textOrdinal: 1,
+    textCount: 2,
+    attributes: {},
+    outerHTML: '<h3>Template Heading</h3>',
+  };
+  const result = applyDirectEdit(code, clonedHeading, { text: 'Second Card Heading' });
+  assert.strictEqual(result.ok, false);
+  assert.strictEqual(result.reason, 'ambiguous');
+});
+
+check('fallbackInnerHtml updates multi-span formatted text when flat splice cannot anchor', () => {
+  const code = '<body>\n  <p id="p">Hello <span style="font-weight:700;">bold</span> world</p>\n</body>';
+  const para = {
+    tag: 'p',
+    role: 'text',
+    srcId: 0,
+    srcFingerprint: sourceFingerprint(code),
+    text: 'Hello bold world',
+    attributes: { id: 'p' },
+    outerHTML: '<p id="p">Hello <span style="font-weight:700;">bold</span> world</p>',
+  };
+  const result = applyDirectEdit(code, para, {
+    text: 'Totally rewritten phrase',
+    fallbackInnerHtml: 'Totally <span style="font-weight:700;">rewritten</span> phrase',
+  });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /<p id="p">Totally <span style="font-weight:700;">rewritten<\/span> phrase<\/p>/);
+});

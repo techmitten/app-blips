@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Minus, Plus, Check, X, ChevronDown, CaseUpper, Undo2, Redo2,
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Minus, Plus, Check, X, ChevronDown, CaseUpper, Undo2, Redo2, ArrowUpToLine,
 } from 'lucide-react';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { FONT_OPTIONS, findFontByStack, fontPreviewStylesheetUrl } from '../lib/fonts';
@@ -80,11 +80,23 @@ const ensurePreviewFonts = () => {
   } catch { /* previews fall back to the UI font */ }
 };
 
-export default function TextFormatToolbar({ typography, canUndo = false, canRedo = false, onFormat, onHold, onFinish, onUndo, onRedo }) {
+export default function TextFormatToolbar({
+  element = null,
+  typography,
+  canUndo = false,
+  canRedo = false,
+  onFormat,
+  onHold,
+  onFinish,
+  onUndo,
+  onRedo,
+  onSelectParent = null,
+}) {
   const t = typography || {};
   const [open, setOpen] = useState(null); // 'font' | 'color' | null
   const [sizeDraft, setSizeDraft] = useState(null);
   const rootRef = useRef(null);
+  const popRef = useRef(null);
 
   const currentFont = findFontByStack(t.fontFamily);
   const fontLabel = currentFont?.label || firstFamily(t.fontFamily);
@@ -99,6 +111,29 @@ export default function TextFormatToolbar({ typography, canUndo = false, canRedo
   // text-align does nothing on a purely inline host, so say so instead of
   // offering keys that appear broken.
   const alignEnabled = !String(t.display || '').startsWith('inline') || /inline-(block|flex|grid)/.test(t.display);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const updatePosition = () => {
+      const pop = popRef.current;
+      const anchor = pop?.parentElement;
+      if (!pop || !anchor) return;
+      const anchorRect = anchor.getBoundingClientRect();
+      const popWidth = pop.offsetWidth || 240;
+      const vw = window.innerWidth || document.documentElement.clientWidth || 800;
+      let dx = 0;
+      if (anchorRect.left + popWidth > vw - 8) {
+        dx = (vw - 8) - (anchorRect.left + popWidth);
+      }
+      if (anchorRect.left + dx < 8) {
+        dx = 8 - anchorRect.left;
+      }
+      pop.style.left = `${Math.round(dx)}px`;
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
+  }, [open]);
 
   useEffect(() => {
     if (open === 'font') ensurePreviewFonts();
@@ -172,6 +207,28 @@ export default function TextFormatToolbar({ typography, canUndo = false, canRedo
       onKeyDown={(e) => { if (e.key === 'Escape' && !open) onFinish?.(false); }}
     >
       <div className="element-bar-body element-bar-format">
+        {element && (
+          <>
+            <div className="element-bar-id">
+              <span className="element-bar-chip" title={`Editing <${element.tag}>`}>
+                {element.displayLabel || 'Text'}
+              </span>
+              {element.parentSelectable && onSelectParent && (
+                <button
+                  type="button"
+                  onClick={() => onSelectParent(1)}
+                  className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
+                  aria-label="Select parent element"
+                  data-tip={`Select parent (${element.parentTag ? `<${element.parentTag}>` : 'container'})`}
+                >
+                  <ArrowUpToLine size={16} />
+                </button>
+              )}
+            </div>
+            <span className="chrome-divider element-bar-divider" aria-hidden="true" />
+          </>
+        )}
+
         {/* Session history: typing and formatting steps, not page versions */}
         <div className="nav-segmented-group" role="group" aria-label="Undo and redo">
           <button
@@ -214,7 +271,12 @@ export default function TextFormatToolbar({ typography, canUndo = false, canRedo
             <ChevronDown size={14} aria-hidden="true" />
           </button>
           {open === 'font' && (
-            <div className="element-bar-pop element-bar-pop-fonts" role="listbox" aria-label="Fonts">
+            <div
+              ref={popRef}
+              className="element-bar-pop element-bar-pop-fonts"
+              role="listbox"
+              aria-label="Fonts"
+            >
               {FONT_CATEGORIES.map((category) => (
                 <div key={category}>
                   <div className="element-bar-pop-heading">{category}</div>
@@ -291,7 +353,12 @@ export default function TextFormatToolbar({ typography, canUndo = false, canRedo
             <ChevronDown size={14} aria-hidden="true" />
           </button>
           {open === 'color' && (
-            <div className="element-bar-pop element-bar-pop-colors" role="dialog" aria-label="Text color">
+            <div
+              ref={popRef}
+              className="element-bar-pop element-bar-pop-colors"
+              role="dialog"
+              aria-label="Text color"
+            >
               <div className="element-bar-swatches">
                 {NEUTRALS.map(({ name, hex }) => (
                   <button

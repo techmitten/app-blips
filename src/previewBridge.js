@@ -357,7 +357,9 @@ const BRIDGE_SOURCE = `(function () {
   var editingActive = false;
   var editHoveredEl = null;
   var editSelectedEl = null;
+  var editChildStack = [];
   var editStyleEl = null;
+  var stateBadge = null;
   var inlineEdit = null;
   var inlineHold = false;
   var inlineEditSequence = 0;
@@ -366,7 +368,8 @@ const BRIDGE_SOURCE = `(function () {
 
   var EDIT_HOVER_OUTLINE = '2px dashed rgba(57, 135, 208, 0.85)';
   var EDIT_SELECT_OUTLINE = '3px solid rgba(57, 135, 208, 1)';
-  var EDIT_CURSOR_CSS = '*:not([data-orion-resize-handle]) { cursor: crosshair !important; }';
+  var EDIT_INLINE_OUTLINE = '2px solid rgba(14, 165, 233, 0.95)';
+  var EDIT_CURSOR_CSS = '*:not([data-orion-resize-handle]):not([contenteditable]):not([contenteditable] *) { cursor: crosshair !important; } [contenteditable], [contenteditable] * { cursor: text !important; }';
   var DRAG_MODE_CURSOR_CSS = '* { cursor: grab !important; }';
   // Drag mode (the parent's secondary toggle): pressing and dragging moves
   // an element, and a click only selects -- no in-place text editing.
@@ -377,6 +380,88 @@ const BRIDGE_SOURCE = `(function () {
   var containerLockActive = false;
 
   function editCursorCss() { return dragModeActive ? DRAG_MODE_CURSOR_CSS : EDIT_CURSOR_CSS; }
+
+  function elementDisplayLabel(el) {
+    if (!el || !el.tagName) return 'Element';
+    var tag = el.tagName.toLowerCase();
+    var cls = '';
+    try { cls = String(el.getAttribute('class') || ''); } catch (cErr) { cls = ''; }
+    if (/^h[1-6]$/.test(tag)) return 'Heading (' + tag.toUpperCase() + ')';
+    if (tag === 'button' || (el.getAttribute && el.getAttribute('role') === 'button')) return 'Button';
+    if (tag === 'a') return /(^|\\s)(btn|button|cta)(\\s|$)|bg-|rounded-(full|xl|lg|2xl)/i.test(cls) ? 'Button Link' : 'Link';
+    if (tag === 'img' || tag === 'picture' || tag === 'svg' || tag === 'video' || tag === 'canvas') return 'Image';
+    if (tag === 'nav') return 'Navigation';
+    if (tag === 'header') return 'Header';
+    if (tag === 'footer') return 'Footer';
+    if (tag === 'section' || tag === 'main' || tag === 'article') return 'Section';
+    if (tag === 'ul' || tag === 'ol') return 'List';
+    if (tag === 'li') return 'List item';
+    if (tag === 'blockquote') return 'Quote';
+    if (tag === 'p') return 'Paragraph';
+    if (tag === 'span' || tag === 'strong' || tag === 'em' || tag === 'small' || tag === 'label') return 'Text';
+    if (/(^|\\s|-)(card|tile|plan|tier|panel|feature|box)(\\s|-|$)/i.test(cls)) return 'Card';
+    if (/(^|\\s|-)(grid|row|cols|flex|stack|list|cards)(\\s|-|$)/i.test(cls)) return 'Container';
+    if (tag === 'div') return 'Container';
+    return 'Section';
+  }
+
+  function hideStateBadge() {
+    if (stateBadge && stateBadge.parentNode) stateBadge.parentNode.removeChild(stateBadge);
+    stateBadge = null;
+  }
+
+  function syncStateBadge() {
+    if (!editingActive || dragModeActive || (drag && drag.active) || (marquee && marquee.active) || resize || insertMenuOpen) {
+      hideStateBadge();
+      return;
+    }
+    var target = null;
+    var mode = '';
+    var text = '';
+    var bg = '';
+    if (inlineEdit && inlineEdit.el && document.body && document.body.contains(inlineEdit.el)) {
+      target = inlineEdit.el;
+      mode = 'editing';
+      text = 'Editing · ' + elementDisplayLabel(target);
+      bg = 'rgba(14, 165, 233, 0.96)';
+    } else if (editSelectedEl && !editGroupEls.length && document.body && document.body.contains(editSelectedEl)) {
+      target = editSelectedEl;
+      mode = 'selected';
+      text = 'Selected · ' + elementDisplayLabel(target);
+      bg = 'rgba(30, 89, 143, 0.96)';
+    } else if (editHoveredEl && !isPicked(editHoveredEl) && document.body && document.body.contains(editHoveredEl)) {
+      target = editHoveredEl;
+      mode = 'hover';
+      text = elementDisplayLabel(target);
+      bg = 'rgba(15, 23, 42, 0.84)';
+    }
+    if (!target) {
+      hideStateBadge();
+      return;
+    }
+    var r;
+    try { r = target.getBoundingClientRect(); } catch (bErr) { hideStateBadge(); return; }
+    if (!r || (r.width < 2 && r.height < 2)) { hideStateBadge(); return; }
+    if (!stateBadge || !stateBadge.parentNode) {
+      stateBadge = document.createElement('span');
+      stateBadge.setAttribute('data-orion-bridge', 'true');
+      stateBadge.setAttribute('data-orion-badge', 'true');
+      document.documentElement.appendChild(stateBadge);
+    }
+    stateBadge.setAttribute('data-orion-state', mode);
+    stateBadge.textContent = text;
+    stateBadge.style.cssText = 'position:fixed;z-index:2147483646;pointer-events:none;padding:2px 7px;border-radius:5px;' +
+      'background:' + bg + ';color:#fff;font:600 11px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;' +
+      'letter-spacing:0.01em;box-shadow:0 2px 6px rgba(15,23,42,0.25);white-space:nowrap;';
+    var vw = window.innerWidth || document.documentElement.clientWidth || 800;
+    var vh = window.innerHeight || document.documentElement.clientHeight || 600;
+    var bw = Math.max(54, Math.round(text.length * 6.5 + 16));
+    var bh = 20;
+    var left = Math.max(4, Math.min(r.left, vw - bw - 4));
+    var top = r.top >= bh + 4 ? r.top - bh - 3 : Math.min(vh - bh - 4, Math.max(4, r.top + 4));
+    stateBadge.style.left = Math.round(left) + 'px';
+    stateBadge.style.top = Math.round(top) + 'px';
+  }
 
   function isBridgeNode(el) {
     var node = el;
@@ -435,12 +520,14 @@ const BRIDGE_SOURCE = `(function () {
     saveOutline(el);
     el.style.outline = EDIT_HOVER_OUTLINE;
     el.style.outlineOffset = '1px';
+    syncStateBadge();
   }
 
   function clearHover() {
     // The insert menu's subject keeps its outline until the menu closes.
     if (editHoveredEl && !isPicked(editHoveredEl) && editHoveredEl !== insertSubject) restoreOutline(editHoveredEl);
     editHoveredEl = null;
+    syncStateBadge();
   }
 
   function paintSelection(el) {
@@ -448,6 +535,15 @@ const BRIDGE_SOURCE = `(function () {
     saveOutline(el);
     el.style.outline = EDIT_SELECT_OUTLINE;
     el.style.outlineOffset = '1px';
+    syncStateBadge();
+  }
+
+  function paintInlineEdit(el) {
+    if (!el) return;
+    saveOutline(el);
+    el.style.outline = EDIT_INLINE_OUTLINE;
+    el.style.outlineOffset = '3px';
+    syncStateBadge();
   }
 
   function clearGroup() {
@@ -715,11 +811,44 @@ const BRIDGE_SOURCE = `(function () {
     var prevSib = isRoot ? null : contentSibling(el, -1);
     var nextSib = isRoot ? null : contentSibling(el, 1);
 
+    var ancestors = [];
+    var anc = el.parentElement;
+    var stepsUp = 1;
+    while (anc && anc !== document.documentElement && stepsUp <= 6) {
+      var ancTag = anc.tagName ? anc.tagName.toLowerCase() : '';
+      if (ancTag && ancTag !== 'html' && ancTag !== 'head' && (ancTag !== 'body' || stepsUp === 1)) {
+        ancestors.unshift({
+          stepsUp: stepsUp,
+          tag: ancTag,
+          role: detectRole(anc),
+          label: elementDisplayLabel(anc)
+        });
+      }
+      if (ancTag === 'body') break;
+      anc = anc.parentElement;
+      stepsUp += 1;
+    }
+
+    var validChildStack = [];
+    for (var csIdx = editChildStack.length - 1; csIdx >= 0; csIdx--) {
+      var cNode = editChildStack[csIdx];
+      if (cNode && document.body && document.body.contains(cNode)) {
+        validChildStack.push({
+          stepsDown: validChildStack.length + 1,
+          tag: cNode.tagName.toLowerCase(),
+          role: detectRole(cNode),
+          label: elementDisplayLabel(cNode),
+          text: capString(fullTextOf(cNode), 80)
+        });
+      }
+    }
+
     var payload = {
       tag: tag,
       srcId: sourceIdOf(el),
       srcFingerprint: SOURCE_FP,
       role: detectRole(el),
+      displayLabel: elementDisplayLabel(el),
       textOrdinal: tr.ordinal,
       textCount: tr.count,
       tagOrdinal: gr.ordinal,
@@ -738,6 +867,9 @@ const BRIDGE_SOURCE = `(function () {
       parentTag: parentTag,
       parentSelectable: parentSelectable,
       parentText: parentText,
+      ancestors: ancestors,
+      childSelectable: validChildStack.length > 0,
+      childStack: validChildStack,
       childIndex: childIndex,
       typography: readTypography(el),
       boundingBox: rect,
@@ -812,10 +944,75 @@ const BRIDGE_SOURCE = `(function () {
     } catch (rngErr) { return null; }
   }
 
+  function readInlineTypography(entry) {
+    if (!entry || !entry.el) return null;
+    var base = readTypography(entry.el);
+    if (!base) return null;
+    try {
+      var range = entry.savedRange;
+      if (!range || !entry.el.contains(range.commonAncestorContainer)) return base;
+      var node = range.startContainer;
+      if (node === entry.el && range.startOffset < entry.el.childNodes.length) {
+        node = entry.el.childNodes[range.startOffset];
+      }
+      if (node && node.nodeType !== 1) node = node.parentElement;
+      if (!node || node === entry.el || !entry.el.contains(node)) return base;
+      var runTypo = readTypography(node);
+      if (!runTypo) return base;
+      return {
+        fontFamily: runTypo.fontFamily || base.fontFamily,
+        fontSize: runTypo.fontSize || base.fontSize,
+        fontWeight: runTypo.fontWeight || base.fontWeight,
+        fontStyle: runTypo.fontStyle || base.fontStyle,
+        underline: !!runTypo.underline,
+        textAlign: base.textAlign,
+        textTransform: runTypo.textTransform || base.textTransform,
+        color: runTypo.color || base.color,
+        display: base.display
+      };
+    } catch (rtErr) { return base; }
+  }
+
   // Wraps the highlighted text in a styled span so only it changes. Styles
   // the new span overrides are cleared on what it swallows, or an inner
   // span's old color would win over the new one.
   function wrapSelectionWithStyles(entry, range, runStyles) {
+    var existingFmt = null;
+    try {
+      if (range.startContainer === range.endContainer && range.startContainer.nodeType === 1 &&
+          range.startContainer.hasAttribute && range.startContainer.hasAttribute('data-ab-fmt') &&
+          range.startOffset === 0 && range.endOffset === range.startContainer.childNodes.length) {
+        existingFmt = range.startContainer;
+      } else {
+        var anc = range.commonAncestorContainer;
+        if (anc && anc.nodeType !== 1) anc = anc.parentElement;
+        if (anc && anc.closest) {
+          var fmtAnc = anc.closest('span[data-ab-fmt]');
+          if (fmtAnc && entry.el.contains(fmtAnc) && fmtAnc.textContent === range.toString()) {
+            existingFmt = fmtAnc;
+          }
+        }
+      }
+    } catch (exErr) { existingFmt = null; }
+
+    if (existingFmt) {
+      var existingInner = existingFmt.querySelectorAll ? existingFmt.querySelectorAll('*') : [];
+      for (var ei = 0; ei < existingInner.length; ei++) {
+        for (var ep in runStyles) {
+          if (Object.prototype.hasOwnProperty.call(runStyles, ep)) existingInner[ei].style[ep] = '';
+        }
+      }
+      for (var eprop in runStyles) {
+        if (Object.prototype.hasOwnProperty.call(runStyles, eprop)) existingFmt.style[eprop] = runStyles[eprop];
+      }
+      var esel = window.getSelection();
+      var enext = document.createRange();
+      enext.selectNodeContents(existingFmt);
+      if (esel) { esel.removeAllRanges(); esel.addRange(enext); }
+      entry.savedRange = enext.cloneRange();
+      return;
+    }
+
     var span = document.createElement('span');
     span.setAttribute('data-ab-fmt', '');
     var frag = range.extractContents();
@@ -879,7 +1076,9 @@ const BRIDGE_SOURCE = `(function () {
     }
     recordInlineSnapshot(entry);
     refocusInline(entry);
-    post('inline-typography', readTypography(entry.el));
+    var typo = readInlineTypography(entry);
+    entry.lastTypoJson = JSON.stringify(typo);
+    post('inline-typography', typo);
   }
 
   function materializeLineBreaks(el, trimTrailing) {
@@ -906,7 +1105,7 @@ const BRIDGE_SOURCE = `(function () {
   // The element's markup as it should be written to the source: bridge
   // attributes stripped, and newlines typed in the host as <br>.
   function inlineEditHtml(el) {
-    var clone = el.cloneNode(true);
+    var clone = withOriginalStyleAttrs(el, function () { return el.cloneNode(true); });
     var marked = clone.querySelectorAll('[data-ab-src],[data-ab-fmt]');
     for (var i = 0; i < marked.length; i++) {
       marked[i].removeAttribute('data-ab-src');
@@ -916,12 +1115,56 @@ const BRIDGE_SOURCE = `(function () {
     return clone.innerHTML;
   }
 
+  function selectionOffsetsOf(el, range) {
+    if (!range) return null;
+    try {
+      if (!el.contains(range.commonAncestorContainer)) return null;
+      var pre = range.cloneRange();
+      pre.selectNodeContents(el);
+      pre.setEnd(range.startContainer, range.startOffset);
+      var start = pre.toString().length;
+      return { start: start, end: start + range.toString().length };
+    } catch (soErr) { return null; }
+  }
+
+  function restoreSelectionOffsets(el, offsets) {
+    if (!offsets || typeof offsets.start !== 'number' || typeof offsets.end !== 'number') return null;
+    try {
+      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      var pos = 0;
+      var startNode = null, startOff = 0, endNode = null, endOff = 0;
+      for (var node = walker.nextNode(); node; node = walker.nextNode()) {
+        var len = node.nodeValue.length;
+        if (!startNode && offsets.start <= pos + len) {
+          startNode = node;
+          startOff = Math.max(0, offsets.start - pos);
+        }
+        if (!endNode && offsets.end <= pos + len) {
+          endNode = node;
+          endOff = Math.max(0, offsets.end - pos);
+          break;
+        }
+        pos += len;
+      }
+      if (!startNode) return null;
+      if (!endNode) { endNode = startNode; endOff = startNode.nodeValue.length; }
+      var range = document.createRange();
+      range.setStart(startNode, startOff);
+      range.setEnd(endNode, endOff);
+      return range;
+    } catch (roErr) { return null; }
+  }
+
   // Session undo/redo. The browser's own undo stack knows nothing about the
   // formatting previewed through element styles, so the session keeps its
   // own snapshots (markup + applied formatting): one after every format
   // change and one a moment after typing pauses.
   function snapshotOf(entry) {
-    return { html: entry.el.innerHTML, fmt: JSON.stringify(entry.formatStyles) };
+    return {
+      html: entry.el.innerHTML,
+      fmt: JSON.stringify(entry.formatStyles),
+      sel: selectionOffsetsOf(entry.el, entry.savedRange)
+    };
   }
 
   function postInlineHistory(entry) {
@@ -966,15 +1209,20 @@ const BRIDGE_SOURCE = `(function () {
     }
     try {
       entry.el.focus({ preventScroll: true });
-      var range = document.createRange();
-      range.selectNodeContents(entry.el);
-      range.collapse(false);
+      var range = restoreSelectionOffsets(entry.el, snap.sel);
+      if (!range) {
+        range = document.createRange();
+        range.selectNodeContents(entry.el);
+        range.collapse(false);
+      }
       var sel = window.getSelection();
       if (sel) { sel.removeAllRanges(); sel.addRange(range); }
       entry.savedRange = range.cloneRange();
     } catch (cErr) { /* no caret this round */ }
     postInlineHistory(entry);
-    post('inline-typography', readTypography(entry.el));
+    var typo = readInlineTypography(entry);
+    entry.lastTypoJson = JSON.stringify(typo);
+    post('inline-typography', typo);
   }
 
   function teardownInline(entry) {
@@ -1002,8 +1250,13 @@ const BRIDGE_SOURCE = `(function () {
     stopFakeCaret();
     try { entry.el.style.caretColor = entry.origCaretColor || ''; } catch (caretErr) { /* keep going */ }
     if (inlineEdit === entry) inlineEdit = null;
+    if (editstyleElValid()) editStyleEl.textContent = editCursorCss();
     paintSelection(entry.el);
     post('inline-edit-ended', {});
+  }
+
+  function editstyleElValid() {
+    return !!(editStyleEl && editingActive && !(drag && drag.active) && !(marquee && marquee.active));
   }
 
   // Walks the edit back out: original markup restored, nothing reported.
@@ -1058,20 +1311,40 @@ const BRIDGE_SOURCE = `(function () {
     if (!commit) {
       teardownInline(entry);
       restoreInlineEntry(entry);
-      if (openPanel) describeElement(entry.el);
-      else restoreOutline(entry.el);
+      if (openPanel) {
+        if (editSelectedEl && editSelectedEl !== entry.el) restoreOutline(editSelectedEl);
+        editSelectedEl = entry.el;
+        paintSelection(entry.el);
+        syncResizeOverlay();
+        describeElement(entry.el);
+      } else {
+        if (editSelectedEl === entry.el) editSelectedEl = null;
+        restoreOutline(entry.el);
+      }
       return;
     }
     var newText = inlineEditText(entry.el);
     var hasRuns = !!entry.el.querySelector('[data-ab-fmt]');
     var newInner = hasRuns ? inlineEditHtml(entry.el) : null;
+    var fallbackInner = (newInner === null && entry.el.children && entry.el.children.length > 0)
+      ? inlineEditHtml(entry.el)
+      : null;
     teardownInline(entry);
     var hasFormat = Object.keys(entry.formatStyles).length > 0 || hasRuns;
-    if (!newText) { restoreInlineEntry(entry); restoreOutline(entry.el); return; }
+    if (!newText) {
+      restoreInlineEntry(entry);
+      if (editSelectedEl === entry.el) editSelectedEl = null;
+      restoreOutline(entry.el);
+      return;
+    }
     // Against the text as it was when editing began (same normalization),
     // not the fully collapsed snapshot, so adding or removing just a line
     // break still counts as a change.
-    if (newText === entry.startText && !hasFormat) { restoreOutline(entry.el); return; }
+    if (newText === entry.startText && !hasFormat) {
+      if (editSelectedEl === entry.el) editSelectedEl = null;
+      restoreOutline(entry.el);
+      return;
+    }
     // Turn typed line breaks into <br> so removing contentEditable leaves
     // the visual breaks intact without reloading the frame.
     if (!wsIsPreformatted(entry.hostWhiteSpace)) {
@@ -1094,6 +1367,7 @@ const BRIDGE_SOURCE = `(function () {
     payload.newText = newText;
     payload.styles = entry.formatStyles;
     if (newInner !== null) payload.innerHtml = newInner;
+    if (fallbackInner !== null) payload.fallbackInnerHtml = fallbackInner;
     payload.editId = editId;
     payload.scroll = { x: window.pageXOffset || 0, y: window.pageYOffset || 0 };
     post('element-text-committed', payload);
@@ -1134,6 +1408,11 @@ const BRIDGE_SOURCE = `(function () {
       inlineEdit.snapshot.srcFingerprint = SOURCE_FP;
       inlineEdit.snapshot.srcId = sourceIdOf(inlineEdit.el);
     }
+    if (editSelectedEl && editSelectedEl !== el && (!inlineEdit || inlineEdit.el !== editSelectedEl)) {
+      if (document.body && document.body.contains(editSelectedEl)) {
+        describeElement(editSelectedEl);
+      }
+    }
   }
 
   // Parent's verdict on a committed inline edit. The parent echoes editId,
@@ -1150,6 +1429,11 @@ const BRIDGE_SOURCE = `(function () {
     if (entry.timer) { clearTimeout(entry.timer); entry.timer = null; }
     if (!ok) {
       restoreInlineEntry(entry);
+      if (inlineEdit && inlineEdit.el !== entry.el) abortInlineEdit();
+      if (editSelectedEl && editSelectedEl !== entry.el) restoreOutline(editSelectedEl);
+      editSelectedEl = entry.el;
+      paintSelection(entry.el);
+      syncResizeOverlay();
       return;
     }
     try {
@@ -1514,7 +1798,7 @@ const BRIDGE_SOURCE = `(function () {
     var caretColor = chooseCaretColor(el);
     if (caretColor) el.style.caretColor = caretColor;
     try {
-      el.focus();
+      el.focus({ preventScroll: true });
       var range = caretRangeAtPoint(el, point);
       if (!range) {
         range = document.createRange();
@@ -1526,9 +1810,10 @@ const BRIDGE_SOURCE = `(function () {
         sel.removeAllRanges();
         sel.addRange(range);
       }
+      entry.savedRange = range.cloneRange();
     } catch (focusErr) { /* no caret this round */ }
     try { startFakeCaret(entry, caretColor || window.getComputedStyle(el).color); } catch (fcErr) { /* native caret stays */ }
-    paintSelection(el);
+    paintInlineEdit(el);
     // Blur commits after a short grace period: a click on the parent's text
     // toolbar moves focus out of this frame, and the toolbar's hold message
     // (or focus coming straight back) must be able to cancel the commit.
@@ -1551,7 +1836,15 @@ const BRIDGE_SOURCE = `(function () {
     entry.onSelectionChange = function () {
       try {
         var sel = window.getSelection();
-        if (sel && sel.rangeCount && entry.el.contains(sel.anchorNode)) entry.savedRange = sel.getRangeAt(0).cloneRange();
+        if (sel && sel.rangeCount && entry.el.contains(sel.anchorNode)) {
+          entry.savedRange = sel.getRangeAt(0).cloneRange();
+          var typo = readInlineTypography(entry);
+          var typoJson = JSON.stringify(typo);
+          if (typoJson !== entry.lastTypoJson) {
+            entry.lastTypoJson = typoJson;
+            post('inline-typography', typo);
+          }
+        }
       } catch (rangeErr) { /* keep the previous range */ }
       updateFakeCaret(entry);
     };
@@ -1581,6 +1874,10 @@ const BRIDGE_SOURCE = `(function () {
     document.addEventListener('selectionchange', entry.onSelectionChange);
     document.addEventListener('pointerdown', entry.onDocPointerDown, true);
     inlineEdit = entry;
+    paintInlineEdit(el);
+    var initTypo = readInlineTypography(entry);
+    entry.lastTypoJson = JSON.stringify(initTypo);
+    snapshot.typography = initTypo || snapshot.typography;
     post('inline-edit-started', snapshot);
     return true;
   }
@@ -1588,8 +1885,9 @@ const BRIDGE_SOURCE = `(function () {
   function editOnMouseOver(e) {
     // No hover outlines while a text session is live: the caret's own
     // focus outline is the only visual state that matters there.
-    if (!editingActive || inlineEdit || (drag && drag.active) || (marquee && marquee.active)) return;
+    if (!editingActive || inlineEdit || (drag && drag.active) || (marquee && marquee.active) || dragSuppressClick) return;
     var el = e.target;
+    if (el && el.ownerSVGElement) el = el.ownerSVGElement;
     if (!isSelectable(el)) return;
     // Drag mode outlines what a drag from here would move.
     if (dragModeActive) {
@@ -1628,6 +1926,7 @@ const BRIDGE_SOURCE = `(function () {
     }
     if (!editingActive) return;
     var el = e.target;
+    if (el && el.ownerSVGElement) el = el.ownerSVGElement;
     if (inlineEdit) {
       // Clicks inside the live editor keep their default caret behavior;
       // stopPropagation only keeps page scripts out of the typing session.
@@ -1637,13 +1936,13 @@ const BRIDGE_SOURCE = `(function () {
       }
       // Clicks outside: commit the active inline edit immediately instead of
       // waiting for blur's 180ms timer (which only exists so clicks on the
-      // parent's text toolbar can send inline-hold). When nothing was typed
-      // or formatted, fall through so a tap on another element starts editing
-      // it right away; when changes were made, consume the click as the save.
+      // parent's text toolbar can send inline-hold). When clicking another
+      // selectable element, fall through so the user immediately switches
+      // targets; when clicking background/body, consume the click as the save.
       if (!dragModeActive && !inlineHold) {
-        var wasUntouched = inlineEditUntouched(inlineEdit);
+        var prevInlineEl = inlineEdit.el;
         finishInlineEdit(true, false);
-        if (!wasUntouched) {
+        if (!isSelectable(el) || el === document.body || el === document.documentElement || el === prevInlineEl) {
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -1668,18 +1967,21 @@ const BRIDGE_SOURCE = `(function () {
     }
     // A plain click starts over from a single element.
     clearGroup();
+    editChildStack = [];
     // Headings and plain text edit in place; everything else (images,
     // link/button URLs, section backgrounds) opens the parent's editor
     // panel. Links and buttons also edit in place -- via double-click.
+    if (editSelectedEl && editSelectedEl !== el) restoreOutline(editSelectedEl);
     var role = detectRole(el);
     if (dragModeActive) {
       // Select what a drag would move (a paragraph, not a word in it).
       var block = promoteToBlock(el);
       if (isSelectable(block)) el = block;
     } else if ((role === 'heading' || role === 'text') && tryStartInlineEdit(el, { x: e.clientX, y: e.clientY })) {
+      editSelectedEl = el;
+      syncResizeOverlay();
       return;
     }
-    if (editSelectedEl && editSelectedEl !== el) restoreOutline(editSelectedEl);
     editSelectedEl = el;
     paintSelection(el);
     syncResizeOverlay();
@@ -2745,14 +3047,15 @@ const BRIDGE_SOURCE = `(function () {
     marquee = null;
     if (!m || !m.active) return;
     if (m.raf) cancelAnimationFrame(m.raf);
+    // The click or synthetic mouseover that follows the release must not
+    // select or hover-outline what is under it.
+    dragSuppressClick = true;
+    setTimeout(function () { dragSuppressClick = false; }, 0);
     try { document.documentElement.releasePointerCapture(m.pointerId); } catch (relErr) { /* already released */ }
     if (m.node && m.node.parentNode) m.node.parentNode.removeChild(m.node);
     if (editStyleEl) editStyleEl.textContent = editCursorCss();
     var hits = commit && editingActive ? elementsInBox(marqueeRect(m)) : null;
     paintMarqueeHits(m, []);
-    // The click that follows the release must not select what is under it.
-    dragSuppressClick = true;
-    setTimeout(function () { dragSuppressClick = false; }, 0);
     if (!hits) {
       if (!m.additive && editingActive) paintPicked(m.base);
       return;
@@ -3582,26 +3885,82 @@ const BRIDGE_SOURCE = `(function () {
     });
   }
 
-  function editSelectParent() {
-    if (!editingActive || !editSelectedEl) return;
-    abortInlineEdit();
-    var parent = editSelectedEl.parentElement;
-    if (!parent || parent === document.documentElement) return;
+  function editSelectParent(steps) {
+    if (!editingActive) return;
+    var current = inlineEdit ? inlineEdit.el : editSelectedEl;
+    if (!current) return;
+    if (inlineEdit) {
+      if (inlineEditUntouched(inlineEdit)) abortInlineEdit();
+      else finishInlineEdit(true, false);
+    }
+    var count = typeof steps === 'number' && steps > 1 ? Math.min(10, Math.floor(steps)) : 1;
+    var target = current;
+    var pushed = [];
+    for (var s = 0; s < count; s++) {
+      var nextParent = target.parentElement;
+      if (!nextParent || nextParent === document.documentElement) break;
+      pushed.push(target);
+      target = nextParent;
+    }
+    if (target === current) return;
+    for (var pIdx = 0; pIdx < pushed.length; pIdx++) {
+      editChildStack.push(pushed[pIdx]);
+    }
     clearHover();
-    restoreOutline(editSelectedEl);
-    editSelectedEl = parent;
-    paintSelection(parent);
+    if (editSelectedEl) restoreOutline(editSelectedEl);
+    editSelectedEl = target;
+    paintSelection(target);
     syncResizeOverlay();
-    describeElement(parent);
+    describeElement(target);
+  }
+
+  function editSelectChild(steps) {
+    if (!editingActive || !editSelectedEl || !editChildStack.length) return;
+    if (inlineEdit) {
+      if (inlineEditUntouched(inlineEdit)) abortInlineEdit();
+      else finishInlineEdit(true, false);
+    }
+    var count = typeof steps === 'number' && steps > 1 ? Math.min(editChildStack.length, Math.floor(steps)) : 1;
+    var child = null;
+    for (var s = 0; s < count && editChildStack.length > 0; s++) {
+      var candidate = editChildStack.pop();
+      if (candidate && document.body && document.body.contains(candidate)) {
+        child = candidate;
+      }
+    }
+    while (!child && editChildStack.length > 0) {
+      var fallback = editChildStack.pop();
+      if (fallback && document.body && document.body.contains(fallback)) {
+        child = fallback;
+      }
+    }
+    if (!child) {
+      describeElement(editSelectedEl);
+      return;
+    }
+    clearHover();
+    if (editSelectedEl) restoreOutline(editSelectedEl);
+    editSelectedEl = child;
+    paintSelection(child);
+    syncResizeOverlay();
+    describeElement(child);
+  }
+
+  function editStartSelectedInline() {
+    if (!editingActive || dragModeActive || inlineEdit || !editSelectedEl) return;
+    tryStartInlineEdit(editSelectedEl, null);
   }
 
   function clearSelection(notify) {
     endResize(false);
     abortInlineEdit();
+    clearHover();
     if (editSelectedEl) restoreOutline(editSelectedEl);
     editSelectedEl = null;
+    editChildStack = [];
     clearGroup();
     hideResizeOverlay();
+    hideStateBadge();
     if (notify) post('element-deselected', {});
   }
 
@@ -3619,6 +3978,7 @@ const BRIDGE_SOURCE = `(function () {
     dragModeActive = on;
     if (editStyleEl) editStyleEl.textContent = editCursorCss();
     syncResizeOverlay();
+    syncStateBadge();
   }
 
   function setEditingEnabled(enabled, dragOn, lockOn) {
@@ -3637,6 +3997,7 @@ const BRIDGE_SOURCE = `(function () {
     clearHover();
     clearSelection(false);
     hideResizeOverlay();
+    hideStateBadge();
     if (editingActive) {
       if (!editStyleEl) {
         editStyleEl = document.createElement('style');
@@ -3671,8 +4032,8 @@ const BRIDGE_SOURCE = `(function () {
   document.addEventListener('contextmenu', editOnContextMenu, true);
   document.addEventListener('pointerdown', insertOnPointerDown, true);
   // The line is fixed to the viewport; scrolling would leave it behind.
-  window.addEventListener('scroll', function () { dismissInsertMenu(); syncResizeOverlay(); }, true);
-  window.addEventListener('resize', syncResizeOverlay);
+  window.addEventListener('scroll', function () { dismissInsertMenu(); syncResizeOverlay(); syncStateBadge(); }, true);
+  window.addEventListener('resize', function () { syncResizeOverlay(); syncStateBadge(); });
 
   // Dead-link guard. The frame's document is about:srcdoc, so a relative
   // href ("about.html", "/pricing", "") would navigate the frame to a blank
@@ -3697,10 +4058,21 @@ const BRIDGE_SOURCE = `(function () {
   function onLinkClick(e) {
     if (e.defaultPrevented || editingActive) return;
     var t = e.target;
-    var a = t && t.closest ? t.closest('a[href], area[href]') : null;
+    var a = t && t.closest ? t.closest('a[href], area[href], button[href], [role="button"][href]') : null;
     if (!a) return;
     var raw = (a.getAttribute('href') || '').trim();
-    if (raw.charAt(0) === '#' || /^javascript:/i.test(raw)) return;
+    if (!raw || /^javascript:/i.test(raw)) return;
+    if (raw.charAt(0) === '#') {
+      if (a.tagName !== 'A' && a.tagName !== 'AREA') {
+        var hashId = raw.slice(1);
+        var hashEl = hashId ? document.getElementById(hashId) : null;
+        if (hashEl && hashEl.scrollIntoView) {
+          e.preventDefault();
+          hashEl.scrollIntoView();
+        }
+      }
+      return;
+    }
     if (/^(mailto|tel|sms):/i.test(raw)) return;
     if (/^https?:[/][/]/i.test(raw) || /^[/][/][^/]/.test(raw)) {
       var yt = youTubeTarget(/^[/][/]/.test(raw) ? 'https:' + raw : raw);
@@ -3721,8 +4093,12 @@ const BRIDGE_SOURCE = `(function () {
     // In an imported codebase a relative link is a client-side route: let it
     // reach the app's router (react-router's <Link> handles it and calls
     // preventDefault); onUnhandledRouteClick catches plain <a href="/x">.
-    if (PROJECT_MODE) return;
+    if (PROJECT_MODE && (a.tagName === 'A' || a.tagName === 'AREA')) return;
     e.preventDefault();
+    if (PROJECT_MODE && typeof window.__appblipsRouterNavigate === 'function') {
+      try { window.__appblipsRouterNavigate(raw); } catch (err) { /* router rejected it */ }
+      return;
+    }
     // A relative link may be an internal page ("about.html", "/pricing").
     // The parent owns the page set and swaps the document itself; it ignores
     // anything that is not one of the project's pages.
@@ -4032,6 +4408,10 @@ const BRIDGE_SOURCE = `(function () {
     }
 
     function onPointerDown(e) {
+      if (momentumId) {
+        cancelAnimationFrame(momentumId);
+        momentumId = null;
+      }
       if (e.button !== 0 && e.pointerType === 'mouse') return;
       if (isFormControl(e.target)) return;
       // During a text session the gesture belongs to the editor (caret
@@ -4044,11 +4424,6 @@ const BRIDGE_SOURCE = `(function () {
       if (editingActive && dragModeActive && e.pointerType !== 'touch') return;
       // Shift+drag with a mouse draws click-to-edit's selection box instead.
       if (editingActive && e.shiftKey && e.pointerType === 'mouse') return;
-
-      if (momentumId) {
-        cancelAnimationFrame(momentumId);
-        momentumId = null;
-      }
 
       isDragging = true;
       hasMoved = false;
@@ -4261,7 +4636,11 @@ const BRIDGE_SOURCE = `(function () {
         if (hel && hel.scrollIntoView) hel.scrollIntoView();
       } catch (err) { /* no such anchor */ }
     } else if (d.type === 'select-parent') {
-      editSelectParent();
+      editSelectParent(d.payload && d.payload.steps);
+    } else if (d.type === 'select-child') {
+      editSelectChild(d.payload && d.payload.steps);
+    } else if (d.type === 'start-inline-edit') {
+      editStartSelectedInline();
     } else if (d.type === 'deselect') {
       clearSelection(false);
     } else if (d.type === 'insert-clear') {
@@ -4461,7 +4840,7 @@ const BRIDGE_SOURCE = `(function () {
       // is dead weight since an SVG rendered through an <img> loads no
       // external resources at all. This also drops the bridge's own injected
       // script, so it can never reach the parent.
-      var junk = clone.querySelectorAll('script, noscript, link');
+      var junk = clone.querySelectorAll('script, noscript, link, [data-orion-bridge="true"], [data-orion-caret]');
       for (i = 0; i < junk.length; i++) {
         if (junk[i].parentNode) junk[i].parentNode.removeChild(junk[i]);
       }

@@ -217,9 +217,12 @@ const classTokens = (openTag) => {
 // the source order, so it disambiguates repeated text such as a brand name in
 // both the header and the footer. Falls back to class matching.
 const pickTextCandidate = (candidates, element) => {
-  if (candidates.length === 1) return candidates[0];
   if (candidates.length === 0) return null;
   const { textOrdinal, textCount } = element;
+  if (candidates.length === 1) {
+    if (Number.isInteger(textCount) && textCount > 1) return null;
+    return candidates[0];
+  }
   if (Number.isInteger(textOrdinal) && textCount === candidates.length) {
     return candidates[textOrdinal] || null;
   }
@@ -342,17 +345,34 @@ const applyTextByScan = (code, element, prevText, nextText, styles) => {
 
 // The element at its reported source position, when its source text still
 // reads `prevText` (a script may have rewritten the live text).
-const applyTextBySourceId = (code, element, prevText, nextText, styles) => {
+const applyTextBySourceId = (code, element, prevText, nextText, styles, fallbackInnerHtml = null) => {
   const masked = maskNonMarkup(code);
   const range = locateBySourceId(code, masked, String(element.tag || '').toLowerCase(), element);
   if (!range || range.end === range.openEnd) return null;
   if (comparableText(masked.slice(range.openEnd, range.closeStart)) !== comparableText(prevText)) return null;
-  return applyTextToCandidate(code, {
+  const candidate = {
     open: range.open,
     innerStart: range.openEnd,
     innerEnd: range.closeStart,
     inner: code.slice(range.openEnd, range.closeStart),
-  }, prevText, nextText, styles);
+  };
+  const hasValidFallback = typeof fallbackInnerHtml === 'string'
+    && fallbackInnerHtml.length <= 200_000
+    && !/<\/?script\b/i.test(fallbackInnerHtml);
+  const direct = applyTextToCandidate(code, candidate, prevText, nextText, styles);
+  if (direct && (!hasValidFallback || !/<([a-z][a-z0-9-]*)\b[^>]*><\/\1>/i.test(direct.code) || /<([a-z][a-z0-9-]*)\b[^>]*><\/\1>/i.test(fallbackInnerHtml))) {
+    return direct;
+  }
+  if (hasValidFallback) {
+    const nextOpen = styles ? mergeStylesIntoOpenTag(candidate.open, styles) : candidate.open;
+    if (!nextOpen) return null;
+    const openStart = candidate.innerStart - candidate.open.length;
+    return {
+      ok: true,
+      code: code.slice(0, openStart) + nextOpen + fallbackInnerHtml + code.slice(candidate.innerEnd),
+    };
+  }
+  return direct;
 };
 
 
@@ -514,7 +534,7 @@ const applyInnerHtmlChange = (code, element, prevText, innerHtml, styles) => {
   };
 };
 
-const applyTextChange = (code, element, nextTextRaw, styleChanges = null, innerHtml = null) => {
+const applyTextChange = (code, element, nextTextRaw, styleChanges = null, innerHtml = null, fallbackInnerHtml = null) => {
   const prevText = (element.text || '').trim();
   const nextText = nextTextRaw === undefined ? prevText : String(nextTextRaw ?? '').trim();
   const styles = styleChanges && summarizeStyles(styleChanges) ? styleChanges : null;
@@ -537,8 +557,20 @@ const applyTextChange = (code, element, nextTextRaw, styleChanges = null, innerH
 
   // Preferred path: the element's own source position, reported by the
   // preview (see sourcePositions.js).
-  const bySourceId = applyTextBySourceId(code, element, prevText, nextText, styles);
+  const bySourceId = applyTextBySourceId(code, element, prevText, nextText, styles, fallbackInnerHtml);
   if (bySourceId) return { ...bySourceId, summary };
+
+  // When the preview saw multiple same-tag elements with this exact text
+  // (`textCount > 1`), never guess with a blind single-occurrence string
+  // replace (e.g. if a script cloned one static template card in the DOM):
+  // only the structural scan that verifies `textCount === candidates.length`
+  // or a unique class is safe.
+  const hasDuplicatesInDom = Number.isInteger(element.textCount) && element.textCount > 1;
+  if (hasDuplicatesInDom) {
+    const scanned = applyTextByScan(code, element, prevText, nextText, styles);
+    if (scanned) return { ...scanned, summary };
+    return { ok: false, reason: 'ambiguous' };
+  }
 
   // Next: locate the element's own serialized markup and rewrite it (style
   // on the opening tag, text inside). Matching the whole element (not just
@@ -649,9 +681,13 @@ export const locateElement = (code, element) => {
   const bySourceId = locateBySourceId(code, masked, tag, element);
   if (bySourceId) return found(bySourceId, 'source');
 
+  const hasDuplicatesInDom = Number.isInteger(element.textCount) && element.textCount > 1;
+
   // 1. The element's serialized markup: exact, then whitespace-tolerant.
+  // Skipped when the live DOM had duplicate same-tag/same-text elements so a
+  // single template in source is never mistaken for a cloned duplicate.
   const outer = element.outerHTML;
-  if (outer && !element.outerHTMLTruncated) {
+  if (outer && !element.outerHTMLTruncated && !hasDuplicatesInDom) {
     const count = countExactOccurrences(code, outer);
     if (count === 1) {
       const range = rangeAt(code, masked, tag, code.indexOf(outer));
@@ -679,7 +715,7 @@ export const locateElement = (code, element) => {
     const pick = pickTextCandidate(candidates, element);
     const range = pick && rangeAt(code, masked, tag, pick.openStart);
     if (range) return found(range, 'text');
-    if (candidates.length > 1) ambiguous = true;
+    if (candidates.length > 1 || hasDuplicatesInDom) ambiguous = true;
   }
 
   // 3. A distinguishing attribute on an opening tag of the same name.
@@ -754,8 +790,10 @@ const applyAttributeChange = (code, element, attrName, nextValueRaw) => {
   const nextValue = String(nextValueRaw ?? '').trim();
   if (prevValue === nextValue) return { ok: false, reason: 'no-op' };
   const summary = (ATTR_SUMMARIES[attrName] || (() => `updated ${attrName}`))(nextValue);
+  const hasDuplicatesInDom = (Number.isInteger(element.textCount) && element.textCount > 1)
+    || (Number.isInteger(element.tagCount) && element.tagCount > 1);
 
-  if (prevValue) {
+  if (prevValue && !hasDuplicatesInDom && element.srcId == null) {
     for (const quote of ['"', "'"]) {
       const search = `${attrName}=${quote}${prevValue}${quote}`;
       const replace = `${attrName}=${quote}${escapeAttrValue(nextValue)}${quote}`;
@@ -766,14 +804,32 @@ const applyAttributeChange = (code, element, attrName, nextValueRaw) => {
   const result = rewriteLocatedOpenTag(
     code, element, (open) => setOpenTagAttributes(open, { [attrName]: nextValue }), `${attrName}-not-found`,
   );
-  return result.ok ? { ...result, summary } : result;
+  if (result.ok) return { ...result, summary };
+  if (prevValue && !hasDuplicatesInDom) {
+    for (const quote of ['"', "'"]) {
+      const search = `${attrName}=${quote}${prevValue}${quote}`;
+      const replace = `${attrName}=${quote}${escapeAttrValue(nextValue)}${quote}`;
+      const fallback = replaceUnique(code, search, replace);
+      if (fallback.ok) return { ...fallback, summary };
+    }
+  }
+  return result;
 };
 
 // Swapping an <img> src is defeated by a surviving srcset (browsers prefer
 // it), so when one is present it must be removed in the same operation.
 const applyImageSrcChange = (code, element, nextSrc) => {
-  let working = code;
   const srcset = element.attributes?.srcset;
+  if (element.srcId != null) {
+    const byLocated = rewriteLocatedOpenTag(
+      code,
+      element,
+      (open) => setOpenTagAttributes(open, { src: String(nextSrc ?? '').trim(), ...(srcset ? { srcset: null } : {}) }),
+      'src-not-found',
+    );
+    if (byLocated.ok) return { ...byLocated, summary: 'replaced image' };
+  }
+  let working = code;
   if (srcset) {
     for (const quote of ['"', "'"]) {
       const result = replaceUnique(working, ` srcset=${quote}${srcset}${quote}`, '');
@@ -1311,11 +1367,24 @@ export const applyDirectEdit = (code, element, changes) => {
   }
 
   let working = code;
+  let workingElement = element;
+  const syncWorkingElement = (nextProps = {}) => {
+    if (workingElement.srcId != null) {
+      workingElement = {
+        ...workingElement,
+        ...nextProps,
+        srcFingerprint: sourceFingerprint(working),
+      };
+    } else if (Object.keys(nextProps).length) {
+      workingElement = { ...workingElement, ...nextProps };
+    }
+  };
   const summaries = [];
-  const run = (result) => {
+  const run = (result, nextProps = {}) => {
     if (!result.ok) return result;
     working = result.code;
     if (result.summary) summaries.push(result.summary);
+    syncWorkingElement(nextProps);
     return null;
   };
 
@@ -1323,30 +1392,38 @@ export const applyDirectEdit = (code, element, changes) => {
   // attribute swaps would otherwise invalidate.
   const styleChanges = changes.style && typeof changes.style === 'object' ? changes.style : null;
   if (changes.text !== undefined || styleChanges || changes.innerHtml !== undefined) {
-    const failure = run(applyTextChange(working, element, changes.text, styleChanges, changes.innerHtml));
+    const nextTextVal = changes.text !== undefined ? String(changes.text ?? '').trim() : workingElement.text;
+    const failure = run(
+      applyTextChange(working, workingElement, changes.text, styleChanges, changes.innerHtml, changes.fallbackInnerHtml),
+      changes.text !== undefined
+        ? { text: nextTextVal, rawText: nextTextVal, outerHTML: '' }
+        : { outerHTML: '' },
+    );
     if (failure) return failure;
-    // A newly chosen catalog font needs its stylesheet in the page.
-    if (styleChanges?.fontFamily) {
-      const font = findFontByStack(styleChanges.fontFamily);
-      if (font) working = insertFontLinks(working, font);
-    }
   }
   // Before src: it locates the element by its original markup.
   const steps = [
-    ['fitImage', () => applyFitImage(working, element, changes.fitImage)],
-    ['imageSize', () => applyImageSizeChange(working, element, changes.imageSize, changes.containers)],
-    ['src', () => applyImageSrcChange(working, element, changes.src)],
-    ['alt', () => applyAttributeChange(working, element, 'alt', changes.alt)],
-    ['title', () => applyAttributeChange(working, element, 'title', changes.title)],
-    ['href', () => applyAttributeChange(working, element, 'href', changes.href)],
-    ['target', () => applyTargetChange(working, element, changes.target)],
-    ['backgroundColor', () => applyBackgroundColorChange(working, element, changes.backgroundColor)],
-    ['backgroundImage', () => applyBackgroundImageChange(working, element, changes.backgroundImage)],
+    ['fitImage', () => applyFitImage(working, workingElement, changes.fitImage)],
+    ['imageSize', () => applyImageSizeChange(working, workingElement, changes.imageSize, changes.containers)],
+    ['src', () => applyImageSrcChange(working, workingElement, changes.src)],
+    ['alt', () => applyAttributeChange(working, workingElement, 'alt', changes.alt)],
+    ['title', () => applyAttributeChange(working, workingElement, 'title', changes.title)],
+    ['href', () => applyAttributeChange(working, workingElement, 'href', changes.href)],
+    ['target', () => applyTargetChange(working, workingElement, changes.target)],
+    ['backgroundColor', () => applyBackgroundColorChange(working, workingElement, changes.backgroundColor)],
+    ['backgroundImage', () => applyBackgroundImageChange(working, workingElement, changes.backgroundImage)],
   ];
   for (const [key, apply] of steps) {
     if (changes[key] === undefined) continue;
     const failure = run(apply());
     if (failure) return failure;
+  }
+
+  // A newly chosen catalog font needs its stylesheet in <head>; inserted last
+  // so source positions in <body> stay aligned across all element steps above.
+  if (styleChanges?.fontFamily) {
+    const font = findFontByStack(styleChanges.fontFamily);
+    if (font) working = insertFontLinks(working, font);
   }
 
   if (!summaries.length) return { ok: false, reason: 'no-changes' };

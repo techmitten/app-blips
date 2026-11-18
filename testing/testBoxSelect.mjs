@@ -85,7 +85,7 @@ try {
     return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
   }, selector);
   const boxChrome = () => frame.evaluate(() => document.querySelectorAll('[data-orion-drag="marquee"]').length);
-  const outlined = () => frame.evaluate(() => [...document.querySelectorAll('[style*="outline"]')].map((n) => n.className || n.tagName));
+  const outlined = () => frame.evaluate(() => [...document.querySelectorAll('[style*="outline"]')].map((n) => n.getAttribute('class') || n.tagName));
   const takeMsgs = async () => {
     const msgs = await page.evaluate(() => window.__msgs.splice(0));
     return msgs;

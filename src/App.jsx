@@ -925,7 +925,7 @@ export default function App({ coldStart = false }) {
   pageNavRef.current = pageNav;
 
   const {
-    requestScreenshot, selectParentElement, deselectElement, clearInsertSpot,
+    requestScreenshot, selectParentElement, selectChildElement, startSelectedInlineEdit, deselectElement, clearInsertSpot,
     replyInlineEditResult, replyImageResizeResult, applyImageSizeInFrame, restoreScroll,
     formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState: frameNavState, goBack: frameGoBack, goForward: frameGoForward, scrollToHash,
@@ -1014,9 +1014,17 @@ export default function App({ coldStart = false }) {
     setElementEditError(null);
   }, [deselectElement]);
 
-  const handleSelectParentElement = useCallback(() => {
-    selectParentElement();
+  const handleSelectParentElement = useCallback((steps = 1) => {
+    selectParentElement(typeof steps === 'number' ? steps : 1);
   }, [selectParentElement]);
+
+  const handleSelectChildElement = useCallback((steps = 1) => {
+    selectChildElement(typeof steps === 'number' ? steps : 1);
+  }, [selectChildElement]);
+
+  const handleStartSelectedInlineEdit = useCallback(() => {
+    startSelectedInlineEdit();
+  }, [startSelectedInlineEdit]);
 
   // Deterministic click-to-edit: apply the change straight to the active
   // page's source (see lib/directEdits.js) and push the result as a normal
@@ -1080,7 +1088,7 @@ export default function App({ coldStart = false }) {
     return { ...result, prevCode: activeCode };
   }, [activeCode, activePage, files, versions, currentVersionIndex, currentChatSessionId, currentProjectId, projectStorageVersion, previewGallery, saveProject, clearPreviewSync]);
 
-  const handleApplyElementEdit = useCallback((changes) => {
+  const handleApplyElementEdit = useCallback((changes, saveExtra = {}) => {
     if (!selectedElement || isGeneratingRef.current) return;
     const keys = changes && typeof changes === 'object' ? Object.keys(changes).filter((k) => changes[k] !== undefined) : [];
     const sizeOnly = keys.length === 1 && keys[0] === 'imageSize';
@@ -1088,7 +1096,7 @@ export default function App({ coldStart = false }) {
       applyImageSizeInFrame(changes.imageSize);
       return;
     }
-    const result = applyElementChangesToSource(selectedElement, changes, {});
+    const result = applyElementChangesToSource(selectedElement, changes, saveExtra || {});
     if (!result.ok) {
       if (result.reason === 'no-op' || result.reason === 'no-changes') {
         // Nothing to write (e.g. Apply with untouched fields): just close.
@@ -1100,8 +1108,7 @@ export default function App({ coldStart = false }) {
       const why = selectedElement.group
         ? 'One of the selected elements could not be found exactly in the page source, so they could not be deleted directly.'
         : describeDirectEditFailure(result.reason);
-      setElementEditError(`${why} Describe the change below to apply it with AI.`);
-      setSelectionKey((n) => n + 1);
+      setElementEditError(`${why} Your draft is preserved — click Apply with AI or Add to chat below.`);
       return;
     }
     if (sizeOnly) {
@@ -1303,6 +1310,7 @@ export default function App({ coldStart = false }) {
       style: payload.styles,
       // Set when part of the text was formatted on its own.
       ...(typeof payload.innerHtml === 'string' ? { innerHtml: payload.innerHtml } : {}),
+      ...(typeof payload.fallbackInnerHtml === 'string' ? { fallbackInnerHtml: payload.fallbackInnerHtml } : {}),
     }, {}, { preserveFrame: true });
     if (result.ok) {
       const sourceSync = computeSourceSync(result.prevCode, result.code, payload.srcId);
@@ -1310,8 +1318,12 @@ export default function App({ coldStart = false }) {
       setElementEditError(null);
     } else {
       replyInlineEditResult(false, payload.editId);
-      setSelectedElement(payload);
-      setElementEditError(`${describeDirectEditFailure(result.reason)} Describe the change below and it will be applied with AI.`);
+      setSelectedElement({
+        ...payload,
+        draftText: payload.newText,
+        draftStyles: payload.styles,
+      });
+      setElementEditError(`${describeDirectEditFailure(result.reason)} Your draft has been preserved below — click Apply with AI or Add to chat to complete this change.`);
       setSelectionKey((n) => n + 1);
     }
   }, [replyInlineEditResult, applyElementChangesToSource]);
@@ -2496,6 +2508,13 @@ export default function App({ coldStart = false }) {
       setChatContextStartIndex(sessionStart);
       setCurrentVersionIndex(index);
       if (restored) {
+        if (selectedElement?.scroll && typeof selectedElement.scroll.y === 'number') {
+          pendingScrollRef.current = { x: selectedElement.scroll.x || 0, y: selectedElement.scroll.y || 0 };
+        }
+        setSelectedElement(null);
+        setTextSession(null);
+        setElementEditError(null);
+        setInsertMenu(null);
         clearPreviewSync(true);
         setFiles(restored);
         if (!(activePageRef.current in restored)) setActivePage(LANDING_PAGE);
@@ -3309,6 +3328,11 @@ export default function App({ coldStart = false }) {
               onElementEditWithAI={handleElementEditWithAI}
               onCancelElementSelection={handleCancelElementSelection}
               onSelectParentElement={handleSelectParentElement}
+              onSelectChildElement={handleSelectChildElement}
+              onStartSelectedInlineEdit={handleStartSelectedInlineEdit}
+              galleryImages={galleryImages}
+              galleryBytesVersion={gallery.bytesVersion}
+              onUploadGalleryImage={gallery.addFiles}
             />
             {insertMenu && isPreviewEditing && activeTab === 'preview' && (
               <InsertMenu

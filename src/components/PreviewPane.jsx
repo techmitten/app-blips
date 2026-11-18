@@ -102,6 +102,11 @@ export default function PreviewPane({
   onElementEditWithAI,
   onCancelElementSelection,
   onSelectParentElement,
+  onSelectChildElement = null,
+  onStartSelectedInlineEdit = null,
+  galleryImages = [],
+  galleryBytesVersion = 0,
+  onUploadGalleryImage = null,
   pages = [],
   activePage = 'index.html',
   onSelectPage,
@@ -436,6 +441,7 @@ export default function PreviewPane({
           {textSession ? (
             <TextFormatToolbar
               key={textSession.key}
+              element={textSession.element}
               typography={textSession.typography}
               onFormat={onFormatText}
               onHold={onHoldText}
@@ -444,6 +450,7 @@ export default function PreviewPane({
               canRedo={Boolean(textSession.canRedo)}
               onUndo={onUndoText}
               onRedo={onRedoText}
+              onSelectParent={onSelectParentElement}
             />
           ) : selectedElement.group ? (
             <ElementGroupToolbar
@@ -467,7 +474,12 @@ export default function PreviewPane({
               onEditWithAI={onElementEditWithAI}
               onCancel={onCancelElementSelection}
               onSelectParent={onSelectParentElement}
+              onSelectChild={onSelectChildElement}
+              onStartInlineEdit={onStartSelectedInlineEdit}
               isDragMode={isDragMode}
+              galleryImages={galleryImages}
+              galleryBytesVersion={galleryBytesVersion}
+              onUploadGalleryImage={onUploadGalleryImage}
             />
           )}
         </div>

@@ -432,12 +432,22 @@ export default function usePreviewBridge({
     });
   }, [iframeRef]);
 
-  // Website-studio picker controls: walk the current selection up one
-  // ancestor (to reach containers/backgrounds from their children) or clear
-  // it. Both are fire-and-forget; the frame answers with a fresh
-  // element-selected / element-deselected.
-  const selectParentElement = useCallback(() => {
-    sendRef.current('select-parent', {});
+  // Website-studio picker controls: walk the current selection up or down
+  // ancestors (to reach containers/backgrounds from their children and return
+  // to the child) or clear it. Both are fire-and-forget; the frame answers
+  // with a fresh element-selected / element-deselected.
+  const selectParentElement = useCallback((steps = 1) => {
+    const count = typeof steps === 'number' && Number.isFinite(steps) && steps > 1 ? Math.floor(steps) : 1;
+    sendRef.current('select-parent', { steps: count });
+  }, []);
+
+  const selectChildElement = useCallback((steps = 1) => {
+    const count = typeof steps === 'number' && Number.isFinite(steps) && steps > 1 ? Math.floor(steps) : 1;
+    sendRef.current('select-child', { steps: count });
+  }, []);
+
+  const startSelectedInlineEdit = useCallback(() => {
+    sendRef.current('start-inline-edit', {});
   }, []);
 
   const deselectElement = useCallback(() => {
@@ -505,7 +515,7 @@ export default function usePreviewBridge({
   const goForward = useCallback(() => sendRef.current('nav-forward', {}), []);
 
   return {
-    requestScreenshot, selectParentElement, deselectElement, clearInsertSpot,
+    requestScreenshot, selectParentElement, selectChildElement, startSelectedInlineEdit, deselectElement, clearInsertSpot,
     replyInlineEditResult, replyImageResizeResult, applyImageSizeInFrame, restoreScroll,
     formatInlineText, holdInlineText, finishInlineText, undoInlineText, redoInlineText,
     navState, goBack, goForward, scrollToHash,

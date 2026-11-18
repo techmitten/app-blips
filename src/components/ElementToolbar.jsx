@@ -1,10 +1,12 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  X, ArrowUpToLine, ArrowLeft, Sparkles, Upload, Loader2, Wand2, Link2, Type, Check, AlertTriangle,
-  ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus, Captions, Lock, Unlock,
+  X, ArrowUpToLine, ArrowDownToLine, ArrowLeft, Sparkles, Upload, Loader2, Wand2, Link2, Type, Check, AlertTriangle,
+  ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus, Captions, Lock, Unlock, Images, ChevronRight,
 } from 'lucide-react';
 import { compressImageDataUrl } from '../lib/attachments';
+import { galleryPath } from '../lib/galleryImages';
+import useGalleryThumbnails from '../hooks/useGalleryThumbnails';
 import Modal, { ModalCloseButton } from './Modal';
 import { logError } from '../lib/errorLog';
 import { ELEMENT_SHORTCUT_HINTS, elementShortcutAction } from '../lib/shortcuts';
@@ -15,14 +17,11 @@ import { ELEMENT_SHORTCUT_HINTS, elementShortcutAction } from '../lib/shortcuts'
 // language as the bars above it: segmented tracks, ghost keys, one filled
 // key. Text is edited IN PLACE on the page (the bridge's contentEditable
 // session -- see src/previewBridge.js), so this bar owns everything else:
-// image URL / upload, alt, link URL (with page/section suggestions and a
-// new-tab toggle), fill color (sections, buttons, links) / wallpaper, and the
-// structure keys (move, duplicate, delete -- also Alt+arrows, Mod+D, Del).
-// Text roles land here only via the Esc escape hatch or a failed in-place
-// apply; the bar then offers select-parent and the "Ask AI" handoff
-// (buildElementEditPrompt), which either applies right away or prefills the
-// chat. All state is local and keyed per selection -- PreviewPane remounts
-// this component with a fresh key whenever a new element is picked.
+// image URL / My images picker / upload, in-context alt text, link/button
+// label + URL (with page/section suggestions and a new-tab toggle), fill
+// color (sections, buttons, links) / wallpaper, hierarchy navigation
+// (select-parent, select-child, breadcrumbs), and the structure keys (move,
+// duplicate, delete -- also Alt+arrows, Mod+D, Del).
 
 const PAGE_ROOT_TAGS = new Set(['html', 'head', 'body']);
 
@@ -42,7 +41,7 @@ const safeThumbSrc = (value) => {
   return /^(https?:|blob:|data:image\/)/i.test(url) ? url : '';
 };
 
-const readFileAsDataUrl =(file) => new Promise((resolve, reject) => {
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => resolve(reader.result);
   reader.onerror = () => reject(new Error('Failed to read the image file.'));
@@ -58,6 +57,27 @@ const rgbToHex = (rgb) => {
   return `#${hex(m[1])}${hex(m[2])}${hex(m[3])}`;
 };
 
+const buildDraftSummary = ({ element, labelText, href, newTab, initialNewTab, src, alt, bgColor, currentBgHex }) => {
+  const parts = [];
+  const draftText = element?.draftText ?? (labelText !== undefined ? labelText : null);
+  if (typeof draftText === 'string' && draftText.trim() && draftText.trim() !== (element?.text || '').trim()) {
+    parts.push(`change text to "${draftText.trim()}"`);
+  }
+  if (typeof href === 'string' && href.trim() && href.trim() !== (element?.attributes?.href || '')) {
+    parts.push(`set link URL to "${href.trim()}"${newTab !== initialNewTab ? (newTab ? ' (open in new tab)' : ' (open in same tab)') : ''}`);
+  }
+  if (typeof src === 'string' && src.trim() && src.trim() !== (element?.attributes?.src || '') && !src.startsWith('data:')) {
+    parts.push(`replace image with "${src.trim()}"`);
+  }
+  if (typeof alt === 'string' && alt.trim() !== (element?.attributes?.alt || '')) {
+    parts.push(`set alt text to "${alt.trim()}"`);
+  }
+  if (typeof bgColor === 'string' && currentBgHex && bgColor.toLowerCase() !== currentBgHex.toLowerCase()) {
+    parts.push(`set background color to ${bgColor}`);
+  }
+  return parts.length ? `Please ${parts.join(', ')}.` : '';
+};
+
 export default function ElementToolbar({
   element,
   isApplying = false,
@@ -68,18 +88,20 @@ export default function ElementToolbar({
   onEditWithAI,
   onCancel,
   onSelectParent,
+  onSelectChild = null,
+  onStartInlineEdit = null,
   isDragMode = false,
+  galleryImages = [],
+  galleryBytesVersion = 0,
+  onUploadGalleryImage = null,
 }) {
   const role = element.role || 'container';
   const isImage = role === 'image';
   const isContainer = role === 'container';
   const isClickable = role === 'link' || role === 'button';
-  // Text is edited in place on the page, so there is no text field here;
-  // leaf text-bearing roles only reach this bar via the Esc escape hatch or a
-  // failed in-place apply.
   const isTextRole = !isImage && !isContainer;
-  // A <button> has no href to edit; select its parent <a> for that.
-  const showLink = role === 'link' || (role === 'button' && (element.tag === 'a' || element.attributes?.href !== undefined));
+  // Both <a> links and <button> elements support editing their label + destination in place.
+  const showLink = role === 'link' || role === 'button';
   const showBackground = isContainer || isClickable || Boolean(element.backgroundImage);
   const showWallpaper = showBackground && !isClickable;
   const hasEditableFields = isImage || showLink || showBackground;
@@ -89,6 +111,7 @@ export default function ElementToolbar({
   const [alt, setAlt] = useState(element.attributes?.alt || '');
   const [altOpen, setAltOpen] = useState(false);
   const [altDraft, setAltDraft] = useState('');
+  const [labelText, setLabelText] = useState(element.draftText ?? element.text ?? '');
   const [href, setHref] = useState(element.attributes?.href || '');
   const initialNewTab = element.attributes?.target === '_blank';
   const [newTab, setNewTab] = useState(initialNewTab);
@@ -96,6 +119,8 @@ export default function ElementToolbar({
   const currentBgHex = rgbToHex(element.backgroundColor) || '#ffffff';
   const [bgColor, setBgColor] = useState(currentBgHex);
   const [bgImage, setBgImage] = useState('');
+  const [pendingGalleryList, setPendingGalleryList] = useState(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   // Natural size of an uploaded replacement, and whether to resize to it.
   const [uploadedSize, setUploadedSize] = useState(null);
   const [fitToImage, setFitToImage] = useState(false);
@@ -116,12 +141,105 @@ export default function ElementToolbar({
   }
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+
+  const initialDraftSummary = buildDraftSummary({
+    element,
+    labelText: element.draftText ?? element.text ?? '',
+    href: element.attributes?.href || '',
+    newTab: initialNewTab,
+    initialNewTab,
+    src: element.attributes?.src || '',
+    alt: element.attributes?.alt || '',
+    bgColor: currentBgHex,
+    currentBgHex,
+  });
   // A failed in-place apply opens the bar with the error already set -- skip
-  // straight to the AI input instead of asking for another click.
+  // straight to the AI input with the preserved draft prefilled.
   const [showAiInput, setShowAiInput] = useState(Boolean(error));
-  const [aiInstruction, setAiInstruction] = useState('');
+  const [aiInstruction, setAiInstruction] = useState(initialDraftSummary);
+  const [prevError, setPrevError] = useState(error);
+  if (error !== prevError) {
+    setPrevError(error);
+    if (error) {
+      setShowAiInput(true);
+      if (!aiInstruction.trim()) {
+        const draft = buildDraftSummary({
+          element, labelText, href, newTab, initialNewTab, src, alt, bgColor, currentBgHex,
+        });
+        if (draft) setAiInstruction(draft);
+      }
+    }
+  }
+
   const imageFileRef = useRef(null);
   const bgFileRef = useRef(null);
+  const galleryPopRef = useRef(null);
+  const thumbs = useGalleryThumbnails(isImage ? galleryImages : [], galleryBytesVersion);
+
+  useLayoutEffect(() => {
+    if (!galleryOpen) return undefined;
+    const updatePosition = () => {
+      const pop = galleryPopRef.current;
+      const anchor = pop?.parentElement;
+      if (!pop || !anchor) return;
+      const anchorRect = anchor.getBoundingClientRect();
+      const popWidth = pop.offsetWidth || 260;
+      const vw = window.innerWidth || document.documentElement.clientWidth || 800;
+      let dx = 0;
+      if (anchorRect.left + popWidth > vw - 8) {
+        dx = (vw - 8) - (anchorRect.left + popWidth);
+      }
+      if (anchorRect.left + dx < 8) {
+        dx = 8 - anchorRect.left;
+      }
+      pop.style.left = `${Math.round(dx)}px`;
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
+  }, [galleryOpen]);
+
+  useEffect(() => {
+    if (!galleryOpen) return undefined;
+    const dismiss = (e) => {
+      if (e.type === 'keydown') {
+        if (e.key === 'Escape') { setGalleryOpen(false); e.stopPropagation(); }
+      } else if (galleryPopRef.current && !galleryPopRef.current.parentElement?.contains(e.target)) {
+        setGalleryOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', dismiss, true);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss);
+      document.removeEventListener('keydown', dismiss, true);
+    };
+  }, [galleryOpen]);
+
+  const resolveThumbUrl = (rawValue) => {
+    const direct = safeThumbSrc(rawValue);
+    if (direct) return direct;
+    const trimmed = String(rawValue || '').trim();
+    if (trimmed.startsWith('images/') && galleryImages.length) {
+      const found = galleryImages.find((img) => galleryPath(img) === trimmed);
+      if (found) return thumbs[found.hash] || '';
+    }
+    return '';
+  };
+
+  const handleSelectGalleryImage = (img) => {
+    if (!img) return;
+    const nextSrc = galleryPath(img);
+    setSrc(nextSrc);
+    if (img.width && img.height) {
+      setUploadedSize({ width: img.width, height: img.height });
+    }
+    if (!alt.trim() || alt.trim() === (element.attributes?.alt || '').trim()) {
+      const inferredAlt = String(img.name || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+      if (inferredAlt && !alt.trim()) setAlt(inferredAlt);
+    }
+    setGalleryOpen(false);
+  };
 
   const handleFile = async (file) => {
     if (!file) return;
@@ -136,6 +254,25 @@ export default function ElementToolbar({
     }
     try {
       setIsUploading(true);
+      if (isImage && typeof onUploadGalleryImage === 'function') {
+        const { images, errors, list } = await onUploadGalleryImage([file]);
+        const added = images?.[0];
+        if (!added) {
+          setUploadError(errors?.[0] || `${file.name} couldn't be added.`);
+          return;
+        }
+        setSrc(galleryPath(added));
+        setPendingGalleryList(list || null);
+        if (added.width && added.height) {
+          setUploadedSize({ width: added.width, height: added.height });
+        }
+        if (!alt.trim()) {
+          const inferredAlt = String(added.name || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+          if (inferredAlt) setAlt(inferredAlt);
+        }
+        setGalleryOpen(false);
+        return;
+      }
       const dataUrl = await readFileAsDataUrl(file);
       const compressed = await compressImageDataUrl(dataUrl);
       if (isImage) {
@@ -147,8 +284,9 @@ export default function ElementToolbar({
           probe.src = compressed;
         });
         setUploadedSize(size);
+      } else {
+        setBgImage(compressed);
       }
-      else setBgImage(compressed);
     } catch (err) {
       logError(`Could not process image ${file.name} (${file.size} bytes)`, err);
       setUploadError(err?.message || 'Failed to process the image.');
@@ -192,7 +330,7 @@ export default function ElementToolbar({
     const changes = {};
     if (isImage) {
       if (src.trim() && src.trim() !== (element.attributes?.src || '')) changes.src = src.trim();
-      if (changes.src && fitToImage && uploadedSize && src.startsWith('data:')) changes.fitImage = uploadedSize;
+      if (changes.src && fitToImage && uploadedSize) changes.fitImage = uploadedSize;
       else {
         const w = parseInt(imgWidth, 10);
         const h = parseInt(imgHeight, 10);
@@ -206,13 +344,25 @@ export default function ElementToolbar({
       }
       if (alt.trim() !== (element.attributes?.alt || '')) changes.alt = alt.trim();
     }
-    if (showLink && href.trim() && href.trim() !== (element.attributes?.href || '')) changes.href = href.trim();
-    if (showLink && newTab !== initialNewTab) changes.target = newTab ? '_blank' : null;
+    if (showLink) {
+      const nextLabel = labelText.trim();
+      if (nextLabel && nextLabel !== (element.text || '').trim()) {
+        changes.text = nextLabel;
+      }
+      const origHref = element.attributes?.href || '';
+      if (href.trim() !== origHref) {
+        changes.href = href.trim() || null;
+      }
+      if (newTab !== initialNewTab && (href.trim() || origHref)) {
+        changes.target = newTab ? '_blank' : null;
+      }
+    }
     if (showBackground) {
       if (bgColor.toLowerCase() !== currentBgHex.toLowerCase()) changes.backgroundColor = bgColor;
       if (bgImage) changes.backgroundImage = bgImage;
     }
-    onApply(changes);
+    const saveExtra = pendingGalleryList ? { imagesToSave: pendingGalleryList } : {};
+    onApply(changes, saveExtra);
   };
 
   // Apply runs the edit now; Add to chat only prefills the prompt box.
@@ -229,6 +379,16 @@ export default function ElementToolbar({
 
   const busy = isApplying || isUploading;
   const message = error || uploadError;
+  const currentDraftSummary = buildDraftSummary({
+    element, labelText, href, newTab, initialNewTab, src, alt, bgColor, currentBgHex,
+  });
+  const displayChip = element.displayLabel || ROLE_LABELS[role] || 'Element';
+  const visibleAncestors = Array.isArray(element.ancestors) ? element.ancestors.slice(-2) : [];
+  const nextChildCrumb = Array.isArray(element.childStack) && element.childStack.length > 0
+    ? element.childStack[0]
+    : null;
+  const showBreadcrumbs = visibleAncestors.length > 0 || Boolean(nextChildCrumb);
+  const thumbUrl = isImage ? resolveThumbUrl(src || element.attributes?.src) : '';
 
   const fileInput = (ref) => (
     <input
@@ -278,6 +438,11 @@ export default function ElementToolbar({
       aria-label={`Edit selected ${ROLE_LABELS[role] || 'element'}`}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
+          if (galleryOpen) {
+            setGalleryOpen(false);
+            e.stopPropagation();
+            return;
+          }
           onCancel();
           return;
         }
@@ -288,23 +453,68 @@ export default function ElementToolbar({
         }
       }}
     >
-      {/* The selection's kind and tag live in the toolbar's aria-label, not on screen. */}
-      {element.parentSelectable && onSelectParent && (
-        <>
-          <div className="element-bar-id">
-            <button
-              type="button"
-              onClick={onSelectParent}
-              className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
-              aria-label="Select parent element"
-              data-tip="Select the parent (sections, backgrounds, wallpapers)"
-            >
-              <ArrowUpToLine size={16} />
-            </button>
-          </div>
-          <span className="chrome-divider element-bar-divider" aria-hidden="true" />
-        </>
-      )}
+      {/* Selection identity & nested hierarchy navigation */}
+      <div className="element-bar-id">
+        <span className="element-bar-chip" title={`Selected <${element.tag}>`}>
+          {displayChip}
+        </span>
+        {element.parentSelectable && onSelectParent && (
+          <button
+            type="button"
+            onClick={() => onSelectParent(1)}
+            className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
+            aria-label="Select parent element"
+            data-tip={`Select parent (${element.parentTag ? `<${element.parentTag}>` : 'container'})`}
+          >
+            <ArrowUpToLine size={16} />
+          </button>
+        )}
+        {element.childSelectable && onSelectChild && (
+          <button
+            type="button"
+            onClick={() => onSelectChild(1)}
+            className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
+            aria-label="Select child element"
+            data-tip={`Return to child (${nextChildCrumb?.label || 'child'})`}
+          >
+            <ArrowDownToLine size={16} />
+          </button>
+        )}
+        {showBreadcrumbs && (
+          <nav className="element-bar-breadcrumbs" aria-label="Element hierarchy">
+            {visibleAncestors.map((anc) => (
+              <span key={`anc-${anc.stepsUp}`} className="element-bar-crumb-wrap">
+                <button
+                  type="button"
+                  onClick={() => onSelectParent?.(anc.stepsUp)}
+                  className="element-bar-crumb"
+                  title={`Select ${anc.label} (<${anc.tag}>)`}
+                >
+                  {anc.label}
+                </button>
+                <ChevronRight size={11} className="element-bar-crumb-sep" aria-hidden="true" />
+              </span>
+            ))}
+            <span className="element-bar-crumb element-bar-crumb-current" aria-current="true">
+              {displayChip}
+            </span>
+            {nextChildCrumb && (
+              <span className="element-bar-crumb-wrap">
+                <ChevronRight size={11} className="element-bar-crumb-sep" aria-hidden="true" />
+                <button
+                  type="button"
+                  onClick={() => onSelectChild?.(1)}
+                  className="element-bar-crumb element-bar-crumb-child"
+                  title={`Return to ${nextChildCrumb.label} (<${nextChildCrumb.tag}>)`}
+                >
+                  {nextChildCrumb.label}
+                </button>
+              </span>
+            )}
+          </nav>
+        )}
+      </div>
+      <span className="chrome-divider element-bar-divider" aria-hidden="true" />
 
       {/* What you can change */}
       <div className="element-bar-body">
@@ -315,6 +525,11 @@ export default function ElementToolbar({
                 <AlertTriangle size={14} className="shrink-0" />
                 <span>{message}</span>
               </p>
+            )}
+            {element.draftText && element.draftText !== element.text && (
+              <span className="element-bar-draft-badge" title={`Preserved draft: "${element.draftText}"`}>
+                Draft saved: “{element.draftText.slice(0, 48)}{element.draftText.length > 48 ? '…' : ''}”
+              </span>
             )}
             <input
               type="text"
@@ -331,9 +546,9 @@ export default function ElementToolbar({
           <>
             {isImage && (
               <>
-                {safeThumbSrc(src || element.attributes?.src) && (
+                {thumbUrl && (
                   <img
-                    src={safeThumbSrc(src || element.attributes?.src)}
+                    src={thumbUrl}
                     alt=""
                     className="element-bar-thumb"
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
@@ -349,8 +564,85 @@ export default function ElementToolbar({
                   className="element-bar-input element-bar-grow"
                   disabled={busy}
                 />
+                <div className="element-bar-anchor">
+                  <button
+                    type="button"
+                    onClick={() => setGalleryOpen((o) => !o)}
+                    disabled={busy}
+                    aria-haspopup="dialog"
+                    aria-expanded={galleryOpen}
+                    aria-label="Choose from My images"
+                    data-tip={galleryOpen ? undefined : 'Pick from your project images (My images)'}
+                    className="nav-btn nav-btn-secondary element-bar-btn"
+                  >
+                    <Images size={14} />
+                    <span>My images{galleryImages.length ? ` (${galleryImages.length})` : ''}</span>
+                  </button>
+                  {galleryOpen && (
+                    <div
+                      ref={galleryPopRef}
+                      className="element-bar-pop element-bar-pop-gallery"
+                      role="dialog"
+                      aria-label="My images"
+                    >
+                      <div className="element-bar-pop-heading">
+                        My images {galleryImages.length ? `(${galleryImages.length})` : ''}
+                      </div>
+                      {galleryImages.length === 0 ? (
+                        <div className="element-bar-gallery-empty">
+                          <p>No images in this project yet.</p>
+                          <button
+                            type="button"
+                            onClick={() => imageFileRef.current?.click()}
+                            className="nav-btn nav-btn-secondary element-bar-btn w-full justify-center"
+                          >
+                            <Upload size={14} />
+                            <span>Upload image</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="element-bar-gallery-grid" role="listbox" aria-label="Project images">
+                          {galleryImages.map((img) => {
+                            const path = galleryPath(img);
+                            const isSelected = src.trim() === path;
+                            const thumb = thumbs[img.hash];
+                            return (
+                              <button
+                                key={img.hash || path}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => handleSelectGalleryImage(img)}
+                                className={`element-bar-gallery-item ${isSelected ? 'element-bar-gallery-item-active' : ''}`}
+                                title={`${img.name} (${path})`}
+                              >
+                                {thumb ? (
+                                  <img src={thumb} alt={img.name} className="element-bar-gallery-thumb" />
+                                ) : (
+                                  <span className="element-bar-gallery-thumb element-bar-gallery-placeholder" />
+                                )}
+                                <span className="element-bar-gallery-name">{img.name}</span>
+                                {isSelected && <Check size={13} className="shrink-0 text-blue-600" aria-hidden="true" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 {fileInput(imageFileRef)}
-                {uploadButton(imageFileRef, 'Upload', 'Replace with an image from your computer')}
+                {uploadButton(imageFileRef, 'Upload', 'Upload an image from your computer')}
+                <input
+                  type="text"
+                  value={alt}
+                  onChange={(e) => setAlt(e.target.value)}
+                  onKeyDown={submitOnEnter(handleApply)}
+                  placeholder="Alt text (describes image)"
+                  aria-label="Alt text"
+                  className="element-bar-input element-bar-alt-input"
+                  disabled={busy}
+                />
                 <div className="element-bar-dims" role="group" aria-label="Image dimensions">
                   <label className="element-bar-dim" data-tip="Image width in pixels">
                     <span className="element-bar-dim-tag">W</span>
@@ -390,7 +682,7 @@ export default function ElementToolbar({
                     />
                   </label>
                 </div>
-                {uploadedSize && src.startsWith('data:') && (
+                {uploadedSize && (
                   <label className="element-bar-field" data-tip="Keep the width, and change the height to match the new image's proportions">
                     <input
                       type="checkbox"
@@ -415,39 +707,51 @@ export default function ElementToolbar({
             )}
 
             {showLink && (
-              <label className="element-bar-field element-bar-grow">
-                <Link2 size={15} className="element-bar-field-icon" aria-hidden="true" />
-                <input
-                  type="text"
-                  value={href}
-                  onChange={(e) => setHref(e.target.value)}
-                  onKeyDown={submitOnEnter(handleApply)}
-                  placeholder={linkTargets.length ? 'Link URL, page or #section' : 'Link URL  https://…'}
-                  aria-label="Link URL"
-                  list={linkTargets.length ? linkListId : undefined}
-                  className="element-bar-input element-bar-input-icon"
+              <>
+                <label className="element-bar-field element-bar-label-field">
+                  <Type size={14} className="element-bar-field-icon" aria-hidden="true" />
+                  <input
+                    type="text"
+                    value={labelText}
+                    onChange={(e) => setLabelText(e.target.value)}
+                    onKeyDown={submitOnEnter(handleApply)}
+                    placeholder={role === 'button' ? 'Button label' : 'Link label'}
+                    aria-label={role === 'button' ? 'Button label' : 'Link label'}
+                    className="element-bar-input element-bar-input-icon"
+                    disabled={isApplying}
+                  />
+                </label>
+                <label className="element-bar-field element-bar-grow">
+                  <Link2 size={15} className="element-bar-field-icon" aria-hidden="true" />
+                  <input
+                    type="text"
+                    value={href}
+                    onChange={(e) => setHref(e.target.value)}
+                    onKeyDown={submitOnEnter(handleApply)}
+                    placeholder={linkTargets.length ? 'Link URL, page or #section' : 'Link URL  https://…'}
+                    aria-label="Link URL"
+                    list={linkTargets.length ? linkListId : undefined}
+                    className="element-bar-input element-bar-input-icon"
+                    disabled={isApplying}
+                  />
+                  {linkTargets.length > 0 && (
+                    <datalist id={linkListId}>
+                      {linkTargets.map((t) => <option key={t.value} value={t.value} label={t.label} />)}
+                    </datalist>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setNewTab((on) => !on)}
+                  aria-pressed={newTab}
+                  aria-label="Open link in a new tab"
+                  className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon element-bar-toggle"
+                  data-tip={newTab ? 'Opens in a new tab' : 'Opens in the same tab'}
                   disabled={isApplying}
-                />
-                {linkTargets.length > 0 && (
-                  <datalist id={linkListId}>
-                    {linkTargets.map((t) => <option key={t.value} value={t.value} label={t.label} />)}
-                  </datalist>
-                )}
-              </label>
-            )}
-
-            {showLink && (
-              <button
-                type="button"
-                onClick={() => setNewTab((on) => !on)}
-                aria-pressed={newTab}
-                aria-label="Open link in a new tab"
-                className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon element-bar-toggle"
-                data-tip={newTab ? 'Opens in a new tab' : 'Opens in the same tab'}
-                disabled={isApplying}
-              >
-                <ExternalLink size={16} />
-              </button>
+                >
+                  <ExternalLink size={16} />
+                </button>
+              </>
             )}
 
             {showBackground && (
@@ -508,15 +812,26 @@ export default function ElementToolbar({
               </>
             )}
 
+            {isTextRole && !isDragMode && onStartInlineEdit && element.text && (
+              <button
+                type="button"
+                onClick={onStartInlineEdit}
+                className="nav-btn nav-ghost element-bar-btn"
+                aria-label="Edit text in place"
+                data-tip="Format or edit this text directly on the page"
+              >
+                <Type size={14} />
+                <span>Format text</span>
+              </button>
+            )}
+
             {isTextRole && !hasEditableFields && !message && (
               <p className="element-bar-hint">
                 <Type size={14} className="shrink-0" aria-hidden="true" />
                 <span>
                   {isDragMode
                     ? 'Drag it on the page to move it, or turn off drag mode to edit its text'
-                    : showLink
-                      ? 'Double-click it on the page to edit its text in place'
-                      : 'Click the text on the page to edit it in place'}
+                    : 'Click the text on the page or Format text to edit it in place'}
                 </span>
               </p>
             )}
@@ -535,7 +850,7 @@ export default function ElementToolbar({
       <div className="element-bar-actions">
         {showAiInput ? (
           <>
-            {hasEditableFields && !error && (
+            {hasEditableFields && (
               <button
                 type="button"
                 onClick={() => setShowAiInput(false)}
@@ -571,7 +886,12 @@ export default function ElementToolbar({
           <>
             <button
               type="button"
-              onClick={() => setShowAiInput(true)}
+              onClick={() => {
+                if (!aiInstruction.trim() && currentDraftSummary) {
+                  setAiInstruction(currentDraftSummary);
+                }
+                setShowAiInput(true);
+              }}
               className="nav-btn nav-ghost element-bar-btn"
               data-tip="Describe the change and let AI make it"
             >
