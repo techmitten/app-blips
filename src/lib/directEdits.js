@@ -376,8 +376,13 @@ const STYLE_PROPS = {
   backgroundSize: 'background-size',
   backgroundPosition: 'background-position',
   width: 'width',
+  minWidth: 'min-width',
+  maxWidth: 'max-width',
   height: 'height',
+  minHeight: 'min-height',
+  maxHeight: 'max-height',
   aspectRatio: 'aspect-ratio',
+  flexShrink: 'flex-shrink',
 };
 
 const STYLE_LABELS = {
@@ -789,9 +794,22 @@ const applyFitImage = (code, element, natural) => {
   return result.ok ? { ...result, summary: 'resized image to fit' } : result;
 };
 
+const CONTAINER_SIZE_PROPS = new Set(['minWidth', 'maxWidth', 'minHeight', 'height', 'maxHeight', 'aspectRatio', 'width']);
+
+const pickContainerStyles = (raw) => {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  Object.entries(raw).forEach(([k, v]) => {
+    if (CONTAINER_SIZE_PROPS.has(k) && v !== undefined) out[k] = v;
+  });
+  return Object.keys(out).length ? out : null;
+};
+
 // Explicit image dimensions (px), written as inline style so they override
 // utility classes (w-full, h-64, ...) and HTML width/height attributes.
-const applyImageSizeChange = (code, element, imageSize) => {
+// Optionally expands enclosing containers in the same pass so growing an
+// image never clips or overflows a fixed-size card/wrapper.
+const applyImageSizeChange = (code, element, imageSize, containers = null) => {
   if (!imageSize || typeof imageSize !== 'object') return { ok: false, reason: 'invalid' };
   const styles = {};
   if (imageSize.width !== undefined && imageSize.width !== null) {
@@ -806,14 +824,48 @@ const applyImageSizeChange = (code, element, imageSize) => {
   }
   if (!Object.keys(styles).length) return { ok: false, reason: 'no-op' };
   if (styles.width && styles.height) styles.aspectRatio = null;
-  const result = rewriteLocatedOpenTag(
-    code, element, (open) => mergeStylesIntoOpenTag(open, styles), 'src-not-found',
-  );
-  if (!result.ok) return result;
+  if (imageSize.maxWidth === 'none') styles.maxWidth = 'none';
+  if (imageSize.maxHeight === 'none') styles.maxHeight = 'none';
+  if (imageSize.flexShrink === '0') styles.flexShrink = '0';
+
   const dims = styles.width && styles.height
     ? `${styles.width} × ${styles.height}`
     : (styles.width || styles.height);
-  return { ...result, summary: `resized image to ${dims}` };
+  const summary = `resized image to ${dims}`;
+
+  const containerList = Array.isArray(containers) ? containers : [];
+  if (!containerList.length) {
+    const result = rewriteLocatedOpenTag(
+      code, element, (open) => mergeStylesIntoOpenTag(open, styles), 'src-not-found',
+    );
+    return result.ok ? { ...result, summary } : result;
+  }
+
+  const imgRange = locateElement(code, element);
+  if (!imgRange.ok) return { ok: false, reason: imgRange.reason === 'element-not-found' ? 'src-not-found' : imgRange.reason };
+  const imgOpen = mergeStylesIntoOpenTag(imgRange.open, styles);
+  if (!imgOpen) return { ok: false, reason: 'invalid' };
+  const edits = [];
+  if (imgOpen !== imgRange.open) edits.push({ start: imgRange.start, openEnd: imgRange.openEnd, nextOpen: imgOpen });
+
+  const seenStarts = new Set([imgRange.start]);
+  for (const item of containerList) {
+    const cStyles = pickContainerStyles(item?.styles);
+    if (!item?.element || !cStyles) continue;
+    const cRange = locateElement(code, item.element);
+    if (!cRange.ok || seenStarts.has(cRange.start)) continue;
+    const nextOpen = mergeStylesIntoOpenTag(cRange.open, cStyles);
+    if (!nextOpen || nextOpen === cRange.open) continue;
+    seenStarts.add(cRange.start);
+    edits.push({ start: cRange.start, openEnd: cRange.openEnd, nextOpen });
+  }
+  if (!edits.length) return { ok: false, reason: 'no-op' };
+  edits.sort((a, b) => b.start - a.start);
+  let working = code;
+  edits.forEach((e) => {
+    working = working.slice(0, e.start) + e.nextOpen + working.slice(e.openEnd);
+  });
+  return { ok: true, code: working, summary };
 };
 
 // Open-in-new-tab toggle for links. `rel` is merged rather than replaced
@@ -1232,7 +1284,7 @@ export const applyDirectEdit = (code, element, changes) => {
   // Before src: it locates the element by its original markup.
   const steps = [
     ['fitImage', () => applyFitImage(working, element, changes.fitImage)],
-    ['imageSize', () => applyImageSizeChange(working, element, changes.imageSize)],
+    ['imageSize', () => applyImageSizeChange(working, element, changes.imageSize, changes.containers)],
     ['src', () => applyImageSrcChange(working, element, changes.src)],
     ['alt', () => applyAttributeChange(working, element, 'alt', changes.alt)],
     ['title', () => applyAttributeChange(working, element, 'title', changes.title)],

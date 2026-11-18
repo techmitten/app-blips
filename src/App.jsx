@@ -1079,7 +1079,11 @@ export default function App({ coldStart = false }) {
     if (!selectedElement || isGeneratingRef.current) return;
     const keys = changes && typeof changes === 'object' ? Object.keys(changes).filter((k) => changes[k] !== undefined) : [];
     const sizeOnly = keys.length === 1 && keys[0] === 'imageSize';
-    const result = applyElementChangesToSource(selectedElement, changes, {}, { preserveFrame: sizeOnly });
+    if (sizeOnly) {
+      applyImageSizeInFrame(changes.imageSize);
+      return;
+    }
+    const result = applyElementChangesToSource(selectedElement, changes, {});
     if (!result.ok) {
       if (result.reason === 'no-op' || result.reason === 'no-changes') {
         // Nothing to write (e.g. Apply with untouched fields): just close.
@@ -1096,8 +1100,7 @@ export default function App({ coldStart = false }) {
       return;
     }
     if (sizeOnly) {
-      const sourceSync = computeSourceSync(result.prevCode, result.code, selectedElement.srcId);
-      applyImageSizeInFrame(changes.imageSize, sourceSync);
+      // Handled via applyImageSizeInFrame -> element-resized above.
     }
     setElementEditError(null);
     setSelectedElement(null);
@@ -1308,23 +1311,36 @@ export default function App({ coldStart = false }) {
     const imageSize = {};
     if (payload.width != null) imageSize.width = payload.width;
     if (payload.height != null) imageSize.height = payload.height;
-    const result = applyElementChangesToSource(payload, { imageSize }, {}, { preserveFrame: true });
+    if (payload.maxWidth != null) imageSize.maxWidth = payload.maxWidth;
+    if (payload.maxHeight != null) imageSize.maxHeight = payload.maxHeight;
+    if (payload.flexShrink != null) imageSize.flexShrink = payload.flexShrink;
+    const directChanges = {
+      imageSize,
+      ...(Array.isArray(payload.containers) && payload.containers.length > 0
+        ? { containers: payload.containers }
+        : {}),
+    };
+    const result = applyElementChangesToSource(payload, directChanges, {}, { preserveFrame: true });
     if (result.ok) {
       const sourceSync = computeSourceSync(result.prevCode, result.code, payload.srcId);
       replyImageResizeResult(true, payload.editId, sourceSync);
-      setSelectedElement((prev) => {
-        if (!prev || prev.srcId !== payload.srcId) return prev;
-        const nextAttrs = { ...prev.attributes };
-        if (payload.newStyleAttr == null) delete nextAttrs.style;
-        else nextAttrs.style = payload.newStyleAttr;
-        return {
-          ...prev,
-          boundingBox: payload.newBoundingBox || prev.boundingBox,
-          attributes: nextAttrs,
-          srcFingerprint: sourceSync?.fingerprint || prev.srcFingerprint,
-          resizeSeq: (prev.resizeSeq || 0) + 1,
-        };
-      });
+      if (payload.deselect) {
+        setSelectedElement(null);
+      } else {
+        setSelectedElement((prev) => {
+          if (!prev || prev.srcId !== payload.srcId) return prev;
+          const nextAttrs = { ...prev.attributes };
+          if (payload.newStyleAttr == null) delete nextAttrs.style;
+          else nextAttrs.style = payload.newStyleAttr;
+          return {
+            ...prev,
+            boundingBox: payload.newBoundingBox || prev.boundingBox,
+            attributes: nextAttrs,
+            srcFingerprint: sourceSync?.fingerprint || prev.srcFingerprint,
+            resizeSeq: (prev.resizeSeq || 0) + 1,
+          };
+        });
+      }
       setElementEditError(null);
     } else {
       replyImageResizeResult(false, payload.editId);

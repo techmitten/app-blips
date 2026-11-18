@@ -11,6 +11,7 @@ import {
   applyDirectEdit, buildElementEditPrompt, buildElementsEditPrompt, buildSpotEditPrompt, copyElementSource, describeDirectEditFailure,
   locateElement, removeElements,
 } from '../src/lib/directEdits.js';
+import { sourceElementStarts, sourceFingerprint } from '../src/lib/sourcePositions.js';
 
 const FIXTURE = `<!DOCTYPE html>
 <html lang="en">
@@ -332,6 +333,57 @@ check('imageSize refuses non-positive or non-numeric sizes', () => {
   assert.strictEqual(applyDirectEdit(FIXTURE, element, { imageSize: { width: 0, height: 100 } }).ok, false);
   assert.strictEqual(applyDirectEdit(FIXTURE, element, { imageSize: { width: -50 } }).ok, false);
   assert.strictEqual(applyDirectEdit(FIXTURE, element, { imageSize: {} }).ok, false);
+});
+
+check('imageSize with containers expands both image and targeted duplicate container via source positions', () => {
+  const html = `<!DOCTYPE html>
+<html>
+<body>
+  <div class="card" style="width: 240px; height: 140px; overflow: hidden;">
+    <img src="https://example.com/a.jpg" width="200" height="100">
+  </div>
+  <div class="card" style="width: 240px; height: 140px; overflow: hidden;">
+    <img src="https://example.com/a.jpg" width="200" height="100">
+  </div>
+</body>
+</html>`;
+  const starts = sourceElementStarts(html);
+  const fp = sourceFingerprint(html);
+  const firstCardAt = html.indexOf('<div class="card"');
+  const secondCardAt = html.indexOf('<div class="card"', firstCardAt + 1);
+  const firstImgAt = html.indexOf('<img ');
+  const secondImgAt = html.indexOf('<img ', firstImgAt + 1);
+  assert.ok(secondCardAt > firstCardAt && secondImgAt > firstImgAt);
+
+  const element = el({
+    tag: 'img',
+    role: 'image',
+    srcId: starts.indexOf(secondImgAt),
+    srcFingerprint: fp,
+    attributes: { src: 'https://example.com/a.jpg', width: '200', height: '100' },
+  });
+  const container = el({
+    tag: 'div',
+    role: 'container',
+    srcId: starts.indexOf(secondCardAt),
+    srcFingerprint: fp,
+    attributes: { class: 'card', style: 'width: 240px; height: 140px; overflow: hidden;' },
+  });
+
+  const result = applyDirectEdit(html, element, {
+    imageSize: { width: 320, height: 180, maxWidth: 'none' },
+    containers: [{ element: container, styles: { width: '320px', height: '180px' } }],
+  });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+
+  // First card & image must stay untouched; only the second card & image expand.
+  const firstCardEnd = result.code.indexOf('</div>') + 6;
+  const firstChunk = result.code.slice(0, firstCardEnd);
+  const secondChunk = result.code.slice(firstCardEnd);
+  assert.match(firstChunk, /width: 240px; height: 140px; overflow: hidden;/);
+  assert.doesNotMatch(firstChunk, /320px/);
+  assert.match(secondChunk, /overflow: hidden; width: 320px; height: 180px;/);
+  assert.match(secondChunk, /<img[^>]*style="width: 320px; height: 180px; max-width: none;"/);
 });
 
 check('href swap rewrites the link target', () => {

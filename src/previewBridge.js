@@ -2736,6 +2736,151 @@ const BRIDGE_SOURCE = `(function () {
     if (wasPicked) paintSelection(el);
   }
 
+  function restoreTouchedContainers(list) {
+    if (!list) return;
+    for (var i = list.length - 1; i >= 0; i--) {
+      var item = list[i];
+      if (!item || !item.el) continue;
+      if (item.origStyleAttr == null) item.el.removeAttribute('style');
+      else item.el.setAttribute('style', item.origStyleAttr);
+    }
+  }
+
+  // Expands enclosing containers whenever the image grows past what their
+  // width/height, max-width/max-height, aspect-ratio or flex constraints allow.
+  function applyImageSizeAndContainers(el, opts) {
+    var nextW = opts.nextW;
+    var nextH = opts.nextH;
+    var startW = opts.startW;
+    var startH = opts.startH;
+    var growW = nextW != null && nextW > startW;
+    var growH = nextH != null && nextH > startH;
+    var origMaxW = el.style.maxWidth;
+    var origMaxH = el.style.maxHeight;
+    var origFlexShrink = el.style.flexShrink;
+
+    if (nextW != null) el.style.width = Math.round(nextW) + 'px';
+    if (nextH != null) el.style.height = Math.round(nextH) + 'px';
+    if (nextW != null && nextH != null && el.style.aspectRatio) el.style.aspectRatio = '';
+
+    if (growW) {
+      el.style.maxWidth = 'none';
+      el.style.flexShrink = '0';
+    }
+    if (growH) el.style.maxHeight = 'none';
+
+    var touched = [];
+    if (growW || growH) {
+      var node = el.parentElement;
+      while (node && node !== document.body && node !== document.documentElement) {
+        var cs;
+        try { cs = window.getComputedStyle(node); } catch (csErr) { cs = null; }
+        if (!cs || cs.display === 'inline' || cs.display === 'contents') {
+          node = node.parentElement;
+          continue;
+        }
+        var cRect = node.getBoundingClientRect();
+        var elRect = el.getBoundingClientRect();
+        var padL = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0);
+        var padR = (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+        var padT = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.borderTopWidth) || 0);
+        var padB = (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+        var innerW = Math.max(0, cRect.width - padL - padR);
+        var innerH = Math.max(0, cRect.height - padT - padB);
+        var cStyles = {};
+
+        if (growW) {
+          var wantW = Math.round(nextW);
+          var overRight = elRect.right - (cRect.right - padR);
+          var overLeft = (cRect.left + padL) - elRect.left;
+          var canExpandScrollX = cs.overflowX !== 'auto' && cs.overflowX !== 'scroll';
+          var overScrollX = canExpandScrollX && node.scrollWidth > node.clientWidth + 1
+            ? node.scrollWidth - node.clientWidth
+            : 0;
+          if (wantW > innerW + 0.5 || overRight > 0.5 || overLeft > 0.5 || overScrollX > 1) {
+            var neededW = Math.ceil(Math.max(
+              cRect.width + Math.max(0, wantW - innerW),
+              cRect.width + Math.max(0, overRight) + Math.max(0, overLeft),
+              cRect.width + overScrollX
+            ));
+            var cssW = cs.boxSizing === 'border-box' ? neededW : Math.max(1, neededW - padL - padR);
+            cStyles.minWidth = cssW + 'px';
+            if (cs.maxWidth && cs.maxWidth !== 'none') cStyles.maxWidth = 'none';
+          }
+        }
+
+        if (growH) {
+          var wantH = Math.round(nextH);
+          var overBottom = elRect.bottom - (cRect.bottom - padB);
+          var overTop = (cRect.top + padT) - elRect.top;
+          var canExpandScrollY = cs.overflowY !== 'auto' && cs.overflowY !== 'scroll';
+          var overScrollY = canExpandScrollY && node.scrollHeight > node.clientHeight + 1
+            ? node.scrollHeight - node.clientHeight
+            : 0;
+          if (wantH > innerH + 0.5 || overBottom > 0.5 || overTop > 0.5 || overScrollY > 1) {
+            var neededH = Math.ceil(Math.max(
+              cRect.height + Math.max(0, wantH - innerH),
+              cRect.height + Math.max(0, overBottom) + Math.max(0, overTop),
+              cRect.height + overScrollY
+            ));
+            var cssH = cs.boxSizing === 'border-box' ? neededH : Math.max(1, neededH - padT - padB);
+            cStyles.minHeight = cssH + 'px';
+            if (cs.height && cs.height !== 'auto') cStyles.height = 'auto';
+            if (cs.maxHeight && cs.maxHeight !== 'none') cStyles.maxHeight = 'none';
+            if (cs.aspectRatio && cs.aspectRatio !== 'auto') cStyles.aspectRatio = 'auto';
+          }
+        }
+
+        if (Object.keys(cStyles).length) {
+          var cOrigStyle = node.getAttribute('style');
+          var cSnap = buildElementDescription(node);
+          for (var sp in cStyles) {
+            if (Object.prototype.hasOwnProperty.call(cStyles, sp)) node.style[sp] = cStyles[sp];
+          }
+          touched.push({ el: node, origStyleAttr: cOrigStyle, snapshot: cSnap, styles: cStyles });
+        }
+        node = node.parentElement;
+      }
+    }
+
+    var extraImg = {};
+    if (growW) {
+      el.style.maxWidth = origMaxW;
+      el.style.flexShrink = origFlexShrink;
+      var checkW = el.getBoundingClientRect().width;
+      if (checkW + 0.5 < Math.round(nextW)) {
+        el.style.maxWidth = 'none';
+        if (el.getBoundingClientRect().width + 0.5 < Math.round(nextW)) {
+          el.style.flexShrink = '0';
+          extraImg.flexShrink = '0';
+        }
+        if (el.getBoundingClientRect().width > checkW + 0.5) {
+          extraImg.maxWidth = 'none';
+        } else {
+          el.style.maxWidth = origMaxW;
+        }
+      }
+    }
+    if (growH) {
+      el.style.maxHeight = origMaxH;
+      if (el.getBoundingClientRect().height + 0.5 < Math.round(nextH)) {
+        el.style.maxHeight = 'none';
+        extraImg.maxHeight = 'none';
+      }
+    }
+
+    return { touched: touched, extraImg: extraImg };
+  }
+
+  function buildContainersPayload(touched) {
+    if (!touched || !touched.length) return null;
+    var out = [];
+    for (var i = 0; i < touched.length; i++) {
+      out.push({ element: touched[i].snapshot, styles: touched[i].styles });
+    }
+    return out;
+  }
+
   function resizeOnPointerDown(e) {
     if (!editingActive || dragModeActive || inlineEdit || resize) return;
     if (e.button !== 0 || !isResizeHandle(e.target) || !editSelectedEl) return;
@@ -2763,6 +2908,11 @@ const BRIDGE_SOURCE = `(function () {
       signY: dir.indexOf('n') !== -1 ? -1 : 1,
       snapshot: snapshot,
       origStyleAttr: origStyleAttr,
+      origElMaxW: el.style.maxWidth,
+      origElMaxH: el.style.maxHeight,
+      origElFlexShrink: el.style.flexShrink,
+      touchedContainers: [],
+      extraImg: {},
       moved: false
     };
     updateResizeBadge(rect);
@@ -2776,6 +2926,12 @@ const BRIDGE_SOURCE = `(function () {
     var dy = e.clientY - r.startY;
     if (!r.moved && Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
     r.moved = true;
+    restoreTouchedContainers(r.touchedContainers);
+    r.touchedContainers = [];
+    r.el.style.maxWidth = r.origElMaxW;
+    r.el.style.maxHeight = r.origElMaxH;
+    r.el.style.flexShrink = r.origElFlexShrink;
+
     var rawW = Math.max(16, Math.min(4000, r.startW + r.signX * dx));
     var rawH = Math.max(16, Math.min(4000, r.startH + r.signY * dy));
     var nextW = rawW;
@@ -2789,12 +2945,57 @@ const BRIDGE_SOURCE = `(function () {
         nextW = Math.max(16, Math.min(4000, nextH * r.aspect));
       }
     }
-    if (r.hasW) r.el.style.width = Math.round(nextW) + 'px';
-    if (r.hasH) r.el.style.height = Math.round(nextH) + 'px';
-    if (r.hasW && r.hasH && r.el.style.aspectRatio) r.el.style.aspectRatio = '';
+    var applied = applyImageSizeAndContainers(r.el, {
+      nextW: r.hasW ? nextW : null,
+      nextH: r.hasH ? nextH : null,
+      startW: r.startW,
+      startH: r.startH
+    });
+    r.touchedContainers = applied.touched;
+    r.extraImg = applied.extraImg;
     var liveRect = r.el.getBoundingClientRect();
     syncResizeOverlay();
     updateResizeBadge(liveRect);
+  }
+
+  function commitImageResizePayload(el, snapshot, origStyleAttr, touchedContainers, opts) {
+    var finalRect = el.getBoundingClientRect();
+    var finalW = opts.hasW ? Math.max(1, Math.round(finalRect.width)) : null;
+    var finalH = opts.hasH ? Math.max(1, Math.round(finalRect.height)) : null;
+    var cleanStyleAttr = readCleanStyleAttr(el);
+    if (el.__orionOutlineSaved) el.__orionOutlineSaved.styleAttr = cleanStyleAttr;
+    syncResizeOverlay();
+
+    var editId = ++inlineEditSequence;
+    var pending = {
+      id: editId,
+      el: el,
+      origStyleAttr: origStyleAttr,
+      containers: touchedContainers,
+      deselect: !!opts.deselect,
+      timer: null
+    };
+    pending.timer = setTimeout(function () { resolveImageResize(false, editId); }, 3000);
+    pendingResizes.push(pending);
+
+    var payload = {};
+    for (var k in snapshot) {
+      if (Object.prototype.hasOwnProperty.call(snapshot, k)) payload[k] = snapshot[k];
+    }
+    if (finalW !== null) payload.width = finalW;
+    if (finalH !== null) payload.height = finalH;
+    if (opts.extraImg) {
+      if (opts.extraImg.maxWidth) payload.maxWidth = opts.extraImg.maxWidth;
+      if (opts.extraImg.maxHeight) payload.maxHeight = opts.extraImg.maxHeight;
+      if (opts.extraImg.flexShrink) payload.flexShrink = opts.extraImg.flexShrink;
+    }
+    var containersPayload = buildContainersPayload(touchedContainers);
+    if (containersPayload) payload.containers = containersPayload;
+    if (opts.deselect) payload.deselect = true;
+    payload.editId = editId;
+    payload.newBoundingBox = { x: finalRect.left, y: finalRect.top, width: finalRect.width, height: finalRect.height };
+    payload.newStyleAttr = cleanStyleAttr;
+    post('element-resized', payload);
   }
 
   function endResize(commit) {
@@ -2815,30 +3016,18 @@ const BRIDGE_SOURCE = `(function () {
       (r.hasH && finalH !== Math.round(r.startH))
     );
     if (!changed) {
+      restoreTouchedContainers(r.touchedContainers);
       restoreElStyleAttr(r.el, r.origStyleAttr);
       syncResizeOverlay();
       return;
     }
 
-    var cleanStyleAttr = readCleanStyleAttr(r.el);
-    if (r.el.__orionOutlineSaved) r.el.__orionOutlineSaved.styleAttr = cleanStyleAttr;
-    syncResizeOverlay();
-
-    var editId = ++inlineEditSequence;
-    var pending = { id: editId, el: r.el, origStyleAttr: r.origStyleAttr, timer: null };
-    pending.timer = setTimeout(function () { resolveImageResize(false, editId); }, 3000);
-    pendingResizes.push(pending);
-
-    var payload = {};
-    for (var k in r.snapshot) {
-      if (Object.prototype.hasOwnProperty.call(r.snapshot, k)) payload[k] = r.snapshot[k];
-    }
-    if (finalW !== null) payload.width = finalW;
-    if (finalH !== null) payload.height = finalH;
-    payload.editId = editId;
-    payload.newBoundingBox = { x: finalRect.left, y: finalRect.top, width: finalRect.width, height: finalRect.height };
-    payload.newStyleAttr = cleanStyleAttr;
-    post('element-resized', payload);
+    commitImageResizePayload(r.el, r.snapshot, r.origStyleAttr, r.touchedContainers, {
+      hasW: r.hasW,
+      hasH: r.hasH,
+      extraImg: r.extraImg,
+      deselect: false
+    });
   }
 
   function resizeOnPointerUp(e) {
@@ -2861,24 +3050,37 @@ const BRIDGE_SOURCE = `(function () {
     var entry = pendingResizes.splice(idx, 1)[0];
     if (entry.timer) { clearTimeout(entry.timer); entry.timer = null; }
     if (!ok) {
+      restoreTouchedContainers(entry.containers);
       restoreElStyleAttr(entry.el, entry.origStyleAttr);
       syncResizeOverlay();
       return;
     }
     if (sourceSync) applySourceSync(entry.el, sourceSync);
+    if (entry.deselect && editSelectedEl === entry.el) {
+      clearSelection(false);
+    }
   }
 
-  function applyImageSizeInFrame(size, sourceSync) {
+  function applyImageSizeInFrame(size) {
     var el = editSelectedEl;
-    if (el && size) {
-      restoreOutline(el);
-      if (size.width != null) el.style.width = Math.round(size.width) + 'px';
-      if (size.height != null) el.style.height = Math.round(size.height) + 'px';
-      if (size.width != null && size.height != null && el.style.aspectRatio) el.style.aspectRatio = '';
-      editSelectedEl = null;
-      hideResizeOverlay();
-    }
-    if (sourceSync) applySourceSync(el || null, sourceSync);
+    if (!el || !size) return;
+    var startRect = el.getBoundingClientRect();
+    var snapshot = buildElementDescription(el);
+    var origStyleAttr = el.__orionOutlineSaved ? el.__orionOutlineSaved.styleAttr : el.getAttribute('style');
+    var hasW = size.width != null;
+    var hasH = size.height != null;
+    var applied = applyImageSizeAndContainers(el, {
+      nextW: hasW ? Number(size.width) : null,
+      nextH: hasH ? Number(size.height) : null,
+      startW: Math.max(1, startRect.width),
+      startH: Math.max(1, startRect.height)
+    });
+    commitImageResizePayload(el, snapshot, origStyleAttr, applied.touched, {
+      hasW: hasW,
+      hasH: hasH,
+      extraImg: applied.extraImg,
+      deselect: true
+    });
   }
 
   function editSelectParent() {
@@ -3572,7 +3774,7 @@ const BRIDGE_SOURCE = `(function () {
     } else if (d.type === 'image-resize-result') {
       resolveImageResize(!!(d.payload && d.payload.ok), d.payload ? d.payload.editId : null, d.payload ? d.payload.sourceSync : null);
     } else if (d.type === 'apply-image-size') {
-      applyImageSizeInFrame(d.payload && d.payload.size, d.payload ? d.payload.sourceSync : null);
+      applyImageSizeInFrame(d.payload && d.payload.size);
     } else if (d.type === 'restore-scroll') {
       try {
         window.scrollTo((d.payload && d.payload.x) || 0, (d.payload && d.payload.y) || 0);

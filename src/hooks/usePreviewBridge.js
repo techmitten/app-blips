@@ -451,11 +451,8 @@ export default function usePreviewBridge({
     });
   }, []);
 
-  const applyImageSizeInFrame = useCallback((size, sourceSync = null) => {
-    sendRef.current('apply-image-size', {
-      size,
-      ...(sourceSync ? { sourceSync } : {}),
-    });
+  const applyImageSizeInFrame = useCallback((size) => {
+    sendRef.current('apply-image-size', { size });
   }, []);
 
   // Text toolbar -> live editing session. `format` previews styles on the

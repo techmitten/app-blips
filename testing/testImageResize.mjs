@@ -30,6 +30,9 @@ const SAMPLE_HTML = `<!DOCTYPE html>
 <body>
   <h1>Our Studio</h1>
   <img id="photo" src="${SVG_DATA_URI}" alt="Blue banner" width="400" height="200">
+  <div id="photo-card" style="width: 240px; height: 140px; overflow: hidden; border: 2px solid #0f172a;">
+    <img id="card-photo" src="${SVG_DATA_URI}" alt="Card photo" width="200" height="100">
+  </div>
   <script>
     window.__instanceId = Math.random().toString(36).slice(2);
   </script>
@@ -159,6 +162,45 @@ try {
   const undoneRect = await frame.locator('#photo').boundingBox();
   assert.equal(Math.round(undoneRect.width), 300);
   assert.equal(Math.round(undoneRect.height), 150);
+
+  // 4. Resize an image inside a fixed-size overflow:hidden container LARGER via drag handle,
+  //    then even larger via toolbar W/H + Apply -> container expands with it without reloading iframe.
+  await frame.locator('#card-photo').click();
+  await widthInput.waitFor();
+  assert.equal(await widthInput.inputValue(), '200');
+  assert.equal(await heightInput.inputValue(), '100');
+
+  const cardSeHandle = frame.locator('[data-orion-resize-handle="se"]');
+  await cardSeHandle.waitFor();
+  const cardHandleBox = await cardSeHandle.boundingBox();
+  assert.ok(cardHandleBox, 'SE handle visible for card image');
+  const loadsBeforeContainer = await page.evaluate(() => window.__iframeLoadCount);
+  await page.mouse.move(cardHandleBox.x + cardHandleBox.width / 2, cardHandleBox.y + cardHandleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(cardHandleBox.x + cardHandleBox.width / 2 + 100, cardHandleBox.y + cardHandleBox.height / 2 + 50, { steps: 5 });
+  await page.mouse.up();
+
+  await versionText().filter({ hasText: 'v3/3' }).waitFor();
+  assert.equal(await page.evaluate(() => window.__iframeLoadCount), loadsBeforeContainer, 'drag-expanding container must not reload iframe');
+  const draggedImgBox = await frame.locator('#card-photo').boundingBox();
+  const draggedCardBox = await frame.locator('#photo-card').boundingBox();
+  assert.equal(Math.round(draggedImgBox.width), 300);
+  assert.equal(Math.round(draggedImgBox.height), 150);
+  assert.ok(draggedCardBox.width >= 300, `expected container width >= 300 after drag, got ${draggedCardBox.width}`);
+  assert.ok(draggedCardBox.height >= 150, `expected container height >= 150 after drag, got ${draggedCardBox.height}`);
+
+  // Expand further via ElementToolbar Apply (400 x 200)
+  await widthInput.fill('400');
+  assert.equal(await heightInput.inputValue(), '200');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await versionText().filter({ hasText: 'v4/4' }).waitFor();
+  assert.equal(await page.evaluate(() => window.__iframeLoadCount), loadsBeforeContainer, 'toolbar-expanding container must not reload iframe');
+  const appliedImgBox = await frame.locator('#card-photo').boundingBox();
+  const appliedCardBox = await frame.locator('#photo-card').boundingBox();
+  assert.equal(Math.round(appliedImgBox.width), 400);
+  assert.equal(Math.round(appliedImgBox.height), 200);
+  assert.ok(appliedCardBox.width >= 400, `expected container width >= 400 after Apply, got ${appliedCardBox.width}`);
+  assert.ok(appliedCardBox.height >= 200, `expected container height >= 200 after Apply, got ${appliedCardBox.height}`);
 
   assert.deepEqual(pageErrors, []);
   console.log('ok - image resize handles and toolbar dimensions work seamlessly');
