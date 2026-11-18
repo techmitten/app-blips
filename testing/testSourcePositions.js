@@ -11,7 +11,7 @@
 import assert from 'node:assert';
 import { applyDirectEdit, locateElement } from '../src/lib/directEdits.js';
 import {
-  sourceElementStarts, sourceFingerprint, stampSourcePositions,
+  computeSourceSync, sourceElementStarts, sourceFingerprint, stampSourcePositions,
 } from '../src/lib/sourcePositions.js';
 import { injectPreviewBridge } from '../src/previewBridge.js';
 
@@ -150,6 +150,38 @@ check('ignores a number whose source tag no longer matches the clicked element',
   const wrong = clicked(PAGE, '<h3>Pro', 0, { text: 'Starter', rawText: 'Starter' });
   const result = applyDirectEdit(PAGE, wrong, { text: 'Team' });
   assert.ok(!result.ok);
+});
+
+console.log('\ncomputeSourceSync:');
+
+check('keeps IDs stable when only text and head font links change', () => {
+  const first = clicked(PAGE, '<h3>Starter', 0, { text: 'Starter', rawText: 'Starter' });
+  const result = applyDirectEdit(PAGE, first, { text: 'Basic', style: { fontFamily: "'Playfair Display', Georgia, serif" } });
+  assert.ok(result.ok, result.reason);
+  const sync = computeSourceSync(PAGE, result.code, first.srcId);
+  assert.strictEqual(sync.fingerprint, sourceFingerprint(result.code));
+  assert.strictEqual(sync.shiftDelta, 0);
+  assert.deepStrictEqual(sync.innerIds, []);
+  const second = clicked(PAGE, '<h3>Starter', 1, { text: 'Starter', rawText: 'Starter' });
+  const nextResult = applyDirectEdit(result.code, { ...second, srcFingerprint: sync.fingerprint }, { text: 'Plus' });
+  assert.ok(nextResult.ok, nextResult.reason);
+  assert.match(nextResult.code, /<h3 style="font-family: 'Playfair Display', Georgia, serif;">Basic<\/h3>[\s\S]*<h3>Plus<\/h3>/);
+});
+
+check('shifts subsequent IDs and computes innerIds when inline tags are added', () => {
+  const first = clicked(PAGE, '<h3>Starter', 0, { text: 'Starter', rawText: 'Starter' });
+  const result = applyDirectEdit(PAGE, first, { text: 'Line 1\nLine 2', innerHtml: 'Line 1<br><span style="color: red;">Line 2</span>' });
+  assert.ok(result.ok, result.reason);
+  const sync = computeSourceSync(PAGE, result.code, first.srcId);
+  assert.strictEqual(sync.fingerprint, sourceFingerprint(result.code));
+  assert.strictEqual(sync.shiftDelta, 2);
+  assert.strictEqual(sync.innerIds.length, 2);
+  assert.strictEqual(sync.innerIds[0], first.srcId + 1);
+  assert.strictEqual(sync.innerIds[1], first.srcId + 2);
+  const oldSecondId = idOf(PAGE, '<h3>Starter', 1);
+  assert.ok(oldSecondId >= sync.shiftFromId);
+  const shiftedSecondId = oldSecondId + sync.shiftDelta;
+  assert.strictEqual(shiftedSecondId, idOf(result.code, '<h3>Starter', 0));
 });
 
 console.log(`\n${passed} checks passed${process.exitCode ? ' (with failures above)' : ''}`);

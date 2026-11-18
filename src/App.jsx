@@ -44,6 +44,7 @@ import {
   applyDirectEdit, removeElements, buildElementEditPrompt, buildElementsEditPrompt, describeDirectEditFailure,
   copyElementSource, buildSpotEditPrompt,
 } from './lib/directEdits';
+import { computeSourceSync } from './lib/sourcePositions';
 import {
   loadPreviewStorage,
   savePreviewStorage,
@@ -538,6 +539,18 @@ export default function App({ coldStart = false }) {
   // srcDoc attribute changes and the iframe navigates -- i.e. reloads the
   // generated app -- without touching `generatedCode`.
   const [previewReloadCount, setPreviewReloadCount] = useState(0);
+  // Tracks in-place text edits already live in the preview iframe so
+  // clicking Done updates `files` and version history without reloading
+  // the iframe from scratch. Cleared (with a reload when needed) on undo,
+  // structural/panel edits, code edits, or switching away from Preview.
+  const [previewSync, setPreviewSync] = useState(null);
+  const previewSyncRef = useRef(null);
+  previewSyncRef.current = previewSync;
+  const clearPreviewSync = useCallback((forceReload = false) => {
+    if (!previewSyncRef.current) return;
+    setPreviewSync(null);
+    if (forceReload) setPreviewReloadCount((n) => n + 1);
+  }, []);
 
   const cancelPendingReload = useCallback(() => {
     if (reloadStateRef.current.timerId) {
@@ -549,6 +562,7 @@ export default function App({ coldStart = false }) {
 
   const handleReloadPreview = useCallback(() => {
     cancelPendingReload();
+    clearPreviewSync(false);
     runtimeErrorRetriesRef.current = 0;
     syntaxErrorRetriesRef.current = 0;
     autoFixRunsRef.current = 0;
@@ -558,7 +572,7 @@ export default function App({ coldStart = false }) {
     isAutoFixingRef.current = false;
     setAutoFixMessage(null);
     setPreviewReloadCount((n) => n + 1);
-  }, [cancelPendingReload]);
+  }, [cancelPendingReload, clearPreviewSync]);
 
   const scheduleReloadSettlementRef = useRef(null);
 
@@ -785,10 +799,26 @@ export default function App({ coldStart = false }) {
     codebasePreviewRef.current = codebaseBuild.preview;
   }, [codebaseBuild.preview]);
 
+  const isPreviewSynced = Boolean(
+    activeTab === 'preview' &&
+    previewSync &&
+    previewSync.projectId === currentProjectId &&
+    previewSync.page === activePage &&
+    previewSync.liveCode === activeCode &&
+    previewSync.storageVersion === projectStorageVersion &&
+    previewSync.gallery === previewGallery
+  );
+  useEffect(() => {
+    if (previewSync && !isPreviewSynced) {
+      setPreviewSync(null);
+    }
+  }, [previewSync, isPreviewSynced]);
+  const codeForPreview = isPreviewSynced ? previewSync.renderedCode : activeCode;
+
   const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
     () =>
-      activeCode
-        ? injectPreviewBridge(activeCode, {
+      codeForPreview
+        ? injectPreviewBridge(codeForPreview, {
             projectMode: studioModeRef.current === 'codebase',
             // Click-to-edit (Website Studio only) finds elements by the
             // source numbers this adds to the preview copy.
@@ -820,7 +850,7 @@ export default function App({ coldStart = false }) {
     // the mode current at that moment; later mode switches are delivered to
     // the already-loaded frame via usePreviewBridge's configure push.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeCode, previewReloadCount, projectStorageVersion, activePage, previewGallery]
+    [codeForPreview, previewReloadCount, projectStorageVersion, activePage, previewGallery]
   );
   // Every injection (AI shim, loop-check helper, bridge) lands right after
   // <head> and loop protection adds no newlines, so the app's lines are
@@ -944,13 +974,14 @@ export default function App({ coldStart = false }) {
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab);
     if (tab !== 'preview') {
+      clearPreviewSync(false);
       setSelectedElement(null);
       setInsertMenu(null);
       setTextSession(null);
       setElementEditError(null);
       pendingScrollRef.current = null;
     }
-  }, []);
+  }, [clearPreviewSync]);
 
   // Switching drag mode keeps the selection (so a container picked with
   // select-parent can be dragged next) but ends any in-place text session,
@@ -985,7 +1016,7 @@ export default function App({ coldStart = false }) {
   // in-place text-edit commit.
   // `saveExtra` goes to saveProject as well (an inserted image passes the
   // gallery list it was just added to, which state has not caught up with).
-  const applyElementChangesToSource = useCallback((element, changes, saveExtra = {}) => {
+  const applyElementChangesToSource = useCallback((element, changes, saveExtra = {}, { preserveFrame = false } = {}) => {
     if (!element || !activeCode) return { ok: false, reason: 'invalid' };
     // Direct edits exist for the Website Studio's pages only: elsewhere
     // activeCode isn't the stored source (a codebase shows its bundle).
@@ -1008,6 +1039,26 @@ export default function App({ coldStart = false }) {
       sessionId: currentChatSessionId,
     };
     const finalVersions = [...updatedVersions, newVersion];
+    if (preserveFrame) {
+      setPreviewSync((prev) => ({
+        projectId: currentProjectId,
+        page: activePage,
+        renderedCode: prev && prev.projectId === currentProjectId && prev.page === activePage && prev.liveCode === activeCode
+          ? prev.renderedCode
+          : activeCode,
+        liveCode: result.code,
+        storageVersion: projectStorageVersion,
+        gallery: previewGallery,
+      }));
+    } else {
+      clearPreviewSync(true);
+      // The frame reloads from the edited source; put it back where the user
+      // was working instead of at the top of the page.
+      const scroll = element.group ? element.elements[0]?.scroll : element.scroll;
+      if (scroll && typeof scroll.y === 'number') {
+        pendingScrollRef.current = { x: scroll.x || 0, y: scroll.y || 0 };
+      }
+    }
     setFiles(newVersion.files);
     setVersions(finalVersions);
     setCurrentVersionIndex(updatedVersions.length);
@@ -1016,14 +1067,8 @@ export default function App({ coldStart = false }) {
       versionsToSave: finalVersions,
       indexToSave: updatedVersions.length,
     });
-    // The frame reloads from the edited source; put it back where the user
-    // was working instead of at the top of the page.
-    const scroll = element.group ? element.elements[0]?.scroll : element.scroll;
-    if (scroll && typeof scroll.y === 'number') {
-      pendingScrollRef.current = { x: scroll.x || 0, y: scroll.y || 0 };
-    }
-    return result;
-  }, [activeCode, activePage, files, versions, currentVersionIndex, currentChatSessionId, saveProject]);
+    return { ...result, prevCode: activeCode };
+  }, [activeCode, activePage, files, versions, currentVersionIndex, currentChatSessionId, currentProjectId, projectStorageVersion, previewGallery, saveProject, clearPreviewSync]);
 
   const handleApplyElementEdit = useCallback((changes) => {
     if (!selectedElement || isGeneratingRef.current) return;
@@ -1211,9 +1256,9 @@ export default function App({ coldStart = false }) {
   // The payload carries the element snapshot captured BEFORE the typing
   // (its original text/outerHTML are the engine's match anchor), so this
   // applies exactly like a panel edit with `{ text: newText }` — then tells
-  // the frame the outcome: success keeps the typed text (the reloaded
-  // source shows it for real, at the remembered scroll offset), failure
-  // makes the bridge revert and opens the panel with the AI path.
+  // the frame the outcome: success keeps the typed text and formatting live
+  // in place (and syncs source positions without reloading the project),
+  // failure makes the bridge revert and opens the panel with the AI path.
   const handleElementTextCommitted = useCallback((payload) => {
     // A build in flight commits with its own copy of the versions, which
     // would drop this edit silently: refuse it now instead (the frame
@@ -1227,11 +1272,10 @@ export default function App({ coldStart = false }) {
       style: payload.styles,
       // Set when part of the text was formatted on its own.
       ...(typeof payload.innerHtml === 'string' ? { innerHtml: payload.innerHtml } : {}),
-    });
+    }, {}, { preserveFrame: true });
     if (result.ok) {
-      // (applyElementChangesToSource queued the payload's scroll offset.)
-      replyInlineEditResult(true, payload.editId);
-      setSelectedElement(null);
+      const sourceSync = computeSourceSync(result.prevCode, result.code, payload.srcId);
+      replyInlineEditResult(true, payload.editId, sourceSync);
       setElementEditError(null);
     } else {
       replyInlineEditResult(false, payload.editId);
@@ -1816,6 +1860,7 @@ export default function App({ coldStart = false }) {
         : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: effectiveReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
+      clearPreviewSync(true);
       setFiles(newFiles);
       if (!(activePage in newFiles)) setActivePage(LANDING_PAGE);
 
@@ -2369,6 +2414,7 @@ export default function App({ coldStart = false }) {
       setChatContextStartIndex(sessionStart);
       setCurrentVersionIndex(index);
       if (restored) {
+        clearPreviewSync(true);
         setFiles(restored);
         if (!(activePageRef.current in restored)) setActivePage(LANDING_PAGE);
       }
@@ -2444,13 +2490,14 @@ export default function App({ coldStart = false }) {
     };
     const finalVersions = [...updatedVersions, newVersion];
     // A message about the previous version's error no longer applies.
+    clearPreviewSync(true);
     setError(null);
     setFiles(nextFiles);
     setVersions(finalVersions);
     setCurrentVersionIndex(updatedVersions.length);
     saveProject({ versionsToSave: finalVersions, indexToSave: updatedVersions.length });
     return { ok: true };
-  }, [files, isCodebase, versions, currentVersionIndex, currentChatSessionId, currentAssets, saveProject]);
+  }, [files, isCodebase, versions, currentVersionIndex, currentChatSessionId, currentAssets, saveProject, clearPreviewSync]);
 
   const handleCopyCode = async () => {
     if (!codePanelCode) return;

@@ -832,9 +832,27 @@ const BRIDGE_SOURCE = `(function () {
     entry.savedRange = next.cloneRange();
   }
 
-  function applyInlineFormat(styles) {
+  function ensureBridgeFont(googleSpec) {
+    if (!googleSpec || typeof googleSpec !== 'string' || !/^[A-Za-z0-9+:;@,._-]+$/.test(googleSpec)) return;
+    try {
+      var family = googleSpec.split(':')[0];
+      var links = document.querySelectorAll('link[rel~="stylesheet"][href*="fonts.googleapis.com"]');
+      for (var i = 0; i < links.length; i++) {
+        var href = links[i].getAttribute('href') || '';
+        if (href.indexOf('family=' + family) !== -1 || href.indexOf('family=' + family.replace(/\\+/g, '%20')) !== -1) return;
+      }
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.crossOrigin = 'anonymous';
+      link.href = 'https://fonts.googleapis.com/css2?family=' + googleSpec + '&display=swap';
+      (document.head || document.documentElement).appendChild(link);
+    } catch (fontErr) { /* falls back to system stack */ }
+  }
+
+  function applyInlineFormat(styles, fontGoogle) {
     var entry = inlineEdit;
     if (!entry || !styles || typeof styles !== 'object') return;
+    if (fontGoogle) ensureBridgeFont(fontGoogle);
     var runStyles = {};
     var hasRun = false;
     var partial = partialSelectionRange(entry);
@@ -859,18 +877,15 @@ const BRIDGE_SOURCE = `(function () {
     post('inline-typography', readTypography(entry.el));
   }
 
-  // The element's markup as it should be written to the source: bridge
-  // attributes stripped, and newlines typed in the host as <br>.
-  function inlineEditHtml(el) {
-    var clone = el.cloneNode(true);
-    var marked = clone.querySelectorAll('[data-ab-src],[data-ab-fmt]');
-    for (var i = 0; i < marked.length; i++) {
-      marked[i].removeAttribute('data-ab-src');
-      marked[i].removeAttribute('data-ab-fmt');
-    }
-    var walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
+  function materializeLineBreaks(el, trimTrailing) {
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     var texts = [];
     for (var n = walker.nextNode(); n; n = walker.nextNode()) texts.push(n);
+    if (trimTrailing && texts.length) {
+      var last = texts[texts.length - 1];
+      var trimmed = last.nodeValue.replace(/[\\r\\n]+$/, '');
+      if (trimmed !== last.nodeValue) last.nodeValue = trimmed;
+    }
     for (var t = 0; t < texts.length; t++) {
       var parts = texts[t].nodeValue.split(/\\r\\n?|\\n/);
       if (parts.length < 2) continue;
@@ -881,6 +896,18 @@ const BRIDGE_SOURCE = `(function () {
       }
       texts[t].parentNode.replaceChild(frag, texts[t]);
     }
+  }
+
+  // The element's markup as it should be written to the source: bridge
+  // attributes stripped, and newlines typed in the host as <br>.
+  function inlineEditHtml(el) {
+    var clone = el.cloneNode(true);
+    var marked = clone.querySelectorAll('[data-ab-src],[data-ab-fmt]');
+    for (var i = 0; i < marked.length; i++) {
+      marked[i].removeAttribute('data-ab-src');
+      marked[i].removeAttribute('data-ab-fmt');
+    }
+    materializeLineBreaks(clone, false);
     return clone.innerHTML;
   }
 
@@ -1040,6 +1067,12 @@ const BRIDGE_SOURCE = `(function () {
     // not the fully collapsed snapshot, so adding or removing just a line
     // break still counts as a change.
     if (newText === entry.startText && !hasFormat) { restoreOutline(entry.el); return; }
+    // Turn typed line breaks into <br> so removing contentEditable leaves
+    // the visual breaks intact without reloading the frame.
+    if (!wsIsPreformatted(entry.hostWhiteSpace)) {
+      if (newInner !== null) materializeLineBreaks(entry.el, false);
+      else if (newText.indexOf('\\n') !== -1) materializeLineBreaks(entry.el, true);
+    }
 
     var editId = ++inlineEditSequence;
     var pending = { id: editId, el: entry.el, origHtml: entry.origHtml, origInline: entry.origInline, timer: null };
@@ -1061,11 +1094,48 @@ const BRIDGE_SOURCE = `(function () {
     post('element-text-committed', payload);
   }
 
+  var SYNC_SKIP_TAGS = { HTML: 1, HEAD: 1, BODY: 1, SCRIPT: 1, STYLE: 1, META: 1, LINK: 1, TITLE: 1, BASE: 1, NOSCRIPT: 1 };
+
+  function applySourceSync(el, sync) {
+    if (!sync || typeof sync.fingerprint !== 'string') return;
+    if (sync.shiftDelta && typeof sync.shiftFromId === 'number') {
+      var updates = [];
+      var nodes = document.querySelectorAll('[data-ab-src]');
+      for (var i = 0; i < nodes.length; i++) {
+        var raw = nodes[i].getAttribute('data-ab-src');
+        if (!/^\\d+$/.test(raw)) continue;
+        var id = parseInt(raw, 10);
+        if (id >= sync.shiftFromId) updates.push([nodes[i], id + sync.shiftDelta]);
+      }
+      for (var u = 0; u < updates.length; u++) {
+        updates[u][0].setAttribute('data-ab-src', String(updates[u][1]));
+      }
+    }
+    if (Array.isArray(sync.innerIds) && el) {
+      var kids = [];
+      var all = el.querySelectorAll('*');
+      for (var j = 0; j < all.length; j++) {
+        var tag = String(all[j].tagName || '').toUpperCase();
+        if (!SYNC_SKIP_TAGS[tag] && !isBridgeNode(all[j])) kids.push(all[j]);
+      }
+      if (kids.length === sync.innerIds.length) {
+        for (var k = 0; k < kids.length; k++) {
+          kids[k].setAttribute('data-ab-src', String(sync.innerIds[k]));
+        }
+      }
+    }
+    SOURCE_FP = sync.fingerprint;
+    if (inlineEdit && inlineEdit.el !== el && inlineEdit.snapshot) {
+      inlineEdit.snapshot.srcFingerprint = SOURCE_FP;
+      inlineEdit.snapshot.srcId = sourceIdOf(inlineEdit.el);
+    }
+  }
+
   // Parent's verdict on a committed inline edit. The parent echoes editId,
   // so a failure restores exactly the right element even if the user has
   // already started another edit. Unknown ids are ignored: the entry was
   // already reverted by the timeout.
-  function resolveInlineEdit(ok, editId) {
+  function resolveInlineEdit(ok, editId, sourceSync) {
     var idx = -1;
     for (var i = 0; i < pendingCommits.length; i++) {
       if (pendingCommits[i].id === editId) { idx = i; break; }
@@ -1073,7 +1143,19 @@ const BRIDGE_SOURCE = `(function () {
     if (idx === -1) return;
     var entry = pendingCommits.splice(idx, 1)[0];
     if (entry.timer) { clearTimeout(entry.timer); entry.timer = null; }
-    if (!ok) restoreInlineEntry(entry);
+    if (!ok) {
+      restoreInlineEntry(entry);
+      return;
+    }
+    try {
+      var fmts = entry.el.querySelectorAll('[data-ab-fmt]');
+      for (var f = 0; f < fmts.length; f++) fmts[f].removeAttribute('data-ab-fmt');
+    } catch (fmtErr) { /* element gone */ }
+    if (sourceSync) applySourceSync(entry.el, sourceSync);
+    if (!(inlineEdit && inlineEdit.el === entry.el)) {
+      if (editSelectedEl === entry.el) editSelectedEl = null;
+      if (!isPicked(entry.el)) restoreOutline(entry.el);
+    }
   }
 
   // Editing hosts render whitespace differently from static text: Blink
@@ -1398,6 +1480,7 @@ const BRIDGE_SOURCE = `(function () {
       origSpellcheck: el.getAttribute('spellcheck'),
       origWhiteSpace: el.style.whiteSpace,
       origCaretColor: el.style.caretColor,
+      hostWhiteSpace: hostWhiteSpace,
       formatStyles: {},
       origInline: {},
       history: [],
@@ -1547,16 +1630,19 @@ const BRIDGE_SOURCE = `(function () {
         e.stopPropagation();
         return;
       }
-      // Clicks outside: focus already moved, so the editor's blur handler
-      // has committed (or will as the focus settles). A tap on other text
-      // must hop the caret there, but the blur commit only lands ~180ms
-      // later, after this click has already been refused (an edit is still
-      // live) -- the session just ended and nothing new opened. When nothing
-      // was typed there is nothing to save, so end it now and fall through to
-      // start the new one. Typed text keeps the normal commit: it reloads the
-      // frame from the edited source, which would swallow a fresh session.
-      if (!dragModeActive && !inlineHold && inlineEditUntouched(inlineEdit)) {
+      // Clicks outside: commit the active inline edit immediately instead of
+      // waiting for blur's 180ms timer (which only exists so clicks on the
+      // parent's text toolbar can send inline-hold). When nothing was typed
+      // or formatted, fall through so a tap on another element starts editing
+      // it right away; when changes were made, consume the click as the save.
+      if (!dragModeActive && !inlineHold) {
+        var wasUntouched = inlineEditUntouched(inlineEdit);
         finishInlineEdit(true, false);
+        if (!wasUntouched) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
       }
     }
     if (!isSelectable(el)) return;
@@ -3194,7 +3280,7 @@ const BRIDGE_SOURCE = `(function () {
     } else if (d.type === 'insert-clear') {
       clearInsertSpot();
     } else if (d.type === 'inline-format') {
-      applyInlineFormat(d.payload && d.payload.styles);
+      applyInlineFormat(d.payload && d.payload.styles, d.payload && d.payload.fontGoogle);
     } else if (d.type === 'inline-undo' || d.type === 'inline-redo') {
       stepInlineHistory(d.type === 'inline-redo' ? 1 : -1);
     } else if (d.type === 'inline-hold') {
@@ -3203,7 +3289,7 @@ const BRIDGE_SOURCE = `(function () {
     } else if (d.type === 'inline-finish') {
       finishInlineEdit(!!(d.payload && d.payload.commit), false);
     } else if (d.type === 'inline-edit-result') {
-      resolveInlineEdit(!!(d.payload && d.payload.ok), d.payload ? d.payload.editId : null);
+      resolveInlineEdit(!!(d.payload && d.payload.ok), d.payload ? d.payload.editId : null, d.payload ? d.payload.sourceSync : null);
     } else if (d.type === 'restore-scroll') {
       try {
         window.scrollTo((d.payload && d.payload.x) || 0, (d.payload && d.payload.y) || 0);

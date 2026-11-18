@@ -308,7 +308,7 @@
 @container (orientation: landscape) and (max-height: 640px) {
   .build-blueprint {
     display: grid;
-    grid-template-columns: auto max-content;
+    grid-template-columns: auto 16em;
     grid-template-areas: 'visual steps' 'visual footer';
     align-items: center;
     column-gap: 2.4em;
@@ -318,7 +318,7 @@
     margin-top: clamp(20px, 7cqb, 36px);
   }
   .build-blueprint.is-code {
-    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-columns: minmax(0, 1fr) 16em;
     width: min(56em, 100%);
   }
   .build-blueprint-frame,
@@ -332,11 +332,13 @@
 
 /* ----- Website previews (desktop, full size): side by side too -----
    The wireframe on the left, the timeline and footer on the right, whenever
-   the screen is wide enough for both. */
+   the screen is wide enough for both. The timeline column has a fixed width:
+   sized to its content, it would grow and shrink as step details change and
+   the whole centred block would slide left and right during a build. */
 @container (min-width: 760px) {
   .build-blueprint.is-wide {
     display: grid;
-    grid-template-columns: auto max-content;
+    grid-template-columns: auto 16em;
     grid-template-areas: 'visual steps' 'visual footer';
     align-items: center;
     column-gap: 2.4em;
@@ -346,7 +348,7 @@
     margin-top: clamp(20px, 7cqb, 36px);
   }
   .build-blueprint.is-wide.is-code {
-    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-columns: minmax(0, 1fr) 16em;
     width: min(56em, 100%);
   }
   .is-wide .build-blueprint-frame,

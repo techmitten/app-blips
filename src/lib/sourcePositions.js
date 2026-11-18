@@ -86,3 +86,109 @@ export const sourceFingerprint = (code) => {
   }
   return `${(hash >>> 0).toString(36)}-${code.length.toString(36)}`;
 };
+
+const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+const OPEN_TAG_AT = new RegExp(OPEN_TAG_RE.source.slice(1), 'y');
+
+const elementEndAt = (masked, start) => {
+  OPEN_TAG_AT.lastIndex = start;
+  const open = OPEN_TAG_AT.exec(masked);
+  if (!open) return null;
+  const tag = /^<([a-zA-Z][a-zA-Z0-9-]*)/.exec(open[0])[1].toLowerCase();
+  const openEnd = start + open[0].length;
+  if (VOID_TAGS.has(tag) || open[0].endsWith('/>')) return openEnd;
+  const tagRe = new RegExp(`<(/?)${tag}(?=[\\s>/])[^>]*>`, 'gi');
+  tagRe.lastIndex = openEnd;
+  let depth = 1;
+  let m;
+  while ((m = tagRe.exec(masked))) {
+    if (m[1]) {
+      depth -= 1;
+      if (depth === 0) return m.index + m[0].length;
+    } else if (!m[0].endsWith('/>')) {
+      depth += 1;
+    }
+  }
+  return null;
+};
+
+const bodyStartOffset = (masked) => {
+  const bodyOpen = /<body\b[^>]*>/i.exec(masked);
+  return bodyOpen ? bodyOpen.index + bodyOpen[0].length : 0;
+};
+
+/**
+ * Compute how `data-ab-src` IDs and `SOURCE_FP` in a live preview frame
+ * map from `prevCode` to `nextCode` after an in-place text edit, so the
+ * frame stays in sync without reloading.
+ *
+ * @param {string} prevCode
+ * @param {string} nextCode
+ * @param {number | null} [prevSrcId]
+ * @returns {{ fingerprint: string, shiftFromId: number, shiftDelta: number, innerIds: number[] | null } | null}
+ */
+export const computeSourceSync = (prevCode, nextCode, prevSrcId = null) => {
+  if (typeof prevCode !== 'string' || typeof nextCode !== 'string') return null;
+  const prevMasked = maskNonMarkup(prevCode);
+  const nextMasked = maskNonMarkup(nextCode);
+  const prevBodyAt = bodyStartOffset(prevMasked);
+  const nextBodyAt = bodyStartOffset(nextMasked);
+  if ((prevBodyAt > 0) !== (nextBodyAt > 0)) return null;
+
+  const prevStarts = sourceElementStarts(prevCode, prevMasked);
+  const nextStarts = sourceElementStarts(nextCode, nextMasked);
+  const shiftDelta = nextStarts.length - prevStarts.length;
+  const fingerprint = sourceFingerprint(nextCode);
+
+  if (Number.isInteger(prevSrcId) && prevSrcId >= 0 && prevStarts[prevSrcId] != null) {
+    // When there is no <body>, an inserted <head> link prepended before index 0
+    // would shift prevSrcId itself; bail out so we don't misalign IDs.
+    if (prevBodyAt === 0) {
+      const prevTag = /^<[a-zA-Z][a-zA-Z0-9-]*/.exec(prevCode.slice(prevStarts[prevSrcId]));
+      const nextTag = /^<[a-zA-Z][a-zA-Z0-9-]*/.exec(nextCode.slice(prevStarts[prevSrcId]));
+      if (!prevTag || !nextTag || prevTag[0].toLowerCase() !== nextTag[0].toLowerCase()) return null;
+    }
+    const closeEnd = elementEndAt(prevMasked, prevStarts[prevSrcId]);
+    if (closeEnd != null) {
+      let shiftFromId = prevStarts.length;
+      for (let i = prevSrcId + 1; i < prevStarts.length; i += 1) {
+        if (prevStarts[i] !== null && prevStarts[i] >= closeEnd) {
+          shiftFromId = i;
+          break;
+        }
+      }
+      const afterNewId = shiftFromId + shiftDelta;
+      const innerIds = [];
+      for (let k = prevSrcId + 1; k < afterNewId; k += 1) {
+        if (nextStarts[k] !== null) innerIds.push(k);
+      }
+      return { fingerprint, shiftFromId, shiftDelta, innerIds };
+    }
+  }
+
+  // Fallback when prevSrcId is unavailable: locate the changed span in body.
+  const prevBody = prevCode.slice(prevBodyAt);
+  const nextBody = nextCode.slice(nextBodyAt);
+  const minLen = Math.min(prevBody.length, nextBody.length);
+  let prefixLen = 0;
+  while (prefixLen < minLen && prevBody.charCodeAt(prefixLen) === nextBody.charCodeAt(prefixLen)) {
+    prefixLen += 1;
+  }
+  let suffixLen = 0;
+  const prevRem = prevBody.length - prefixLen;
+  const nextRem = nextBody.length - prefixLen;
+  const minRem = Math.min(prevRem, nextRem);
+  while (suffixLen < minRem && prevBody.charCodeAt(prevBody.length - 1 - suffixLen) === nextBody.charCodeAt(nextBody.length - 1 - suffixLen)) {
+    suffixLen += 1;
+  }
+  const prevEditEnd = prevCode.length - suffixLen;
+  let shiftFromId = prevStarts.length;
+  for (let i = 0; i < prevStarts.length; i += 1) {
+    if (prevStarts[i] !== null && prevStarts[i] >= prevEditEnd) {
+      shiftFromId = i;
+      break;
+    }
+  }
+  if (shiftDelta !== 0 && shiftFromId === 0) return null;
+  return { fingerprint, shiftFromId, shiftDelta, innerIds: null };
+};

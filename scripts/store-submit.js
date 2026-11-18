@@ -1,9 +1,9 @@
 // Sends a built Microsoft Store package to Partner Center for certification,
 // using the Microsoft Store submission API. The submission is set to publish
-// MANUALLY: once Microsoft has certified it, nothing reaches users until you
-// click "Publish now" in Partner Center. (It has to be committed: Partner
-// Center ignores the API's changes to a submission until then, so an
-// uncommitted one still shows the previous version.)
+// IMMEDIATELY: once Microsoft has certified it, it goes live in the Store by
+// itself, with no "Publish now" click in Partner Center. (It has to be
+// committed: Partner Center ignores the API's changes to a submission until
+// then, so an uncommitted one still shows the previous version.)
 //
 // Usage:
 //   node scripts/store-submit.js --check
@@ -70,12 +70,13 @@ if (mode === 'delete') {
 }
 
 // 2. Don't touch an existing pending submission: it may be in certification
-// or hold unsaved edits made in Partner Center.
+// (it goes live by itself when that passes) or hold unsaved edits made in
+// Partner Center.
 const app = await api('GET', API, token)
 if (app.pendingApplicationSubmission) {
   die(
     `AppBlips already has a pending submission (id ${app.pendingApplicationSubmission.id}). ` +
-      'Open Partner Center → AppBlips and publish it (if it has passed certification) or delete it, then run this again.',
+      'It is probably still in certification: wait for it to go live, or delete it in Partner Center → AppBlips, then run this again.',
   )
 }
 if (mode === 'check') {
@@ -91,14 +92,14 @@ const sub = await api('POST', `${API}/submissions`, token)
 console.log(`Created submission ${sub.id}`)
 if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `submission=${sub.id}\n`)
 
-// 4. Replace the packages (remove the old ones, add the new one) and wait for
-// "Publish now" after certification instead of publishing straight away.
+// 4. Replace the packages (remove the old ones, add the new one) and publish
+// straight away once certification passes.
 for (const pkg of sub.applicationPackages || []) pkg.fileStatus = 'PendingDelete'
 sub.applicationPackages = [
   ...(sub.applicationPackages || []),
   { fileName, fileStatus: 'PendingUpload', minimumDirectXVersion: 'None', minimumSystemRam: 'None' },
 ]
-sub.targetPublishMode = 'Manual'
+sub.targetPublishMode = 'Immediate'
 await api('PUT', `${API}/submissions/${sub.id}`, token, sub)
 
 // 5. Upload the zipped package to the blob URL from step 3
@@ -132,4 +133,4 @@ for (;;) {
   await new Promise((r) => setTimeout(r, 20_000))
 }
 console.log(`Status: ${status.status}`)
-console.log('\nSent for certification (usually a few days). When it passes, open Partner Center → AppBlips and click "Publish now".')
+console.log('\nSent for certification (usually a few days). It goes live in the Store automatically when it passes.')

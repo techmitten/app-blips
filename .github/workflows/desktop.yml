@@ -4,7 +4,7 @@ name: Desktop
 # on Ubuntu 24.04 and the Microsoft Store package on Windows. Pushing a tag
 # like v0.1.0 (npm run release) also publishes them, but only once every
 # build has succeeded (the publish job): a draft GitHub Release, a Microsoft
-# Store submission (set to publish manually), and the snap on the Snap Store's stable channel
+# Store submission (goes live by itself once certified), and the snap on the Snap Store's stable channel
 # (Ubuntu's App Center; SNAPCRAFT_STORE_CREDENTIALS, made with
 # `snapcraft export-login` with stable channel access; see notes/RELEASING.md).
 # Run by hand from the Actions tab it only builds, or with store_only it
@@ -146,8 +146,8 @@ jobs:
   # the GitHub draft release, then the snap to the Snap Store's stable channel
   # (the only step users see straight away), last. If a step fails, what the
   # steps before it made is deleted again. The Store submission goes to
-  # Microsoft's certification (a few days) set to publish manually: users get
-  # it only after you click "Publish now" in Partner Center. The .appx is never
+  # Microsoft's certification (a few days) set to publish immediately: users
+  # get it as soon as certification passes, with no click in Partner Center. The .appx is never
   # uploaded anywhere else. store_only runs do just the Store submission.
   publish:
     needs: [build, store]

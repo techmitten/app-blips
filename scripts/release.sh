@@ -5,7 +5,7 @@
 # workflow), waits for GitHub to build the Linux installers and the Microsoft
 # Store package, then publishes the draft release once you confirm. GitHub
 # publishes nothing unless every build succeeds (a draft release, a Store
-# submission set to publish manually, and the snap on stable).
+# submission that goes live by itself once certified, and the snap on stable).
 # `npm run release store` skips all of that: it only builds and submits the
 # Microsoft Store package for the latest release tag, or another one: `npm run release store v0.1.35` (no version bump).
 # See notes/RELEASING.md for the manual steps this automates.
@@ -42,7 +42,7 @@ if [ "$bump" = "store" ]; then
   run_id="$(gh run list --workflow desktop.yml --branch master --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
   say "Building and uploading (a few minutes)…"
   gh run watch "$run_id" --exit-status --interval 20 || fail "The Store job failed. See: $(gh run view "$run_id" --json url --jq .url)"
-  say "Sent for certification (usually a few days). When it passes, open Partner Center → AppBlips and click Publish now."
+  say "Sent for certification (usually a few days). It goes live in the Store automatically when it passes."
   exit 0
 fi
 
@@ -109,7 +109,7 @@ fi
 # --- Publish -----------------------------------------------------------------
 say "Build finished. The draft release $tag is ready on GitHub."
 echo "Already out: the snap (App Center users get it now). The Microsoft Store"
-echo "version is in certification; when it passes, click Publish now in Partner Center."
+echo "version is in certification and goes live automatically when it passes."
 echo "Installers: $(gh release view "$tag" --json assets --jq '[.assets[].name] | join(", ")')"
 echo
 if ask "Publish $tag on GitHub now? AppImage and .deb users will start getting the update."; then

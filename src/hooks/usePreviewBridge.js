@@ -4,6 +4,7 @@ import { PREVIEW_MODES } from '../lib/constants';
 import { rasterizeDomSnapshot } from '../lib/attachments';
 import { logWarn } from '../lib/errorLog';
 import { confirmExternal } from '../lib/externalLinks';
+import { findFontByStack } from '../lib/fonts';
 
 // --- Preview bridge ---
 // The preview iframe is origin-isolated (no `allow-same-origin`), so the parent
@@ -428,10 +429,14 @@ export default function usePreviewBridge({
   // Verdict on a committed in-place text edit (editId echoes the committed
   // payload so the frame restores exactly the right element when several
   // edits are in flight). ok=false (or a bridge-side timeout) reverts the
-  // typing in the frame; ok=true leaves it and the reloaded source takes
-  // over momentarily.
-  const replyInlineEditResult = useCallback((ok, editId) => {
-    sendRef.current('inline-edit-result', { ok: !!ok, editId: editId == null ? null : editId });
+  // typing in the frame; ok=true keeps the live edit in place (syncing the
+  // frame's source positions when provided) without reloading the frame.
+  const replyInlineEditResult = useCallback((ok, editId, sourceSync = null) => {
+    sendRef.current('inline-edit-result', {
+      ok: !!ok,
+      editId: editId == null ? null : editId,
+      ...(sourceSync ? { sourceSync } : {}),
+    });
   }, []);
 
   // Text toolbar -> live editing session. `format` previews styles on the
@@ -439,7 +444,11 @@ export default function usePreviewBridge({
   // the session open while focus is on the toolbar; `finish` is the Done /
   // Cancel keys.
   const formatInlineText = useCallback((styles) => {
-    sendRef.current('inline-format', { styles });
+    const font = styles?.fontFamily ? findFontByStack(styles.fontFamily) : null;
+    sendRef.current('inline-format', {
+      styles,
+      ...(font?.google ? { fontGoogle: font.google } : {}),
+    });
   }, []);
   const holdInlineText = useCallback((hold) => {
     sendRef.current('inline-hold', { hold: !!hold });
@@ -450,8 +459,8 @@ export default function usePreviewBridge({
     sendRef.current('inline-finish', { commit: !!commit });
   }, []);
 
-  // Put a reloaded frame back where the user was (used after an in-place
-  // edit commit, which reloads the document from the edited source).
+  // Put a reloaded frame back where the user was (used after direct edits
+  // that reload the document from the edited source).
   const restoreScroll = useCallback((x, y) => {
     sendRef.current('restore-scroll', { x: x || 0, y: y || 0 });
   }, []);

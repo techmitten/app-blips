@@ -129,10 +129,16 @@
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
-/* Chat scrollbar refinement */
-.chat-scrollbar {
-  scrollbar-width: auto;
-  scrollbar-color: var(--color-slate-300) transparent;
+/* Chat scrollbar refinement. Chromium (Chrome 121+, Electron) ignores the
+   ::-webkit-scrollbar rules below whenever scrollbar-width/scrollbar-color is
+   set, and falls back to its native bar: arrow buttons and light track edges
+   that read as two white lines in dark theme. So the standard properties are
+   for browsers without the pseudo-elements (Firefox) only. */
+@supports not selector(::-webkit-scrollbar) {
+  .chat-scrollbar {
+    scrollbar-width: auto;
+    scrollbar-color: var(--color-slate-300) transparent;
+  }
 }
 .chat-scrollbar::-webkit-scrollbar {
   width: 10px;
