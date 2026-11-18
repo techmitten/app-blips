@@ -26,7 +26,7 @@ export const SIGN_IN_REQUIRED = 'Sign in with Google or GitHub to use Free AI. Y
 // with the error to send (401). `request` is a Fetch Request. Tokens must be
 // signed by the instance's key, unexpired, and issued to this page's own
 // origin (or one in APPBLIPS_CHAT_ALLOWED_ORIGINS).
-export async function checkFreeSignIn(request, env, { verify = verifyToken } = {}) {
+export async function checkFreeSignIn(request, env, { verify = verifyToken, onReject = null } = {}) {
   const config = freeSignInConfig(env);
   if (!config) return { user: null };
   const header = request.headers.get('authorization') || '';
@@ -36,10 +36,14 @@ export async function checkFreeSignIn(request, env, { verify = verifyToken } = {
   try { origin = new URL(request.url).origin; } catch { /* no origin: only the allowed list */ }
   const authorizedParties = [origin, ...read(env, 'APPBLIPS_CHAT_ALLOWED_ORIGINS').split(',').map((o) => o.trim())].filter(Boolean);
   try {
-    const claims = await verify(token, { jwtKey: config.jwtKey, authorizedParties });
+    const verifyOptions = config.jwtKey
+      ? { jwtKey: config.jwtKey, authorizedParties }
+      : { secretKey: config.secretKey, authorizedParties };
+    const claims = await verify(token, verifyOptions);
     if (typeof claims?.sub !== 'string' || !claims.sub) return { refused: SIGN_IN_REQUIRED };
     return { user: claims.sub };
-  } catch {
+  } catch (err) {
+    onReject?.(err?.reason || err?.message || String(err));
     // Expired, for another site, or not Clerk's: the page signs in again.
     return { refused: SIGN_IN_REQUIRED };
   }

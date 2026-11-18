@@ -20,6 +20,13 @@ const listeners = new Set();
 // otherwise stall every Free AI request. Reloading the page tries again.
 const LOAD_TIMEOUT_MS = 20_000;
 export const SIGN_IN_UNAVAILABLE = 'The Free AI sign-in couldn’t load. Check your internet connection (or anything that blocks sign-in pages), then reload the page. You can also use your own API key in Settings → AI.';
+export const LOCALHOST_LIVE_KEY_UNAVAILABLE = 'Clerk live keys (pk_live_…) do not allow localhost or 127.0.0.1. Use a Clerk test key (pk_test_…) in .env to test sign-in locally.';
+
+const isLoopbackHost = () => {
+  if (typeof window === 'undefined') return false;
+  const host = window.location?.hostname?.toLowerCase() || '';
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.endsWith('.localhost');
+};
 
 const CLERK_FLOW_PATTERN = /(?:__clerk_|\/(?:sso-callback|factor-|reset-password|verify|continue|tasks|create)(?:[/?#]|$))/i;
 
@@ -41,11 +48,114 @@ const signInOptions = () => {
 
 // Clerk's modal sits near the top by default, and its 100vw backdrop counts
 // the scrollbar, so it can sit off centre. Centre it like the app's dialogs.
+// Also keep users on their OAuth account by hiding email edits in Profile
+// details and the password section in Security.
 const APPEARANCE = {
   elements: {
     modalBackdrop: { width: '100%', alignItems: 'center' },
     modalContent: { margin: 'auto' },
+    profileSectionPrimaryButton__emailAddresses: { display: 'none' },
+    profileSectionItem__emailAddresses: {
+      '& .cl-menuButton': { display: 'none' },
+    },
+    profileSection__password: { display: 'none' },
+    profileSectionPrimaryButton__password: { display: 'none' },
   },
+};
+
+export const OAUTH_EMAIL_LOCKED_MESSAGE = 'Your email address is tied to your OAuth account and cannot be added or changed.';
+export const OAUTH_PASSWORD_LOCKED_MESSAGE = 'Passwords are disabled; sign in with your OAuth account.';
+
+const lockedEnvironments = new WeakSet();
+const lockedUsers = new WeakSet();
+const lockedEmails = new WeakSet();
+const wrappedClerks = new WeakSet();
+
+const lockedError = (message, code) => {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+};
+
+const lockEnvironmentAttributes = (env) => {
+  const attrs = env?.userSettings?.attributes;
+  if (!attrs || typeof attrs !== 'object' || lockedEnvironments.has(attrs)) return;
+  lockedEnvironments.add(attrs);
+  const setAttrProp = (attr, key, value) => {
+    if (!attr || typeof attr !== 'object') return;
+    try {
+      attr[key] = value;
+    } catch {
+      // Ignore frozen environment objects; APPEARANCE still hides the controls.
+    }
+  };
+  setAttrProp(attrs.email_address, 'immutable', true);
+  setAttrProp(attrs.password, 'enabled', false);
+  setAttrProp(attrs.password, 'required', false);
+};
+
+const lockUserMethods = (user) => {
+  if (!user || typeof user !== 'object') return;
+  if (!lockedUsers.has(user)) {
+    lockedUsers.add(user);
+    if (typeof user.createEmailAddress === 'function') {
+      user.createEmailAddress = async () => {
+        throw lockedError(OAUTH_EMAIL_LOCKED_MESSAGE, 'oauth_email_locked');
+      };
+    }
+    if (typeof user.updatePassword === 'function') {
+      user.updatePassword = async () => {
+        throw lockedError(OAUTH_PASSWORD_LOCKED_MESSAGE, 'oauth_password_locked');
+      };
+    }
+    if (typeof user.update === 'function') {
+      const originalUpdate = user.update.bind(user);
+      user.update = async (params, ...rest) => {
+        if (
+          params
+          && typeof params === 'object'
+          && Object.prototype.hasOwnProperty.call(params, 'primaryEmailAddressId')
+          && params.primaryEmailAddressId !== user.primaryEmailAddressId
+        ) {
+          throw lockedError(OAUTH_EMAIL_LOCKED_MESSAGE, 'oauth_email_locked');
+        }
+        return originalUpdate(params, ...rest);
+      };
+    }
+  }
+  if (Array.isArray(user.emailAddresses)) {
+    for (const email of user.emailAddresses) {
+      if (email && typeof email === 'object' && !lockedEmails.has(email)) {
+        lockedEmails.add(email);
+        if (typeof email.destroy === 'function') {
+          email.destroy = async () => {
+            throw lockedError(OAUTH_EMAIL_LOCKED_MESSAGE, 'oauth_email_locked');
+          };
+        }
+      }
+    }
+  }
+};
+
+/**
+ * Locks OAuth-only account fields on a Clerk instance so users cannot add,
+ * remove, or change email addresses or set a password.
+ */
+export const lockOAuthAccount = (clerk) => {
+  if (!clerk) return;
+  lockEnvironmentAttributes(clerk.__internal_environment);
+  lockEnvironmentAttributes(clerk.environment);
+  if (!wrappedClerks.has(clerk)) {
+    wrappedClerks.add(clerk);
+    if (typeof clerk.updateEnvironment === 'function') {
+      const originalUpdateEnvironment = clerk.updateEnvironment.bind(clerk);
+      clerk.updateEnvironment = (env, ...rest) => {
+        lockEnvironmentAttributes(env);
+        return originalUpdateEnvironment(env, ...rest);
+      };
+    }
+  }
+  lockUserMethods(clerk.user);
 };
 
 // A press outside the sign-in modal would close it (Clerk has no setting for
@@ -111,7 +221,10 @@ export const shouldFollowClerkRoute = (to, clerk, currentHref = typeof window !=
  */
 export const syncClerkSession = async (clerk, { forceReload = false } = {}) => {
   if (!clerk) return false;
-  if (!forceReload && clerk.isSignedIn && clerk.session) return true;
+  if (!forceReload && clerk.isSignedIn && clerk.session) {
+    lockOAuthAccount(clerk);
+    return true;
+  }
   if (syncPromise) return syncPromise;
   syncPromise = (async () => {
     try {
@@ -130,6 +243,7 @@ export const syncClerkSession = async (clerk, { forceReload = false } = {}) => {
           logWarn('Could not activate the existing Free AI session', err);
         }
       }
+      lockOAuthAccount(clerk);
       if (clerk.isSignedIn || clerk.session?.status === 'active') {
         clerk.closeSignIn?.();
         notify();
@@ -226,7 +340,10 @@ export const loadFreeSignIn = async ({ importClerk = defaultImportClerk } = {}) 
         keepSignInOpen();
         return instance;
       })()]);
-      clerk.addListener(({ session }) => {
+      lockOAuthAccount(clerk);
+      clerk.addListener(({ session, user }) => {
+        lockOAuthAccount(clerk);
+        if (user) lockUserMethods(user);
         // Signed in: the sign-in modal has done its job (Clerk would otherwise
         // leave it to the navigation that no longer happens).
         if (session) clerk.closeSignIn();
@@ -238,6 +355,9 @@ export const loadFreeSignIn = async ({ importClerk = defaultImportClerk } = {}) 
       return clerk;
     } catch (err) {
       logError('Could not load the Free AI sign-in', err);
+      if (isLoopbackHost() && config.publishableKey.startsWith('pk_live_')) {
+        throw new Error(LOCALHOST_LIVE_KEY_UNAVAILABLE);
+      }
       throw new Error(SIGN_IN_UNAVAILABLE);
     } finally {
       clearTimeout(timer);
@@ -285,6 +405,7 @@ export const openFreeAccountDashboard = async () => {
     clerk.openSignIn(signInOptions());
     return false;
   }
+  lockOAuthAccount(clerk);
   clerk.openUserProfile({ appearance: APPEARANCE });
   return true;
 };
@@ -304,6 +425,7 @@ export const deleteFreeAccount = async () => {
     await clerk.user.delete();
   } catch (err) {
     if (isReverificationError(err)) {
+      lockOAuthAccount(clerk);
       clerk.openUserProfile({ appearance: APPEARANCE });
       return { deleted: false, needsReverification: true };
     }

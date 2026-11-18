@@ -15,7 +15,7 @@
 // Only Node built-ins plus electron/server, so the Docker image ships it as
 // one bundled file (scripts/build-server.js) with no node_modules.
 import { createServer } from 'node:http';
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +35,7 @@ import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
 import { checkFreeSignIn } from './electron/server/freeAuth.js';
+import { withDotenvPemFallback } from './electron/server/freeSignInConfig.js';
 import { handleClerkWebhook } from './electron/server/clerkWebhook.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 import { resolveAddresses } from './electron/server/dnsLookup.js';
@@ -43,6 +44,10 @@ import { resolveAddresses } from './electron/server/dnsLookup.js';
 // settings as real environment variables instead; those win over the file.
 try {
   process.loadEnvFile();
+  const repaired = withDotenvPemFallback(process.env, readFileSync('.env', 'utf8'));
+  if (repaired.CLERK_JWT_KEY && repaired.CLERK_JWT_KEY !== process.env.CLERK_JWT_KEY) {
+    process.env.CLERK_JWT_KEY = repaired.CLERK_JWT_KEY;
+  }
 } catch (err) {
   // No .env is normal: environment only.
   if (err.code !== 'ENOENT') console.warn('[server] could not read .env:', err);
@@ -59,7 +64,9 @@ const handleUnsplashApi = createUnsplashApi();
 // reach; APPBLIPS_FREE_LIMITS=off turns them off (freeLimits.js).
 const freeLimits = freeLimitsEnabled(process.env) ? createFreeLimits(process.env) : null;
 // With Clerk keys set, Free AI needs a Google or GitHub sign-in (freeAuth.js).
-const checkSignIn = (request) => checkFreeSignIn(request, process.env);
+const checkSignIn = (request) => checkFreeSignIn(request, process.env, {
+  onReject: (reason) => console.warn('[free-auth] token verification failed:', reason),
+});
 removeLegacyKeyFiles();
 
 const sendText = (res, status, text, headers = {}) => {

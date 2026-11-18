@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, createSign } from 'node:crypto';
 import { checkFreeSignIn, freeSignInConfig, freeSignInStatus, SIGN_IN_REQUIRED } from '../electron/server/freeAuth.js';
+import { withDotenvPemFallback } from '../electron/server/freeSignInConfig.js';
 import { handleChatProxy } from '../electron/server/chatProxy.js';
 import { createFreeLimits } from '../electron/server/freeLimits.js';
 
@@ -38,6 +39,20 @@ test('sign-in is only asked for when both Clerk keys are set, and can be turned 
   // The page only ever learns the publishable key.
   assert.deepEqual(freeSignInStatus(CLERK), { freeSignIn: { publishableKey: CLERK.CLERK_PUBLISHABLE_KEY } });
   assert.deepEqual(freeSignInStatus({}), {});
+  // VITE_CLERK_PUBLISHABLE_KEY and matching CLERK_SECRET_KEY work as fallbacks, and truncated PEMs are ignored.
+  assert.equal(freeSignInConfig({ VITE_CLERK_PUBLISHABLE_KEY: CLERK.CLERK_PUBLISHABLE_KEY, CLERK_JWT_KEY: '-----BEGIN PUBLIC KEY-----' }), null);
+  assert.equal(freeSignInConfig({ VITE_CLERK_PUBLISHABLE_KEY: CLERK.CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY: 'sk_live_mismatch' }), null);
+  const fallback = freeSignInConfig({
+    VITE_CLERK_PUBLISHABLE_KEY: CLERK.CLERK_PUBLISHABLE_KEY,
+    CLERK_JWT_KEY: '-----BEGIN PUBLIC KEY-----',
+    CLERK_SECRET_KEY: 'sk_test_example',
+  });
+  assert.deepEqual(fallback, { publishableKey: CLERK.CLERK_PUBLISHABLE_KEY, secretKey: 'sk_test_example' });
+  const repaired = withDotenvPemFallback(
+    { VITE_CLERK_PUBLISHABLE_KEY: CLERK.CLERK_PUBLISHABLE_KEY, CLERK_JWT_KEY: '-----BEGIN PUBLIC KEY-----' },
+    `VITE_CLERK_PUBLISHABLE_KEY=${CLERK.CLERK_PUBLISHABLE_KEY}\nCLERK_JWT_KEY=${PEM}\n`,
+  );
+  assert.equal(freeSignInConfig(repaired).jwtKey, PEM.trim());
 });
 
 test('a valid token for this site names the user; anything else is refused', async () => {

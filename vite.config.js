@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { readFileSync } from 'node:fs'
+import { createPublicKey } from 'node:crypto'
 import { handleChatProxy } from './electron/server/chatProxy.js'
 import { describeConfig, formatConfigSummary } from './electron/server/configSummary.js'
 import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js'
@@ -17,7 +18,38 @@ import { resolveAddresses } from './electron/server/dnsLookup.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
 import { checkFreeSignIn } from './electron/server/freeAuth.js'
+import { freeSignInConfig, withDotenvPemFallback } from './electron/server/freeSignInConfig.js'
 import { licensePlugin } from './scripts/licenses.js'
+
+const loadAppEnv = (mode) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  try {
+    return withDotenvPemFallback(env, readFileSync('.env', 'utf8'))
+  } catch {
+    return env
+  }
+}
+
+const logRejectedSignIn = (reason) => console.warn('[free-auth] token verification failed:', reason)
+
+async function warnIfClerkJwtKeyMismatched(env) {
+  const cfg = freeSignInConfig(env)
+  if (!cfg?.jwtKey) return
+  try {
+    const rawDomain = Buffer.from(cfg.publishableKey.replace(/^pk_(test|live)_/, ''), 'base64').toString('utf8')
+    const domain = rawDomain.replace(/\$$/, '')
+    if (!domain.includes('.')) return
+    const jwk = createPublicKey(cfg.jwtKey).export({ format: 'jwk' })
+    const res = await fetch(`https://${domain}/.well-known/jwks.json`, { signal: AbortSignal.timeout(2500) })
+    if (!res.ok) return
+    const { keys } = await res.json()
+    if (Array.isArray(keys) && !keys.some((k) => k.n === jwk.n)) {
+      console.warn(`[free-auth] CLERK_JWT_KEY in .env does not match ${domain}. Copy the JWT public key (or matching secret key) from that Clerk instance.`)
+    }
+  } catch {
+    // Offline or non-standard PEM: skip startup check.
+  }
+}
 
 // Vite's connect server does not catch rejections from async middleware; on
 // modern Node that kills the whole dev server, so the proxy goes through this
@@ -53,7 +85,9 @@ function configSummaryPlugin(mode) {
     configureServer(server) {
       server.httpServer?.once('listening', () => {
         // Same env the middleware below reads: .env plus the process environment.
-        console.log('\n' + formatConfigSummary(describeConfig(loadEnv(mode, process.cwd(), ''))) + '\n')
+        const env = loadAppEnv(mode)
+        console.log('\n' + formatConfigSummary(describeConfig(env, { isDev: true })) + '\n')
+        warnIfClerkJwtKeyMismatched(env)
       })
     },
   }
@@ -70,7 +104,7 @@ function llmProxyDevMiddleware(mode) {
   return {
     name: 'appblips-llm-proxy-dev-middleware',
     configureServer(server) {
-      const env = loadEnv(mode, process.cwd(), '')
+      const env = loadAppEnv(mode)
       // Saved keys come from the browser with each request, as in server.js
       // (browserKeys.js). These routes run before Vite's own host check, so
       // even when the server is put on the network (`npm run dev -- --host`)
@@ -92,7 +126,7 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const incoming = await toChatRequest(req, res)
-        const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env) }))
+        const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env, { onReject: logRejectedSignIn }) }))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       server.middlewares.use('/api/provider', guarded(async (req, res) => {
@@ -157,7 +191,7 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const request = await toFetchRequest(req, res)
-        const response = await withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env) }))
+        const response = await withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env, { onReject: logRejectedSignIn }) }))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The built-in photo library, with the .env's Unsplash key.

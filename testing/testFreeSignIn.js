@@ -38,7 +38,20 @@ const stubClerk = ({
   lastActiveSessionId = null,
   token = 'jwt-token',
 } = {}) => {
-  const calls = { reload: 0, setActive: [], openSignIn: [], closeSignIn: 0, openUserProfile: [], closeUserProfile: 0, getToken: 0, deleteUser: 0 };
+  const calls = {
+    reload: 0,
+    setActive: [],
+    openSignIn: [],
+    closeSignIn: 0,
+    openUserProfile: [],
+    closeUserProfile: 0,
+    getToken: 0,
+    deleteUser: 0,
+    createEmailAddress: 0,
+    updatePassword: 0,
+    updateUser: [],
+    destroyEmail: 0,
+  };
   const listeners = new Set();
   const client = {
     signedInSessions,
@@ -47,18 +60,46 @@ const stubClerk = ({
       calls.reload += 1;
     },
   };
-  const makeUser = () => ({
-    fullName: 'Ada Lovelace',
-    imageUrl: 'https://img.example/ada.png',
-    primaryEmailAddress: { emailAddress: 'u@example.com' },
-    async delete() { calls.deleteUser += 1; },
+  const makeEmail = (id, emailAddress) => ({
+    id,
+    emailAddress,
+    async destroy() { calls.destroyEmail += 1; },
   });
+  const makeUser = () => {
+    const primary = makeEmail('email_1', 'u@example.com');
+    const secondary = makeEmail('email_2', 'alt@example.com');
+    return {
+      fullName: 'Ada Lovelace',
+      imageUrl: 'https://img.example/ada.png',
+      primaryEmailAddressId: 'email_1',
+      primaryEmailAddress: primary,
+      emailAddresses: [primary, secondary],
+      async createEmailAddress() { calls.createEmailAddress += 1; },
+      async updatePassword() { calls.updatePassword += 1; },
+      async update(params) { calls.updateUser.push(params); },
+      async delete() { calls.deleteUser += 1; },
+    };
+  };
+  const environment = {
+    userSettings: {
+      attributes: {
+        email_address: { enabled: true, immutable: false },
+        password: { enabled: true, required: false },
+      },
+    },
+  };
   const instance = {
     client,
+    environment,
+    __internal_environment: environment,
     session: initialSession,
     user: initialSession ? makeUser() : null,
     get isSignedIn() {
       return Boolean(this.session && this.session.status !== 'pending');
+    },
+    updateEnvironment(nextEnv) {
+      this.environment = nextEnv;
+      this.__internal_environment = nextEnv;
     },
     async load(opts) {
       calls.loadOpts = opts;
@@ -71,7 +112,7 @@ const stubClerk = ({
       calls.setActive.push(session);
       this.session = session;
       this.user = session ? makeUser() : null;
-      for (const fn of listeners) fn({ session });
+      for (const fn of listeners) fn({ session, user: this.user });
     },
     openSignIn(opts) {
       calls.openSignIn.push(opts);
@@ -235,12 +276,77 @@ test('freeSignInState reports user profile fields and openFreeAccountDashboard o
 
   assert.equal(await mod.openFreeAccountDashboard(), true);
   assert.equal(stub.calls.openUserProfile.length, 1);
+  assert.deepEqual(
+    stub.calls.openUserProfile[0].appearance?.elements?.profileSectionPrimaryButton__emailAddresses,
+    { display: 'none' },
+  );
+  assert.deepEqual(
+    stub.calls.openUserProfile[0].appearance?.elements?.profileSectionItem__emailAddresses,
+    { '& .cl-menuButton': { display: 'none' } },
+  );
+  assert.deepEqual(
+    stub.calls.openUserProfile[0].appearance?.elements?.profileSection__password,
+    { display: 'none' },
+  );
+  assert.deepEqual(
+    stub.calls.openUserProfile[0].appearance?.elements?.profileSectionPrimaryButton__password,
+    { display: 'none' },
+  );
+  assert.equal(stub.instance.environment.userSettings.attributes.email_address.immutable, true);
+  assert.equal(stub.instance.environment.userSettings.attributes.password.enabled, false);
 
   const signedOutStub = stubClerk({ signedInSessions: [] });
   const signedOutMod = await loadFreshModule('profile-out', signedOutStub);
   assert.equal(await signedOutMod.openFreeAccountDashboard(), false);
   assert.equal(signedOutStub.calls.openUserProfile.length, 0);
   assert.equal(signedOutStub.calls.openSignIn.length, 1);
+});
+
+test('OAuth account lock prevents adding, removing, or changing email and setting a password while allowing name edits', async () => {
+  const activeSession = { id: 'sess_lock', status: 'active' };
+  const stub = stubClerk({ signedInSessions: [activeSession], initialSession: activeSession });
+  const mod = await loadFreshModule('account-lock', stub);
+
+  assert.equal(stub.instance.environment.userSettings.attributes.email_address.immutable, true);
+  assert.equal(stub.instance.environment.userSettings.attributes.password.enabled, false);
+  assert.equal(stub.instance.environment.userSettings.attributes.password.required, false);
+
+  // Environment reloads from Clerk keep email_address immutable and password disabled.
+  stub.instance.updateEnvironment({
+    userSettings: {
+      attributes: {
+        email_address: { enabled: true, immutable: false },
+        password: { enabled: true, required: true },
+      },
+    },
+  });
+  assert.equal(stub.instance.environment.userSettings.attributes.email_address.immutable, true);
+  assert.equal(stub.instance.environment.userSettings.attributes.password.enabled, false);
+  assert.equal(stub.instance.environment.userSettings.attributes.password.required, false);
+
+  await assert.rejects(
+    () => stub.instance.user.createEmailAddress({ email: 'other@example.com' }),
+    { message: mod.OAUTH_EMAIL_LOCKED_MESSAGE },
+  );
+  await assert.rejects(
+    () => stub.instance.user.update({ primaryEmailAddressId: 'email_2' }),
+    { message: mod.OAUTH_EMAIL_LOCKED_MESSAGE },
+  );
+  await assert.rejects(
+    () => stub.instance.user.emailAddresses[0].destroy(),
+    { message: mod.OAUTH_EMAIL_LOCKED_MESSAGE },
+  );
+  await assert.rejects(
+    () => stub.instance.user.updatePassword({ newPassword: 'secret-password' }),
+    { message: mod.OAUTH_PASSWORD_LOCKED_MESSAGE },
+  );
+  assert.equal(stub.calls.createEmailAddress, 0);
+  assert.equal(stub.calls.destroyEmail, 0);
+  assert.equal(stub.calls.updatePassword, 0);
+
+  // Updating profile name fields still passes through normally.
+  await stub.instance.user.update({ firstName: 'Grace', lastName: 'Hopper' });
+  assert.deepEqual(stub.calls.updateUser, [{ firstName: 'Grace', lastName: 'Hopper' }]);
 });
 
 test('deleteFreeAccount deletes user and clears session, or falls back to UserProfile on reverification', async () => {
@@ -267,4 +373,34 @@ test('deleteFreeAccount deletes user and clears session, or falls back to UserPr
   assert.deepEqual(await revMod.deleteFreeAccount(), { deleted: false, needsReverification: true });
   assert.equal(revStub.calls.openUserProfile.length, 1);
   assert.equal(revStub.instance.session.id, 'sess_rev');
+});
+
+test('loadFreeSignIn reports a localhost-specific message when a live key fails on loopback', async () => {
+  const prevHref = globalThis.window.location.href;
+  const prevHostname = globalThis.window.location.hostname;
+  globalThis.window.location.href = 'http://127.0.0.1:5175/';
+  globalThis.window.location.hostname = '127.0.0.1';
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    id: '',
+    hasKey: false,
+    envConfigured: true,
+    freeSignIn: { publishableKey: 'pk_live_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk' },
+  }), { headers: { 'content-type': 'application/json' } });
+
+  const origError = console.error;
+  console.error = () => {};
+  try {
+    const mod = await import('../src/lib/freeSignIn.js?case=localhost-live');
+    class FailingClerk {
+      async load() { throw new Error('Invalid HTTP Origin header'); }
+    }
+    await assert.rejects(
+      () => mod.loadFreeSignIn({ importClerk: async () => [{ Clerk: FailingClerk }, { ui: {} }] }),
+      { message: mod.LOCALHOST_LIVE_KEY_UNAVAILABLE },
+    );
+  } finally {
+    console.error = origError;
+    globalThis.window.location.href = prevHref;
+    globalThis.window.location.hostname = prevHostname;
+  }
 });

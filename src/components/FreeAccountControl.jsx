@@ -89,10 +89,11 @@ export default function FreeAccountControl({
     };
   }, [menuOpen]);
 
-  if (!state?.required || (!state.signedIn && state.error)) return null;
+  if (!state?.required) return null;
 
   const accountLabel = state.email || state.displayName || state.name || '';
   const shortLabel = shortLabelFor(state);
+  const signInError = !state.signedIn ? state.error : '';
 
   const runAction = async (fn) => {
     setMenuOpen(false);
@@ -143,24 +144,29 @@ export default function FreeAccountControl({
     const itemClass = variant === 'studio-menu' ? 'studio-menu-item studio-focus' : 'mobile-menu-item';
     if (!state.signedIn) {
       return (
-        <button
-          type="button"
-          onClick={() => runAction(account.signIn)}
-          disabled={busy}
-          className={itemClass}
-        >
-          <LogIn size={16} aria-hidden="true" />
-          <span>Sign in</span>
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => runAction(account.signIn)}
+            disabled={busy || Boolean(signInError)}
+            className={itemClass}
+            title={signInError || undefined}
+          >
+            <LogIn size={16} aria-hidden="true" />
+            <span>Sign in</span>
+          </button>
+          {signInError && (
+            <p role="alert" className="px-2 py-1 text-xs text-amber-500 dark:text-amber-400 leading-snug">
+              {signInError}
+            </p>
+          )}
+        </>
       );
     }
     return (
       <>
         <div className="px-2 py-2 rounded-lg border border-slate-200/20 bg-white/5 flex items-center gap-2.5">
-          <span className="relative inline-flex shrink-0">
-            <AccountAvatar state={state} size={24} />
-            <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
-          </span>
+          <AccountAvatar state={state} size={24} />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold truncate">{state.displayName || 'Signed in'}</p>
             {state.email && state.email !== state.displayName && (
@@ -185,21 +191,39 @@ export default function FreeAccountControl({
     );
   }
 
+  const errorPopover = signInError && menuOpen && menuPos ? createPortal(
+    <div
+      ref={menuRef}
+      role="alert"
+      style={{ position: 'fixed', left: menuPos.left, top: menuPos.top, bottom: menuPos.bottom, width: menuPos.width, zIndex: 80 }}
+      className="bg-surface border border-slate-200 rounded-xl shadow-xl p-3 text-xs text-slate-700 leading-snug animate-scale-in"
+    >
+      <p className="font-semibold text-slate-900 mb-1">Sign-in unavailable</p>
+      <p className="text-slate-600">{signInError}</p>
+    </div>,
+    document.body,
+  ) : null;
+
   if (variant === 'rail') {
     if (!state.signedIn) {
       return (
-        <button
-          type="button"
-          onClick={() => runAction(account.signIn)}
-          disabled={busy}
-          className={`hero-rail-item${collapsed ? ' is-collapsed' : ''}`}
-          aria-label="Sign in"
-          data-tip="Sign in"
-          data-tip-side="right"
-        >
-          <LogIn size={17} aria-hidden="true" className="shrink-0" />
-          <span className={`hero-rail-label hidden ${collapsed ? '' : 'lg:inline'}`}>Sign in</span>
-        </button>
+        <>
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={signInError ? openMenu : () => runAction(account.signIn)}
+            disabled={busy}
+            aria-expanded={signInError ? menuOpen : undefined}
+            className={`hero-rail-item${collapsed ? ' is-collapsed' : ''}`}
+            aria-label={signInError ? `Sign in unavailable: ${signInError}` : 'Sign in'}
+            data-tip={signInError || 'Sign in'}
+            data-tip-side="right"
+          >
+            <LogIn size={17} aria-hidden="true" className="shrink-0" />
+            <span className={`hero-rail-label hidden ${collapsed ? '' : 'lg:inline'}`}>Sign in</span>
+          </button>
+          {errorPopover}
+        </>
       );
     }
     return (
@@ -216,10 +240,7 @@ export default function FreeAccountControl({
           data-tip={`Signed in as ${accountLabel || 'user'}`}
           data-tip-side="right"
         >
-          <span className="relative inline-flex shrink-0">
-            <AccountAvatar state={state} size={18} />
-            <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-current" />
-          </span>
+          <AccountAvatar state={state} size={18} />
           <span className={`hero-rail-label hidden truncate ${collapsed ? '' : 'lg:inline'}`}>{shortLabel}</span>
         </button>
         {menuOpen && menuPos && createPortal(
@@ -250,18 +271,23 @@ export default function FreeAccountControl({
         ? 'nav-btn nav-ghost nav-btn-icon shrink-0'
         : 'nav-btn nav-ghost nav-btn-icon';
     return (
-      <button
-        type="button"
-        onClick={() => runAction(account.signIn)}
-        disabled={busy}
-        className={btnClass}
-        data-tip={isTopbar ? undefined : 'Sign in to Free AI'}
-        title={isTopbar ? 'Sign in to Free AI' : undefined}
-        aria-label="Sign in to Free AI"
-      >
-        <LogIn size={16} aria-hidden="true" />
-        {!isMobile && <span className={isTopbar ? 'text-xs font-semibold' : 'hidden xl:inline'}>Sign in</span>}
-      </button>
+      <>
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={signInError ? openMenu : () => runAction(account.signIn)}
+          disabled={busy}
+          aria-expanded={signInError ? menuOpen : undefined}
+          className={btnClass}
+          data-tip={isTopbar ? undefined : (signInError || 'Sign in to Free AI')}
+          title={isTopbar ? (signInError || 'Sign in to Free AI') : undefined}
+          aria-label={signInError ? `Sign in unavailable: ${signInError}` : 'Sign in to Free AI'}
+        >
+          <LogIn size={16} aria-hidden="true" />
+          {!isMobile && <span className={isTopbar ? 'text-xs font-semibold' : 'hidden xl:inline'}>Sign in</span>}
+        </button>
+        {errorPopover}
+      </>
     );
   }
 
@@ -285,13 +311,7 @@ export default function FreeAccountControl({
         title={isTopbar ? `Signed in as ${accountLabel || 'user'}` : undefined}
         className={triggerClass}
       >
-        <span className="relative inline-flex shrink-0">
-          <AccountAvatar state={state} size={18} />
-          <span
-            aria-hidden="true"
-            className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-slate-900"
-          />
-        </span>
+        <AccountAvatar state={state} size={18} />
         {!isMobile && (
           <span className={isTopbar ? 'hidden sm:inline max-w-28 truncate text-xs font-semibold' : 'hidden xl:inline max-w-28 truncate'}>
             {shortLabel}
@@ -327,10 +347,7 @@ function AccountDropdown({ ref, pos, state, busy, onDashboard, onSignOut, onDele
       className="bg-surface border border-slate-200 rounded-xl shadow-xl py-1.5 text-slate-900 animate-scale-in"
     >
       <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
-        <span className="relative inline-flex shrink-0">
-          <AccountAvatar state={state} size={28} />
-          <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
-        </span>
+        <AccountAvatar state={state} size={28} />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-slate-900 truncate flex items-center gap-1.5">
             <span className="truncate">{state.displayName || 'Signed in'}</span>
