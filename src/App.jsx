@@ -67,6 +67,7 @@ import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_C
 
 import useTheme from './hooks/useTheme';
 import useProviderWeb from './hooks/useProviderWeb';
+import { useFreeSignIn } from './hooks/useFreeSignIn';
 import { refreshPhotoLibrary } from './lib/unsplash';
 import useVisualViewport from './hooks/useVisualViewport';
 import useChatFont from './hooks/useChatFont';
@@ -106,6 +107,7 @@ import { confirmExternal } from './lib/externalLinks';
 
 export default function App({ coldStart = false }) {
   useVisualViewport();
+  const freeAccount = useFreeSignIn();
   // --- Layout / chrome state ---
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
@@ -2756,6 +2758,7 @@ export default function App({ coldStart = false }) {
           projectCount={myProjects.length}
           seoProject={seoProject}
           galleryProject={galleryProject}
+          freeAccount={freeAccount}
         />
   );
 
@@ -2775,6 +2778,7 @@ export default function App({ coldStart = false }) {
           onOpenSettings={() => setIsSettingsOpen(true)}
           resolvedTheme={resolvedTheme}
           onToggleTheme={handleToggleTheme}
+          freeAccount={freeAccount}
         />
         {settingsModal}
         <DesktopStorageNotice />
@@ -2824,6 +2828,7 @@ export default function App({ coldStart = false }) {
         onMobileViewChange={setMobileView}
         onNewChat={handleStartNewChat}
         canNewChat={isChatActive && versions.length > 0 && !isGenerating}
+        freeAccount={freeAccount}
       />
       )}
 
@@ -2989,6 +2994,7 @@ export default function App({ coldStart = false }) {
           onLoadProject={loadProject}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenExtensions={() => { setSettingsInitialTab('connectors'); setIsSettingsOpen(true); }}
+          freeAccount={freeAccount}
         />
       ) : (
       <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative animate-fade-in">

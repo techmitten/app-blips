@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { freeSignInState, onFreeSignInChange, openFreeSignIn, signOutOfFreeAi } from '../lib/freeSignIn';
+import {
+  freeSignInState,
+  onFreeSignInChange,
+  openFreeAccountDashboard,
+  openFreeSignIn,
+  signOutOfFreeAi,
+} from '../lib/freeSignIn';
 import { logError } from '../lib/errorLog';
 import { SECONDARY_BUTTON } from './SettingControls';
 
@@ -42,9 +48,16 @@ export default function FreeSignInRow() {
           ? <>Signed in to Free AI{state.name ? <> as <strong className="font-semibold text-slate-700">{state.name}</strong></> : null}.</>
           : 'Free AI requires signing in with Google or GitHub.'}
       </p>
-      <button type="button" onClick={run(state.signedIn ? signOutOfFreeAi : openFreeSignIn)} disabled={busy} className={SECONDARY_BUTTON}>
-        {state.signedIn ? 'Sign out' : 'Sign in'}
-      </button>
+      <div className="flex items-center gap-2">
+        {state.signedIn && (
+          <button type="button" onClick={run(openFreeAccountDashboard)} disabled={busy} className={SECONDARY_BUTTON}>
+            Account
+          </button>
+        )}
+        <button type="button" onClick={run(state.signedIn ? signOutOfFreeAi : openFreeSignIn)} disabled={busy} className={SECONDARY_BUTTON}>
+          {state.signedIn ? 'Sign out' : 'Sign in'}
+        </button>
+      </div>
     </div>
   );
 }

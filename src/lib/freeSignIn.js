@@ -51,10 +51,15 @@ const APPEARANCE = {
 // A press outside the sign-in modal would close it (Clerk has no setting for
 // this). Clerk closes it only for a press on its backdrop element itself, so
 // swallow those at the window, before Clerk's listener on the document sees
-// them. The modal's close button and Escape still close it.
+// them. Only apply this to Sign-In / Sign-Up modals so the Account Dashboard
+// (UserProfile) modal can still be dismissed by clicking outside.
 const keepSignInOpen = () => {
   const swallow = (event) => {
-    if (event.target instanceof Element && event.target.classList.contains('cl-modalBackdrop')) {
+    if (
+      event.target instanceof Element
+      && event.target.classList.contains('cl-modalBackdrop')
+      && event.target.querySelector('.cl-signIn-root, .cl-signUp-root')
+    ) {
       event.preventDefault();
       event.stopImmediatePropagation();
     }
@@ -225,6 +230,7 @@ export const loadFreeSignIn = async ({ importClerk = defaultImportClerk } = {}) 
         // Signed in: the sign-in modal has done its job (Clerk would otherwise
         // leave it to the navigation that no longer happens).
         if (session) clerk.closeSignIn();
+        else clerk.closeUserProfile?.();
         notify();
       });
       syncWhenVisible(clerk);
@@ -240,17 +246,22 @@ export const loadFreeSignIn = async ({ importClerk = defaultImportClerk } = {}) 
   return clerkPromise;
 };
 
-// { required, signedIn, name } for Settings → AI. Loads Clerk only if the
-// server asks for sign-in.
+// { required, signedIn, name, displayName, email, imageUrl } for UI indicators
+// and Settings → AI. Loads Clerk only if the server asks for sign-in.
 export const freeSignInState = async () => {
   const clerk = await loadFreeSignIn();
-  if (!clerk) return { required: false, signedIn: false, name: '' };
+  if (!clerk) return { required: false, signedIn: false, name: '', displayName: '', email: '', imageUrl: '' };
   if (!clerk.isSignedIn) await syncClerkSession(clerk);
   const user = clerk.user;
+  const email = user?.primaryEmailAddress?.emailAddress || '';
+  const displayName = user ? (user.fullName || user.username || email || '') : '';
   return {
     required: true,
     signedIn: Boolean(clerk.isSignedIn && clerk.session && user),
-    name: user ? (user.primaryEmailAddress?.emailAddress || user.username || user.fullName || '') : '',
+    name: user ? (email || user.username || user.fullName || '') : '',
+    displayName,
+    email,
+    imageUrl: user?.imageUrl || '',
   };
 };
 
@@ -264,9 +275,55 @@ export const openFreeSignIn = async () => {
   return true;
 };
 
+// Opens Clerk's built-in UserProfile modal (Account Dashboard: profile,
+// connected accounts, active sessions, and account deletion).
+export const openFreeAccountDashboard = async () => {
+  const clerk = await loadFreeSignIn();
+  if (!clerk) return false;
+  const signedIn = await syncClerkSession(clerk, { forceReload: true });
+  if (!signedIn || !clerk.user) {
+    clerk.openSignIn(signInOptions());
+    return false;
+  }
+  clerk.openUserProfile({ appearance: APPEARANCE });
+  return true;
+};
+
+const isReverificationError = (err) => Array.isArray(err?.errors)
+  && err.errors.some((item) => item?.code === 'session_reverification_required');
+
+// Permanently deletes the signed-in Clerk user account. If Clerk requires
+// fresh OAuth reverification for an older session, opens Clerk's Account
+// Dashboard so the user can reverify and complete deletion there.
+export const deleteFreeAccount = async () => {
+  const clerk = await loadFreeSignIn();
+  if (!clerk) return { deleted: false };
+  const signedIn = await syncClerkSession(clerk, { forceReload: true });
+  if (!signedIn || !clerk.user) return { deleted: false };
+  try {
+    await clerk.user.delete();
+  } catch (err) {
+    if (isReverificationError(err)) {
+      clerk.openUserProfile({ appearance: APPEARANCE });
+      return { deleted: false, needsReverification: true };
+    }
+    throw err;
+  }
+  try {
+    await clerk.setActive?.({ session: null });
+  } catch (err) {
+    logWarn('Could not clear the deleted session locally', err);
+  }
+  clerk.closeUserProfile?.();
+  clerk.closeSignIn?.();
+  notify();
+  return { deleted: true };
+};
+
 export const signOutOfFreeAi = async () => {
   const clerk = await loadFreeSignIn();
   await clerk?.signOut();
+  clerk?.closeUserProfile?.();
   notify();
 };
 

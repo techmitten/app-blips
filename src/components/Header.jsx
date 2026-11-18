@@ -8,6 +8,7 @@ import {
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { DOCS_URL } from '../lib/constants';
 import { isDesktop, desktopBridge } from '../lib/desktop';
+import FreeAccountControl from './FreeAccountControl';
 
 
 
@@ -29,6 +30,7 @@ export default function Header({
   onMobileViewChange,
   onNewChat,
   canNewChat = false,
+  freeAccount = null,
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -214,6 +216,8 @@ export default function Header({
             <Compass size={16} />
             <span className="hidden xl:inline">Tour</span>
           </button>
+
+          <FreeAccountControl account={freeAccount} variant="header" />
         </div>
 
         {/* Rank 4: theme and exit */}
@@ -255,7 +259,10 @@ export default function Header({
         </div>
       </nav>
 
-      <div className="lg:hidden relative shrink-0">
+      <div className="lg:hidden relative flex items-center gap-1.5 shrink-0">
+        {freeAccount?.state?.signedIn && (
+          <FreeAccountControl account={freeAccount} variant="header-mobile" />
+        )}
         <button
           type="button"
           ref={triggerRef}
@@ -379,6 +386,7 @@ export default function Header({
                 <DoorOpen size={16} />
                 <span>Exit</span>
               </button>
+              <FreeAccountControl account={freeAccount} variant="menu" onBeforeAction={closeMobileMenu} />
               {isDesktop && (
                 <button
                   type="button"

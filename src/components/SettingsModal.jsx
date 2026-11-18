@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info, UserCog } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
+import DeleteAccountModal from './DeleteAccountModal';
 import ConnectorsSettings from './ConnectorsSettings';
 import DataSettings from './DataSettings';
 import AboutSettings from './AboutSettings';
@@ -150,6 +151,7 @@ export default function SettingsModal({
   initialTab = null,
   seoProject = null,
   galleryProject = null,
+  freeAccount = null,
 }) {
   const tabs = TABS;
   const [tab, setTab] = useState(() => (tabs.some((t) => t.id === initialTab) ? initialTab : loadTab(tabs)));
@@ -200,6 +202,7 @@ export default function SettingsModal({
 
   const [confirmResetApp, setConfirmResetApp] = useState(false);
   const [isResettingApp, setIsResettingApp] = useState(false);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
 
   const handleDeleteAll = async () => {
     setIsDeletingAll(true);
@@ -357,6 +360,39 @@ export default function SettingsModal({
 
           {tab === 'danger' && (
             <>
+              {freeAccount?.state?.required && freeAccount?.state?.signedIn && (
+                <SettingRow
+                  id="set-delete-account"
+                  title="Delete your account"
+                  description={
+                    <>
+                      Signed in as <strong className="font-semibold text-slate-700">{freeAccount.state.email || freeAccount.state.displayName || freeAccount.state.name}</strong>. Permanently delete your sign-in account, or manage it in the Account dashboard.
+                    </>
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => freeAccount.openDashboard().catch(() => {})}
+                      disabled={freeAccount.busy}
+                      className={SECONDARY_BUTTON}
+                    >
+                      <UserCog size={14} aria-hidden="true" className="inline mr-1.5 -mt-0.5" />
+                      Account dashboard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteAccount(true)}
+                      disabled={freeAccount.busy}
+                      aria-labelledby="set-delete-account"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 size={14} aria-hidden="true" />
+                      Delete account
+                    </button>
+                  </div>
+                </SettingRow>
+              )}
               <SettingRow
                 id="set-delete-all"
                 title="Delete all saved apps"
@@ -487,6 +523,13 @@ export default function SettingsModal({
             </span>
           </div>
         </ConfirmModal>
+      )}
+      {confirmDeleteAccount && freeAccount && (
+        <DeleteAccountModal
+          accountLabel={freeAccount.state?.email || freeAccount.state?.displayName || freeAccount.state?.name || ''}
+          onDelete={freeAccount.deleteAccount}
+          onClose={() => setConfirmDeleteAccount(false)}
+        />
       )}
     </Modal>
   );

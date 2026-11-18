@@ -8,6 +8,7 @@ import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import RotatingText from './reactbits/RotatingText';
 import WhatsNew from './WhatsNew';
 import FeedbackModal from './FeedbackModal';
+import FreeAccountControl from './FreeAccountControl';
 import { isUiSoundLocked, isUiSoundMuted, playBlip, setUiSoundMuted, subscribeUiSoundLocked } from '../lib/uiSound';
 
 // Lucide has no Discord mark, so this is the brand's own glyph (official
@@ -75,7 +76,7 @@ const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-
 
 const MENU_ITEM = `studio-menu-item ${FOCUS_RING}`;
 
-export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenProjects, onOpenSettings, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null }) {
+export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenProjects, onOpenSettings, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null, freeAccount = null }) {
   // Escape mirrors the on-screen close control, but only when there is
   // something to go back to (the forced gate has none). A modal open over the
   // picker (e.g. Settings) handles its own Escape first.
@@ -294,6 +295,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                     <Settings size={17} aria-hidden="true" />
                   </button>
                 )}
+                <FreeAccountControl account={freeAccount} variant="topbar" />
                 <button
                   type="button"
                   onClick={() => setMenuOpen(true)}
@@ -499,6 +501,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
             </button>
           </div>
           <div className="studio-menu-list">
+            <FreeAccountControl account={freeAccount} variant="studio-menu" onBeforeAction={() => setMenuOpen(false)} />
             {onOpenSettings && (
               <button type="button" className={MENU_ITEM} onClick={fromMenu(onOpenSettings)}>
                 <Settings size={18} aria-hidden="true" /> Settings

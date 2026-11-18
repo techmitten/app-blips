@@ -1,0 +1,382 @@
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ChevronDown, LogIn, LogOut, Trash2, User, UserCog } from 'lucide-react';
+import DeleteAccountModal from './DeleteAccountModal';
+
+const initialsFor = (state) => {
+  const source = (state.displayName || state.email || '').trim();
+  if (!source) return '';
+  const parts = source.split(/[\s@._-]+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return source.slice(0, 2).toUpperCase();
+};
+
+const shortLabelFor = (state) => {
+  const raw = (state.displayName || state.email || '').trim();
+  if (!raw) return 'Signed in';
+  const at = raw.indexOf('@');
+  if (at > 0) return raw.slice(0, at);
+  return raw;
+};
+
+function AccountAvatar({ state, size = 18 }) {
+  if (state.imageUrl) {
+    return (
+      <img
+        src={state.imageUrl}
+        alt=""
+        aria-hidden="true"
+        className="rounded-full object-cover shrink-0"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  const initials = initialsFor(state);
+  if (initials) {
+    return (
+      <span
+        aria-hidden="true"
+        className="inline-flex items-center justify-center rounded-full bg-indigo-500/20 text-indigo-400 font-bold shrink-0"
+        style={{ width: size, height: size, fontSize: Math.max(9, Math.round(size * 0.48)) }}
+      >
+        {initials}
+      </span>
+    );
+  }
+  return <User size={size - 2} aria-hidden="true" className="shrink-0" />;
+}
+
+/**
+ * Signed-in / Sign-in account control for headers, sidebars, and slide-out menus.
+ * Renders nothing unless the server requires Clerk sign-in for Free AI.
+ */
+export default function FreeAccountControl({
+  account,
+  variant = 'header',
+  collapsed = false,
+  onBeforeAction = null,
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const state = account?.state;
+  const busy = Boolean(account?.busy);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onPointerDown = (event) => {
+      if (triggerRef.current?.contains(event.target) || menuRef.current?.contains(event.target)) return;
+      setMenuOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        setMenuOpen(false);
+        triggerRef.current?.focus({ preventScroll: true });
+      }
+    };
+    const onResize = () => setMenuOpen(false);
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', onResize);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [menuOpen]);
+
+  if (!state?.required || (!state.signedIn && state.error)) return null;
+
+  const accountLabel = state.email || state.displayName || state.name || '';
+  const shortLabel = shortLabelFor(state);
+
+  const runAction = async (fn) => {
+    setMenuOpen(false);
+    onBeforeAction?.();
+    try {
+      await fn?.();
+    } catch {
+      // Logged in useFreeSignIn
+    }
+  };
+
+  const openMenu = () => {
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const width = 248;
+      const alignRight = variant !== 'rail';
+      const left = alignRight
+        ? Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width))
+        : Math.max(8, Math.min(window.innerWidth - width - 8, rect.left));
+      const openAbove = variant === 'rail' && rect.top > 240;
+      const top = openAbove ? undefined : Math.min(window.innerHeight - 220, rect.bottom + 8);
+      const bottom = openAbove ? Math.max(8, window.innerHeight - rect.top + 8) : undefined;
+      setMenuPos({ left, top, bottom, width });
+    }
+    setMenuOpen(true);
+  };
+
+  const requestDelete = () => {
+    setMenuOpen(false);
+    onBeforeAction?.();
+    setConfirmDelete(true);
+  };
+
+  const deleteModal = confirmDelete ? createPortal(
+    <DeleteAccountModal
+      accountLabel={accountLabel}
+      onDelete={account.deleteAccount}
+      onClose={() => setConfirmDelete(false)}
+    />,
+    document.body,
+  ) : null;
+
+  if (variant === 'menu' || variant === 'studio-menu') {
+    const itemClass = variant === 'studio-menu' ? 'studio-menu-item studio-focus' : 'mobile-menu-item';
+    if (!state.signedIn) {
+      return (
+        <button
+          type="button"
+          onClick={() => runAction(account.signIn)}
+          disabled={busy}
+          className={itemClass}
+        >
+          <LogIn size={16} aria-hidden="true" />
+          <span>Sign in</span>
+        </button>
+      );
+    }
+    return (
+      <>
+        <div className="px-2 py-2 rounded-lg border border-slate-200/20 bg-white/5 flex items-center gap-2.5">
+          <span className="relative inline-flex shrink-0">
+            <AccountAvatar state={state} size={24} />
+            <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold truncate">{state.displayName || 'Signed in'}</p>
+            {state.email && state.email !== state.displayName && (
+              <p className="text-[11px] opacity-75 truncate">{state.email}</p>
+            )}
+          </div>
+        </div>
+        <button type="button" onClick={() => runAction(account.openDashboard)} disabled={busy} className={itemClass}>
+          <UserCog size={16} aria-hidden="true" />
+          <span>Account dashboard</span>
+        </button>
+        <button type="button" onClick={() => runAction(account.signOut)} disabled={busy} className={itemClass}>
+          <LogOut size={16} aria-hidden="true" />
+          <span>Sign out</span>
+        </button>
+        <button type="button" onClick={requestDelete} disabled={busy} className={`${itemClass} text-red-400 hover:text-red-300`}>
+          <Trash2 size={16} aria-hidden="true" />
+          <span>Delete account</span>
+        </button>
+        {deleteModal}
+      </>
+    );
+  }
+
+  if (variant === 'rail') {
+    if (!state.signedIn) {
+      return (
+        <button
+          type="button"
+          onClick={() => runAction(account.signIn)}
+          disabled={busy}
+          className={`hero-rail-item${collapsed ? ' is-collapsed' : ''}`}
+          aria-label="Sign in"
+          data-tip="Sign in"
+          data-tip-side="right"
+        >
+          <LogIn size={17} aria-hidden="true" className="shrink-0" />
+          <span className={`hero-rail-label hidden ${collapsed ? '' : 'lg:inline'}`}>Sign in</span>
+        </button>
+      );
+    }
+    return (
+      <>
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={openMenu}
+          disabled={busy}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label={`Signed in as ${accountLabel || 'user'}. Open account menu`}
+          className={`hero-rail-item${collapsed ? ' is-collapsed' : ''}`}
+          data-tip={`Signed in as ${accountLabel || 'user'}`}
+          data-tip-side="right"
+        >
+          <span className="relative inline-flex shrink-0">
+            <AccountAvatar state={state} size={18} />
+            <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-current" />
+          </span>
+          <span className={`hero-rail-label hidden truncate ${collapsed ? '' : 'lg:inline'}`}>{shortLabel}</span>
+        </button>
+        {menuOpen && menuPos && createPortal(
+          <AccountDropdown
+            ref={menuRef}
+            pos={menuPos}
+            state={state}
+            busy={busy}
+            onDashboard={() => runAction(account.openDashboard)}
+            onSignOut={() => runAction(account.signOut)}
+            onDelete={requestDelete}
+          />,
+          document.body,
+        )}
+        {deleteModal}
+      </>
+    );
+  }
+
+  // 'header', 'header-mobile', 'topbar'
+  const isTopbar = variant === 'topbar';
+  const isMobile = variant === 'header-mobile';
+
+  if (!state.signedIn) {
+    const btnClass = isTopbar
+      ? 'studio-ghost-btn studio-focus inline-flex items-center justify-center gap-1.5 rounded-xl text-sm font-medium h-9 px-2.5 max-md:hidden'
+      : isMobile
+        ? 'nav-btn nav-ghost nav-btn-icon shrink-0'
+        : 'nav-btn nav-ghost nav-btn-icon';
+    return (
+      <button
+        type="button"
+        onClick={() => runAction(account.signIn)}
+        disabled={busy}
+        className={btnClass}
+        data-tip={isTopbar ? undefined : 'Sign in to Free AI'}
+        title={isTopbar ? 'Sign in to Free AI' : undefined}
+        aria-label="Sign in to Free AI"
+      >
+        <LogIn size={16} aria-hidden="true" />
+        {!isMobile && <span className={isTopbar ? 'text-xs font-semibold' : 'hidden xl:inline'}>Sign in</span>}
+      </button>
+    );
+  }
+
+  const triggerClass = isTopbar
+    ? 'studio-ghost-btn studio-focus inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium h-9 px-2.5'
+    : isMobile
+      ? 'nav-btn nav-ghost nav-btn-icon shrink-0'
+      : 'nav-btn nav-ghost nav-btn-icon';
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={openMenu}
+        disabled={busy}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label={`Signed in as ${accountLabel || 'user'}. Open account menu`}
+        data-tip={isTopbar ? undefined : `Signed in as ${accountLabel || 'user'}`}
+        title={isTopbar ? `Signed in as ${accountLabel || 'user'}` : undefined}
+        className={triggerClass}
+      >
+        <span className="relative inline-flex shrink-0">
+          <AccountAvatar state={state} size={18} />
+          <span
+            aria-hidden="true"
+            className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-slate-900"
+          />
+        </span>
+        {!isMobile && (
+          <span className={isTopbar ? 'hidden sm:inline max-w-28 truncate text-xs font-semibold' : 'hidden xl:inline max-w-28 truncate'}>
+            {shortLabel}
+          </span>
+        )}
+        {!isMobile && <ChevronDown size={13} aria-hidden="true" className="opacity-70 shrink-0 hidden sm:inline" />}
+      </button>
+
+      {menuOpen && menuPos && createPortal(
+        <AccountDropdown
+          ref={menuRef}
+          pos={menuPos}
+          state={state}
+          busy={busy}
+          onDashboard={() => runAction(account.openDashboard)}
+          onSignOut={() => runAction(account.signOut)}
+          onDelete={requestDelete}
+        />,
+        document.body,
+      )}
+      {deleteModal}
+    </>
+  );
+}
+
+function AccountDropdown({ ref, pos, state, busy, onDashboard, onSignOut, onDelete }) {
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      aria-label="Account menu"
+      style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, width: pos.width, zIndex: 80 }}
+      className="bg-surface border border-slate-200 rounded-xl shadow-xl py-1.5 text-slate-900 animate-scale-in"
+    >
+      <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center gap-2.5">
+        <span className="relative inline-flex shrink-0">
+          <AccountAvatar state={state} size={28} />
+          <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-slate-900 truncate flex items-center gap-1.5">
+            <span className="truncate">{state.displayName || 'Signed in'}</span>
+          </p>
+          {state.email && (
+            <p className="text-[11px] text-slate-500 truncate">{state.email}</p>
+          )}
+          <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Signed in</p>
+        </div>
+      </div>
+
+      <div className="py-1">
+        <button
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={onDashboard}
+          className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2.5 transition-colors disabled:opacity-50"
+        >
+          <UserCog size={15} aria-hidden="true" className="text-slate-500 shrink-0" />
+          <span>Account dashboard</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={onSignOut}
+          className="w-full px-3.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2.5 transition-colors disabled:opacity-50"
+        >
+          <LogOut size={15} aria-hidden="true" className="text-slate-500 shrink-0" />
+          <span>Sign out</span>
+        </button>
+      </div>
+
+      <div className="border-t border-slate-100 pt-1">
+        <button
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={onDelete}
+          className="w-full px-3.5 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-2.5 transition-colors disabled:opacity-50"
+        >
+          <Trash2 size={15} aria-hidden="true" className="shrink-0" />
+          <span>Delete account</span>
+        </button>
+      </div>
+    </div>
+  );
+}

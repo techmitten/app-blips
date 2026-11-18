@@ -27,7 +27,7 @@
 
 ---
 
-**AppBlips** lets anyone build functional apps, websites, and 2D games from natural-language descriptions—no coding required, with full code access when you want it.
+**AppBlips** lets anyone build functional apps, websites, and 3D games from natural-language descriptions—no coding required, with full code access when you want it.
 
 Run it locally with your own API key (Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter). There is no vendor lock-in: the generated code is always yours to keep.
 

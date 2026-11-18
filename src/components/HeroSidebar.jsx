@@ -7,6 +7,7 @@ import {
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import { DiscordIcon } from './StudioChoice';
 import FeedbackModal from './FeedbackModal';
+import FreeAccountControl from './FreeAccountControl';
 
 const MAX_RECENTS = 5;
 
@@ -49,6 +50,7 @@ export default function HeroSidebar({
   onLoadProject,
   onOpenSettings,
   onOpenExtensions,
+  freeAccount = null,
 }) {
   const recentProjects = recents.slice(0, MAX_RECENTS);
 
@@ -92,16 +94,21 @@ export default function HeroSidebar({
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setMenuOpen(true)}
-        className="hero-menu-btn ml-auto lg:hidden"
-        aria-label="Open menu"
-        aria-expanded={menuOpen}
-        aria-controls="hero-mobile-menu"
-      >
-        <Menu size={18} aria-hidden="true" />
-      </button>
+      <div className="ml-auto flex items-center gap-1 lg:hidden">
+        {freeAccount?.state?.signedIn && (
+          <FreeAccountControl account={freeAccount} variant="header-mobile" />
+        )}
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          className="hero-menu-btn"
+          aria-label="Open menu"
+          aria-expanded={menuOpen}
+          aria-controls="hero-mobile-menu"
+        >
+          <Menu size={18} aria-hidden="true" />
+        </button>
+      </div>
 
       <nav className="hidden lg:flex flex-col items-stretch gap-1 lg:flex-1 min-h-0" aria-label="Studio actions">
         <RailItem icon={Plus} label="New" collapsed={collapsed} onClick={onNewApp} primary />
@@ -137,6 +144,7 @@ export default function HeroSidebar({
         <RailItem icon={Settings} label="Settings" collapsed={collapsed} onClick={onOpenSettings} />
         <RailItem icon={MessageSquare} label="Feedback" collapsed={collapsed} onClick={() => setFeedbackOpen(true)} />
         <RailItem icon={CircleHelp} label="Help" collapsed={collapsed} href={DOCS_URL} />
+        <FreeAccountControl account={freeAccount} variant="rail" collapsed={collapsed} />
       </nav>
     </aside>
 
@@ -153,6 +161,7 @@ export default function HeroSidebar({
           </button>
         </div>
         <div className="studio-menu-list">
+          <FreeAccountControl account={freeAccount} variant="studio-menu" onBeforeAction={() => setMenuOpen(false)} />
           <button type="button" className="studio-menu-item" onClick={fromMenu(onNewApp)}>
             <Plus size={18} aria-hidden="true" /> New
           </button>

@@ -38,7 +38,7 @@ const stubClerk = ({
   lastActiveSessionId = null,
   token = 'jwt-token',
 } = {}) => {
-  const calls = { reload: 0, setActive: [], openSignIn: [], closeSignIn: 0, getToken: 0 };
+  const calls = { reload: 0, setActive: [], openSignIn: [], closeSignIn: 0, openUserProfile: [], closeUserProfile: 0, getToken: 0, deleteUser: 0 };
   const listeners = new Set();
   const client = {
     signedInSessions,
@@ -47,10 +47,16 @@ const stubClerk = ({
       calls.reload += 1;
     },
   };
+  const makeUser = () => ({
+    fullName: 'Ada Lovelace',
+    imageUrl: 'https://img.example/ada.png',
+    primaryEmailAddress: { emailAddress: 'u@example.com' },
+    async delete() { calls.deleteUser += 1; },
+  });
   const instance = {
     client,
     session: initialSession,
-    user: initialSession ? { primaryEmailAddress: { emailAddress: 'u@example.com' } } : null,
+    user: initialSession ? makeUser() : null,
     get isSignedIn() {
       return Boolean(this.session && this.session.status !== 'pending');
     },
@@ -64,7 +70,7 @@ const stubClerk = ({
     async setActive({ session }) {
       calls.setActive.push(session);
       this.session = session;
-      this.user = session ? { primaryEmailAddress: { emailAddress: 'u@example.com' } } : null;
+      this.user = session ? makeUser() : null;
       for (const fn of listeners) fn({ session });
     },
     openSignIn(opts) {
@@ -72,6 +78,12 @@ const stubClerk = ({
     },
     closeSignIn() {
       calls.closeSignIn += 1;
+    },
+    openUserProfile(opts) {
+      calls.openUserProfile.push(opts);
+    },
+    closeUserProfile() {
+      calls.closeUserProfile += 1;
     },
   };
   if (initialSession && !initialSession.getToken) {
@@ -205,4 +217,54 @@ test('freeSignInHeaders syncs session before getToken and handles getToken error
   } finally {
     console.error = origError;
   }
+});
+
+test('freeSignInState reports user profile fields and openFreeAccountDashboard opens UserProfile', async () => {
+  const activeSession = { id: 'sess_prof', status: 'active' };
+  const stub = stubClerk({ signedInSessions: [activeSession], initialSession: activeSession });
+  const mod = await loadFreshModule('profile', stub);
+
+  assert.deepEqual(await mod.freeSignInState(), {
+    required: true,
+    signedIn: true,
+    name: 'u@example.com',
+    displayName: 'Ada Lovelace',
+    email: 'u@example.com',
+    imageUrl: 'https://img.example/ada.png',
+  });
+
+  assert.equal(await mod.openFreeAccountDashboard(), true);
+  assert.equal(stub.calls.openUserProfile.length, 1);
+
+  const signedOutStub = stubClerk({ signedInSessions: [] });
+  const signedOutMod = await loadFreshModule('profile-out', signedOutStub);
+  assert.equal(await signedOutMod.openFreeAccountDashboard(), false);
+  assert.equal(signedOutStub.calls.openUserProfile.length, 0);
+  assert.equal(signedOutStub.calls.openSignIn.length, 1);
+});
+
+test('deleteFreeAccount deletes user and clears session, or falls back to UserProfile on reverification', async () => {
+  const activeSession = { id: 'sess_del', status: 'active' };
+  const stub = stubClerk({ signedInSessions: [activeSession], initialSession: activeSession });
+  const mod = await loadFreshModule('delete-ok', stub);
+
+  let changes = 0;
+  mod.onFreeSignInChange(() => { changes += 1; });
+  assert.deepEqual(await mod.deleteFreeAccount(), { deleted: true });
+  assert.equal(stub.calls.deleteUser, 1);
+  assert.equal(stub.instance.session, null);
+  assert.ok(stub.calls.closeUserProfile >= 1);
+  assert.ok(changes >= 1);
+
+  const revSession = { id: 'sess_rev', status: 'active' };
+  const revStub = stubClerk({ signedInSessions: [revSession], initialSession: revSession });
+  revStub.instance.user.delete = async () => {
+    const err = new Error('Reverification required');
+    err.errors = [{ code: 'session_reverification_required' }];
+    throw err;
+  };
+  const revMod = await loadFreshModule('delete-reverify', revStub);
+  assert.deepEqual(await revMod.deleteFreeAccount(), { deleted: false, needsReverification: true });
+  assert.equal(revStub.calls.openUserProfile.length, 1);
+  assert.equal(revStub.instance.session.id, 'sess_rev');
 });
