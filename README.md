@@ -25,6 +25,11 @@
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
 </p>
 
+
+
+https://github.com/user-attachments/assets/ac21e84c-909e-4c8c-8392-f875a53c0dce
+
+
 ---
 
 **AppBlips** lets anyone build functional apps, websites, and 3D games from natural-language descriptions—no coding required, with full code access when you want it.
