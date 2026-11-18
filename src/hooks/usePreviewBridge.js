@@ -300,10 +300,16 @@ export default function usePreviewBridge({
       // element it was dropped against, and which side. Untrusted shapes are
       // dropped here; the direct-edit engine re-validates the rest.
       else if (data.type === 'element-drop' && onElementDropRef.current) {
-        const { element, target, position } = data.payload || {};
+        const { element, target, position, preserveSize, cleanupWrapper } = data.payload || {};
         if (element && typeof element === 'object' && target && typeof target === 'object'
           && (position === 'before' || position === 'after')) {
-          onElementDropRef.current({ element, target, position });
+          onElementDropRef.current({
+            element,
+            target,
+            position,
+            ...(preserveSize && typeof preserveSize === 'object' ? { preserveSize } : {}),
+            ...(cleanupWrapper === true ? { cleanupWrapper: true } : {}),
+          });
         }
       }
       // Right-click while editing: where to open the insert menu, the spot

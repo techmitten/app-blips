@@ -1808,11 +1808,19 @@ const BRIDGE_SOURCE = `(function () {
   var DRAG_LIFT_NODES = 400;
   var DRAG_SETTLE_MS = 180;
   var DRAG_LINE_TRANSITION = 'left 110ms ease-out, top 110ms ease-out, width 110ms ease-out, height 110ms ease-out, opacity 120ms ease-out';
-  var DRAG_CSS = '* { cursor: grabbing !important; -webkit-user-select: none !important; user-select: none !important; }';
+  var DRAG_CSS = '* { cursor: grabbing !important; -webkit-user-select: none !important; user-select: none !important; } [data-orion-drag], [data-orion-drag] * { pointer-events: none !important; }';
   var PHRASING_PARENT_ROLES = { heading: 1, text: 1, link: 1, button: 1 };
   var REPLACED_TAGS = { IMG: 1, SVG: 1, PICTURE: 1, VIDEO: 1, CANVAS: 1, IFRAME: 1 };
   var STRUCTURED_TAGS = { LI: 1, DT: 1, DD: 1, TR: 1, TD: 1, TH: 1, THEAD: 1, TBODY: 1, TFOOT: 1, OPTION: 1 };
   var STRUCTURED_PARENTS = { UL: 1, OL: 1, MENU: 1, DL: 1, TABLE: 1, THEAD: 1, TBODY: 1, TFOOT: 1, TR: 1, SELECT: 1, DATALIST: 1 };
+  var LEAF_DROP_TAGS = {
+    IMG: 1, SVG: 1, PICTURE: 1, VIDEO: 1, CANVAS: 1, IFRAME: 1,
+    H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1,
+    P: 1, SPAN: 1, STRONG: 1, EM: 1, B: 1, I: 1, U: 1, S: 1, SMALL: 1,
+    LABEL: 1, BUTTON: 1, CODE: 1, PRE: 1, BLOCKQUOTE: 1, SUMMARY: 1, FIGCAPTION: 1,
+    INPUT: 1, TEXTAREA: 1, SELECT: 1
+  };
+  var WRAPPER_SKIP_PARENTS = { HTML: 1, HEAD: 1, BODY: 1, MAIN: 1, SECTION: 1, HEADER: 1, FOOTER: 1, ARTICLE: 1, ASIDE: 1, NAV: 1, LI: 1, TD: 1, TH: 1 };
   var drag = null;
   var dragSuppressClick = false;
 
@@ -1822,14 +1830,23 @@ const BRIDGE_SOURCE = `(function () {
     try { return window.getComputedStyle(el).display === 'inline'; } catch (dErr) { return false; }
   }
 
+  function isOutOfFlow(el) {
+    try {
+      var pos = window.getComputedStyle(el).position;
+      return pos === 'absolute' || pos === 'fixed';
+    } catch (posErr) { return false; }
+  }
+
   // Words inside running text (a strong, an inline link, an icon in a
   // heading) move with their paragraph rather than out of it, and a click
-  // on an SVG's inner shape moves the whole graphic.
+  // on an SVG's inner shape or a <picture>'s inner <img> moves the whole graphic.
   function promoteToBlock(el) {
     var node = el;
     try {
       var svg = node.closest ? node.closest('svg') : null;
       if (svg) node = svg;
+      var pic = node.closest ? node.closest('picture') : null;
+      if (pic) node = pic;
     } catch (svgErr) { /* keep the hit */ }
     while (node && node.parentElement && node.parentElement !== document.body &&
            !REPLACED_TAGS[upperTag(node)] && isInlineBox(node) &&
@@ -1853,13 +1870,55 @@ const BRIDGE_SOURCE = `(function () {
     return isMovable(el) ? el : null;
   }
 
+  var PAGE_SECTION_TAGS = { SECTION: 1, MAIN: 1, HEADER: 1, NAV: 1, FOOTER: 1 };
+  var FORM_OR_LIST_CONTROL_TAGS = {
+    INPUT: 1, TEXTAREA: 1, SELECT: 1, OPTION: 1, OPTGROUP: 1,
+    LABEL: 1, FIELDSET: 1, LEGEND: 1, SUMMARY: 1, DT: 1, DD: 1
+  };
+
+  function isPageRootChild(el) {
+    var p = el && el.parentElement;
+    if (!p) return false;
+    var pt = upperTag(p);
+    return pt === 'BODY' || pt === 'MAIN';
+  }
+
+  function hasStickyOrNavAncestor(el, dragged) {
+    for (var cur = el; cur && cur !== document.body && cur !== document.documentElement; cur = cur.parentElement) {
+      if (cur.contains(dragged)) return false;
+      if (upperTag(cur) === 'NAV') return true;
+      try {
+        var pos = window.getComputedStyle(cur).position;
+        if (pos === 'fixed' || pos === 'sticky') return true;
+      } catch (posErr) { /* ignore */ }
+    }
+    return false;
+  }
+
+  function dropTargetAllowed(dragged, target) {
+    var role = detectRole(dragged);
+    var tt = upperTag(target);
+    // Keep non-section elements (images, text, buttons, nested cards) inside
+    // page sections rather than naked between sections on <body>/<main>, while
+    // still allowing top-level sections to reorder among themselves.
+    if (PAGE_SECTION_TAGS[tt] && isPageRootChild(target) && !(role === 'container' && isPageRootChild(dragged))) {
+      return false;
+    }
+    if (FORM_OR_LIST_CONTROL_TAGS[tt]) return false;
+    var pt = upperTag(target.parentElement);
+    if (pt === 'DL' || pt === 'FIELDSET') return false;
+    if (hasStickyOrNavAncestor(target, dragged)) return false;
+    return true;
+  }
+
   // Keeps lists and tables valid: list items only among list items, cells
-  // only among cells, and nothing else dropped between them.
+  // only among cells, and nothing else dropped between them. Elements are also
+  // kept inside page sections and out of navbars, sticky chrome, and form controls.
   function structureAllows(dragged, target) {
     var dt = upperTag(dragged);
     var tt = upperTag(target);
     if (STRUCTURED_TAGS[dt] || STRUCTURED_TAGS[tt] || STRUCTURED_PARENTS[upperTag(target.parentElement)]) return dt === tt;
-    return true;
+    return dropTargetAllowed(dragged, target);
   }
 
   function validDropTarget(el, dragged) {
@@ -1875,25 +1934,28 @@ const BRIDGE_SOURCE = `(function () {
     return out;
   }
 
-  function nearestChild(kids, x, y) {
-    var best = null;
-    var bestDist = Infinity;
-    for (var i = 0; i < kids.length; i++) {
-      var r = kids[i].getBoundingClientRect();
-      if (!r.width && !r.height) continue;
-      var dx = x < r.left ? r.left - x : (x > r.right ? x - r.right : 0);
-      var dy = y < r.top ? r.top - y : (y > r.bottom ? y - r.bottom : 0);
-      var dist = dx * dx + dy * dy;
-      if (dist < bestDist) { bestDist = dist; best = kids[i]; }
+  function inFlowChildren(el) {
+    var all = contentChildren(el);
+    var out = [];
+    for (var i = 0; i < all.length; i++) {
+      if (!isOutOfFlow(all[i])) out.push(all[i]);
     }
-    return best;
+    return out;
+  }
+
+  function inFlowSibling(el, dir) {
+    var node = contentSibling(el, dir, true);
+    while (node && isOutOfFlow(node)) node = contentSibling(node, dir, true);
+    return node;
   }
 
   // Row layouts (flex rows, grids, inline blocks) take a vertical line and
-  // split left/right; everything else splits top/bottom.
+  // split left/right; everything else splits top/bottom. Out-of-flow siblings
+  // (absolute badges, gradient backdrops) do not put an element in a row.
   function sideBySide(el) {
+    if (isOutOfFlow(el)) return false;
     var box = el.getBoundingClientRect();
-    var sibs = [contentSibling(el, -1, true), contentSibling(el, 1, true)];
+    var sibs = [inFlowSibling(el, -1), inFlowSibling(el, 1)];
     for (var i = 0; i < sibs.length; i++) {
       if (!sibs[i]) continue;
       var other = sibs[i].getBoundingClientRect();
@@ -1903,12 +1965,116 @@ const BRIDGE_SOURCE = `(function () {
     return false;
   }
 
+  function canDescendDrop(el) {
+    if (!el || el.nodeType !== 1) return false;
+    var tag = upperTag(el);
+    if (LEAF_DROP_TAGS[tag]) return false;
+    if (tag === 'A') {
+      var kids = contentChildren(el);
+      if (kids.length < 2) return false;
+      for (var i = 0; i < kids.length; i++) {
+        if (!isInlineBox(kids[i]) && !REPLACED_TAGS[upperTag(kids[i])]) return true;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  function sortByDistance(kids, x, y) {
+    var items = [];
+    for (var i = 0; i < kids.length; i++) {
+      var r = kids[i].getBoundingClientRect();
+      if (!r.width && !r.height) continue;
+      var dx = x < r.left ? r.left - x : (x > r.right ? x - r.right : 0);
+      var dy = y < r.top ? r.top - y : (y > r.bottom ? y - r.bottom : 0);
+      items.push({ el: kids[i], dist: dx * dx + dy * dy, rect: r });
+    }
+    items.sort(function (a, b) { return a.dist - b.dist; });
+    return items;
+  }
+
+  function pointInRect(x, y, r) {
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }
+
+  function onOuterEdge(el, x, y, dragged) {
+    if (!validDropTarget(el, dragged)) return false;
+    var box = el.getBoundingClientRect();
+    if (sideBySide(el)) {
+      var edgeX = Math.min(5, box.width / 8);
+      return x - box.left < edgeX || box.right - x < edgeX;
+    }
+    var edgeY = Math.min(5, box.height / 8);
+    return y - box.top < edgeY || box.bottom - y < edgeY;
+  }
+
+  function drillDropTarget(el, x, y, dragged, fromGap) {
+    if (!el || el === dragged) return null;
+    if (canDescendDrop(el)) {
+      var kids = inFlowChildren(el);
+      if (kids.length) {
+        var mustDescend = el === document.documentElement || el === document.body ||
+          el.contains(dragged) || !structureAllows(dragged, el);
+        var keepContainer = !mustDescend && (fromGap || onOuterEdge(el, x, y, dragged));
+        if (!keepContainer) {
+          var sorted = sortByDistance(kids, x, y);
+          for (var i = 0; i < sorted.length; i++) {
+            var child = sorted[i].el;
+            if (child === dragged) continue;
+            var insideChild = pointInRect(x, y, sorted[i].rect);
+            var res = drillDropTarget(child, x, y, dragged, !insideChild && kids.length > 1);
+            if (res) return res;
+            if (insideChild && child.contains(dragged)) return null;
+          }
+          return null;
+        }
+      }
+    }
+    return el;
+  }
+
+  // An image inside a single-image frame (<figure>, <a>, <picture>, or an
+  // overflow-hidden crop box) cannot take a sibling cleanly inside that frame
+  // without clipping; promote the drop target to the frame itself.
+  function isSingleImageWrapper(parent, child) {
+    if (!parent || parent === document.body || parent === document.documentElement) return false;
+    var ptag = upperTag(parent);
+    if (WRAPPER_SKIP_PARENTS[ptag]) return false;
+    var kids = parent.childNodes;
+    for (var i = 0; i < kids.length; i++) {
+      var ch = kids[i];
+      if (ch === child) continue;
+      if (ch.nodeType === 3) {
+        if (String(ch.nodeValue || '').trim()) return false;
+        continue;
+      }
+      if (ch.nodeType !== 1 || isBridgeNode(ch) || NON_SIBLING_TAGS[upperTag(ch)]) continue;
+      if (isHiddenNode(ch) || isOutOfFlow(ch)) continue;
+      return false;
+    }
+    if (ptag === 'FIGURE' || ptag === 'A' || ptag === 'PICTURE') return true;
+    try {
+      var cs = window.getComputedStyle(parent);
+      return cs.overflowX === 'hidden' || cs.overflowY === 'hidden' || cs.overflowX === 'clip' || cs.overflowY === 'clip';
+    } catch (ovErr) { return false; }
+  }
+
+  function promoteImageWrapperTarget(el, dragged) {
+    var cur = el;
+    if (!cur || !REPLACED_TAGS[upperTag(cur)]) return cur;
+    while (cur && isSingleImageWrapper(cur.parentElement, cur) && validDropTarget(cur.parentElement, dragged)) {
+      cur = cur.parentElement;
+    }
+    return cur;
+  }
+
   // Where a drop at (x, y) would put the dragged element, or null when it
   // would stay where it is (or there is nowhere valid under the pointer).
   function resolveDrop(x, y, dragged) {
     var hit = null;
     try { hit = document.elementFromPoint(x, y); } catch (hitErr) { hit = null; }
     if (!hit || isBridgeNode(hit) || hit === dragged || dragged.contains(hit)) return null;
+    if (hit === document.documentElement && document.body) hit = document.body;
     // A container (or a like-for-like element) dragged over a sibling's
     // content -- a card over another card's heading, a section over the
     // next section's text -- targets the sibling itself: reordering is what
@@ -1924,25 +2090,17 @@ const BRIDGE_SOURCE = `(function () {
       }
     }
     var el = sibling && validDropTarget(sibling, dragged) ? sibling : promoteToBlock(hit);
-    // Pointer on a container's own padding or in the gap between its
-    // children: aim at the nearest child, except on the container's top or
-    // bottom edge, which drops beside the container itself.
-    var kids = el === hit && el !== sibling ? contentChildren(el) : [];
-    if (kids.length) {
-      var box = el.getBoundingClientRect();
-      var edge = Math.min(16, box.height / 4);
-      var onEdge = y - box.top < edge || box.bottom - y < edge;
-      if (!onEdge || !validDropTarget(el, dragged)) {
-        var near = nearestChild(kids, x, y);
-        if (near === dragged) return null;
-        if (near) el = near;
-      }
+    if (el !== sibling) {
+      var drilled = drillDropTarget(el, x, y, dragged, false);
+      if (!drilled) return null;
+      el = drilled;
     }
     while (el && !validDropTarget(el, dragged)) {
       if (el.contains(dragged)) return null;
       el = el.parentElement;
     }
     if (!el) return null;
+    if (el !== sibling) el = promoteImageWrapperTarget(el, dragged);
     var r = el.getBoundingClientRect();
     var horizontal = sideBySide(el);
     var position = horizontal
@@ -1954,7 +2112,7 @@ const BRIDGE_SOURCE = `(function () {
     // that next row's first item instead. "Before" the first item of a row
     // already lands exactly where the line is drawn.
     if (position === 'after' && horizontal) {
-      var next = contentSibling(el, 1, true);
+      var next = inFlowSibling(el, 1);
       if (next && validDropTarget(next, dragged)) {
         var nb = next.getBoundingClientRect();
         if (nb.top > r.top + r.height / 2) {
@@ -2039,7 +2197,7 @@ const BRIDGE_SOURCE = `(function () {
   function makeLift(el, rect) {
     var w = el.offsetWidth || rect.width;
     var h = el.offsetHeight || rect.height;
-    var lift = dragChrome('z-index:2147483647;left:0;top:0;transform-origin:0 0;will-change:transform,opacity;opacity:0.94;' +
+    var lift = dragChrome('z-index:2147483646;left:0;top:0;transform-origin:0 0;will-change:transform,opacity;opacity:0.85;' +
       'width:' + w + 'px;height:' + h + 'px;filter:drop-shadow(0 14px 28px rgba(15,23,42,0.3));', 'lift');
     try {
       var copy = el.cloneNode(true);
@@ -2078,26 +2236,46 @@ const BRIDGE_SOURCE = `(function () {
     var r = t.el.getBoundingClientRect();
     var vw = window.innerWidth || document.documentElement.clientWidth;
     var vh = window.innerHeight || document.documentElement.clientHeight;
-    var clamp = function (v, max) { return Math.max(0, Math.min(v, max - 4)); };
-    if (t.horizontal) return { left: clamp(t.position === 'before' ? r.left - 4 : r.right, vw), top: r.top, width: 4, height: r.height };
-    return { left: r.left, top: clamp(t.position === 'before' ? r.top - 4 : r.bottom, vh), width: r.width, height: 4 };
+    var thick = 5;
+    var clamp = function (v, max) { return Math.max(0, Math.min(v, max - thick)); };
+    if (t.horizontal) {
+      var top = Math.max(0, r.top);
+      var bottom = Math.min(vh, r.bottom);
+      return { left: clamp(t.position === 'before' ? r.left - thick : r.right, vw), top: top, width: thick, height: Math.max(16, bottom - top) };
+    }
+    var left = Math.max(0, r.left);
+    var right = Math.min(vw, r.right);
+    return { left: left, top: clamp(t.position === 'before' ? r.top - thick : r.bottom, vh), width: Math.max(16, right - left), height: thick };
+  }
+
+  function clearDragTargetHighlight(d) {
+    if (d && d.targetEl) {
+      if (!isPicked(d.targetEl)) restoreOutline(d.targetEl);
+      d.targetEl = null;
+    }
   }
 
   function paintDrag(scrolled) {
     placeLift(drag, !drag.still);
     var t = drag.target;
+    var nextEl = t ? t.el : null;
+    if (drag.targetEl !== nextEl) {
+      clearDragTargetHighlight(drag);
+      if (nextEl && !isPicked(nextEl)) {
+        saveOutline(nextEl);
+        nextEl.style.outline = '2px dashed rgba(37, 99, 235, 0.55)';
+        nextEl.style.outlineOffset = '2px';
+        drag.targetEl = nextEl;
+      }
+    }
     if (!t) { drag.line.style.display = 'none'; return; }
     var lr = lineRect(t);
     if (drag.line.style.display === 'none') {
-      // Appears where it belongs (fading in) instead of sliding in from
-      // wherever it was last hidden.
+      // Appears immediately at full opacity where it belongs.
       drag.line.style.transition = 'none';
-      drag.line.style.opacity = '0';
+      drag.line.style.opacity = '1';
       drag.line.style.display = 'block';
       placeBox(drag.line, lr.left, lr.top, lr.width, lr.height);
-      void drag.line.offsetWidth;
-      drag.line.style.transition = drag.still ? 'none' : DRAG_LINE_TRANSITION;
-      drag.line.style.opacity = '1';
       return;
     }
     // Glides between spots, but tracks content exactly while auto-scrolling.
@@ -2159,8 +2337,24 @@ const BRIDGE_SOURCE = `(function () {
     try { document.documentElement.setPointerCapture(drag.pointerId); } catch (capErr) { /* events still arrive while pressed */ }
     if (editStyleEl) editStyleEl.textContent = editCursorCss() + DRAG_CSS;
     var rect = drag.el.getBoundingClientRect();
+    drag.origW = rect.width;
+    drag.origH = rect.height;
+    try {
+      var ocs = window.getComputedStyle(drag.el);
+      drag.origPos = ocs.position;
+      drag.origBoxSizing = ocs.boxSizing;
+      drag.origPadW = (parseFloat(ocs.paddingLeft) || 0) + (parseFloat(ocs.paddingRight) || 0) +
+        (parseFloat(ocs.borderLeftWidth) || 0) + (parseFloat(ocs.borderRightWidth) || 0);
+      drag.origPadH = (parseFloat(ocs.paddingTop) || 0) + (parseFloat(ocs.paddingBottom) || 0) +
+        (parseFloat(ocs.borderTopWidth) || 0) + (parseFloat(ocs.borderBottomWidth) || 0);
+    } catch (ocsErr) {
+      drag.origPos = '';
+      drag.origBoxSizing = 'border-box';
+      drag.origPadW = 0;
+      drag.origPadH = 0;
+    }
     drag.still = reducedMotion();
-    drag.line = dragChrome('z-index:2147483647;display:none;background:rgb(57,135,208);border-radius:2px;box-shadow:0 0 0 2px rgba(255,255,255,0.9);', 'line');
+    drag.line = dragChrome('z-index:2147483647;display:none;background:rgb(37,99,235);border-radius:999px;box-shadow:0 0 0 2px rgba(255,255,255,0.96),0 0 14px 3px rgba(37,99,235,0.55),0 4px 12px rgba(15,23,42,0.38);', 'line');
     var lift = makeLift(drag.el, rect);
     drag.lift = lift.node;
     drag.w = lift.w;
@@ -2175,9 +2369,79 @@ const BRIDGE_SOURCE = `(function () {
     // produce (see the "Drag to move" note above). The exact style is put
     // back on cancel; on commit the parent reloads the page from the move.
     drag.elStyle = drag.el.getAttribute('style');
-    drag.el.style.display = 'none';
+    drag.el.style.setProperty('display', 'none', 'important');
     drag.moved = true;
     dragFrame();
+  }
+
+  // When an element (sized by w-full, h-full, a narrow card, or a parent CSS
+  // rule) moves into a different container, measure how the destination would
+  // size it; if an image would change size, lock its rendered size responsively,
+  // and if text or a container would stretch wider, cap its width.
+  function computeMovePreserveSize(d) {
+    var el = d.el;
+    if (!el || !(d.origW >= 4) || !(d.origH >= 4)) return null;
+    if (d.origPos === 'absolute' || d.origPos === 'fixed') return null;
+    var role = detectRole(el);
+    var target = d.target && d.target.el;
+    if (!target || !target.parentNode) return null;
+
+    var cleanStyle = el.__orionOutlineSaved ? el.__orionOutlineSaved.styleAttr : d.elStyle;
+    var probe = null;
+    var pr = null;
+    var pcs = null;
+    try {
+      probe = el.cloneNode(true);
+      probe = neuterCopy(probe);
+      if (cleanStyle == null) probe.removeAttribute('style');
+      else probe.setAttribute('style', cleanStyle);
+      probe.removeAttribute('data-ab-src');
+      var tagged = probe.querySelectorAll ? probe.querySelectorAll('[data-ab-src]') : [];
+      for (var ti = 0; ti < tagged.length; ti++) tagged[ti].removeAttribute('data-ab-src');
+      probe.style.setProperty('visibility', 'hidden', 'important');
+      probe.style.setProperty('pointer-events', 'none', 'important');
+      probe.style.setProperty('transition', 'none', 'important');
+      probe.style.setProperty('animation', 'none', 'important');
+      target.parentNode.insertBefore(probe, d.target.position === 'before' ? target : target.nextSibling);
+      pr = probe.getBoundingClientRect();
+      pcs = window.getComputedStyle(probe);
+    } catch (probeErr) {
+      pr = null;
+    } finally {
+      if (probe && probe.parentNode) probe.parentNode.removeChild(probe);
+    }
+    if (!pr) return null;
+
+    var isBorderBox = d.origBoxSizing === 'border-box';
+    var targetW = Math.max(1, Math.round(isBorderBox ? d.origW : d.origW - (d.origPadW || 0)));
+    var targetH = Math.max(1, Math.round(isBorderBox ? d.origH : d.origH - (d.origPadH || 0)));
+
+    if (role === 'image') {
+      if (Math.abs(pr.width - d.origW) <= 2 && Math.abs(pr.height - d.origH) <= 2) return null;
+      var styles = {
+        width: targetW + 'px',
+        maxWidth: '100%',
+        height: 'auto',
+        aspectRatio: targetW + ' / ' + targetH
+      };
+      if (pcs && (parseFloat(pcs.minWidth) || 0) > targetW) styles.minWidth = '0px';
+      if (pcs && (parseFloat(pcs.minHeight) || 0) > targetH) styles.minHeight = '0px';
+      if (pcs && (parseFloat(pcs.flexGrow) || 0) > 0) styles.flexGrow = '0';
+      if (pcs && pcs.display === 'inline' && upperTag(el) === 'PICTURE') styles.display = 'inline-block';
+      return styles;
+    }
+
+    if (pcs && pcs.display === 'inline') return null;
+    if (role === 'container' || role === 'button' || role === 'link') {
+      if (pr.width <= d.origW + 2) return null;
+      var boxStyles = { width: targetW + 'px', maxWidth: '100%' };
+      if (pcs && (parseFloat(pcs.minWidth) || 0) > targetW) boxStyles.minWidth = '0px';
+      if (pcs && (parseFloat(pcs.flexGrow) || 0) > 0) boxStyles.flexGrow = '0';
+      return boxStyles;
+    }
+
+    if (pr.width <= d.origW + 4) return null;
+    return { maxWidth: targetW + 'px' };
   }
 
   // The copy glides into the insertion line (or back home on a cancel) and
@@ -2214,13 +2478,17 @@ const BRIDGE_SOURCE = `(function () {
     drag = null;
     if (!d || !d.active) return;
     if (d.raf) cancelAnimationFrame(d.raf);
+    clearDragTargetHighlight(d);
     try { document.documentElement.releasePointerCapture(d.pointerId); } catch (relErr) { /* already released */ }
     if (d.line && d.line.parentNode) d.line.parentNode.removeChild(d.line);
     var dropping = commit && d.target && editingActive;
-    // Capture where the lift should settle while the element is still
-    // collapsed (the layout the move will actually produce). The element is
-    // put back below so the reported snapshot matches the source exactly.
+    // Capture where the lift should settle and measure destination image size
+    // while the dragged element is still collapsed out of layout.
     var settle = dropping ? { rect: lineRect(d.target) } : null;
+    var preserveSize = dropping ? computeMovePreserveSize(d) : null;
+    var cleanupWrapper = dropping &&
+      isSingleImageWrapper(d.el.parentElement, d.el) &&
+      d.el.parentElement !== d.target.el && !d.el.parentElement.contains(d.target.el);
     if (d.el) {
       if (d.elStyle == null) d.el.removeAttribute('style');
       else d.el.setAttribute('style', d.elStyle);
@@ -2233,11 +2501,14 @@ const BRIDGE_SOURCE = `(function () {
     setTimeout(function () { dragSuppressClick = false; }, 0);
     settleLift(d, settle);
     if (!dropping) return;
-    post('element-drop', {
+    var dropPayload = {
       element: buildElementDescription(d.el),
       target: describeLite(d.target.el),
       position: d.target.position
-    });
+    };
+    if (preserveSize) dropPayload.preserveSize = preserveSize;
+    if (cleanupWrapper) dropPayload.cleanupWrapper = true;
+    post('element-drop', dropPayload);
   }
 
   function dragOnPointerDown(e) {
@@ -2276,6 +2547,9 @@ const BRIDGE_SOURCE = `(function () {
     if (drag.active) {
       e.preventDefault();
       e.stopPropagation();
+      drag.x = e.clientX;
+      drag.y = e.clientY;
+      drag.target = resolveDrop(drag.x, drag.y, drag.el);
     }
     endDrag(true);
   }
@@ -3766,6 +4040,8 @@ const BRIDGE_SOURCE = `(function () {
       // never reach the content below the fold while click-to-edit is on.
       // Taps stay taps (the 6px threshold below), so they reach editOnClick.
       if (editingActive && inlineEdit) return;
+      // Drag mode moves elements with a mouse instead of scrolling the page.
+      if (editingActive && dragModeActive && e.pointerType !== 'touch') return;
       // Shift+drag with a mouse draws click-to-edit's selection box instead.
       if (editingActive && e.shiftKey && e.pointerType === 'mouse') return;
 

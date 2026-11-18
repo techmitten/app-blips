@@ -732,6 +732,34 @@ check('moveTo handles inline neighbours sharing a line', () => {
   assert.strictEqual(result.code, '<div> <img src="b.png"> <img src="c.png"> <img src="a.png"></div>');
 });
 
+check('moveTo preserves image size when preserveSize is provided and ignores disallowed styles', () => {
+  const code = '<section>\n  <h2>Hero</h2>\n  <div class="w-48"><img src="a.png" class="w-full h-32"></div>\n</section>';
+  const result = applyDirectEdit(code, el({ tag: 'img', role: 'image', attributes: { src: 'a.png', class: 'w-full h-32' } }), {
+    moveTo: {
+      target: { tag: 'h2', role: 'heading', text: 'Hero', attributes: {} },
+      position: 'before',
+      preserveSize: { width: '192px', maxWidth: '100%', height: 'auto', aspectRatio: '192 / 128', color: 'red' },
+    },
+  });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /<section>\n {2}<img src="a\.png" class="w-full h-32" style="width: 192px; max-width: 100%; height: auto; aspect-ratio: 192 \/ 128;">\n {2}<h2>Hero<\/h2>/);
+  assert.doesNotMatch(result.code, /color:\s*red/);
+});
+
+check('moveTo removes empty single-image wrapper when cleanupWrapper is set', () => {
+  const code = '<section>\n  <h2>Hero</h2>\n  <div class="card">\n    <figure class="h-32 overflow-hidden"><img src="a.png" class="w-full h-full"></figure>\n    <p>Caption</p>\n  </div>\n</section>';
+  const result = applyDirectEdit(code, el({ tag: 'img', role: 'image', attributes: { src: 'a.png', class: 'w-full h-full' } }), {
+    moveTo: {
+      target: { tag: 'h2', role: 'heading', text: 'Hero', attributes: {} },
+      position: 'before',
+      cleanupWrapper: true,
+    },
+  });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.doesNotMatch(result.code, /<figure/);
+  assert.match(result.code, /<div class="card">\n {4}<p>Caption<\/p>\n {2}<\/div>/);
+});
+
 check('insert adds a text container on its own line beside the spot', () => {
   const code = '<body>\n  <!-- @section: a -->\n  <section>\n    <h2>Title</h2>\n  </section>\n</body>';
   const after = applyDirectEdit(code, el({ tag: 'h2', role: 'heading', text: 'Title' }), {

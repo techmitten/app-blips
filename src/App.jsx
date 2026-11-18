@@ -1135,9 +1135,15 @@ export default function App({ coldStart = false }) {
   // Drag-to-move in the preview: a `moveTo` direct edit. The dragged
   // element need not be the selected one, so failures select it to offer
   // the AI path with the reason.
-  const handleElementDrop = useCallback(({ element, target, position }) => {
+  const handleElementDrop = useCallback(({ element, target, position, preserveSize, cleanupWrapper }) => {
     if (isGeneratingRef.current) return;
-    const result = applyElementChangesToSource(element, { moveTo: { target, position } });
+    const moveTo = {
+      target,
+      position,
+      ...(preserveSize ? { preserveSize } : {}),
+      ...(cleanupWrapper ? { cleanupWrapper: true } : {}),
+    };
+    const result = applyElementChangesToSource(element, { moveTo });
     if (result.ok || result.reason === 'no-op') {
       setSelectedElement(null);
       setElementEditError(null);

@@ -382,7 +382,9 @@ const STYLE_PROPS = {
   minHeight: 'min-height',
   maxHeight: 'max-height',
   aspectRatio: 'aspect-ratio',
+  flexGrow: 'flex-grow',
   flexShrink: 'flex-shrink',
+  display: 'display',
   borderRadius: 'border-radius',
   borderTopLeftRadius: 'border-top-left-radius',
   borderTopRightRadius: 'border-top-right-radius',
@@ -1089,10 +1091,39 @@ const reindent = (text, from, to) => {
   return text.split('\n').map((line, i) => (i > 0 && line.startsWith(from) ? to + line.slice(from.length) : line)).join('\n');
 };
 
+const MOVE_SIZE_PROPS = new Set([
+  'width', 'maxWidth', 'height', 'aspectRatio', 'minWidth', 'minHeight', 'flexGrow', 'display',
+]);
+const WRAPPER_CLEANUP_TAGS = new Set(['figure', 'picture', 'a', 'div']);
+
+// When a sole image is moved out of a single-image frame (<figure>, <a>,
+// <picture>, or an overflow-hidden box), find that empty wrapper's span so
+// moving the image out does not leave a blank fixed-height box behind.
+const emptyWrapperSpan = (code, dragStart, rangeEnd, targetStart, targetEnd) => {
+  const masked = maskNonMarkup(code);
+  ANY_OPEN_TAG_RE.lastIndex = 0;
+  let lastOpen = null;
+  let m;
+  while ((m = ANY_OPEN_TAG_RE.exec(masked))) {
+    if (m.index >= dragStart) break;
+    lastOpen = { start: m.index, openEnd: m.index + m[0].length, raw: m[0] };
+  }
+  if (!lastOpen || lastOpen.raw.endsWith('/>')) return null;
+  if (!ONLY_GAP_RE.test(code.slice(lastOpen.openEnd, dragStart))) return null;
+  const tagMatch = /^<([a-zA-Z][a-zA-Z0-9-]*)/.exec(lastOpen.raw);
+  const tag = tagMatch && tagMatch[1].toLowerCase();
+  if (!tag || !WRAPPER_CLEANUP_TAGS.has(tag)) return null;
+  const close = findCloseTag(masked, tag, lastOpen.openEnd);
+  if (!close || !ONLY_GAP_RE.test(code.slice(rangeEnd, close.closeStart))) return null;
+  const wrapStart = blockStart(code, lastOpen.start);
+  if (!(close.closeEnd <= targetStart || targetEnd <= wrapStart)) return null;
+  return lineSpan(code, wrapStart, close.closeEnd);
+};
+
 // Drag-and-drop: cut the element's block (landmark included) and insert it
 // directly before or after another element's block, anywhere in the page.
 // Both ends must be located uniquely, or the drop fails over to the AI path.
-const applyMoveTo = (code, element, target, position) => {
+const applyMoveTo = (code, element, target, position, preserveSize = null, cleanupWrapper = false) => {
   const what = describeTarget(element);
   const range = locateElement(code, element);
   if (!range.ok) return range;
@@ -1108,13 +1139,24 @@ const applyMoveTo = (code, element, target, position) => {
   const gap = position === 'after' ? [other.end, dragStart] : [range.end, targetStart];
   if (gap[0] <= gap[1] && ONLY_GAP_RE.test(code.slice(gap[0], gap[1]))) return { ok: false, reason: 'no-op' };
 
-  const removal = lineSpan(code, dragStart, range.end);
-  const block = code.slice(dragStart, range.end);
+  const elemRemoval = lineSpan(code, dragStart, range.end);
+  const removal = (cleanupWrapper && emptyWrapperSpan(code, dragStart, range.end, targetStart, other.end)) || elemRemoval;
+  let block = code.slice(dragStart, range.end);
+  if (preserveSize && typeof preserveSize === 'object') {
+    const safeSize = {};
+    Object.entries(preserveSize).forEach(([k, v]) => {
+      if (MOVE_SIZE_PROPS.has(k) && v !== undefined && v !== null) safeSize[k] = v;
+    });
+    if (Object.keys(safeSize).length) {
+      const styled = mergeStylesIntoOpenTag(code.slice(range.start, range.end), safeSize);
+      if (styled) block = code.slice(dragStart, range.start) + styled;
+    }
+  }
   const slot = lineSpan(code, targetStart, other.end);
   let at;
   let insert;
   if (slot.ownLine) {
-    const text = removal.ownLine ? reindent(block, removal.indent, slot.indent) : block;
+    const text = elemRemoval.ownLine ? reindent(block, elemRemoval.indent, slot.indent) : block;
     if (position === 'before') {
       at = slot.start;
       insert = `${slot.indent}${text}\n`;
@@ -1249,12 +1291,12 @@ export const applyDirectEdit = (code, element, changes) => {
     if (op === 'move' && changes.move !== -1 && changes.move !== 1) return { ok: false, reason: 'invalid' };
     let result;
     if (op === 'moveTo') {
-      const { target, position } = changes.moveTo;
+      const { target, position, preserveSize, cleanupWrapper } = changes.moveTo;
       if (!target || typeof target !== 'object' || (position !== 'before' && position !== 'after')) {
         return { ok: false, reason: 'invalid' };
       }
       if (PROTECTED_TAGS.has(String(element.tag || '').toLowerCase())) return { ok: false, reason: 'protected-element' };
-      result = applyMoveTo(code, element, target, position);
+      result = applyMoveTo(code, element, target, position, preserveSize, !!cleanupWrapper);
     } else if (op === 'insert') {
       const { insert } = changes;
       if (typeof insert !== 'object' || (insert.position !== 'before' && insert.position !== 'after')) {
