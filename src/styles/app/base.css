@@ -40,6 +40,14 @@ textarea,
     inset 0 0 0 1px rgb(255 255 255 / 0.08);
 }
 
+/* The feedback dialog's icon in dark mode matches the studio picker it opens
+   from: a glass tile with a brand-red glyph, not the blue mark. */
+.dark .feedback-mark {
+  background: rgb(255 255 255 / 0.05);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1), inset 0 1px 0 rgb(255 255 255 / 0.08);
+  color: #ec6452;
+}
+
 /* Ambient ring behind the empty-state icon. */
 .pulse-ring {
   box-shadow: 0 0 0 4px var(--pulse-ring);

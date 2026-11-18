@@ -1,7 +1,8 @@
-import { ArrowLeft, ArrowUpRight, FolderUp, Megaphone, Sparkles, Users } from 'lucide-react';
-import { DISCORD_URL, DOCS_URL, GITHUB_URL } from '../lib/constants';
+import { ArrowLeft, ArrowUpRight, FolderUp, LayoutTemplate, LogIn, Megaphone, Sparkles, Users } from 'lucide-react';
+import { DISCORD_URL, DOCS_URL, GITHUB_URL, WEB_APP_URL } from '../lib/constants';
 
 // Keep announcements here so new entries can be added without changing the layout.
+// A card has one link (href + label) or several (links: [{ href, label }]).
 const UPDATES = [
   {
     id: 'create',
@@ -14,6 +15,18 @@ const UPDATES = [
     label: 'Explore release notes',
   },
   {
+    id: 'sign-in',
+    category: 'Accounts',
+    Icon: LogIn,
+    title: 'Sign in for Free AI.',
+    description: 'Free AI in the browser version now asks you to sign in with Google or GitHub, so usage limits are counted per person instead of shared by everyone. Your account menu sits in the header, and you can delete your account at any time in Settings → Danger Zone.',
+    highlights: ['One click with Google or GitHub', 'AppBlips never sees your password', 'No sign-in needed with your own API key'],
+    links: [
+      { href: WEB_APP_URL, label: 'Open web.appblips.com' },
+      { href: `${DOCS_URL}ai-providers#free-ai`, label: 'How Free AI works' },
+    ],
+  },
+  {
     id: 'import',
     category: 'Workflow',
     Icon: FolderUp,
@@ -21,6 +34,13 @@ const UPDATES = [
     description: 'Import an HTML page, a website ZIP or a React + Vite project, then keep editing with AI. Export your work or publish it when you’re ready to share.',
     href: DOCS_URL,
     label: 'Read the docs',
+  },
+  {
+    id: 'templates',
+    category: 'Coming soon',
+    Icon: LayoutTemplate,
+    title: 'Templates for every studio.',
+    description: 'Soon you’ll be able to start a mobile & web app, a responsive website or a browser game from a ready-made template. Pick one, make it your own and ship even sooner.',
   },
   {
     id: 'community',
@@ -45,7 +65,7 @@ export default function WhatsNew({ onBack }) {
         <p className="studio-text-muted">Fresh updates, announcements and ideas for your next build.</p>
       </header>
       <div className="whats-new-feed">
-        {UPDATES.map(({ id, category, Icon, title, description, highlights, href, label }, index) => (
+        {UPDATES.map(({ id, category, Icon, title, description, highlights, href, label, links = href ? [{ href, label }] : [] }, index) => (
           <article key={id} className="whats-new-card" aria-labelledby={`update-${id}`}>
             <div className="whats-new-meta studio-text-soft">
               <span className="whats-new-category"><Icon size={15} aria-hidden="true" />{category}</span>
@@ -54,9 +74,15 @@ export default function WhatsNew({ onBack }) {
             <h2 id={`update-${id}`} className="studio-text-strong">{title}</h2>
             <p className="studio-text-muted">{description}</p>
             {highlights && <ul className="whats-new-highlights studio-text-muted">{highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul>}
-            <a href={href} target="_blank" rel="noopener noreferrer" className="studio-nav-link studio-focus whats-new-link">
-              {label}<ArrowUpRight size={16} aria-hidden="true" />
-            </a>
+            {links.length > 0 && (
+              <div className="whats-new-links">
+                {links.map((link) => (
+                  <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className="studio-nav-link studio-focus whats-new-link">
+                    {link.label}<ArrowUpRight size={16} aria-hidden="true" />
+                  </a>
+                ))}
+              </div>
+            )}
           </article>
         ))}
       </div>

@@ -251,11 +251,9 @@ export default function FreeAccountControl({
             busy={busy}
             onDashboard={() => runAction(account.openDashboard)}
             onSignOut={() => runAction(account.signOut)}
-            onDelete={requestDelete}
-          />,
+            />,
           document.body,
         )}
-        {deleteModal}
       </>
     );
   }
@@ -328,16 +326,14 @@ export default function FreeAccountControl({
           busy={busy}
           onDashboard={() => runAction(account.openDashboard)}
           onSignOut={() => runAction(account.signOut)}
-          onDelete={requestDelete}
         />,
         document.body,
       )}
-      {deleteModal}
     </>
   );
 }
 
-function AccountDropdown({ ref, pos, state, busy, onDashboard, onSignOut, onDelete }) {
+function AccountDropdown({ ref, pos, state, busy, onDashboard, onSignOut }) {
   return (
     <div
       ref={ref}
@@ -379,19 +375,6 @@ function AccountDropdown({ ref, pos, state, busy, onDashboard, onSignOut, onDele
         >
           <LogOut size={15} aria-hidden="true" className="text-slate-500 shrink-0" />
           <span>Sign out</span>
-        </button>
-      </div>
-
-      <div className="border-t border-slate-100 pt-1">
-        <button
-          type="button"
-          role="menuitem"
-          disabled={busy}
-          onClick={onDelete}
-          className="w-full px-3.5 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-2.5 transition-colors disabled:opacity-50"
-        >
-          <Trash2 size={15} aria-hidden="true" className="shrink-0" />
-          <span>Delete account</span>
         </button>
       </div>
     </div>

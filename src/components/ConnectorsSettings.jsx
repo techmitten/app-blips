@@ -1,5 +1,5 @@
 import { ConfirmedLink } from './ExternalLinkConfirm';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, PackagePlus,
@@ -319,6 +319,25 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
     return () => { live = false; };
   }, [surgeOpen]);
 
+  // A page replaces the grid inside the same scrolling settings panel, so it
+  // would open at the grid's scroll position (mid-page for a bottom card).
+  // Pages open at the top; Back to the grid returns to where the card was.
+  const rootRef = useRef(null);
+  const gridScrollRef = useRef(0);
+  const prevOpenIdRef = useRef(openId);
+  useLayoutEffect(() => {
+    const prev = prevOpenIdRef.current;
+    prevOpenIdRef.current = openId;
+    if (prev === openId) return;
+    const panel = rootRef.current?.closest('[role="tabpanel"]');
+    if (!panel) return;
+    panel.scrollTop = openId ? 0 : gridScrollRef.current;
+  }, [openId]);
+  const openPage = (id) => {
+    if (!openId) gridScrollRef.current = rootRef.current?.closest('[role="tabpanel"]')?.scrollTop ?? 0;
+    setOpenId(id);
+  };
+
   const update = (id, fields) => {
     setConnectors((current) => {
       const next = { ...current, [id]: { ...current[id], ...fields } };
@@ -331,7 +350,7 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
     const { name, description, homeUrl, homeLinkLabel, beta } = CONNECTOR_DEFINITIONS[openId];
     const Icon = ICONS[openId];
     return (
-      <div>
+      <div ref={rootRef}>
         <button
           type="button"
           onClick={goBack}
@@ -371,7 +390,7 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
                 onChange={(fields) => update(openId, fields)}
                 galleryProject={galleryProject}
                 pixabayConnected={connectorStatus('pixabay', connectors) === 'connected'}
-                onOpenPixabay={() => setOpenId('pixabay')}
+                onOpenPixabay={() => openPage('pixabay')}
               />
             )
             : CONNECTOR_DEFINITIONS[openId].native
@@ -416,7 +435,7 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
   }
 
   return (
-    <div>
+    <div ref={rootRef}>
       <p className="mb-4 text-xs leading-snug text-slate-600">
         {kind === 'tools'
           ? 'Built into AppBlips, with no account or key to set up. Turn one on and the AI uses it in your projects. The web search tools use your AI provider’s key: the one for your provider says “In use”.'
@@ -435,7 +454,7 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
             beta={CONNECTOR_DEFINITIONS[id].beta}
             status={statusOf(id)}
             tool={kind === 'tools'}
-            onClick={() => setOpenId(id)}
+            onClick={() => openPage(id)}
           />
         ))}
         {kind === 'services' && <>

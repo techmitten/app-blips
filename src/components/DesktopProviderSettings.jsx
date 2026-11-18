@@ -24,7 +24,8 @@ import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 // Edits are a draft until Save; `guardRef` lets SettingsModal stop the user
 // leaving with unsaved edits (see useProviderGuard there).
 
-const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS}`;
+// Solid fields so they stand out from the tinted provider panel.
+const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS.replace('bg-transparent', 'bg-surface')}`;
 function ProviderGlyph({ id, logos }) {
   if (id === FREE_PROVIDER_ID) return <Gift size={18} className="shrink-0" />;
   const Logo = logos[id];
@@ -292,8 +293,10 @@ export default function DesktopProviderSettings({ guardRef }) {
       title="AI coding provider"
       description={summary}
       details={(
-        <div className="space-y-3">
-          <div className="block text-sm text-slate-600">
+        // One panel split into sections (provider, key, model, actions) so the
+        // fields read as groups rather than one long stack.
+        <div className="rounded-xl border border-slate-200 bg-slate-50 dark:bg-white/[0.04] divide-y divide-slate-200">
+          <div className="px-4 py-3.5 block text-sm font-medium text-slate-800">
             Provider
             <ProviderDropdown
               value={draft.id}
@@ -301,14 +304,15 @@ export default function DesktopProviderSettings({ guardRef }) {
               options={[...(saved?.envConfigured ? [{ id: FREE_PROVIDER_ID, label: FREE_PROVIDER_LABEL }] : []), ...USER_PROVIDER_OPTIONS]}
             />
           </div>
-          {isFree ? (<>
+          {isFree ? (<div className="px-4 py-3.5 space-y-3">
             <p className="text-xs text-slate-500 leading-snug">
               No key or model to choose. It may be slower or limited when busy; pick a provider with your own key for more control.
               {saved?.enabled && ' Saving switches off your own provider; its key stays saved.'}
             </p>
             {!isDesktop && saved?.freeSignIn && <FreeSignInRow />}
-          </>) : (<>
-          <label className="block text-sm text-slate-600">
+          </div>) : (<>
+          <div className="px-4 py-3.5 space-y-1.5">
+          <label className="block text-sm font-medium text-slate-800">
             {draft.id ? `${providerLabel(draft.id)} API key` : 'API key'}
             <div className="relative">
               <input
@@ -356,7 +360,9 @@ export default function DesktopProviderSettings({ guardRef }) {
           {['anthropic', 'openai', 'gemini', 'xai', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
             <ConfirmedLink why="To sign in to your provider's account and create an API key. AppBlips needs a key to send your prompts to that provider." href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : draft.id === 'xai' ? 'https://console.x.ai/team/default/api-keys' : 'https://platform.deepseek.com/api_keys'} >Create a {providerLabel(draft.id)} API key</ConfirmedLink>.
           </p>}
-          <label className="block text-sm text-slate-600">
+          </div>
+          <div className="px-4 py-3.5 space-y-2">
+          <label className="block text-sm font-medium text-slate-800">
             Model
             <ModelCombobox
               value={draft.model}
@@ -375,8 +381,9 @@ export default function DesktopProviderSettings({ guardRef }) {
           {draft.id === 'openai' && <p className="text-xs text-slate-500">
             Choose an OpenAI model that supports tool calling through Chat Completions.
           </p>}
+          </div>
           </>)}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="px-4 py-3.5 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={onSave}

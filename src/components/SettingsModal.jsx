@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info, UserCog } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import DeleteAccountModal from './DeleteAccountModal';
@@ -366,31 +366,28 @@ export default function SettingsModal({
                   title="Delete your account"
                   description={
                     <>
-                      Signed in as <strong className="font-semibold text-slate-700">{freeAccount.state.email || freeAccount.state.displayName || freeAccount.state.name}</strong>. Permanently delete your sign-in account, or manage it in the Account dashboard.
+                      Signed in as <strong className="font-semibold text-slate-700 break-all">{freeAccount.state.email || freeAccount.state.displayName || freeAccount.state.name}</strong>. Permanently delete your sign-in account, or manage it in the{' '}
+                      <button
+                        type="button"
+                        onClick={() => freeAccount.openDashboard().catch(() => {})}
+                        disabled={freeAccount.busy}
+                        className="inline font-semibold text-indigo-600 dark:text-indigo-400 underline underline-offset-2 hover:no-underline disabled:opacity-50"
+                      >
+                        Account dashboard
+                      </button>.
                     </>
                   }
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => freeAccount.openDashboard().catch(() => {})}
-                      disabled={freeAccount.busy}
-                      className={SECONDARY_BUTTON}
-                    >
-                      <UserCog size={14} aria-hidden="true" className="inline mr-1.5 -mt-0.5" />
-                      Account dashboard
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteAccount(true)}
-                      disabled={freeAccount.busy}
-                      aria-labelledby="set-delete-account"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 size={14} aria-hidden="true" />
-                      Delete account
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteAccount(true)}
+                    disabled={freeAccount.busy}
+                    aria-labelledby="set-delete-account"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                    Delete account
+                  </button>
                 </SettingRow>
               )}
               <SettingRow
