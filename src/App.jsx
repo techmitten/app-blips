@@ -422,6 +422,7 @@ export default function App({ coldStart = false }) {
   // doesn't tidy up the state of the run that replaced it.
   const generationRunRef = useRef(0);
   const isGeneratingRef = useRef(false);
+  const signInCheckRef = useRef(false);
   const isAutoFixingRef = useRef(false);
   const isEvaluatingNewCodeRef = useRef(false);
   const pendingRuntimeErrorRef = useRef(null);
@@ -1526,11 +1527,15 @@ export default function App({ coldStart = false }) {
     // Free AI on a server that asks for a sign-in: sign in first; the prompt
     // stays in the box to send again.
     if (!isAutoFix) {
+      if (signInCheckRef.current) return;
+      signInCheckRef.current = true;
       try {
         if (!(await ensureFreeSignIn())) return;
       } catch (err) {
         setError(err.message);
         return;
+      } finally {
+        signInCheckRef.current = false;
       }
     }
 

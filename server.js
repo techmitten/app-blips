@@ -35,6 +35,7 @@ import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
 import { checkFreeSignIn } from './electron/server/freeAuth.js';
+import { handleClerkWebhook } from './electron/server/clerkWebhook.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 import { resolveAddresses } from './electron/server/dnsLookup.js';
 
@@ -215,6 +216,14 @@ const server = createServer((req, res) => {
   if (req.url === '/api/seo/scan') {
     toFetchRequest(req, res)
       .then((request) => handleSeoScanApi(request, process.env, { lookup: resolveAddresses }))
+      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
+      .catch(fail);
+    return;
+  }
+
+  if (req.url === '/api/webhooks/clerk') {
+    toFetchRequest(req, res)
+      .then((request) => handleClerkWebhook(request, process.env))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
