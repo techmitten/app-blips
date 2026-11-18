@@ -465,9 +465,7 @@ function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFold
 }
 
 // `onExit` is only passed when onboarding is replayed from Settings: the user
-// already has (or deliberately skipped) a setup, so they may leave without
-// re-entering a key. A first run offers "Skip" instead, which saves
-// that onboarding is done so it doesn't come back on the next launch.
+// already has a setup, so they may leave without re-entering a key.
 // `termsOnly` shows just the terms slide, to a returning user after the terms
 // or privacy policy change (App.jsx); `onAgree` saves the agreement.
 export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup, termsOnly = false, onAgree }) {
@@ -487,7 +485,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const [folderStatus, setFolderStatus] = useState(null);
   // The renderer's copy of the projects was read from the old folder, so a
   // change reloads the app once setup is over (it won't show again then: the
-  // AI setup or the skip is saved first).
+  // AI setup is saved first).
   const [folderChanged, setFolderChanged] = useState(false);
   const leave = (done) => (...args) => {
     if (folderChanged) window.location.reload();
@@ -537,7 +535,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
 
   const needsName = !cleanName(name);
   const profileErrors = profileAttempted && needsName ? { name: 'Type your name, or a nickname.' } : {};
-  // Saved as each slide is left, so a skip on a later slide keeps the name.
+  // Saved as each slide is left.
   const keepProfile = () => {
     try {
       saveProfile({ name, avatar });
@@ -592,21 +590,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
       logError(`Could not save the AI setup (${provider.id})`, error);
       setStatus({ kind: 'error', text: ipcErrorMessage(error) || 'Could not save your AI setup.' });
     }
-  };
-
-  const markOnboarded = async () => {
-    try {
-      await providerApi.set({ onboardingComplete: true });
-    } catch (err) {
-      // Not remembering this only means setup shows again next launch.
-      logWarn('Could not remember that AI setup was done', err);
-    }
-  };
-
-  const skip = async () => {
-    if (busy) return;
-    await markOnboarded();
-    onComplete();
   };
 
   const isTerms = step === 'terms';
@@ -752,11 +735,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             {back && (
               <button type="button" className="onboarding-skip" onClick={goBack} disabled={busy}>
                 <ArrowLeft size={16} /> Back
-              </button>
-            )}
-            {!onExit && !isTerms && (
-              <button type="button" className="onboarding-skip" onClick={skip} disabled={busy}>
-                Skip
               </button>
             )}
           </div>

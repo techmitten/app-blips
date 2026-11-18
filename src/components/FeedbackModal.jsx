@@ -9,14 +9,39 @@ import {
 } from '../lib/feedback';
 
 const LABEL_CLASS = 'block text-sm font-semibold text-slate-900';
-const INPUT_CLASS = 'w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:bg-surface';
+const INPUT_CLASS = 'w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors hover:border-slate-300 focus:border-indigo-500 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-indigo-500/20';
 
 const PRIVACY_URL = 'https://www.appblips.com/privacy';
 const WEB3FORMS_PRIVACY_URL = 'https://web3forms.com/privacy';
-const LINK_CLASS = 'font-medium text-slate-900 underline underline-offset-2 hover:text-brand';
+const LINK_CLASS = 'font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-700';
 
-// One icon per feedback type, in the same order as FEEDBACK_TYPES.
-const TYPE_ICONS = { Idea: Lightbulb, Problem: Bug, Praise: Heart, Other: MessageCircle };
+// One icon and theme-aware tint per feedback type, in the same order as FEEDBACK_TYPES.
+const TYPE_STYLES = {
+  Idea: {
+    Icon: Lightbulb,
+    selected: 'border-amber-400/80 bg-amber-50/80 text-slate-900 shadow-xs ring-1 ring-amber-400/25',
+    icon: 'text-amber-600',
+    idleIcon: 'text-amber-500/80 group-hover:text-amber-600',
+  },
+  Problem: {
+    Icon: Bug,
+    selected: 'border-rose-400/80 bg-rose-50/80 text-slate-900 shadow-xs ring-1 ring-rose-400/25',
+    icon: 'text-rose-600',
+    idleIcon: 'text-rose-500/80 group-hover:text-rose-600',
+  },
+  Praise: {
+    Icon: Heart,
+    selected: 'border-emerald-400/80 bg-emerald-50/80 text-slate-900 shadow-xs ring-1 ring-emerald-400/25',
+    icon: 'text-emerald-600',
+    idleIcon: 'text-emerald-500/80 group-hover:text-emerald-600',
+  },
+  Other: {
+    Icon: MessageCircle,
+    selected: 'border-indigo-400/80 bg-indigo-50/80 text-slate-900 shadow-xs ring-1 ring-indigo-400/25',
+    icon: 'text-indigo-600',
+    idleIcon: 'text-indigo-500/80 group-hover:text-indigo-600',
+  },
+};
 
 // "Send feedback", opened from the studio picker's top bar. Sends the message
 // to the AppBlips team (lib/feedback.js). Escape closes only this dialog.
@@ -73,10 +98,15 @@ export default function FeedbackModal({ onClose }) {
       cardClass="w-full max-w-md xl:max-w-lg bg-surface rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-scale-in flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh]"
       cardProps={{ role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'feedback-title' }}
     >
-      <div className="relative shrink-0 overflow-hidden px-6 py-5 bg-gradient-to-br from-brand/15 via-brand/5 to-transparent border-b border-slate-100">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-brand/10 blur-2xl" />
+      <div className="relative shrink-0 overflow-hidden px-6 py-5 bg-gradient-to-br from-indigo-50/90 via-indigo-50/35 to-transparent dark:from-[#ec6452]/12 dark:via-indigo-500/8 dark:to-transparent border-b border-indigo-100/80 dark:border-slate-200">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[#1e598f] via-[#3987d0] to-[#ec6452]"
+        />
+        <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-[#ec6452]/12 dark:bg-[#ec6452]/18 blur-2xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -left-8 -bottom-10 h-28 w-28 rounded-full bg-indigo-500/12 dark:bg-indigo-400/12 blur-2xl" />
         <div className="relative flex items-center gap-3.5">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-md ring-4 ring-brand/10 brand-fill-text">
+          <span className="brand-mark flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white">
             <MessageSquareHeart size={20} aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
@@ -112,15 +142,16 @@ export default function FeedbackModal({ onClose }) {
               <legend className={LABEL_CLASS}>What kind of feedback?</legend>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {FEEDBACK_TYPES.map((option) => {
-                  const Icon = TYPE_ICONS[option];
+                  const style = TYPE_STYLES[option];
+                  const { Icon } = style;
                   const selected = type === option;
                   return (
                     <label
                       key={option}
-                      className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-sm font-medium transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand/50 ${
+                      className={`group flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-sm font-medium transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-400/60 ${
                         selected
-                          ? 'border-brand bg-brand/10 text-slate-900 shadow-sm'
-                          : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                          ? style.selected
+                          : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900'
                       }`}
                     >
                       <input
@@ -131,7 +162,7 @@ export default function FeedbackModal({ onClose }) {
                         onChange={() => setType(option)}
                         className="sr-only"
                       />
-                      <Icon size={16} className={selected ? 'text-brand' : ''} aria-hidden="true" />
+                      <Icon size={16} className={`transition-colors ${selected ? style.icon : style.idleIcon}`} aria-hidden="true" />
                       {option}
                     </label>
                   );
