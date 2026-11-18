@@ -383,6 +383,11 @@ const STYLE_PROPS = {
   maxHeight: 'max-height',
   aspectRatio: 'aspect-ratio',
   flexShrink: 'flex-shrink',
+  borderRadius: 'border-radius',
+  borderTopLeftRadius: 'border-top-left-radius',
+  borderTopRightRadius: 'border-top-right-radius',
+  borderBottomRightRadius: 'border-bottom-right-radius',
+  borderBottomLeftRadius: 'border-bottom-left-radius',
 };
 
 const STYLE_LABELS = {
@@ -794,7 +799,10 @@ const applyFitImage = (code, element, natural) => {
   return result.ok ? { ...result, summary: 'resized image to fit' } : result;
 };
 
-const CONTAINER_SIZE_PROPS = new Set(['minWidth', 'maxWidth', 'minHeight', 'height', 'maxHeight', 'aspectRatio', 'width']);
+const CONTAINER_SIZE_PROPS = new Set([
+  'minWidth', 'maxWidth', 'minHeight', 'height', 'maxHeight', 'aspectRatio', 'width',
+  'borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius',
+]);
 
 const pickContainerStyles = (raw) => {
   if (!raw || typeof raw !== 'object') return null;

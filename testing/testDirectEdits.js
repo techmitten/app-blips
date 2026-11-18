@@ -386,6 +386,43 @@ check('imageSize with containers expands both image and targeted duplicate conta
   assert.match(secondChunk, /<img[^>]*style="width: 320px; height: 180px; max-width: none;"/);
 });
 
+check('imageSize with containers preserves container border-radius styles', () => {
+  const html = `<!DOCTYPE html>
+<html>
+<body>
+  <div class="avatar" style="width: 160px; height: 160px; border-radius: 50%; overflow: hidden;">
+    <img src="https://example.com/avatar.jpg" style="width: 100%; height: 100%;">
+  </div>
+</body>
+</html>`;
+  const starts = sourceElementStarts(html);
+  const fp = sourceFingerprint(html);
+  const avatarAt = html.indexOf('<div class="avatar"');
+  const imgAt = html.indexOf('<img ');
+  const element = el({
+    tag: 'img',
+    role: 'image',
+    srcId: starts.indexOf(imgAt),
+    srcFingerprint: fp,
+    attributes: { src: 'https://example.com/avatar.jpg', style: 'width: 100%; height: 100%;' },
+  });
+  const container = el({
+    tag: 'div',
+    role: 'container',
+    srcId: starts.indexOf(avatarAt),
+    srcFingerprint: fp,
+    attributes: { class: 'avatar', style: 'width: 160px; height: 160px; border-radius: 50%; overflow: hidden;' },
+  });
+
+  const result = applyDirectEdit(html, element, {
+    imageSize: { width: 260 },
+    containers: [{ element: container, styles: { minWidth: '260px', borderRadius: '9999px' } }],
+  });
+  assert.ok(result.ok, `expected ok, got: ${result.reason}`);
+  assert.match(result.code, /min-width: 260px;/);
+  assert.match(result.code, /border-radius: 9999px;/);
+});
+
 check('href swap rewrites the link target', () => {
   const element = el({
     tag: 'a',

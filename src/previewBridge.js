@@ -2746,6 +2746,112 @@ const BRIDGE_SOURCE = `(function () {
     }
   }
 
+  var CORNER_PROPS = [
+    'borderTopLeftRadius',
+    'borderTopRightRadius',
+    'borderBottomRightRadius',
+    'borderBottomLeftRadius'
+  ];
+
+  function parseCornerPair(raw, w, h) {
+    var parts = String(raw || '0px').trim().split(' ');
+    var hTok = parts[0] || '0px';
+    var vTok = parts[1] || hTok;
+    var hPct = hTok.indexOf('%') !== -1;
+    var vPct = vTok.indexOf('%') !== -1;
+    var rx = hPct ? (parseFloat(hTok) || 0) * w / 100 : (parseFloat(hTok) || 0);
+    var ry = vPct ? (parseFloat(vTok) || 0) * h / 100 : (parseFloat(vTok) || 0);
+    return { rx: Math.max(0, rx), ry: Math.max(0, ry), hasPct: hPct || vPct };
+  }
+
+  function formatCornerPx(rx, ry) {
+    var x = Math.round(rx * 10) / 10;
+    var y = Math.round(ry * 10) / 10;
+    if (Math.abs(x - y) < 0.05) return x + 'px';
+    return x + 'px ' + y + 'px';
+  }
+
+  function snapshotAncestorCorners(el) {
+    var snaps = [];
+    var node = el.parentElement;
+    while (node && node !== document.body && node !== document.documentElement) {
+      var cs;
+      try { cs = window.getComputedStyle(node); } catch (csErr) { cs = null; }
+      if (!cs || cs.display === 'inline' || cs.display === 'contents') {
+        node = node.parentElement;
+        continue;
+      }
+      var rect = node.getBoundingClientRect();
+      var pairs = [];
+      var anyPct = false;
+      for (var i = 0; i < CORNER_PROPS.length; i++) {
+        var pair = parseCornerPair(cs[CORNER_PROPS[i]], rect.width, rect.height);
+        if (pair.hasPct) anyPct = true;
+        pairs.push(pair);
+      }
+      var cornerInfo = null;
+      if (anyPct && rect.width > 0 && rect.height > 0) {
+        var sumTop = pairs[0].rx + pairs[1].rx;
+        var sumBot = pairs[3].rx + pairs[2].rx;
+        var sumLeft = pairs[0].ry + pairs[3].ry;
+        var sumRight = pairs[1].ry + pairs[2].ry;
+        var f = 1;
+        if (sumTop > rect.width && sumTop > 0) f = Math.min(f, rect.width / sumTop);
+        if (sumBot > rect.width && sumBot > 0) f = Math.min(f, rect.width / sumBot);
+        if (sumLeft > rect.height && sumLeft > 0) f = Math.min(f, rect.height / sumLeft);
+        if (sumRight > rect.height && sumRight > 0) f = Math.min(f, rect.height / sumRight);
+        var resolved = [];
+        var allFull = true;
+        for (var j = 0; j < pairs.length; j++) {
+          var rx0 = pairs[j].rx * f;
+          var ry0 = pairs[j].ry * f;
+          if (rx0 < rect.width / 2 - 0.5 || ry0 < rect.height / 2 - 0.5) allFull = false;
+          resolved.push({ rx: rx0, ry: ry0, hasPct: pairs[j].hasPct });
+        }
+        cornerInfo = { allFull: allFull, resolved: resolved };
+      }
+      snaps.push({
+        el: node,
+        origW: rect.width,
+        origH: rect.height,
+        origAspectRatio: cs.aspectRatio,
+        cornerInfo: cornerInfo
+      });
+      node = node.parentElement;
+    }
+    return snaps;
+  }
+
+  function preserveContainerCornerStyles(snap, newW, newH) {
+    if (!snap || !snap.cornerInfo) return null;
+    if (newW <= snap.origW + 0.5 && newH <= snap.origH + 0.5) return null;
+    var info = snap.cornerInfo;
+    if (info.allFull) {
+      var wasCircle = Math.abs(snap.origW - snap.origH) <= 1.5;
+      if (wasCircle) {
+        if (Math.abs(newW - newH) <= 1.5) return null;
+        return { borderRadius: '9999px' };
+      }
+      if (snap.origH > 0 && newH > 0 && Math.abs((newW / newH) - (snap.origW / snap.origH)) <= 0.02) {
+        return null;
+      }
+    }
+    var out = {};
+    var firstVal = null;
+    var allSame = true;
+    for (var i = 0; i < CORNER_PROPS.length; i++) {
+      var r = info.resolved[i];
+      var formatted = formatCornerPx(r.rx, r.ry);
+      if (firstVal === null) firstVal = formatted;
+      else if (formatted !== firstVal) allSame = false;
+      if (r.hasPct) out[CORNER_PROPS[i]] = formatted;
+    }
+    if (allSame && Object.keys(out).length === 4) {
+      return { borderRadius: firstVal };
+    }
+    return Object.keys(out).length ? out : null;
+  }
+
   // Expands enclosing containers whenever the image grows past what their
   // width/height, max-width/max-height, aspect-ratio or flex constraints allow.
   function applyImageSizeAndContainers(el, opts) {
@@ -2753,32 +2859,37 @@ const BRIDGE_SOURCE = `(function () {
     var nextH = opts.nextH;
     var startW = opts.startW;
     var startH = opts.startH;
-    var growW = nextW != null && nextW > startW;
-    var growH = nextH != null && nextH > startH;
+    var explicitGrowW = nextW != null && nextW > startW;
+    var explicitGrowH = nextH != null && nextH > startH;
     var origMaxW = el.style.maxWidth;
     var origMaxH = el.style.maxHeight;
     var origFlexShrink = el.style.flexShrink;
+    var ancestorSnaps = (explicitGrowW || explicitGrowH) ? snapshotAncestorCorners(el) : [];
 
     if (nextW != null) el.style.width = Math.round(nextW) + 'px';
     if (nextH != null) el.style.height = Math.round(nextH) + 'px';
     if (nextW != null && nextH != null && el.style.aspectRatio) el.style.aspectRatio = '';
 
-    if (growW) {
+    if (explicitGrowW || explicitGrowH) {
       el.style.maxWidth = 'none';
       el.style.flexShrink = '0';
+      el.style.maxHeight = 'none';
     }
-    if (growH) el.style.maxHeight = 'none';
+
+    var elRectAfter = el.getBoundingClientRect();
+    var growW = explicitGrowW || (nextW == null && explicitGrowH && elRectAfter.width > startW + 0.5);
+    var growH = explicitGrowH || (nextH == null && explicitGrowW && elRectAfter.height > startH + 0.5);
+    var targetW = nextW != null ? Math.round(nextW) : Math.ceil(elRectAfter.width);
+    var targetH = nextH != null ? Math.round(nextH) : Math.ceil(elRectAfter.height);
 
     var touched = [];
     if (growW || growH) {
-      var node = el.parentElement;
-      while (node && node !== document.body && node !== document.documentElement) {
+      for (var sIdx = 0; sIdx < ancestorSnaps.length; sIdx++) {
+        var snap = ancestorSnaps[sIdx];
+        var node = snap.el;
         var cs;
         try { cs = window.getComputedStyle(node); } catch (csErr) { cs = null; }
-        if (!cs || cs.display === 'inline' || cs.display === 'contents') {
-          node = node.parentElement;
-          continue;
-        }
+        if (!cs || cs.display === 'inline' || cs.display === 'contents') continue;
         var cRect = node.getBoundingClientRect();
         var elRect = el.getBoundingClientRect();
         var padL = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0);
@@ -2790,7 +2901,7 @@ const BRIDGE_SOURCE = `(function () {
         var cStyles = {};
 
         if (growW) {
-          var wantW = Math.round(nextW);
+          var wantW = targetW;
           var overRight = elRect.right - (cRect.right - padR);
           var overLeft = (cRect.left + padL) - elRect.left;
           var canExpandScrollX = cs.overflowX !== 'auto' && cs.overflowX !== 'scroll';
@@ -2810,7 +2921,7 @@ const BRIDGE_SOURCE = `(function () {
         }
 
         if (growH) {
-          var wantH = Math.round(nextH);
+          var wantH = targetH;
           var overBottom = elRect.bottom - (cRect.bottom - padB);
           var overTop = (cRect.top + padT) - elRect.top;
           var canExpandScrollY = cs.overflowY !== 'auto' && cs.overflowY !== 'scroll';
@@ -2827,19 +2938,40 @@ const BRIDGE_SOURCE = `(function () {
             cStyles.minHeight = cssH + 'px';
             if (cs.height && cs.height !== 'auto') cStyles.height = 'auto';
             if (cs.maxHeight && cs.maxHeight !== 'none') cStyles.maxHeight = 'none';
-            if (cs.aspectRatio && cs.aspectRatio !== 'auto') cStyles.aspectRatio = 'auto';
+          }
+        }
+
+        if ((cStyles.minWidth || cStyles.minHeight) && snap.origAspectRatio && snap.origAspectRatio !== 'auto') {
+          cStyles.aspectRatio = 'auto';
+          if (cStyles.minWidth && !cStyles.minHeight) {
+            var keepH = cs.boxSizing === 'border-box' ? Math.ceil(snap.origH) : Math.max(1, Math.ceil(snap.origH - padT - padB));
+            cStyles.height = keepH + 'px';
+          } else if (cStyles.minHeight && !cStyles.minWidth) {
+            var keepW = cs.boxSizing === 'border-box' ? Math.ceil(snap.origW) : Math.max(1, Math.ceil(snap.origW - padL - padR));
+            cStyles.width = keepW + 'px';
+          }
+        }
+
+        var cOrigStyle = node.getAttribute('style');
+        var cSnap = buildElementDescription(node);
+        for (var sp in cStyles) {
+          if (Object.prototype.hasOwnProperty.call(cStyles, sp)) node.style[sp] = cStyles[sp];
+        }
+
+        var afterRect = node.getBoundingClientRect();
+        var cornerStyles = preserveContainerCornerStyles(snap, afterRect.width, afterRect.height);
+        if (cornerStyles) {
+          for (var cp in cornerStyles) {
+            if (Object.prototype.hasOwnProperty.call(cornerStyles, cp)) {
+              node.style[cp] = cornerStyles[cp];
+              cStyles[cp] = cornerStyles[cp];
+            }
           }
         }
 
         if (Object.keys(cStyles).length) {
-          var cOrigStyle = node.getAttribute('style');
-          var cSnap = buildElementDescription(node);
-          for (var sp in cStyles) {
-            if (Object.prototype.hasOwnProperty.call(cStyles, sp)) node.style[sp] = cStyles[sp];
-          }
           touched.push({ el: node, origStyleAttr: cOrigStyle, snapshot: cSnap, styles: cStyles });
         }
-        node = node.parentElement;
       }
     }
 
@@ -2848,9 +2980,9 @@ const BRIDGE_SOURCE = `(function () {
       el.style.maxWidth = origMaxW;
       el.style.flexShrink = origFlexShrink;
       var checkW = el.getBoundingClientRect().width;
-      if (checkW + 0.5 < Math.round(nextW)) {
+      if (checkW + 0.5 < targetW) {
         el.style.maxWidth = 'none';
-        if (el.getBoundingClientRect().width + 0.5 < Math.round(nextW)) {
+        if (el.getBoundingClientRect().width + 0.5 < targetW) {
           el.style.flexShrink = '0';
           extraImg.flexShrink = '0';
         }
@@ -2860,13 +2992,18 @@ const BRIDGE_SOURCE = `(function () {
           el.style.maxWidth = origMaxW;
         }
       }
+    } else {
+      el.style.maxWidth = origMaxW;
+      el.style.flexShrink = origFlexShrink;
     }
     if (growH) {
       el.style.maxHeight = origMaxH;
-      if (el.getBoundingClientRect().height + 0.5 < Math.round(nextH)) {
+      if (el.getBoundingClientRect().height + 0.5 < targetH) {
         el.style.maxHeight = 'none';
         extraImg.maxHeight = 'none';
       }
+    } else {
+      el.style.maxHeight = origMaxH;
     }
 
     return { touched: touched, extraImg: extraImg };
@@ -2908,6 +3045,9 @@ const BRIDGE_SOURCE = `(function () {
       signY: dir.indexOf('n') !== -1 ? -1 : 1,
       snapshot: snapshot,
       origStyleAttr: origStyleAttr,
+      origElWidth: el.style.width,
+      origElHeight: el.style.height,
+      origElAspectRatio: el.style.aspectRatio,
       origElMaxW: el.style.maxWidth,
       origElMaxH: el.style.maxHeight,
       origElFlexShrink: el.style.flexShrink,
@@ -2928,6 +3068,9 @@ const BRIDGE_SOURCE = `(function () {
     r.moved = true;
     restoreTouchedContainers(r.touchedContainers);
     r.touchedContainers = [];
+    r.el.style.width = r.origElWidth;
+    r.el.style.height = r.origElHeight;
+    r.el.style.aspectRatio = r.origElAspectRatio;
     r.el.style.maxWidth = r.origElMaxW;
     r.el.style.maxHeight = r.origElMaxH;
     r.el.style.flexShrink = r.origElFlexShrink;
