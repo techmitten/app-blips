@@ -1,0 +1,18 @@
+{
+  "name": "onnxruntime-node",
+  "version": "1.21.0-stub.1",
+  "description": "No-op stub overriding @huggingface/transformers' unused Node runtime (voice input uses onnxruntime-web).",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "onnxruntime-common": "1.21.0"
+  },
+  "main": "./index.cjs",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    }
+  }
+}

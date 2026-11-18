@@ -48,6 +48,7 @@
     "fflate": "^0.8.3",
     "lucide-react": "^0.577.0",
     "motion": "^12.43.0",
+    "onnxruntime-node": "file:vendor/onnxruntime-node-stub",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "sucrase": "^3.35.1",
@@ -78,13 +79,13 @@
     "@grpc/grpc-js": "^1.14.5",
     "sharp": "^0.35.5",
     "minimatch": "$minimatch",
+    "onnxruntime-node": "$onnxruntime-node",
     "rimraf@6": {
       "glob": "^14.0.3"
     }
   },
   "allowScripts": {
     "electron-winstaller": false,
-    "onnxruntime-node": false,
     "protobufjs": false
   }
 }
