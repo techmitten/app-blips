@@ -272,6 +272,9 @@ export default function App({ coldStart = false }) {
   // Drag mode lives inside click-to-edit: on, dragging an element in the
   // preview moves it; off, click-to-edit never drags.
   const [isDragMode, setIsDragMode] = useState(false);
+  // Container lock (right-click toggle on images): on, shrinking an image
+  // smaller than its container also shrinks the container with it.
+  const [containerLock, setContainerLock] = useState(false);
   const [selectedElement, setSelectedElement] = useState(null);
   const [selectionKey, setSelectionKey] = useState(0);
   const [elementEditError, setElementEditError] = useState(null);
@@ -937,6 +940,7 @@ export default function App({ coldStart = false }) {
     onStorageChange: handleStorageChange,
     editingEnabled: isPreviewEditing,
     dragEnabled: isPreviewEditing && isDragMode,
+    containerLock: isPreviewEditing && containerLock,
     muted: isGenerating && chatMode === 'build',
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
@@ -966,6 +970,7 @@ export default function App({ coldStart = false }) {
   const handleToggleEditMode = useCallback(() => {
     setIsEditMode((on) => !on);
     setIsDragMode(false);
+    setContainerLock(false);
     setSelectedElement(null);
     setTextSession(null);
     setElementEditError(null);
@@ -1182,6 +1187,12 @@ export default function App({ coldStart = false }) {
     if (!element) return { error: 'Right-click some text or an image to do that.' };
     if (action === 'move') {
       if (!isDragMode) handleToggleDragMode();
+      closeInsertMenu();
+      return { ok: true };
+    }
+    if (action === 'container-lock') {
+      if (element.role !== 'image') return { error: 'Container lock is only available for images.' };
+      setContainerLock((on) => !on);
       closeInsertMenu();
       return { ok: true };
     }
@@ -3299,6 +3310,7 @@ export default function App({ coldStart = false }) {
                 menu={insertMenu}
                 canPaste={canPasteElement}
                 clipboardLabel={elementClipboard?.label || ''}
+                containerLock={containerLock}
                 onElementAction={handleMenuElementAction}
                 onAskAI={handleMenuAskAI}
                 onAddText={handleInsertText}

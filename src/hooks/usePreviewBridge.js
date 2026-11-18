@@ -39,6 +39,9 @@ export default function usePreviewBridge({
   // Drag mode: a sub-mode of editing in which dragging moves elements and a
   // click selects without starting in-place text editing.
   dragEnabled = false,
+  // Container lock: when enabled, resizing an image smaller than its container
+  // shrinks the container to lock to the image.
+  containerLock = false,
   // A build is running: the frame silences its sound (set-muted).
   muted = false,
   onElementSelected,
@@ -91,6 +94,7 @@ export default function usePreviewBridge({
   // toggle must not re-run the whole handshake effect.
   const editingEnabledRef = useRef(editingEnabled);
   const dragEnabledRef = useRef(dragEnabled);
+  const containerLockRef = useRef(containerLock);
   const mutedRef = useRef(muted);
   // requestId -> { resolve, reject, timeoutId }, for correlating the one
   // request/response pair in this otherwise push-only protocol.
@@ -116,6 +120,7 @@ export default function usePreviewBridge({
     currentTokenRef.current = previewToken;
     editingEnabledRef.current = editingEnabled;
     dragEnabledRef.current = dragEnabled;
+    containerLockRef.current = containerLock;
     mutedRef.current = muted;
   });
 
@@ -175,7 +180,11 @@ export default function usePreviewBridge({
     // document must be told the picker is still on).
     const push = () => {
       send('configure', { enabled: PREVIEW_MODES[previewMode].isTouchChrome });
-      send('set-editing', { enabled: editingEnabledRef.current, drag: editingEnabledRef.current && dragEnabledRef.current });
+      send('set-editing', {
+        enabled: editingEnabledRef.current,
+        drag: editingEnabledRef.current && dragEnabledRef.current,
+        containerLock: editingEnabledRef.current && containerLockRef.current,
+      });
       send('set-muted', { muted: mutedRef.current });
     };
 
@@ -383,8 +392,12 @@ export default function usePreviewBridge({
   // or off does not re-run (and thus does not disturb) the main handshake
   // effect above. A disabled picker also clears any live selection.
   useEffect(() => {
-    sendRef.current('set-editing', { enabled: editingEnabled, drag: editingEnabled && dragEnabled });
-  }, [editingEnabled, dragEnabled]);
+    sendRef.current('set-editing', {
+      enabled: editingEnabled,
+      drag: editingEnabled && dragEnabled,
+      containerLock: editingEnabled && containerLock,
+    });
+  }, [editingEnabled, dragEnabled, containerLock]);
 
   // Builds start and end without reloading the frame, so the mute is its own
   // push too. A build that brings new code loads a fresh document, which

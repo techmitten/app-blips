@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Type, ImagePlus, Loader2, AlertTriangle, Scissors, Copy, ClipboardPaste, CopyPlus, Trash2, Move, Sparkles,
+  Type, ImagePlus, Loader2, AlertTriangle, Scissors, Copy, ClipboardPaste, CopyPlus, Trash2, Move, Sparkles, Lock, Check,
 } from 'lucide-react';
 
 const EDGE = 8;
@@ -9,16 +9,18 @@ const EDGE = 8;
 const SUBJECT_LABELS = { heading: 'Heading', text: 'Text', image: 'Image' };
 
 // Click-to-edit's right-click menu. On text or an image (`menu.element`):
-// cut, copy, duplicate or delete it, or Move (turns drag mode on so it can
-// be dragged; already on, it just closes the menu). Anywhere: Ask AI (a
-// request for this spot, which App quotes from the source), or paste what was copied, or add
+// cut, copy, duplicate or delete it, Move (turns drag mode on so it can
+// be dragged; already on, it just closes the menu), or on an image, toggle
+// Container lock (shrinking an image smaller than its container shrinks the
+// container with it). Anywhere: Ask AI (a request for this spot, which App
+// quotes from the source), or paste what was copied, or add
 // a text container or an uploaded image, at the spot the frame marked with
 // its insertion line. Opens at the pointer (screen coordinates from
 // usePreviewBridge), portaled to <body> so the device zoom and the preview
 // pane's clipping don't reach it. Using the page again closes it from the
 // frame's side (insert-menu-dismissed).
 export default function InsertMenu({
-  menu, canPaste = false, clipboardLabel = '', onElementAction, onAskAI, onAddText, onAddImage, onClose,
+  menu, canPaste = false, clipboardLabel = '', containerLock = false, onElementAction, onAskAI, onAddText, onAddImage, onClose,
 }) {
   const [mode, setMode] = useState('menu');
   const [text, setText] = useState('');
@@ -116,7 +118,7 @@ export default function InsertMenu({
   const onMenuKeyDown = (e) => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     e.preventDefault();
-    const items = [...rootRef.current.querySelectorAll('[role="menuitem"]:not(:disabled)')];
+    const items = [...rootRef.current.querySelectorAll('[role^="menuitem"]:not(:disabled)')];
     const at = items.indexOf(document.activeElement);
     items[(at + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
   };
@@ -152,6 +154,20 @@ export default function InsertMenu({
             <>
               {item('duplicate', CopyPlus, 'Duplicate')}
               {item('move', Move, 'Move')}
+              {subject.role === 'image' && (
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={containerLock}
+                  className={`insert-menu-item${containerLock ? ' insert-menu-item-active' : ''}`}
+                  disabled={busy}
+                  onClick={() => runAction('container-lock')}
+                >
+                  <Lock size={15} />
+                  <span>Container lock</span>
+                  {containerLock && <Check size={14} className="insert-menu-check" aria-hidden="true" />}
+                </button>
+              )}
               {item('delete', Trash2, 'Delete', { danger: true })}
             </>
           )}

@@ -528,6 +528,11 @@
   color: var(--color-red-600);
   background: rgb(from var(--color-red-500) r g b / 0.1);
 }
+.insert-menu-item-active {
+  color: var(--color-brand);
+}
+.insert-menu-item-active svg { color: currentColor; }
+.insert-menu-check { margin-left: auto; }
 
 /* Names what Cut / Copy / Duplicate / Delete act on. */
 .insert-menu-heading {

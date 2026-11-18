@@ -45,6 +45,12 @@ const SAMPLE_HTML = `<!DOCTYPE html>
   <div id="aspect-card" style="width: 160px; aspect-ratio: 1 / 1; border-radius: 24px; overflow: hidden;">
     <img id="aspect-photo" src="${SVG_DATA_URI}" alt="Aspect photo" style="width: 100%; height: 100%; object-fit: cover;">
   </div>
+  <div id="multi-card" style="width: 320px; border: 1px solid #cbd5e1; padding: 8px;">
+    <div id="multi-img-wrap" style="width: 280px; height: 140px; overflow: hidden;">
+      <img id="multi-photo" src="${SVG_DATA_URI}" alt="Multi photo" width="200" height="100">
+    </div>
+    <p>Caption text</p>
+  </div>
   <script>
     window.__instanceId = Math.random().toString(36).slice(2);
   </script>
@@ -292,6 +298,110 @@ try {
   assert.equal(Math.round(aspectInfo.iBox.height), 160);
   assert.equal(aspectInfo.br, '24px');
   assert.equal(await page.evaluate(() => window.__iframeLoadCount), loadsBeforeContainer, 'rounded container resizes must not reload iframe');
+
+  // 6. Container lock right-click option:
+  //    (a) Does not appear when right-clicking non-image elements (e.g. heading)
+  await frame.locator('h1').click({ button: 'right' });
+  const copyItem = page.getByRole('menuitem', { name: 'Copy', exact: true });
+  await copyItem.waitFor();
+  assert.equal(await page.getByRole('menuitemcheckbox', { name: 'Container lock', exact: true }).count(), 0, 'Container lock must not appear for non-image elements');
+  await page.keyboard.press('Escape');
+
+  //    (b) Shrinking #multi-photo WITHOUT Container lock leaves #multi-img-wrap at 280x140
+  await frame.locator('#multi-photo').click();
+  await widthInput.waitFor();
+  await widthInput.fill('160');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await versionText().filter({ hasText: 'v9/9' }).waitFor();
+  const unlockedShrinkInfo = await frame.evaluate(() => {
+    const w = document.getElementById('multi-img-wrap');
+    const i = document.getElementById('multi-photo');
+    return { wBox: w.getBoundingClientRect().toJSON(), iBox: i.getBoundingClientRect().toJSON() };
+  });
+  assert.equal(Math.round(unlockedShrinkInfo.iBox.width), 160);
+  assert.equal(Math.round(unlockedShrinkInfo.iBox.height), 80);
+  assert.equal(Math.round(unlockedShrinkInfo.wBox.width), 280, 'without Container lock, container stays 280px wide');
+  assert.equal(Math.round(unlockedShrinkInfo.wBox.height), 140, 'without Container lock, container stays 140px tall');
+
+  //    (c) Right-clicking an image shows Container lock (initially unchecked); clicking it toggles it ON
+  await frame.locator('#multi-photo').click({ button: 'right' });
+  const lockItem = page.getByRole('menuitemcheckbox', { name: 'Container lock', exact: true });
+  await lockItem.waitFor();
+  assert.equal(await lockItem.getAttribute('aria-checked'), 'false');
+  await lockItem.click();
+  await lockItem.waitFor({ state: 'detached' });
+
+  //    Re-opening right-click menu on an image shows Container lock checked
+  await frame.locator('#multi-photo').click({ button: 'right' });
+  await lockItem.waitFor();
+  assert.equal(await lockItem.getAttribute('aria-checked'), 'true');
+  await page.keyboard.press('Escape');
+
+  //    (d) Shrinking #multi-photo via drag handle with Container lock ON shrinks #multi-img-wrap to match,
+  //        while #multi-card (which also holds <p>Caption text</p>) does NOT shrink to image size
+  await frame.locator('#multi-photo').click();
+  const multiSeHandle = frame.locator('[data-orion-resize-handle="se"]');
+  await multiSeHandle.waitFor();
+  const multiHandleBox = await multiSeHandle.boundingBox();
+  await page.mouse.move(multiHandleBox.x + multiHandleBox.width / 2, multiHandleBox.y + multiHandleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(multiHandleBox.x + multiHandleBox.width / 2 - 40, multiHandleBox.y + multiHandleBox.height / 2 - 20, { steps: 5 });
+  await page.mouse.up();
+  await versionText().filter({ hasText: 'v10/10' }).waitFor();
+  assert.equal(await page.evaluate(() => window.__iframeLoadCount), loadsBeforeContainer, 'Container lock drag shrink must not reload iframe');
+  const lockedMultiInfo = await frame.evaluate(() => {
+    const outer = document.getElementById('multi-card');
+    const w = document.getElementById('multi-img-wrap');
+    const i = document.getElementById('multi-photo');
+    return { outerBox: outer.getBoundingClientRect().toJSON(), wBox: w.getBoundingClientRect().toJSON(), iBox: i.getBoundingClientRect().toJSON() };
+  });
+  assert.equal(Math.round(lockedMultiInfo.iBox.width), 120);
+  assert.equal(Math.round(lockedMultiInfo.iBox.height), 60);
+  assert.equal(Math.round(lockedMultiInfo.wBox.width), 120, 'single-image container width locks to shrunk image');
+  assert.equal(Math.round(lockedMultiInfo.wBox.height), 60, 'single-image container height locks to shrunk image');
+  assert.ok(lockedMultiInfo.outerBox.width >= 320, `multi-element outer card must stay >= 320px, got ${lockedMultiInfo.outerBox.width}`);
+
+  //    (e) Previously-grown container (#photo-card, 400x200 with min-width/min-height) shrinks cleanly
+  //        via ElementToolbar W/H + Apply when Container lock is ON (preserving its 2px border)
+  await frame.locator('#card-photo').click();
+  await widthInput.waitFor();
+  assert.equal(await widthInput.inputValue(), '400');
+  await widthInput.fill('160');
+  assert.equal(await heightInput.inputValue(), '80');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await versionText().filter({ hasText: 'v11/11' }).waitFor();
+  assert.equal(await page.evaluate(() => window.__iframeLoadCount), loadsBeforeContainer, 'Container lock toolbar shrink must not reload iframe');
+  const shrunkCardInfo = await frame.evaluate(() => {
+    const c = document.getElementById('photo-card');
+    const i = document.getElementById('card-photo');
+    return { cBox: c.getBoundingClientRect().toJSON(), iBox: i.getBoundingClientRect().toJSON() };
+  });
+  assert.equal(Math.round(shrunkCardInfo.iBox.width), 160);
+  assert.equal(Math.round(shrunkCardInfo.iBox.height), 80);
+  assert.equal(Math.round(shrunkCardInfo.cBox.width), 164, 'photo-card outer width = 160 + 4px border');
+  assert.equal(Math.round(shrunkCardInfo.cBox.height), 84, 'photo-card outer height = 80 + 4px border');
+
+  //    (f) Toggling Container lock OFF stops subsequent smaller resizes from shrinking the container
+  await frame.locator('#card-photo').click({ button: 'right' });
+  await lockItem.waitFor();
+  assert.equal(await lockItem.getAttribute('aria-checked'), 'true');
+  await lockItem.click();
+  await lockItem.waitFor({ state: 'detached' });
+
+  await frame.locator('#card-photo').click();
+  await widthInput.waitFor();
+  await widthInput.fill('100');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await versionText().filter({ hasText: 'v12/12' }).waitFor();
+  const reUnlockedInfo = await frame.evaluate(() => {
+    const c = document.getElementById('photo-card');
+    const i = document.getElementById('card-photo');
+    return { cBox: c.getBoundingClientRect().toJSON(), iBox: i.getBoundingClientRect().toJSON() };
+  });
+  assert.equal(Math.round(reUnlockedInfo.iBox.width), 100);
+  assert.equal(Math.round(reUnlockedInfo.iBox.height), 50);
+  assert.equal(Math.round(reUnlockedInfo.cBox.width), 164, 'after Container lock OFF, container stays 164px');
+  assert.equal(Math.round(reUnlockedInfo.cBox.height), 84, 'after Container lock OFF, container stays 84px');
 
   assert.deepEqual(pageErrors, []);
   console.log('ok - image resize handles and toolbar dimensions work seamlessly');

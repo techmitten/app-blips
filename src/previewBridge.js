@@ -371,6 +371,10 @@ const BRIDGE_SOURCE = `(function () {
   // Drag mode (the parent's secondary toggle): pressing and dragging moves
   // an element, and a click only selects -- no in-place text editing.
   var dragModeActive = false;
+  // Container lock (right-click toggle on images): when active, shrinking an
+  // image smaller than its single-image container also shrinks the container
+  // to hug the image.
+  var containerLockActive = false;
 
   function editCursorCss() { return dragModeActive ? DRAG_MODE_CURSOR_CSS : EDIT_CURSOR_CSS; }
 
@@ -2852,8 +2856,41 @@ const BRIDGE_SOURCE = `(function () {
     return Object.keys(out).length ? out : null;
   }
 
+  var OVERLAY_POSITIONS = { absolute: 1, fixed: 1 };
+  var IGNORED_SIBLING_TAGS = { SCRIPT: 1, STYLE: 1, TEMPLATE: 1, SOURCE: 1, TRACK: 1 };
+
+  function directChildFor(node, desc) {
+    var cur = desc;
+    while (cur && cur.parentElement !== node) {
+      cur = cur.parentElement;
+    }
+    return cur;
+  }
+
+  function isSingleImageContainer(node, childBranch) {
+    if (!childBranch) return false;
+    var children = node.childNodes;
+    for (var i = 0; i < children.length; i++) {
+      var ch = children[i];
+      if (ch === childBranch) continue;
+      if (ch.nodeType === 3) {
+        if (String(ch.nodeValue || '').trim()) return false;
+        continue;
+      }
+      if (ch.nodeType !== 1) continue;
+      if (isBridgeNode(ch)) continue;
+      if (IGNORED_SIBLING_TAGS[upperTag(ch)]) continue;
+      var chCs;
+      try { chCs = window.getComputedStyle(ch); } catch (csErr) { chCs = null; }
+      if (chCs && (chCs.display === 'none' || OVERLAY_POSITIONS[chCs.position])) continue;
+      return false;
+    }
+    return true;
+  }
+
   // Expands enclosing containers whenever the image grows past what their
-  // width/height, max-width/max-height, aspect-ratio or flex constraints allow.
+  // width/height, max-width/max-height, aspect-ratio or flex constraints allow,
+  // and shrinks single-image containers to hug the image when container lock is on.
   function applyImageSizeAndContainers(el, opts) {
     var nextW = opts.nextW;
     var nextH = opts.nextH;
@@ -2861,10 +2898,14 @@ const BRIDGE_SOURCE = `(function () {
     var startH = opts.startH;
     var explicitGrowW = nextW != null && nextW > startW;
     var explicitGrowH = nextH != null && nextH > startH;
+    var explicitShrinkW = containerLockActive && nextW != null && nextW < startW;
+    var explicitShrinkH = containerLockActive && nextH != null && nextH < startH;
     var origMaxW = el.style.maxWidth;
     var origMaxH = el.style.maxHeight;
     var origFlexShrink = el.style.flexShrink;
-    var ancestorSnaps = (explicitGrowW || explicitGrowH) ? snapshotAncestorCorners(el) : [];
+    var ancestorSnaps = (explicitGrowW || explicitGrowH || explicitShrinkW || explicitShrinkH)
+      ? snapshotAncestorCorners(el)
+      : [];
 
     if (nextW != null) el.style.width = Math.round(nextW) + 'px';
     if (nextH != null) el.style.height = Math.round(nextH) + 'px';
@@ -2879,11 +2920,14 @@ const BRIDGE_SOURCE = `(function () {
     var elRectAfter = el.getBoundingClientRect();
     var growW = explicitGrowW || (nextW == null && explicitGrowH && elRectAfter.width > startW + 0.5);
     var growH = explicitGrowH || (nextH == null && explicitGrowW && elRectAfter.height > startH + 0.5);
+    var shrinkW = explicitShrinkW || (containerLockActive && nextW == null && explicitShrinkH && elRectAfter.width < startW - 0.5);
+    var shrinkH = explicitShrinkH || (containerLockActive && nextH == null && explicitShrinkW && elRectAfter.height < startH - 0.5);
     var targetW = nextW != null ? Math.round(nextW) : Math.ceil(elRectAfter.width);
     var targetH = nextH != null ? Math.round(nextH) : Math.ceil(elRectAfter.height);
 
     var touched = [];
-    if (growW || growH) {
+    var shrinkChainOpen = shrinkW || shrinkH;
+    if (growW || growH || shrinkW || shrinkH) {
       for (var sIdx = 0; sIdx < ancestorSnaps.length; sIdx++) {
         var snap = ancestorSnaps[sIdx];
         var node = snap.el;
@@ -2899,6 +2943,32 @@ const BRIDGE_SOURCE = `(function () {
         var innerW = Math.max(0, cRect.width - padL - padR);
         var innerH = Math.max(0, cRect.height - padT - padB);
         var cStyles = {};
+
+        var childBranch = shrinkChainOpen ? directChildFor(node, el) : null;
+        if (shrinkChainOpen && !isSingleImageContainer(node, childBranch)) {
+          shrinkChainOpen = false;
+        }
+        var shrinkTargetW = null;
+        var shrinkTargetH = null;
+        var shrinkNeededW = null;
+        var shrinkNeededH = null;
+        if (shrinkChainOpen) {
+          var childRect = childBranch === el ? elRect : childBranch.getBoundingClientRect();
+          var childW = childBranch === el ? targetW : Math.ceil(childRect.width);
+          var childH = childBranch === el ? targetH : Math.ceil(childRect.height);
+          if (shrinkW && childW < innerW - 0.5) {
+            shrinkNeededW = Math.max(1, childW + padL + padR);
+            shrinkTargetW = cs.boxSizing === 'border-box' ? Math.ceil(shrinkNeededW) : Math.max(1, childW);
+            cStyles.width = shrinkTargetW + 'px';
+            if ((parseFloat(cs.minWidth) || 0) > shrinkTargetW - 0.5) cStyles.minWidth = '0px';
+          }
+          if (shrinkH && childH < innerH - 0.5) {
+            shrinkNeededH = Math.max(1, childH + padT + padB);
+            shrinkTargetH = cs.boxSizing === 'border-box' ? Math.ceil(shrinkNeededH) : Math.max(1, childH);
+            cStyles.height = shrinkTargetH + 'px';
+            if ((parseFloat(cs.minHeight) || 0) > shrinkTargetH - 0.5) cStyles.minHeight = '0px';
+          }
+        }
 
         if (growW) {
           var wantW = targetW;
@@ -2941,12 +3011,14 @@ const BRIDGE_SOURCE = `(function () {
           }
         }
 
-        if ((cStyles.minWidth || cStyles.minHeight) && snap.origAspectRatio && snap.origAspectRatio !== 'auto') {
+        var changedW = !!(cStyles.minWidth || cStyles.width);
+        var changedH = !!(cStyles.minHeight || cStyles.height);
+        if ((changedW || changedH) && snap.origAspectRatio && snap.origAspectRatio !== 'auto') {
           cStyles.aspectRatio = 'auto';
-          if (cStyles.minWidth && !cStyles.minHeight) {
+          if (changedW && !changedH) {
             var keepH = cs.boxSizing === 'border-box' ? Math.ceil(snap.origH) : Math.max(1, Math.ceil(snap.origH - padT - padB));
             cStyles.height = keepH + 'px';
-          } else if (cStyles.minHeight && !cStyles.minWidth) {
+          } else if (changedH && !changedW) {
             var keepW = cs.boxSizing === 'border-box' ? Math.ceil(snap.origW) : Math.max(1, Math.ceil(snap.origW - padL - padR));
             cStyles.width = keepW + 'px';
           }
@@ -2959,6 +3031,16 @@ const BRIDGE_SOURCE = `(function () {
         }
 
         var afterRect = node.getBoundingClientRect();
+        if (shrinkTargetW !== null && afterRect.width > shrinkNeededW + 0.5) {
+          node.style.maxWidth = shrinkTargetW + 'px';
+          cStyles.maxWidth = shrinkTargetW + 'px';
+          afterRect = node.getBoundingClientRect();
+        }
+        if (shrinkTargetH !== null && afterRect.height > shrinkNeededH + 0.5) {
+          node.style.maxHeight = shrinkTargetH + 'px';
+          cStyles.maxHeight = shrinkTargetH + 'px';
+          afterRect = node.getBoundingClientRect();
+        }
         var cornerStyles = preserveContainerCornerStyles(snap, afterRect.width, afterRect.height);
         if (cornerStyles) {
           for (var cp in cornerStyles) {
@@ -3265,7 +3347,8 @@ const BRIDGE_SOURCE = `(function () {
     syncResizeOverlay();
   }
 
-  function setEditingEnabled(enabled, dragOn) {
+  function setEditingEnabled(enabled, dragOn, lockOn) {
+    containerLockActive = !!enabled && !!lockOn;
     if (!!enabled === editingActive) {
       setDragMode(!!enabled && !!dragOn);
       return;
@@ -3883,7 +3966,11 @@ const BRIDGE_SOURCE = `(function () {
     } else if (d.type === 'set-muted') {
       setBuildMuted(!!(d.payload && d.payload.muted));
     } else if (d.type === 'set-editing') {
-      setEditingEnabled(!!(d.payload && d.payload.enabled), !!(d.payload && d.payload.drag));
+      setEditingEnabled(
+        !!(d.payload && d.payload.enabled),
+        !!(d.payload && d.payload.drag),
+        !!(d.payload && d.payload.containerLock)
+      );
     } else if (d.type === 'nav-back' || d.type === 'nav-forward') {
       var goBack = d.type === 'nav-back';
       try {
