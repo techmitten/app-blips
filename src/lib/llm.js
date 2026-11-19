@@ -930,7 +930,7 @@ const createMissingPages = async ({ files, request, signal, onChunk, projectName
           signal,
           reasoningEffort
         });
-        html = sanitizeHtmlResponse(message.content || message || '');
+        html = sanitizeHtmlResponse(message?.content || '');
       }
       if (html === null) throw new Error('no HTML returned');
       const created = executeFilesTool(result, {
@@ -1054,7 +1054,7 @@ const generateAppCodeCore = async (
         messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
       }
     }
-    const rawText = String(message.content || message || '').trim();
+    const rawText = String(message?.content || '').trim();
     return {
       code: currentCode || '',
       editMode: 'ask',
@@ -1248,7 +1248,7 @@ const generateAppCodeCore = async (
         reasoningEffort: buildEffort
       });
 
-      rawText = message.content || message;
+      rawText = message?.content || '';
       outputTruncated = Boolean(message.truncated);
       code = sanitizeHtmlResponse(rawText);
       if (code !== null) break;

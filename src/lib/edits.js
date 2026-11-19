@@ -3,6 +3,7 @@
 export const invalidArgumentsError = (err) => `Arguments were not valid JSON (${err.message}). The call was probably cut off by the output limit: split the change into several smaller tool calls.`;
 
 export const sanitizeHtmlResponse = (text) => {
+  if (typeof text !== 'string') return null;
   // Fallback: if the model mistakenly wrapped the HTML in a JSON object (with or without markdown)
   try {
     const firstBrace = text.indexOf('{');
@@ -61,6 +62,7 @@ export const sanitizeHtmlResponse = (text) => {
 // Complementary to sanitizeHtmlResponse: returns the text BEFORE the HTML boundary
 // (an optional short conversational reply) instead of the HTML itself.
 export const extractLeadingReply = (text) => {
+  if (typeof text !== 'string') return '';
   // Fallback: if the model mistakenly wrapped the HTML in a JSON object, the
   // JSON object itself is the code container, so everything before it is the reply.
   try {

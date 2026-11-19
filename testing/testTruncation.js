@@ -8,7 +8,7 @@ const server = await createServer({ configFile: false, server: { middlewareMode:
 const savedFetch = globalThis.fetch;
 try {
   const { requestFullText, generateAppCode, executeRefinementTool, CONTINUE_INSTRUCTION, MAX_CONTINUATIONS } = await server.ssrLoadModule('/src/lib/llm.js');
-  const { sanitizeHtmlResponse } = await server.ssrLoadModule('/src/lib/edits.js');
+  const { sanitizeHtmlResponse, extractLeadingReply } = await server.ssrLoadModule('/src/lib/edits.js');
   const { checkSyntax } = await server.ssrLoadModule('/src/lib/syntaxCheck.js');
 
   let responses = [];
@@ -89,6 +89,29 @@ try {
   assert.equal(responses.length, 0);
   assert.equal(result.outputTruncated, true);
   assert.match(result.reply, /reached its output limit/);
+
+  // Non-string inputs to HTML/reply extractors never throw (e.g. `.indexOf is not a function`).
+  for (const bad of [null, undefined, {}, { content: '' }, 42]) {
+    assert.equal(sanitizeHtmlResponse(bad), null);
+    assert.equal(extractLeadingReply(bad), '');
+  }
+
+  // Empty model content (e.g. reasoning-only or early stream close) triggers
+  // the empty-generation retry loop instead of crashing on message.indexOf.
+  responses = [
+    { message: { content: '' }, finish: 'length' },
+    { message: { content: '<!DOCTYPE html><html><body><p>Recovered</p></body></html>' }, finish: 'stop' },
+    { message: { content: 'Built your app.' }, finish: 'stop' },
+  ];
+  requests = [];
+  result = await generate();
+  assert.equal(responses.length, 0);
+  assert.match(result.code, /Recovered/);
+
+  // Ask mode with empty content returns '' rather than '[object Object]'.
+  responses = [{ message: { content: '' }, finish: 'stop' }];
+  result = await generateAppCode('What does this do?', '<html></html>', [], null, 'both', null, true, false, null, false, { build: 'none' }, 'app', null, '', false);
+  assert.equal(result.reply, '');
 
   // A tool call cut off mid-arguments tells the model how to recover.
   const cutOff = executeRefinementTool('<html></html>', { id: 'c1', type: 'function', function: { name: 'apply_surgical_edits', arguments: '{"edits":[{"search":"<ht' } });
