@@ -396,6 +396,15 @@ export default function CodeView({
   }, [isEditing, draft]);
   const canEdit = Boolean(onSaveCode) && !activeFileIsBinary && !(isSvgText && !svgAsCode)
     && !(hasFileList ? !activeFile : false);
+  // HTML studios: the header's line count, live while the code streams in
+  // (and while hand editing).
+  const countedCode = isEditing ? draft : (code || '');
+  const lineCount = useMemo(() => {
+    if (hasFileList || !countedCode) return 0;
+    let count = 1;
+    for (let i = countedCode.indexOf('\n'); i !== -1; i = countedCode.indexOf('\n', i + 1)) count += 1;
+    return count;
+  }, [hasFileList, countedCode]);
   const fileStats = useMemo(() => {
     if (!hasFileList || activeFileIsBinary || !code) return null;
     const lines = code.split('\n').length;
@@ -496,11 +505,12 @@ export default function CodeView({
             {explorerOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
           </button>
         ) : (
-          <div className="flex space-x-1.5 mr-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></div>
-            <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></div>
-            <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></div>
-          </div>
+          <span
+            className="mr-2 shrink-0 font-mono text-xs tabular-nums text-slate-400"
+            title={isGenerating ? 'Lines written so far' : 'Lines of code'}
+          >
+            {lineCount.toLocaleString()} line{lineCount === 1 ? '' : 's'}
+          </span>
         )}
         {hasFileList && activeFile ? (
           <Breadcrumbs path={activeFile} onReveal={revealFolder} />

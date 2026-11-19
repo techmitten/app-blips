@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { startUserMessage } from './lib/messageId';
 import { ensureFreeSignIn, openFreeSignIn } from './lib/freeSignIn';
+import { savePromptForSignIn, clearPromptForSignIn } from './lib/signInHandoff';
 import { flushSync } from 'react-dom';
 import './App.css';
 import { injectPreviewBridge } from './previewBridge';
@@ -105,7 +106,7 @@ import { confirmExternal } from './lib/externalLinks';
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
 
-export default function App({ coldStart = false }) {
+export default function App({ coldStart = false, signInHandoff = null }) {
   useVisualViewport();
   const freeAccount = useFreeSignIn();
   // --- Layout / chrome state ---
@@ -120,7 +121,8 @@ export default function App({ coldStart = false }) {
   // Once per launch: the first screen shown plays it (setup on a new desktop
   // install, otherwise the studio picker or workspace), and the screens
   // that follow mount their own copy, which mustn't play it again.
-  const [splashDone, setSplashDone] = useState(false);
+  // Coming back from a sign-in that left the page has already had its splash.
+  const [splashDone, setSplashDone] = useState(Boolean(signInHandoff));
   const endSplash = useCallback(() => setSplashDone(true), []);
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
   const [codeAutocomplete, setCodeAutocomplete] = useState(loadCodeAutocomplete);
@@ -213,7 +215,11 @@ export default function App({ coldStart = false }) {
   // resume or adopted pending job can fill it before the gate shows. Once
   // picked, the choice is never re-litigated inside the header; the other studio is only
   // ever reached through "New", which asks again.
-  const [studioMode, setStudioMode] = useState(null);
+  // Coming back from a Free AI sign-in that left the page (signInHandoff.js)
+  // reopens the studio the prompt was typed in instead of the picker.
+  const [studioMode, setStudioMode] = useState(() => (
+    signInHandoff?.studioMode && signInHandoff.studioMode !== 'codebase' ? normalizeStudioMode(signInHandoff.studioMode) : null
+  ));
   const studioModeRef = useRef(null);
   studioModeRef.current = studioMode;
   // Imported React + Vite projects (studioMode 'codebase', lib/codebase/):
@@ -1669,7 +1675,12 @@ export default function App({ coldStart = false }) {
       if (signInCheckRef.current) return;
       signInCheckRef.current = true;
       try {
-        if (!(await ensureFreeSignIn())) return;
+        if (!(await ensureFreeSignIn())) {
+          // In case the sign-in leaves the page, keep the prompt for the next load.
+          savePromptForSignIn({ prompt: currentPrompt, studioMode: studioModeRef.current, projectId: currentProjectId });
+          return;
+        }
+        clearPromptForSignIn();
       } catch (err) {
         setError(err.message);
         return;
@@ -2683,6 +2694,25 @@ export default function App({ coldStart = false }) {
     // what suppresses the resume behavior.
     markStartFresh();
   };
+
+  // Back from a Free AI sign-in that left the page: put the unsent prompt back
+  // in the box, in a fresh workspace of its studio (a saved project resumes
+  // through useProjects instead).
+  useEffect(() => {
+    if (!signInHandoff) return;
+    if (!signInHandoff.projectId && studioModeRef.current) {
+      resetCurrentWorkspace(studioModeRef.current);
+      setPreviewMode(STUDIO_MODES[studioModeRef.current]?.defaultPreviewMode || 'mobile');
+    }
+    setPrompt(signInHandoff.prompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Signed in without leaving the page: the saved prompt isn't needed.
+  const freeSignedIn = Boolean(freeAccount.state?.signedIn);
+  useEffect(() => {
+    if (freeSignedIn) clearPromptForSignIn();
+  }, [freeSignedIn]);
 
   // The studio-choice screen. Forced on a fresh session (gate), or opened by
   // "New" once work was confirmed away. Picking seeds the untitled name and

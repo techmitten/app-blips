@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bug, ExternalLink, MessageSquare } from 'lucide-react';
+import { Bug, Coffee, ExternalLink, MessageSquare } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
 import { ConfirmedLink } from './ExternalLinkConfirm';
 import { SECONDARY_BUTTON, SettingRow } from './SettingControls';
@@ -11,14 +11,16 @@ import { CURRENT_VERSION } from '../lib/updates';
 // Settings → About: logo, version and copyright, then the legal links and the
 // open source licenses (once tabs of their own). The copyright line mirrors
 // LICENSE; keep the two in sync.
-// The four buttons under the version: a brand-coloured edge, a shadow and a
+// The buttons under the version: a brand-coloured edge, a shadow and a
 // small icon move on hover (movement only when motion is allowed).
 const ABOUT_BUTTON = `${SECONDARY_BUTTON} group transition-all duration-200 hover:border-brand hover:text-brand hover:shadow-md active:shadow-sm`;
 const ICON_MOTION = 'transition-transform duration-200';
-const COPYRIGHT = '© 2026 TechMitten LLC';
+const CURRENT_YEAR = Math.max(2026, new Date().getFullYear());
+const COPYRIGHT = `© ${CURRENT_YEAR} TechMitten LLC`;
 const WEBSITE_URL = 'https://www.appblips.com';
 const REPO_URL = 'https://github.com/TechMitten/app-blips';
 const BUG_REPORT_URL = `${REPO_URL}/issues/new`;
+const KOFI_URL = 'https://ko-fi.com/techray';
 const LEGAL_LINKS = [
   { id: 'legal-privacy', title: 'Privacy Policy', description: 'How AppBlips collects, uses and protects your data.', why: 'The Privacy Policy is published on the AppBlips website, not inside the app.', href: 'https://www.appblips.com/privacy' },
   { id: 'legal-terms', title: 'Terms of Service', description: 'The terms that apply when you use AppBlips.', why: 'The Terms of Service are published on the AppBlips website, not inside the app.', href: 'https://www.appblips.com/terms' },
@@ -77,6 +79,10 @@ export default function AboutSettings() {
           <MessageSquare size={14} aria-hidden="true" className={`${ICON_MOTION} motion-safe:group-hover:scale-125`} />
           Send feedback
         </button>
+        <ConfirmedLink href={KOFI_URL} why="To open Ko-fi in your browser so you can support development." className={ABOUT_BUTTON}>
+          <Coffee size={14} aria-hidden="true" className={`${ICON_MOTION} motion-safe:group-hover:-rotate-12`} />
+          Donate
+        </ConfirmedLink>
       </div>
       <nav aria-label="About sections" className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm">
         {SECTIONS.map(({ id, label }) => (

@@ -6,11 +6,13 @@ import ExternalLinkGuard from './components/ExternalLinkGuard.jsx'
 import { initProjectStore, isDesktop } from './lib/desktop'
 import { installBrowserKeyStorage } from './lib/browserKeys'
 import { beginAppSession } from './lib/config'
+import { takePromptForSignIn } from './lib/signInHandoff'
 import { unlockUiSound } from './lib/uiSound'
 import { installGlobalErrorLogging, logError, reactRootErrorOptions } from './lib/errorLog'
 
 installGlobalErrorLogging()
-const coldStart = beginAppSession()
+const signInHandoff = takePromptForSignIn()
+const coldStart = beginAppSession({ returningFromSignIn: Boolean(signInHandoff) })
 
 const isAndroid = window.Capacitor?.getPlatform?.() === 'android'
 
@@ -30,7 +32,7 @@ Promise.all([initProjectStore(), startAndroidApi()]).then(() => {
   unlockUiSound()
   createRoot(document.getElementById('root'), reactRootErrorOptions).render(
     <StrictMode>
-      <App coldStart={coldStart} />
+      <App coldStart={coldStart} signInHandoff={signInHandoff} />
       <ExternalLinkGuard />
     </StrictMode>,
   )
