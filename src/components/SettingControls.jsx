@@ -22,7 +22,7 @@ export function SettingRow({ id, title, description, children, details, headingL
   return (
     <div className="py-4 first:pt-0 last:pb-0">
       <div className={`flex ${inlineSwitch ? 'flex-row items-center justify-between gap-x-4' : 'flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2.5'} sm:gap-x-6`}>
-        <div className={`min-w-0 ${inlineSwitch ? 'flex-1 sm:flex-none' : ''} sm:max-w-[60%]`}>
+        <div className={`min-w-0 ${inlineSwitch ? 'flex-1 sm:flex-none' : ''} ${children ? 'sm:max-w-[60%]' : ''}`}>
           <Heading id={id} className="text-sm font-semibold text-slate-900">{title}</Heading>
           {description && <p className="mt-0.5 text-xs text-slate-600 leading-snug">{description}</p>}
         </div>

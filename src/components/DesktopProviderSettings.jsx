@@ -295,7 +295,7 @@ export default function DesktopProviderSettings({ guardRef }) {
       details={(
         // One panel split into sections (provider, key, model, actions) so the
         // fields read as groups rather than one long stack.
-        <div className="rounded-xl border border-slate-200 bg-slate-50 dark:bg-white/[0.04] divide-y divide-slate-200">
+        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.06] divide-y divide-slate-200 dark:divide-white/10">
           <div className="px-4 py-3.5 block text-sm font-medium text-slate-800">
             Provider
             <ProviderDropdown
