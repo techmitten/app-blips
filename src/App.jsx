@@ -1757,7 +1757,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    const shouldAskClarifyingQuestions = !isAutoFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
+    const shouldAskClarifyingQuestions = !generatedCode && !isAutoFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
     // A request that uses My images waits for the user to confirm which image
     // each mention means (llm.js matchGalleryImages). Approving ("yes", or the
     // button) builds; any other answer is checked again as a correction.
@@ -1770,7 +1770,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       isAutoFix
         ? automaticRepairStatus()
         : shouldAskClarifyingQuestions
-          ? (generatedCode ? "Analyzing requested changes..." : "Analyzing requirements...")
+          ? "Analyzing requirements..."
           : null
     );
     abortControllerRef.current = new AbortController();
@@ -1984,6 +1984,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         chatMode: generationResult.editMode === 'ask' ? 'ask' : chatMode,
         // The images the user is asked to confirm before the build starts.
         ...(generationResult.imageConfirm ? { imageConfirm: generationResult.imageConfirm } : {}),
+        // Structured multiple-choice clarifying questions before the build starts.
+        ...(generationResult.clarifyingQuestions?.length ? { clarifyingQuestions: generationResult.clarifyingQuestions } : {}),
         sessionId: currentChatSessionId,
         usage: usageMeter.stop(),
       };
@@ -2110,6 +2112,14 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // The approve button under an image confirmation sends the approval as the
   // next request, which starts the build (see confirmGalleryImages).
   const handleApproveImages = (text) => {
+    if (isGeneratingRef.current) return;
+    handleGenerate(null, text);
+  };
+
+  // Submitting multiple-choice clarifying answers sends them as the next
+  // request, which starts the build (prevVersion.editMode === 'clarify' skips
+  // re-asking clarifying questions).
+  const handleAnswerClarifyingQuestions = (text) => {
     if (isGeneratingRef.current) return;
     handleGenerate(null, text);
   };
@@ -3191,6 +3201,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 onChatModeChange={setChatMode}
                 onRewind={setRewindTargetIndex}
                 onApproveImages={handleApproveImages}
+                onAnswerClarifyingQuestions={handleAnswerClarifyingQuestions}
                 gallery={chatGallery}
                 projectId={currentProjectId}
                 generatedCode={generatedCode}

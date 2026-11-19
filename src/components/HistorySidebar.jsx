@@ -204,12 +204,17 @@ export default function HistorySidebar({
 
   return (
     <>
-      {isOpen && (
-        <button type="button" className="history-backdrop absolute inset-0 z-30 bg-scrim xl:hidden" aria-label="Close history" onClick={onCollapse} />
-      )}
+      <button
+        type="button"
+        inert={!isOpen}
+        tabIndex={isOpen ? 0 : -1}
+        className={`history-backdrop absolute inset-0 z-30 bg-scrim xl:hidden ${isOpen ? 'history-backdrop-open' : ''}`}
+        aria-label="Close history"
+        onClick={onCollapse}
+      />
       {/* History Sidebar */}
-      <aside aria-label="Version history" inert={!isOpen} className={`history-sidebar absolute left-0 top-0 bottom-0 flex flex-col z-30 transition-all duration-200 ease-out history-bg noise-texture border-r border-slate-200 panel-edge-right shadow-xl ${
-        isOpen ? 'history-sidebar-open w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px]' : 'w-0 min-w-0 border-r-0 overflow-hidden opacity-0 pointer-events-none'
+      <aside aria-label="Version history" inert={!isOpen} className={`history-sidebar absolute left-0 top-0 bottom-0 flex flex-col z-30 w-80 lg:w-[340px] xl:w-[380px] 2xl:w-[420px] history-bg noise-texture border-r border-slate-200 panel-edge-right shadow-xl ${
+        isOpen ? 'history-sidebar-open' : ''
       }`}>
         {/* Header */}
         <div className="h-[var(--chrome-row-h)] shrink-0 px-4 sm:px-5 flex items-center justify-between history-header-bg border-b border-slate-200/90 shadow-2xs">

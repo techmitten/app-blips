@@ -220,7 +220,7 @@ export default function FreeAccountControl({
             data-tip-side="right"
           >
             <LogIn size={17} aria-hidden="true" className="shrink-0" />
-            <span className={`hero-rail-label hidden ${collapsed ? '' : 'lg:inline'}`}>Sign in</span>
+            <span className="hero-rail-label hidden lg:inline">Sign in</span>
           </button>
           {errorPopover}
         </>
@@ -241,7 +241,7 @@ export default function FreeAccountControl({
           data-tip-side="right"
         >
           <AccountAvatar state={state} size={18} />
-          <span className={`hero-rail-label hidden truncate ${collapsed ? '' : 'lg:inline'}`}>{shortLabel}</span>
+          <span className="hero-rail-label hidden truncate lg:inline">{shortLabel}</span>
         </button>
         {menuOpen && menuPos && createPortal(
           <AccountDropdown

@@ -38,6 +38,7 @@ export default function PromptInput({
   chatMode,
   onChatModeChange,
   isClarifying,
+  hasClarifyingChoices = false,
   studioMode = 'app',
   attachment = null,
   attachmentError = null,
@@ -138,10 +139,10 @@ export default function PromptInput({
   }, [prompt]);
 
   useEffect(() => {
-    if (isClarifying && !isGenerating) {
+    if (isClarifying && !hasClarifyingChoices && !isGenerating) {
       textareaRef.current?.focus();
     }
-  }, [isClarifying, isGenerating]);
+  }, [isClarifying, hasClarifyingChoices, isGenerating]);
 
   const handleKeyDown = (e) => {
     if (e.nativeEvent.isComposing) return;
@@ -254,7 +255,7 @@ export default function PromptInput({
                     : "e.g. A one-page site for a cozy neighborhood bakery...")
                   : studioMode === 'game'
                     ? (isChatActive
-                      ? "e.g. Add a boss wave, make the paddle bigger..."
+                      ? "e.g. Create a project timeline, set reminders, track tasks..."
                       : "e.g. A neon breakout with power-ups and a high-score table...")
                     : (isChatActive
                       ? "e.g. Make the background dark, add a reset button..."

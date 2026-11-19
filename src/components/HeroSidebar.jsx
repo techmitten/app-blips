@@ -25,7 +25,7 @@ function RailItem({ icon: Icon, label, tip = label, collapsed, onClick, href, ba
   const content = (
     <>
       <Icon size={17} aria-hidden="true" className="shrink-0" />
-      <span className={`hero-rail-label hidden ${collapsed ? '' : 'lg:inline'}`}>{label}</span>
+      <span className="hero-rail-label hidden lg:inline">{label}</span>
       {badge}
     </>
   );
@@ -93,12 +93,14 @@ export default function HeroSidebar({
       className={`hero-rail shrink-0 flex flex-row lg:flex-col items-center lg:items-stretch gap-1 px-2 py-2 lg:px-2.5 lg:py-3 ${collapsed ? 'lg:w-15' : 'lg:w-56'}`}
       aria-label="Studio navigation"
     >
-      <div className={`hero-rail-brand flex items-center gap-2 px-1.5 ${collapsed ? 'is-collapsed lg:flex-col lg:gap-3' : 'lg:justify-between'}`}>
-        <span className="flex items-center gap-2 min-w-0">
+      <div className={`hero-rail-brand flex items-center gap-2 px-1.5 ${collapsed ? 'is-collapsed' : ''}`}>
+        <span className="hero-rail-brand-mark flex items-center gap-2 min-w-0">
           <img src="/favicon.svg" alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
-          {/* Same two wordmarks as the studio picker (one shows per theme). Hidden only when the desktop rail is collapsed to icons. */}
-          <img src="/appblips-wordmark-dark.svg" alt="AppBlips" className={`hero-rail-wordmark-img studio-logo-dark ${collapsed ? 'lg:hidden' : ''}`} />
-          <img src="/appblips-wordmark-light.svg" alt="" aria-hidden="true" className={`hero-rail-wordmark-img studio-logo-light ${collapsed ? 'lg:hidden' : ''}`} />
+          {/* Same two wordmarks as the studio picker (one shows per theme). Fades out smoothly when the desktop rail collapses to icons. */}
+          <span className="hero-rail-wordmark">
+            <img src="/appblips-wordmark-dark.svg" alt="AppBlips" className="hero-rail-wordmark-img studio-logo-dark" />
+            <img src="/appblips-wordmark-light.svg" alt="" aria-hidden="true" className="hero-rail-wordmark-img studio-logo-light" />
+          </span>
         </span>
         <button
           type="button"
@@ -179,7 +181,7 @@ export default function HeroSidebar({
           collapsed={collapsed}
           onClick={onOpenApps}
           badge={savedAppsCount > 0 ? (
-            <span className={`hero-rail-count hidden ${collapsed ? '' : 'lg:inline-flex'}`}>{savedAppsCount}</span>
+            <span className="hero-rail-count hidden lg:inline-flex">{savedAppsCount}</span>
           ) : null}
         />
         {workspaceActive && (
@@ -195,20 +197,26 @@ export default function HeroSidebar({
             badge={versionsCount > 0 ? <span className="hero-rail-dot" aria-hidden="true" /> : null}
           />
         )}
-        {recentProjects.length > 0 && !collapsed && (
-          <div className="hidden lg:flex flex-col gap-0.5 mt-4 min-h-0 overflow-y-auto">
-            <p className="hero-rail-heading">Recents</p>
-            {recentProjects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                onClick={() => onLoadProject?.(project)}
-                className="hero-rail-recent"
-                title={project.name}
-              >
-                <span className="truncate">{project.name}</span>
-              </button>
-            ))}
+        {recentProjects.length > 0 && (
+          <div
+            className={`hero-rail-recents hidden lg:grid${collapsed ? ' is-collapsed' : ''}`}
+            inert={collapsed}
+            aria-hidden={collapsed}
+          >
+            <div className="hero-rail-recents-inner flex flex-col gap-0.5 min-h-0">
+              <p className="hero-rail-heading">Recents</p>
+              {recentProjects.map((project) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  onClick={() => onLoadProject?.(project)}
+                  className="hero-rail-recent"
+                  title={project.name}
+                >
+                  <span className="truncate">{project.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

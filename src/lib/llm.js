@@ -24,6 +24,7 @@ import {
 import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
 } from './pages';
+import { parseClarifyingQuestionsArgs } from './clarifyingQuestions';
 import {
   buildHtmlSystemPrompt,
   buildAskConnectorNote,
@@ -33,6 +34,7 @@ import {
   getRefinementTools,
   buildCreatePageParts,
   ASK_CLARIFYING_QUESTIONS_TOOL,
+  PUBLIC_WRITING_ASK_TOOL,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   GAME_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
@@ -81,19 +83,15 @@ const buildUserContent = (text, attachment) => {
 };
 
 function parseClarifyingQuestionArgs(rawArguments) {
-  let args;
-  try {
-    args = JSON.parse(rawArguments);
-  } catch (err) {
-    logWarn(`Clarifying question arguments were not valid JSON, using a generic question. Model sent: ${String(rawArguments ?? '').slice(0, 300)}`, err);
-    args = { question: "Could you clarify what you mean?" };
+  const parsed = parseClarifyingQuestionsArgs(rawArguments);
+  if (parsed.parseError) {
+    logWarn(`Clarifying question arguments were not valid JSON, using a generic question. Model sent: ${String(rawArguments ?? '').slice(0, 300)}`, parsed.parseError);
   }
-
-  let q = args?.question || "Could you clarify what you mean?";
-  if (typeof q === 'object' && q !== null) q = q.question || Object.values(q)[0] || JSON.stringify(q);
-  q = String(q).trim() || "Could you clarify what you mean?";
-
-  return { question: q };
+  return {
+    question: parsed.question,
+    reply: parsed.reply,
+    questions: parsed.questions,
+  };
 }
 
 // Reasoning for calls that only produce chat text (clarifying question, intro
@@ -134,8 +132,8 @@ export const generateClarifyingQuestion = async ({
 
   const toolCall = message.tool_calls?.find(t => t.function?.name === 'ask_clarifying_questions');
   if (toolCall) {
-    const { question: q } = parseClarifyingQuestionArgs(toolCall.function.arguments);
-    return q;
+    const { reply, questions } = parseClarifyingQuestionArgs(toolCall.function.arguments);
+    return { reply, questions };
   }
   return null;
 };
@@ -342,7 +340,7 @@ export const generateChatReply = async ({
   let streamed = '';
   const message = await requestModelText({
     messages,
-    ...(checkPublicWriting ? { tools: [ASK_CLARIFYING_QUESTIONS_TOOL], tool_choice: 'auto' } : {}),
+    ...(checkPublicWriting ? { tools: [PUBLIC_WRITING_ASK_TOOL], tool_choice: 'auto' } : {}),
     reasoningEffort: CHAT_REASONING_EFFORT,
     signal,
     onChunk: (delta, kind) => {
@@ -1087,10 +1085,10 @@ const generateAppCodeCore = async (
     }
   }
 
-  if (askClarifyingQuestions) {
-    if (onChunk) onChunk(currentCode ? 'Analyzing requested changes…' : 'Analyzing requirements…', 'status');
+  if (askClarifyingQuestions && !currentCode) {
+    if (onChunk) onChunk('Analyzing requirements…', 'status');
     try {
-      const clarifyingQuestion = await generateClarifyingQuestion({
+      const clarifying = await generateClarifyingQuestion({
         prompt,
         currentCode,
         chatHistory,
@@ -1098,12 +1096,13 @@ const generateAppCodeCore = async (
         studioMode
       });
 
-      if (clarifyingQuestion) {
+      if (clarifying) {
         return {
           code: currentCode || '',
           editMode: 'clarify',
           editSummary: prompt,
-          reply: clarifyingQuestion
+          reply: clarifying.reply,
+          ...(clarifying.questions ? { clarifyingQuestions: clarifying.questions } : {})
         };
       }
     } catch (err) {
@@ -1478,13 +1477,14 @@ const generateAppCodeCore = async (
     const turnStartFiles = workingFiles;
     for (const toolCall of message.tool_calls) {
       if (toolCall.function?.name === 'ask_clarifying_questions') {
-        const { question: q } = parseClarifyingQuestionArgs(toolCall.function.arguments);
+        const { reply, questions } = parseClarifyingQuestionArgs(toolCall.function.arguments);
 
         return {
           ...filesResult(),
           editMode: 'clarify',
           editSummary: prompt,
-          reply: q,
+          reply,
+          ...(questions ? { clarifyingQuestions: questions } : {}),
           ...(syntaxErrors.length ? { syntaxErrors } : {})
         };
       }

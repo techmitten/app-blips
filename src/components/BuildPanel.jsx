@@ -40,6 +40,7 @@ export default function BuildPanel({
   onToggleHistory,
   onRewind,
   onApproveImages,
+  onAnswerClarifyingQuestions,
   gallery = null,
   projectId = null,
   chatBottomRef,
@@ -63,6 +64,7 @@ export default function BuildPanel({
   onToggleCollapsed,
 }) {
   const isClarifying = chatMode === 'build' && versions[currentVersionIndex]?.editMode === 'clarify';
+  const hasClarifyingChoices = Boolean(isClarifying && versions[currentVersionIndex]?.clarifyingQuestions?.length);
   const CollapseIcon = side === 'right' ? PanelRightClose : PanelLeftClose;
   const ExpandIcon = side === 'right' ? PanelRightOpen : PanelLeftOpen;
   // The toggle sits on the pane's outer edge (next to the window edge), so
@@ -247,6 +249,7 @@ export default function BuildPanel({
                 chatBottomRef={chatBottomRef}
                 onRewind={onRewind}
                 onApproveImages={chatMode === 'build' ? onApproveImages : undefined}
+                onAnswerClarifyingQuestions={chatMode === 'build' ? onAnswerClarifyingQuestions : undefined}
                 gallery={gallery}
                 projectId={projectId}
               />
@@ -288,6 +291,7 @@ export default function BuildPanel({
           chatMode={chatMode}
           onChatModeChange={onChatModeChange}
           isClarifying={isClarifying}
+          hasClarifyingChoices={hasClarifyingChoices}
           studioMode={studioMode}
           attachment={attachment}
           attachmentError={attachmentError}

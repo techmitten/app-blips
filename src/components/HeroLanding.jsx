@@ -70,6 +70,9 @@ export default function HeroLanding({
     const next = !railCollapsed;
     setRailCollapsed(next);
     saveHeroRailCollapsed(next);
+    if (next && sidebarProps.isHistoryOpen) {
+      sidebarProps.onToggleHistory?.();
+    }
   };
 
   const copy = COPY[chatMode === 'ask' ? 'ask' : COPY[studioMode] ? studioMode : 'app'];

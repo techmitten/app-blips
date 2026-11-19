@@ -13,6 +13,7 @@
 @import './styles/app/prompt-input.css';
 @import './styles/app/starter-ideas.css';
 @import './styles/app/chat-transcript.css';
+@import './styles/app/clarifying-card.css';
 @import './styles/app/history-sidebar.css';
 @import './styles/app/empty-state.css';
 @import './styles/app/build-blueprint.css';

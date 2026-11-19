@@ -4,6 +4,7 @@ import Markdown from './Markdown';
 import ImageLightbox from './ImageLightbox';
 import ThinkingElapsed from './ThinkingElapsed';
 import ProfileAvatar from './ProfileAvatar';
+import ClarifyingQuestionsCard from './ClarifyingQuestionsCard';
 import { displayBuildPrompt, displayBuildReply } from '../lib/buildMessages';
 import { STUDIO_MODES } from '../lib/constants';
 import { loadReviewPhotoUrls } from '../lib/reviewPhotos';
@@ -251,6 +252,7 @@ export default function ChatTranscript({
   chatBottomRef,
   onRewind,
   onApproveImages,
+  onAnswerClarifyingQuestions,
   // The project's My images ({ images, bytesVersion }), for the thumbnails
   // under image confirmations.
   gallery = null,
@@ -310,13 +312,35 @@ export default function ChatTranscript({
         const versionIndex = startIndex + idx;
         const versionNumber = versionIndex + 1;
         const canRewind = onRewind && !isGenerating && versionIndex < currentVersionIndex;
+        const showClarifyingForm = Boolean(
+          onAnswerClarifyingQuestions
+          && ver.clarifyingQuestions?.length
+          && versionIndex === currentVersionIndex
+          && !isGenerating
+          && !pendingPrompt
+        );
         return (
           <div key={ver.id} className="space-y-2.5">
             <PromptRow onRewind={canRewind ? () => onRewind(versionIndex) : undefined} copyText={displayBuildPrompt(ver)}>{displayBuildPrompt(ver)}</PromptRow>
             {ver.reply && (
               <ReplyRow title={`Version ${versionNumber}`} copyText={displayBuildReply(ver)}>
-                <Markdown text={displayBuildReply(ver)} />
+                {showClarifyingForm ? (
+                  <p className="font-medium">
+                    {ver.clarifyingQuestions.length === 1
+                      ? 'Before I build, one quick question:'
+                      : 'Before I build, a few quick questions:'}
+                  </p>
+                ) : (
+                  <Markdown text={displayBuildReply(ver)} />
+                )}
               </ReplyRow>
+            )}
+            {showClarifyingForm && (
+              <ClarifyingQuestionsCard
+                key={ver.id}
+                questions={ver.clarifyingQuestions}
+                onSubmit={onAnswerClarifyingQuestions}
+              />
             )}
             {ver.editMode === 'review' && ver.qualityReview?.problems?.some((item) => item.photo) && (
               <ReviewEvidence problems={ver.qualityReview.problems} projectId={projectId} />

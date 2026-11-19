@@ -430,7 +430,7 @@ export default function SettingsModal({
               <DesktopProviderSettings guardRef={providerGuardRef} />
               <OutputTokenSettings />
               <ReasoningSetting value={buildReasoningEffort} onChange={onBuildReasoningEffortChange} reasoning={reasoningLevels} />
-              <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask a few questions about your prompt before it builds.">
+              <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask 2–3 multiple-choice questions about your goals before the initial build.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>
               <SettingRow id="set-prompt-suggestions" title="Suggested prompts" description="Show AI-suggested next prompts above the chat box after each build. Uses a few extra tokens.">

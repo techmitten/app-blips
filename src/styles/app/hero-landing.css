@@ -150,11 +150,18 @@
 .hero-rail {
   background: var(--hero-ground);
   color: var(--hero-rail-fg);
-  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: width;
 }
 
 /* Wordmark images; the .studio-logo-dark/-light classes (studio-choice.css)
    pick the one that matches the theme. */
+.hero-rail-wordmark {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .hero-rail-wordmark-img {
   width: 4.6rem;
   height: auto;
@@ -235,18 +242,25 @@
 }
 
 .hero-rail-dot {
+  position: absolute;
+  top: 50%;
+  right: 0.72rem;
+  transform: translateY(-50%);
   flex: none;
   width: 0.375rem;
   height: 0.375rem;
-  margin-left: auto;
   border-radius: 999px;
   background: var(--hero-rail-muted);
+  transition:
+    top 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    right 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .hero-rail-item.is-collapsed .hero-rail-dot {
-  position: absolute;
   top: 0.4rem;
   right: 0.4rem;
+  transform: translateY(0);
 }
 
 .hero-rail-item-active {
@@ -257,6 +271,38 @@
 .hero-rail-item-active .hero-rail-dot {
   background: #3987d0;
   box-shadow: 0 0 8px 1px rgb(57 135 208 / 0.9);
+}
+
+.hero-rail-recents {
+  grid-template-rows: 1fr;
+  margin-top: 1rem;
+  opacity: 1;
+  min-height: 0;
+  transition:
+    grid-template-rows 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-top 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease-out 70ms;
+}
+
+.hero-rail-recents.is-collapsed {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-top 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 110ms ease-out;
+}
+
+.hero-rail-recents-inner {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.hero-rail-recents.is-collapsed .hero-rail-recents-inner {
+  overflow: hidden;
 }
 
 .hero-rail-heading {
@@ -288,43 +334,158 @@
 
 /* Desktop: the brand row is the rail's header. It takes the pane headers'
    height and starts at the stage's top inset, so the logo, the Build title
-   and the preview toolbar share one centre line. */
+   and the preview toolbar share one centre line. Positioning the mark and
+   toggle explicitly lets the brand height, wordmark opacity, and toggle
+   position all transition smoothly instead of snapping between flex rows
+   and columns. */
 @media (min-width: 1024px) and (not ((hover: none) and (pointer: coarse))) {
   .hero-rail {
     padding-top: 0.375rem;
   }
 
   .hero-rail-brand {
+    position: relative;
     flex: none;
     height: var(--chrome-row-h);
     margin-bottom: 0.375rem;
+    padding: 0;
+    transition: height 280ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Collapsed, the logo keeps that centre line and the toggle drops below. */
+  /* Collapsed, the logo keeps that centre line and the toggle glides below. */
   .hero-rail-brand.is-collapsed {
-    height: auto;
-    padding-top: calc((var(--chrome-row-h) - 1.5rem) / 2);
-    padding-bottom: 0.25rem;
+    height: calc(var(--chrome-row-h) + 2.15rem);
   }
 
-  /* The picker's theme rule for the light wordmark (studio-choice.css) sets
-     display with more weight than Tailwind's `lg:hidden`, so the collapsed
-     rail hides both wordmarks here. */
-  .hero-rail .hero-rail-brand.is-collapsed .hero-rail-wordmark-img {
-    display: none;
+  .hero-rail-brand-mark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 2.25rem;
+    height: var(--chrome-row-h);
+    padding-left: calc((2.5rem - 1.5rem) / 2);
+    overflow: hidden;
+    transition: right 280ms cubic-bezier(0.22, 1, 0.36, 1);
   }
-}
 
-/* Collapsed rail: icon keys centered in the strip. */
-@media (min-width: 1024px) and (not ((hover: none) and (pointer: coarse))) {
-  .hero-rail-item.is-collapsed {
-    justify-content: center;
+  .hero-rail-brand.is-collapsed .hero-rail-brand-mark {
+    right: 0;
+  }
+
+  .hero-rail-wordmark {
+    opacity: 1;
+    transform: translateX(0);
+    transition:
+      opacity 180ms ease-out 60ms,
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1) 20ms;
+  }
+
+  .hero-rail-brand.is-collapsed .hero-rail-wordmark {
+    opacity: 0;
+    transform: translateX(-8px);
+    pointer-events: none;
+    transition:
+      opacity 110ms ease-out,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Scoped to .hero-rail-brand so specificity (0,2,0) beats tooltip.css's
+     `[data-tip] { position: relative }` (0,1,0) imported after this file. */
+  .hero-rail-brand .hero-rail-toggle {
+    position: absolute;
+    top: calc((var(--chrome-row-h) - 1.9rem) / 2);
+    right: calc((2.5rem - 1.9rem) / 2);
+    transition:
+      top 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      right 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .hero-rail-brand.is-collapsed .hero-rail-toggle {
+    top: calc(var(--chrome-row-h) - 0.15rem);
+  }
+
+  /* Keep icons anchored at the exact same horizontal position in both states
+     so they never jump when the rail expands or collapses; labels and count
+     badges smoothly fade and collapse beside them. */
+  .hero-rail-item {
+    gap: 0;
+    padding-inline: 0.72rem;
+  }
+
+  .hero-rail-item .hero-rail-label {
+    display: inline-block;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 10rem;
+    margin-left: 0.7rem;
+    opacity: 1;
+    transform: translateX(0);
+    transition:
+      opacity 180ms ease-out 70ms,
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1) 30ms,
+      max-width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin-left 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .hero-rail-item.is-collapsed .hero-rail-label {
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    transform: translateX(-6px);
+    pointer-events: none;
+    transition:
+      opacity 110ms ease-out,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      max-width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin-left 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .hero-rail-count {
+    overflow: hidden;
+    max-width: 3rem;
+    opacity: 1;
+    transition:
+      opacity 160ms ease-out 70ms,
+      max-width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      min-width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      padding 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin-left 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .hero-rail-item.is-collapsed .hero-rail-count {
+    max-width: 0;
+    min-width: 0;
     padding-inline: 0;
+    margin-left: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 100ms ease-out,
+      max-width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      min-width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      padding 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      margin-left 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   /* Expanded items already show their label, so the tooltip is redundant. */
   .hero-rail-item:not(.is-collapsed)::after {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rail,
+  .hero-rail-brand,
+  .hero-rail-brand-mark,
+  .hero-rail-wordmark,
+  .hero-rail-toggle,
+  .hero-rail-item .hero-rail-label,
+  .hero-rail-count,
+  .hero-rail-dot,
+  .hero-rail-recents {
+    transition: none;
   }
 }
 
