@@ -255,7 +255,7 @@ export function SelectMenu({ label, value, options, onChange, labelledBy }) {
         aria-labelledby={labelledBy}
         onClick={() => (open ? close() : openList())}
         onKeyDown={onButtonKeyDown}
-        className={`inline-flex min-w-[10rem] items-center justify-between gap-3 rounded-lg border bg-surface px-3 py-2 text-sm font-semibold text-slate-900 shadow-2xs transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
+        className={`inline-flex min-w-40 items-center justify-between gap-3 rounded-lg border bg-surface px-3 py-2 text-sm font-semibold text-slate-900 shadow-2xs transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
           open ? 'border-indigo-400 ring-2 ring-indigo-500/15' : 'border-slate-300 hover:border-slate-400'
         }`}
       >
@@ -272,7 +272,7 @@ export function SelectMenu({ label, value, options, onChange, labelledBy }) {
           aria-activedescendant={`${listId}-${active}`}
           onKeyDown={onListKeyDown}
           style={position ? { top: position.top, left: position.left, width: position.width } : { visibility: 'hidden', top: 0, left: 0 }}
-          className="select-menu fixed z-[80] max-h-[min(20rem,70vh)] overflow-y-auto rounded-xl border border-slate-200 bg-surface p-1 shadow-xl outline-none animate-scale-in dark:border-white/12 dark:bg-[#1c1c22] dark:shadow-[0_16px_40px_-12px_rgb(0_0_0/0.85)]"
+          className="select-menu fixed z-80 max-h-[min(20rem,70vh)] overflow-y-auto rounded-xl border border-slate-200 bg-surface p-1 shadow-xl outline-none animate-scale-in dark:border-white/12 dark:bg-[#1c1c22] dark:shadow-[0_16px_40px_-12px_rgb(0_0_0/0.85)]"
         >
           {options.map((option, index) => {
             const isSelected = index === selectedIndex;

@@ -58,7 +58,7 @@ export default function ClarifyingQuestionsCard({ questions, onSubmit }) {
     <form
       onSubmit={handleSubmit}
       aria-label="Clarifying questions"
-      className="pl-[2.875rem] animate-fade-in"
+      className="pl-11.5 animate-fade-in"
     >
       <div className="clarify-card">
         {questions.length > 1 && (
@@ -120,7 +120,7 @@ export default function ClarifyingQuestionsCard({ questions, onSubmit }) {
                   className="clarify-option"
                 >
                   <span className="clarify-radio" aria-hidden="true" />
-                  <span className="min-w-0 break-words">
+                  <span className="min-w-0 wrap-break-word">
                     {label}
                     {isRecommended && (
                       <span className="clarify-rec-tag">{RECOMMENDED_TAG}</span>

@@ -42,7 +42,7 @@ export default function FreeSignInRow() {
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 dark:bg-white/[0.04] px-3 py-2">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 dark:bg-white/4 px-3 py-2">
       <p className="text-xs text-slate-600 leading-snug">
         {state.signedIn
           ? <>Signed in to Free AI{state.name ? <> as <strong className="font-semibold text-slate-700">{state.name}</strong></> : null}.</>
