@@ -1,103 +1,81 @@
 ---
 title: "Introduction"
 sidebarTitle: "Introduction"
-description: "What AppBlips is, what you can build with it, how a build works, and the different ways to run it."
+description: "AppBlips turns a description into a working app, website or game. Here is what you can build, how it works and where to start."
 ---
 
-AppBlips builds apps, websites and games from a description. You type what you want, as you'd explain it to a friend, and an AI writes the code. A few moments later your project runs in a preview next to the chat, ready to use.
+AppBlips builds apps, websites and games from a description. Tell it what you want in plain words, an AI writes the code, and your project appears in a live preview next to the chat.
 
-It's made for anyone with an idea: students, teachers, small-business owners, designers, hobbyists and developers who want a quick prototype. You never have to look at code, but it's always there if you want to read it, change it or take it elsewhere.
+You never have to look at code. If you want to, you can read it, edit it or take it with you.
 
 ## What you can build
 
-When you start AppBlips, you choose what to make:
+Pick one of three studios:
 
-- **Mobile & Web App:** tools and utilities that work on a phone or a computer, such as a budget tracker, a quiz, a timer or a to-do list.
-- **Responsive Website:** websites with one or more pages and a menu, such as a portfolio, a restaurant site or a landing page for an event. They adjust to any screen size.
-- **Browser Game:** 2D and 3D games you play in the browser, with keyboard and touch controls.
+- **Mobile & Web App**: tools that work on any device, like a budget tracker, a quiz or a timer.
+- **Responsive Website**: multi-page sites that fit every screen, like a portfolio or an event page.
+- **Browser Game**: 2D and 3D games with keyboard and touch controls.
 
-Below the studios are three more options:
+The start screen also has:
 
-- **My projects:** open something you made before.
-- **Import a site:** keep working on a site you already have, such as an HTML page, a website `.zip` or a React + Vite project. See [Import a site](/features/importing-sites).
-- **Explore:** play with projects other people built with AppBlips, and share your own. See [Showcase](/features/showcase).
+- **My projects**: pick up where you left off.
+- **Import a site**: keep editing an HTML page, a website `.zip` or a React + Vite project. See [Import a site](/features/importing-sites).
+- **Explore**: try projects other people built, and share yours. See [Showcase](/features/showcase).
 
-## How a build works
+## How it works
 
 <Steps>
-  <Step title="You describe it">
-    Type your idea in the message box. You can also speak it with the microphone, or attach a screenshot or sketch for the AI to work from.
+  <Step title="Describe it">
+    Type your idea. You can also speak it, or attach a screenshot or sketch.
   </Step>
-  <Step title="The AI writes it">
-    AppBlips sends your request to your AI provider. While the AI writes, you can watch the code appear.
+  <Step title="Watch it build">
+    The AI writes the code and you watch it appear. Then the project runs in the preview.
   </Step>
-  <Step title="You try it">
-    When the build finishes, your project runs in a live preview. The preview is sandboxed, which means it's kept separate from the rest of your computer.
+  <Step title="Ask for changes">
+    Say what you'd like different. Every change is saved as a version, so you can undo it.
   </Step>
-  <Step title="You refine it">
-    Ask for changes in plain English, as many times as you like. Each change is saved as a new version that you can undo or go back to.
+  <Step title="Keep it">
+    [Download your project](/features/exporting) or [publish it to the web](/features/publishing).
   </Step>
 </Steps>
 
-When you're done, [download your project](/features/exporting) or [publish it to the web](/features/publishing). The code is yours to keep and use however you like.
-
 ## What you need
 
-AppBlips uses an AI to write code, so it needs a way to reach one. You have two options:
+AppBlips is free and has no account of its own. It needs an AI to write the code, and you get one in one of two ways:
 
-- **Your own API key.** An API key is a password-like code from an AI company (an "AI provider"), such as Anthropic or OpenAI. You create one on the provider's website, paste it into AppBlips, and the provider bills you for what you use. See [Choose an AI provider](/ai-providers).
-- **Free.** Some copies of AppBlips, including the one at [web.appblips.com](https://web.appblips.com), come with AI already set up. Pick **Free (no key needed)** and start building. Free AI is shared by everyone using that copy, so it has limits.
-
-AppBlips itself is free. There's no account to create.
+- **Your own API key.** An API key is a password-like code from an AI company such as Anthropic or OpenAI. The company bills you for what you use. See [Choose an AI provider](/ai-providers).
+- **Free AI.** Some copies, including [web.appblips.com](https://web.appblips.com), include free AI. Choose **Free (no key needed)**. It's shared and limited, and may ask you to sign in with Google or GitHub.
 
 ## Ways to run AppBlips
 
 <CardGroup cols={2}>
   <Card title="In your browser" icon="globe" href="/quickstart-browser">
-    The quickest way to try it. Open web.appblips.com and start building. Your projects stay in your browser.
+    The quickest start. Open web.appblips.com.
   </Card>
   <Card title="Desktop app" icon="download" href="/quickstart-desktop">
-    The best everyday option on Windows and Linux. Projects are saved as folders, and your key is protected by your computer's keychain.
+    For Windows and Linux. Projects are saved as folders on your computer.
   </Card>
-  <Card title="Mac (with Pinokio)" icon="apple" href="/quickstart-desktop#macos">
-    Install the browser version on a Mac in a few clicks with the free Pinokio app.
+  <Card title="Mac" icon="apple" href="/quickstart-desktop#macos">
+    Use Pinokio, or run from source.
   </Card>
-  <Card title="From source or Docker" icon="code" href="/quickstart-source">
-    Run your own copy on any computer with Node.js or [Docker](/self-hosting/docker).
+  <Card title="Source or Docker" icon="code" href="/quickstart-source">
+    Run your own copy with Node.js or [Docker](/self-hosting/docker).
   </Card>
 </CardGroup>
 
-Wherever you run it, your projects stay with you: on your computer, or in your own browser. AppBlips doesn't keep a copy of them anywhere else.
-
-## Features at a glance
+## Explore the features
 
 <CardGroup cols={2}>
+  <Card title="Build apps" icon="wand-magic-sparkles" href="/features/building-apps">
+    Write good prompts, attach images and speak your idea.
+  </Card>
+  <Card title="Edit apps" icon="pen-to-square" href="/features/editing-apps">
+    Change things by asking, or edit directly.
+  </Card>
   <Card title="Live preview" icon="eye" href="/features/live-preview">
-    See every change straight away, and check how it looks on a phone, tablet or computer.
-  </Card>
-  <Card title="Edit by asking" icon="comments" href="/features/editing-apps">
-    Describe a change in plain English and the AI makes it. Use Ask mode to ask questions without changing anything.
-  </Card>
-  <Card title="Click to edit websites" icon="arrow-pointer" href="/features/editing-apps">
-    In the Website studio, click text to type over it, swap images and move sections around without the AI.
-  </Card>
-  <Card title="Voice input" icon="microphone" href="/features/building-apps">
-    Speak your prompt. It's turned into text on your own device, so your recording never leaves it.
+    Test your project on phone, tablet and desktop sizes.
   </Card>
   <Card title="Extensions" icon="plug" href="/features/connectors">
-    Add contact forms, analytics, live chat, payments, AI images, stock photos, web search and more.
-  </Card>
-  <Card title="Versions" icon="clock-rotate-left" href="/features/editing-apps">
-    Every build and edit is saved. Undo, redo or restore any earlier version.
-  </Card>
-  <Card title="Export" icon="file-code" href="/features/exporting">
-    Download a single HTML file, a `.zip` of pages, or a full React + Vite project.
-  </Card>
-  <Card title="Publish" icon="rocket" href="/features/publishing">
-    Put your project on the web at a free address, with an optional password.
+    Add forms, images, search and more.
   </Card>
 </CardGroup>
-
-<Tip>
-  Ready to start? [Try AppBlips in your browser](/quickstart-browser) right now, or [install the desktop app](/quickstart-desktop).
-</Tip>

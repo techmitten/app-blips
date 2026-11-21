@@ -331,7 +331,7 @@ export default function DesktopProviderSettings({ guardRef }) {
                     askToReplace();
                   }
                 }}
-                placeholder={keepsSavedKey ? 'Saved (encrypted) — type to replace' : draft.id ? `Your ${providerLabel(draft.id)} API key` : 'Your API key'}
+                placeholder={keepsSavedKey ? (saved?.weakEncryption ? 'Saved — type to replace' : 'Saved (encrypted) — type to replace') : draft.id ? `Your ${providerLabel(draft.id)} API key` : 'Your API key'}
                 autoComplete="off"
                 spellCheck={false}
                 className={`${INPUT_CLASS} ${showsSavedKey ? '' : 'pr-11'} ${keyLocked ? 'cursor-pointer' : ''}`}

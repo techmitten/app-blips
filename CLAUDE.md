@@ -65,4 +65,4 @@ The renderer in `src/` is identical everywhere. What differs is who answers `/ap
 
 ## Docs
 
-`docs/` is the Mintlify user documentation site. It is published when it changes on `master`, and nothing keeps it in sync with the app. Any change a user would notice needs a matching docs update. Follow `docs/AGENTS.md` for the audience, terminology, exact UI labels copied from `src/components/`, and privacy claims.
+`docs/` is the Mintlify user documentation site. It is published when it changes on `master`, and nothing keeps it in sync with the app. Any change a user would notice needs a matching docs update.

@@ -1,49 +1,47 @@
 ---
 title: "Frequently asked questions"
 sidebarTitle: "FAQ"
-description: "Quick answers about AppBlips: what it builds, API keys and the Free option, costs, privacy, exporting, and running it on your computer."
+description: "Quick answers about AppBlips: what it builds, API keys and the Free option, cost, privacy, exporting and where your projects live."
 ---
 
-Quick answers to the questions people ask most about AppBlips.
+Short answers to the questions people ask most.
 
 ## About AppBlips
 
 <AccordionGroup>
   <Accordion title="What can AppBlips build?">
-    Apps, websites and 2D or 3D browser games, from a description in plain English. For example: tools, calculators, quizzes, habit trackers, dashboards, portfolio sites, business websites and arcade games.
+    Apps, websites and 2D or 3D browser games, from a description in plain English: tools, calculators, quizzes, dashboards, portfolio sites, business sites, arcade games and more.
 
-    Apps and games are single HTML files that run in any web browser. Websites can have several pages and export as a `.zip`. Apps from the App studio can also export as a React project.
+    Apps and games are single HTML files that run in any browser. Websites can have several pages and export as a `.zip`. Apps from the App studio can also export as a React project.
 
-    AppBlips doesn't build native phone apps or apps that need a server of their own. To save what visitors send, such as RSVPs or votes, try the [Google Sheets Backend](/features/connectors#google-sheets-backend) extension.
+    AppBlips doesn't build native phone apps or apps that need their own server. To save what visitors send, such as RSVPs or votes, try the [Google Sheets Backend](/features/connectors#google-sheets-backend) extension.
   </Accordion>
 
   <Accordion title="Do I need to know how to code?">
-    No. If you can describe what you want, you can build it. If you do code, you can read, change and export everything AppBlips writes.
-
-    Clear, specific prompts get better first results. Say what should happen when someone clicks a button, what the page should show, and how it should look.
+    No. If you can describe what you want, you can build it. If you do code, you can read, change and export everything AppBlips writes. Clear, specific prompts give better first results.
   </Accordion>
 
   <Accordion title="Is AppBlips free?">
-    Yes. AppBlips is free and open source under the [MIT License](https://github.com/techmitten/app-blips/blob/master/LICENSE). You can use, change and share it, including for commercial work, as long as you keep the copyright and license notice.
+    Yes. AppBlips is free and open source under the [MIT License](https://github.com/techmitten/app-blips/blob/master/LICENSE), including for commercial work.
 
-    The AI is the only part that can cost money. With your own API key, your AI provider bills you for what you use. On [web.appblips.com](/quickstart-browser), the **Free** option lets you build without a key, within daily limits.
+    The AI is the only part that can cost money. With your own API key, your AI provider bills you for what you use. On [web.appblips.com](/quickstart-browser), the **Free (no key needed)** option lets you build without a key, within limits.
   </Accordion>
 
   <Accordion title="Is there a limit on how many apps I can build?">
-    AppBlips sets no limit of its own. With your own key, only your AI provider's limits and your budget apply. The **Free** option has usage limits, set by whoever runs it.
+    AppBlips sets none. With your own key, only your provider's limits and your budget apply. **Free (no key needed)** has usage limits set by whoever runs it.
   </Accordion>
 
   <Accordion title="What's the difference between the desktop app and the browser version?">
-    They're the same app, kept in different places:
+    They're the same app, with projects and keys kept in different places:
 
-    - **[Desktop app](/quickstart-desktop)** (Windows and Linux): saves your projects as folders on your computer, keeps your key in your system's keychain, and updates itself.
-    - **Browser version** ([web.appblips.com](/quickstart-browser), [from source](/quickstart-source) or [Docker](/self-hosting/docker)): saves your projects and keys in your web browser, for that address only.
+    - **[Desktop app](/quickstart-desktop)** (Windows and Linux): saves projects as folders on your computer and keeps your key in your system's keychain.
+    - **Browser version** ([web.appblips.com](/quickstart-browser), [from source](/quickstart-source) or [Docker](/self-hosting/docker)): saves projects and keys in your browser, for that address only.
 
     To move projects between them, use **Settings → Data → Export** in one and **Import…** in the other.
   </Accordion>
 
   <Accordion title="Can I use AppBlips on a Mac?">
-    Yes, through the browser version. The simplest way is [web.appblips.com](/quickstart-browser), with nothing to install. To run your own copy, install it with one click through [Pinokio](https://pinokio.co/apps/github-com-techmitten-app-blips-pinokio), then click **Install**, **Start** and **Open AppBlips** in Pinokio. You can also [run it from source](/quickstart-source) or with [Docker](/self-hosting/docker). There's no Mac desktop app.
+    Yes, through the browser version. The easiest way is [web.appblips.com](/quickstart-browser). To run your own copy, use [Pinokio](https://pinokio.co/apps/github-com-techmitten-app-blips-pinokio), [source](/quickstart-source) or [Docker](/self-hosting/docker). There's no Mac desktop app.
   </Accordion>
 </AccordionGroup>
 
@@ -51,32 +49,28 @@ Quick answers to the questions people ask most about AppBlips.
 
 <AccordionGroup>
   <Accordion title="Do I need an API key?">
-    Usually, yes. An API key is a secret code from an AI provider that lets AppBlips use your account there. You get one from the provider's website and paste it into AppBlips once. See [Choose an AI provider](/ai-providers).
+    Usually, yes. An API key is a secret code from an AI provider that lets AppBlips use your account there. Paste it into AppBlips once. See [Choose an AI provider](/ai-providers).
 
-    You don't need one when the copy of AppBlips you use offers **Free (no key needed)**, as [web.appblips.com](/quickstart-browser) does. Whoever runs that copy has set up AI for everyone using it, with limits.
+    You don't need one if your copy of AppBlips offers **Free (no key needed)**, as [web.appblips.com](/quickstart-browser) does.
   </Accordion>
 
   <Accordion title="Which AI providers can I use?">
-    Anthropic, OpenAI, Gemini, xAI, DeepSeek and OpenRouter. Open **Settings → AI**, choose your provider, paste your API key, choose a model and click **Save**. See [Choose an AI provider](/ai-providers).
+    Anthropic, OpenAI, Gemini, xAI, DeepSeek and OpenRouter. Open **Settings → AI**, choose one, paste your key, pick a model and click **Save**.
   </Accordion>
 
   <Accordion title="What happens to my API key?">
-    - **Desktop app:** encrypted with your system's keychain and saved only on your computer. Only the app's background process uses it.
-    - **Browser version:** saved in your web browser only. Each request sends it to the AppBlips server, which passes it to your provider and never stores it.
+    - **Desktop app:** encrypted with your system's keychain and kept only on your computer. On Linux without a keychain, the protection is weak, and AppBlips warns you.
+    - **Browser version:** kept in your browser. Each request carries it to the AppBlips server, which passes it to your provider and doesn't store it.
 
-    In every version, your key is never written into the apps you build, your projects or anything you export. See [Security](/self-hosting/security#your-api-key).
+    Your key is never written into your apps, projects or exports. See [Security](/self-hosting/security#your-api-key).
   </Accordion>
 
   <Accordion title="How can I see how much I'm using?">
-    AppBlips doesn't show a count. Your AI provider's usage or billing page shows what you used and what it cost. See [How much does a build use?](/features/building-apps#how-much-does-a-build-use).
+    AppBlips doesn't show a count. Your AI provider's usage or billing page does. See [How much does a build use?](/features/building-apps#how-much-does-a-build-use).
   </Accordion>
 
   <Accordion title="Does AppBlips use prompt caching to lower my Anthropic bill?">
-    Yes. With Anthropic, AppBlips turns on [prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) by itself. There's nothing to set up.
-
-    A build takes several steps, and each step sends the AI's instructions and the conversation so far again. Anthropic keeps those repeated parts for a few minutes and bills them at a small fraction of the normal price when the next step reuses them. Storing them costs a little extra the first time, so caching pays off from the second step on.
-
-    If you run AppBlips from source or with Docker, you can watch it work in the `[anthropic]` lines the server prints. See [Find the error details](/reference/troubleshooting#find-the-error-details). Other providers handle caching their own way.
+    Yes. With Anthropic, AppBlips turns on [prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) for you. A build takes several steps that each resend the same instructions, and Anthropic bills the repeated parts at a lower price. If you run AppBlips yourself, you can see it in the `[anthropic]` log lines. See [Find the error details](/reference/troubleshooting#find-the-error-details).
   </Accordion>
 </AccordionGroup>
 
@@ -84,18 +78,18 @@ Quick answers to the questions people ask most about AppBlips.
 
 <AccordionGroup>
   <Accordion title="Can I export what I build?">
-    Yes. Click the download key next to **Publish** to download an app or game as a single HTML file, or a website as a `.zip` of its pages. Apps from the App studio can also download as a React project. See [Export your project](/features/exporting).
+    Yes. Click the download button next to **Publish**. Apps and games download as one HTML file, websites as a `.zip`, and App studio apps can also download as a React project. See [Export your project](/features/exporting).
 
-    Exported files open in any modern web browser, with no server needed. Some load styling or libraries, such as Tailwind CSS or a game engine, from the internet, so they need a connection.
+    Exported files open in any modern browser. Some load styling or libraries, such as Tailwind CSS or a game engine, from the internet, so they need a connection.
   </Accordion>
 
   <Accordion title="How do I undo a change?">
-    Click **Previous version** (the left arrow in the preview toolbar), or press `Ctrl+Z` (`⌘Z` on a Mac), to step back one change at a time. To jump to any earlier version, open the history drawer from the header. See [Undo and history](/features/live-preview).
+    Click **Previous version** (the left arrow in the preview toolbar) or press `Ctrl+Z` (`⌘Z` on a Mac). To jump to any earlier version, open the history drawer in the header. See [Undo and history](/features/live-preview).
   </Accordion>
 
   <Accordion title="Where are my projects saved?">
-    - **Desktop app:** in a folder on your computer, one folder per app. To see where, open **Settings → Data** and look under **Projects folder**; click **Change…** to pick another one. By default it's inside AppBlips' own data folder, which Windows deletes if you uninstall or reset the Microsoft Store version, so export a backup first.
-    - **Browser version:** in your web browser, separately for each address. Clearing your browser's data for that address deletes them, so back up now and then with **Settings → Data → Export**.
+    - **Desktop app:** in a folder on your computer, one folder per app. See where under **Settings → Data → Projects folder**, and click **Change…** to move it. The default folder lives in AppBlips' data folder, which the Microsoft Store version loses if you uninstall or reset it, so export a backup first.
+    - **Browser version:** in your browser, separately for each address. Clearing browser data for that address deletes them, so export a backup now and then.
   </Accordion>
 </AccordionGroup>
 
@@ -103,32 +97,41 @@ Quick answers to the questions people ask most about AppBlips.
 
 <AccordionGroup>
   <Accordion title="What does AppBlips connect to?">
-    AppBlips sends no analytics or tracking. It connects to these services, and each can see your IP address when it does:
+    AppBlips has no analytics or tracking. It connects to the services below, and each can see your IP address when it does.
 
-    - **Your AI provider** (the one in **Settings → AI**): your prompts, your project's code and any images you attach go there to build your app.
-    - **The AppBlips server** (browser version only): the page sends its AI and extension requests to the server it was opened from. When you run AppBlips from source or Docker, that server is on your own computer. On web.appblips.com, it's AppBlips' server, which passes your requests on without storing your projects or keys. With **Free (no key needed)**, it sends them to the AI provider chosen by whoever runs that copy.
-    - **GitHub:** to check for new versions, when AppBlips starts and every hour while it's open. The AppImage version also downloads updates from there. The Microsoft Store version checks GitHub for announcements and opens the Microsoft Store to get updates. Turn automatic checks off under **Settings → Workspace → Check for updates**.
-    - **Snap Store:** the Snap Store version checks its stable channel for newer versions at startup and every hour. Its update notification opens Ubuntu's App Center. The same switch turns automatic checks off.
-    - **Google Fonts:** for the fonts AppBlips itself uses.
-    - **Hugging Face:** only when you build AppBlips from source or with Docker, to download the voice-input speech model once. The desktop app already includes it.
+    **Always, or as part of normal use**
+
+    - **Your AI provider** (the one in **Settings → AI**): receives your prompts, your project's code and any images you attach, to build your app.
+    - **The AppBlips server** (browser version): the page sends its AI and extension requests to the server it was opened from. For a copy you run yourself, that's your own computer. On web.appblips.com it's AppBlips' server, which passes requests on and doesn't store your projects or keys. With **Free (no key needed)**, it uses the AI provider chosen by whoever runs that copy.
+    - **Free AI sign-in (Clerk):** only if your copy asks you to sign in to use **Free (no key needed)**. Sign-in uses Clerk with your Google or GitHub account.
+    - **GitHub:** to check for new versions at startup and every hour. The AppImage also downloads updates from there. Turn this off in **Settings → Workspace → Check for updates**. The Snap version checks the Snap Store instead, and the Microsoft Store version only checks GitHub for announcements.
+    - **AppBlips website (appblips.com):** the app checks the date of the Privacy Policy and Terms of Service so it can ask you to agree again if they change. Links to the policies, Showcase and docs open there.
+    - **Google Fonts:** for the fonts AppBlips uses.
     - **Code libraries:** the apps you build, and imported sites, load libraries such as React, Tailwind CSS or game engines from public sites like esm.sh, jsDelivr and cdn.tailwindcss.com. Exported apps load them from there too.
-    - **Web3Forms:** if you turn on the Web3Forms extension, the sites you build send their form entries there whenever someone submits a form, including in the preview. AppBlips itself only contacts it when you use **Request an extension** or submit a project to the [Showcase](/features/showcase), and only sends what you typed in that form.
-    - **Umami** and **Plausible:** only if you turn on that extension. AppBlips itself never contacts them. The pages you build load their tracking script, including in the preview, but preview visits aren't counted. Once your pages are online, they report each visit to your dashboard.
-    - **tawk.to:** only if you turn on its extension. AppBlips itself never contacts it. The sites you build load its chat bubble, including in the preview, and send it what visitors type.
-    - **Square:** only if you turn on its extension. AppBlips itself never contacts it. The buy and pay buttons in your sites open your Square checkout when someone clicks them, including in the preview.
-    - **Pollinations:** only if you turn on its extension. AppBlips contacts it to sign you in, to show how much Pollen you have left, to make the images you ask for, to check a site key you paste, and to download your images when you publish or export. The sites you build contact it when they show those images and when visitors use AI features, including in the preview. See [Pollinations](/features/connectors#pollinations).
-    - **Google:** only if you turn on the Google Sheets Backend extension. AppBlips contacts your script when you click **Test connection**. The sites you build send entries to your script and read results from it, including in the preview. Everything is kept in your own Google Sheet. See [Google Sheets Backend](/features/connectors#google-sheets-backend).
-    - **Pixabay:** only if you turn on its extension. AppBlips contacts it when you save your key, when you search (sending your search words and key) and when you add photos (downloading them into your project). Search thumbnails load straight from Pixabay. Your pages don't contact Pixabay: the photos become part of your project. See [Pixabay](/features/connectors#pixabay).
-    - **Your AI provider, for web search:** only when you turn on web search with the globe under the chat box. When the AI searches the web (or, on DeepSeek, reads a page), AppBlips sends your provider the search words or the page address, never your project's code.
-    - **Tavily:** only if you turn on its extension. AppBlips contacts it when you save your key and when the AI searches the web, sending the AI's search words and your key, never your project's code. See [Tavily](/features/connectors#tavily).
-    - **Your website, for SEO:** only if you type your website address into the SEO questions and agree to a scan. AppBlips then visits that one page once and keeps only its title, description and headings. See [SEO](/features/tools#seo).
-    - **Surge:** only when you use **Publish** or sign in on the **Surge** card. AppBlips sends Surge your email and password when you sign in, and your project's pages and images when you publish. See [Publish to the web](/features/publishing).
+    - **Hugging Face:** the first time you use voice input, after you agree, AppBlips downloads the speech model (about 76 MB) from there. It's kept on your device, and your recordings never leave it.
 
-    Voice input connects to nothing: the speech model runs on your computer, and your recording never leaves it.
+    **Only when you use the feature**
+
+    - **Built-in photo library (Unsplash):** when the AI looks for photos, your search words go to the AppBlips server, which asks Unsplash. Your pages then load those photos from Unsplash.
+    - **Web search:** when web search is on, the AI sends your provider (or Tavily, if connected) its search words, never your project's code. On DeepSeek it can also read a page address.
+    - **Surge:** when you sign in or **Publish**. Sign-in sends Surge your email and password, and publishing sends your pages and images. See [Publish to the web](/features/publishing).
+    - **Public DNS (Cloudflare, Google):** when you check a custom domain in Publish. Only the domain name is sent.
+    - **Your own website, for SEO:** only if you type your website address into the SEO questions and agree to a scan. AppBlips visits that page once and keeps only its title, description and headings.
+    - **Web3Forms:** **Send feedback**, **Request an extension** and submitting a project to the [Showcase](/features/showcase) send what you typed in that form. If you turn on the Web3Forms extension, your sites also send form entries there when someone submits one, including in the preview.
+
+    **Only if you turn on the extension**
+
+    - **Umami, Plausible, tawk.to, Square:** AppBlips itself never contacts them. The sites you build load their scripts or open their checkout, including in the preview. Preview visits aren't counted in Umami or Plausible.
+    - **Pollinations:** AppBlips contacts it to sign you in, show your Pollen balance, make images and download them when you publish or export. Your sites contact it to show those images and for AI features. See [Pollinations](/features/connectors#pollinations).
+    - **Google Sheets Backend:** AppBlips contacts your script when you click **Test connection**. Your sites send entries to your script and read results from it. Everything stays in your own Google Sheet.
+    - **Pixabay:** AppBlips contacts it when you save your key, search (sending your search words and key) and add photos (downloaded into your project). Your pages don't contact Pixabay.
+    - **Tavily:** AppBlips contacts it when you save your key and when the AI searches, sending the search words and your key, never your project's code.
+
+    Voice input itself sends nothing: the recording is turned into text on your device.
   </Accordion>
 
   <Accordion title="Can other people see my projects?">
-    No, not unless you share them. Your projects are saved on your computer (desktop app) or in your own browser (browser version). Nobody else using the same server, such as web.appblips.com, can see them. A project only goes online when you [publish](/features/publishing) it or submit it to the [Showcase](/features/showcase).
+    No, unless you share them. Projects stay on your computer (desktop app) or in your browser (browser version). Nobody else using the same server, such as web.appblips.com, can see them. A project only goes online when you [publish](/features/publishing) it or submit it to the [Showcase](/features/showcase).
   </Accordion>
 </AccordionGroup>
 
@@ -136,6 +139,6 @@ Quick answers to the questions people ask most about AppBlips.
 
 <AccordionGroup>
   <Accordion title="Windows warns me about the installer or blocks it">
-    This can happen with an old installer downloaded from GitHub, which wasn't code-signed. Install AppBlips from the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) instead. It's the only way to install AppBlips on Windows, it's signed by Microsoft, and the Store keeps it up to date. See [Windows installer is blocked](/reference/troubleshooting#windows-installer-is-blocked).
+    This can happen with an old installer downloaded from GitHub, which wasn't code-signed. Install AppBlips from the [Microsoft Store](https://apps.microsoft.com/detail/9nk9ss4v2n1k) instead. It's signed by Microsoft and kept up to date by the Store. See [Windows installer is blocked](/reference/troubleshooting#windows-installer-is-blocked).
   </Accordion>
 </AccordionGroup>

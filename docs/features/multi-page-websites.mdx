@@ -1,70 +1,55 @@
 ---
 title: "Build a multi-page website"
 sidebarTitle: "Multi-page websites"
-description: "How to ask for a website with several pages, what happens while AppBlips builds them, and how to move between, edit, add and remove pages."
+description: "Ask for a website with several pages, then move between, edit, add and remove pages."
 ---
 
-In the **Responsive Website** studio, a site can have more than one page: a home page plus pages such as About, Menu, Pricing or Contact. Every page shares the same look, navigation bar and footer, and the links between them work in the preview, in an export and on a published site.
-
-Multi-page sites are only available in the Website studio. In the App and Game studios, ask for screens inside the app instead.
+In the **Responsive Website** studio, a site can have a home page plus pages like About, Menu or Contact. All pages share the same look, menu and footer, and links between them work in the preview, in exports and on a published site. In the App and Game studios, ask for screens inside the app instead.
 
 ## Ask for the pages you want
 
-AppBlips keeps a website on one page unless you ask for more. A one-page site links to its own sections, such as `#contact`, instead of separate pages.
-
-To get several pages, say so in your request and name the pages. For example:
+AppBlips keeps a site to one page unless you ask for more. Name the pages in your request:
 
 ```text
 A multi-page website for a bakery with Home, Menu, Our Story and Contact pages.
 ```
 
-Asking for "a multi-page site", or for a specific page such as "an about page", is enough. Some of the Website studio's starter ideas are already written as multi-page sites, such as **Multi-Page Agency**, **Multi-Page Restaurant** and **Multi-Page SaaS**.
-
-A site can have up to 12 pages, including the home page.
+Some starter ideas are already multi-page, such as **Multi-Page Agency**, **Multi-Page Restaurant** and **Multi-Page SaaS**. A site can have up to 12 pages, including the home page, and the whole site must stay under 400 KB of code. If it gets too big, AppBlips asks you to remove or shorten a page.
 
 ## What happens while it builds
 
-AppBlips builds the pages one at a time:
+AppBlips writes the home page first, with a menu linking to the other pages. Then it writes each linked page, using the home page as a guide so fonts, colors, menu and footer match.
 
-1. **The home page first.** The AI writes the home page (`index.html`), including a navigation bar with links to the other pages.
-2. **Then each linked page.** AppBlips finds every page the navigation links to and writes each one, using the finished home page as its guide. That way every page gets the same fonts, colours, navigation bar and footer, with its own page marked as the current one in the navigation.
+You can follow along:
 
-While this happens:
+- The status line names the page being written, such as **Creating about.html (2 of 4)…**.
+- In the code view, each page gets its own tab as soon as it starts.
+- With **Reasoning** on, a short pause between pages is normal.
 
-- The status line names the page being written and how far along the build is, for example **Creating about.html (2 of 4)…**.
-- During **Writing the code**, the build checklist shows the page and its place in the build, for example **about.html · page 2 of 4**.
-- In the code view, each page gets its own tab as soon as it starts. The tab being written shows a spinner, and the view follows the build unless you pick a tab yourself.
-- If **Reasoning** is on in **Settings → AI**, the AI thinks before writing each page. **Thinking…** and a timer show while it does, so a short pause between pages is normal.
+Each page is a separate request to your AI provider. [Prompt caching](/costs/prompt-caching) makes the later pages cheaper and quicker to start.
 
-Each page is written as a separate request to your AI provider, and each one includes the home page. [Prompt caching](/costs/prompt-caching) lets your provider reuse the home page from one request to the next, which makes the later pages cheaper and quicker to start.
+If a page can't be written, the build still finishes, and its link doesn't open anything yet. Ask for it in the chat, for example "Add the menu page".
 
-If a page can't be written, the build still finishes, and the link to that page doesn't open anything yet. Ask for the page in the chat to add it, for example `Add the menu page`.
+## Move between pages
 
-## Move between pages in the preview
-
-- **Click links on the site.** Links between pages work in the preview just as they will on the live site. The preview's back and forward buttons move between the pages you've opened.
-- **Use the page picker.** When a site has more than one page, a page picker appears in the preview toolbar. It shows the current page's name. Click it (its tooltip is **Switch page**) and choose a page. The home page is listed as **Home**, and other pages by name, so `our-story.html` shows as **Our story**.
-
-**Open in a new tab** works the same way: links between pages open the right page.
+- **Click links** on the site. The preview's back and forward buttons follow the pages you've opened.
+- **Use the page picker** in the preview toolbar (**Switch page**). The home page is listed as **Home**, and `our-story.html` shows as **Our story**.
 
 ## Edit a multi-page site
 
-- **Name the page in your request.** A message in the chat can change any page, so say which one you mean. For example: `On the Menu page, add a section for gluten-free options`.
-- **Changes to the navigation bar or footer apply to every page.** Ask once, for example `Add a "Gallery" link to the navigation`, and the AI updates every page so the site stays consistent.
-- **Click-to-edit changes the page you're looking at.** Open the page with the page picker first, then click the element you want to change.
-- **Broken links get fixed.** If an edit leaves a link pointing to a page that doesn't exist, AppBlips sends the AI back to fix it before finishing. **Fixing links between pages…** shows while this happens. The AI either creates the missing page or changes the link.
+- **Name the page in your request:** "On the Menu page, add a section for gluten-free options."
+- **Menu and footer changes apply everywhere.** Ask once, like "Add a Gallery link to the navigation", and every page updates.
+- **Click-to-edit changes the page you're viewing.** Open the page first, then click what you want to change. See [Edit your app](/features/editing-apps).
+- **Broken links are fixed for you.** If an edit leaves a link pointing nowhere, the AI creates the page or fixes the link. You'll see **Fixing links between pages…**.
 
 ## Add, remove or rename pages
 
-There are no buttons for managing pages. Ask in the chat instead:
+Ask in the chat. There are no page buttons.
 
-- **Add a page:** `Add a pricing page and link to it from the navigation`.
-- **Remove a page:** `Remove the careers page and its navigation link`. The home page can't be removed.
-- **Rename a page:** `Rename the Our Story page to About`. The AI creates the page under the new name and removes the old one.
+- **Add:** "Add a pricing page and link to it from the navigation."
+- **Remove:** "Remove the careers page and its navigation link." The home page can't be removed.
+- **Rename:** "Rename the Our Story page to About."
 
 ## Export and publish
 
-- **Export** downloads a `.zip` for a multi-page site, with one `.html` file per page side by side, plus an `images` folder if the site uses any. Unzip it and the links between pages keep working. See [Export your project](/features/exporting).
-- **Publish** puts every page online together. See [Publish to the web](/features/publishing).
-
-To bring an existing multi-page website into AppBlips, see [Import a site](/features/importing-sites).
+Export downloads a `.zip` with one `.html` file per page, so links keep working after you unzip it. See [Export your project](/features/exporting). Publishing puts every page online together. See [Publish to the web](/features/publishing). To bring in an existing site, see [Import a site](/features/importing-sites).

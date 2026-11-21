@@ -1,180 +1,65 @@
 ---
 title: "Configuration reference"
 sidebarTitle: "Configuration"
-description: "Every .env setting for the browser version of AppBlips, from source or Docker: an AI provider for the server, the Free option and its limits, ports and allowed addresses."
+description: "Settings for the browser version of AppBlips: give the server an AI provider, limit the Free option, change ports and allowed addresses."
 ---
 
-<Note>
-  Using the [desktop app](/quickstart-desktop)? You can skip this page. The desktop app doesn't read a `.env` file: you set everything in the app, under **Settings → AI**.
-</Note>
+You can change how the browser version of AppBlips behaves with a `.env` file: a plain text file with one `NAME=value` setting per line. This works when you run [from source](/quickstart-source) or with [Docker](/self-hosting/docker).
 
-When you run the browser version of AppBlips, [from source](/quickstart-source) or with [Docker](/self-hosting/docker), you can change how its server behaves with a `.env` file. A `.env` file is a plain text file of settings, one per line, in the form `NAME=value`.
-
-**Every setting is optional.** The easiest setup has no `.env` file at all: open AppBlips and choose your AI provider, API key and model under **Settings → AI**.
+**Every setting is optional.** With no `.env` file, you pick your provider, key and model in **Settings → AI** and everything works. The desktop app doesn't read `.env` at all.
 
 ## Create the file
 
-1. Open the AppBlips folder.
-2. Make a copy of `.env.example` and name the copy `.env`.
-3. Open `.env` in any text editor, such as Notepad or TextEdit.
-4. Fill in only the lines you need, and leave the rest empty.
-5. Save the file.
-6. Restart AppBlips so it reads the new values:
-   - **From source:** in the terminal running AppBlips, press `Ctrl+C`, then run `npm start` again.
-   - **Docker:** run `docker compose up -d` in the AppBlips folder.
+1. Copy `.env.example` to `.env` in the AppBlips folder.
+2. Fill in only the lines you need.
+3. Restart AppBlips. From source, stop it with `Ctrl+C` and run `npm start` again. With Docker, run `docker compose up -d`.
 
-When the server starts, it prints the AI provider and model it found in `.env`. It never prints your key.
+At startup the server prints which provider and model it found. It never prints your key.
 
 ## AI provider for the server
 
-These settings give the server an AI provider of its own. When they're set, the provider list in onboarding and in **Settings → AI** gains a **Free (no key needed)** option, so anyone using this copy of AppBlips can build without an API key. A provider someone picks in **Settings → AI** with their own key always takes priority over this one.
-
-An API key is a secret code from an AI provider that lets AppBlips use your account there. A model is the specific AI that writes the code, such as a Claude or GPT model.
+Set these to give the server its own AI provider. People then see a **Free (no key needed)** option in setup and in **Settings → AI**. A key someone enters in **Settings → AI** always wins over this one.
 
 <Warning>
-  Whoever can open this copy of AppBlips can build with the key you put here, and your provider bills you for it. Keep AppBlips on your own computer, which is the default, and set a spending limit in your provider's dashboard.
+  Anyone who can open your copy can build with this key, and your provider bills you. Keep AppBlips on your own computer (the default) and set a spending limit in your provider's dashboard.
 </Warning>
 
 <ParamField body="OPENAI_API_KEY" type="string">
-  Your API key. On its own, the key's beginning tells AppBlips which provider it belongs to:
+  Your provider's API key. For most providers, the start of the key tells AppBlips which one it is:
 
-  - `sk-ant-` → Anthropic
-  - `sk-proj-` (also `sk-svcacct-` and `sk-admin-`) → OpenAI
-  - `AIza` → Gemini
-  - `xai-` → xAI
-  - `sk-or-` → OpenRouter
-  - Anything else → DeepSeek, unless `OPENAI_LLM_PROVIDER` or `OPENAI_BASE_URL` says otherwise
+  - `sk-ant-`: Anthropic
+  - `sk-proj-`, `sk-svcacct-`, `sk-admin-`: OpenAI
+  - `AIza`: Gemini
+  - `xai-`: xAI
+  - `sk-or-`: OpenRouter
+  - anything else: DeepSeek, unless you set `OPENAI_LLM_PROVIDER` or `OPENAI_BASE_URL`
 </ParamField>
 
 <ParamField body="OPENAI_LLM_MODEL" type="string">
-  The model to build with, written exactly as your provider names it, for example `deepseek-v4-pro`. Leave it empty and AppBlips picks the provider's newest general model from its model list. You must fill it in when you set `OPENAI_BASE_URL`.
+  The model to build with, named exactly as your provider names it, such as `deepseek-v4-pro`. Empty means the provider's newest general model. Required when you set `OPENAI_BASE_URL`.
 </ParamField>
 
 <ParamField body="OPENAI_LLM_PROVIDER" type="string">
-  Names the provider outright: `deepseek`, `openai`, `anthropic`, `gemini`, `xai` or `openrouter`. Leave it empty to let AppBlips work it out from the key. Set it to `openai` if you have an older OpenAI key that starts with just `sk-`.
+  Pick the provider yourself: `deepseek`, `openai`, `anthropic`, `gemini`, `xai` or `openrouter`. Use `openai` for an older OpenAI key that starts with plain `sk-`.
 </ParamField>
 
 <ParamField body="OPENAI_BASE_URL" type="string">
-  The web address of another service that speaks the OpenAI chat-completions API, such as `https://openrouter.ai/api/v1`, or your own vLLM, LiteLLM or Groq address. Leave it empty to use the provider's own address. When you set it, also set `OPENAI_LLM_MODEL`.
+  The address of any service that speaks the OpenAI chat-completions API, such as `https://openrouter.ai/api/v1`, or your own vLLM or LiteLLM. Set `OPENAI_LLM_MODEL` too.
 </ParamField>
 
 <ParamField body="OPENAI_LLM_VISION_MODEL" type="string">
-  A second model, on the same service and key, used only for requests that include an image, such as a screenshot of the preview. Use it when your main model can't read images. Leave it empty to use `OPENAI_LLM_MODEL` for everything.
+  A second model, on the same service and key, used only for requests with an image. Use it when your main model can't read images.
 </ParamField>
 
 <ParamField body="OPENAI_LLM_TEMPERATURE" type="number" default="0.0">
-  How much the AI varies its answers, from `0.0` (most predictable) upward. Requests that fix errors always use `0.0`, and models that don't accept a temperature never get one.
+  How much the AI varies its answers. `0.0` is the most predictable. Fix-up requests always use `0.0`, and models that don't accept a temperature never get one.
 </ParamField>
 
-## Limits on the Free option
-
-When the server has its own provider, its **Free** option is limited, so one person can't use up your budget. The limits count each visitor by their IP address (the address their internet connection uses), or by account when you turn on [sign-in for the Free option](#sign-in-for-the-free-option). People who build with their own key in **Settings → AI** are never limited.
-
-The counts are kept in memory, so restarting AppBlips resets them. Your provider's own spending limit is still the final safeguard.
-
-When someone reaches a limit, AppBlips tells them when they can build again and that they can keep going with their own API key.
-
-<ParamField body="APPBLIPS_FREE_LIMITS" type="string" default="on">
-  Set it to `off` to turn every limit off. Do this when only you use this copy of AppBlips.
+<ParamField body="APPBLIPS_MAX_OUTPUT_TOKENS" type="number">
+  The longest reply, in tokens, for every AI request on this server, for the Free option and for visitors' own keys. When set, the **Output tokens** fields in **Settings → AI** are hidden and ignored. Empty lets each person choose, with 64,000 as the default for building. Don't go much lower than that, or long builds can stop unfinished.
 </ParamField>
 
-<ParamField body="APPBLIPS_FREE_MESSAGES_PER_MINUTE" type="number">
-  Limits how many chat messages one visitor may send in a minute. The AI's own follow-up requests while it works on a message don't count. `0` removes this limit.
-</ParamField>
-
-<ParamField body="APPBLIPS_FREE_MESSAGE_GAP_SECONDS" type="number">
-  Sets the shortest wait between one visitor's chat messages. `0` removes this limit.
-</ParamField>
-
-<ParamField body="APPBLIPS_FREE_REQUESTS_PER_HOUR" type="number">
-  Limits how many requests one visitor may send in an hour. `0` removes this limit.
-</ParamField>
-
-<ParamField body="APPBLIPS_FREE_CONCURRENT" type="number">
-  Limits how many requests one visitor may have running at the same time. `0` removes this limit.
-</ParamField>
-
-<ParamField body="APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY" type="number">
-  Limits how many tokens one visitor may use in a day. A token is a small piece of text, about three-quarters of a word, and providers bill by the token. Days run from midnight to midnight UTC. `0` removes this limit.
-</ParamField>
-
-<ParamField body="APPBLIPS_FREE_TOKENS_PER_DAY" type="number">
-  Limits how many tokens everyone together may use in a day (UTC). `0` removes this limit.
-</ParamField>
-
-<ParamField body="APPBLIPS_FREE_MAX_OUTPUT_TOKENS" type="number">
-  The longest reply, in tokens, that one Free request may get. Leave it empty to keep the app's own limit, or whatever the person set under **Settings → AI → Output tokens: building**.
-</ParamField>
-
-## Sign-in for the Free option
-
-If you open your copy of AppBlips to the public, you can require people to sign in before they use the **Free** option. Sign-in is handled by [Clerk](https://clerk.com), a service that runs sign-in for websites. Visitors choose Google or GitHub, and the limits above then count each account instead of each IP address. People who use their own API key never sign in. The desktop app never asks for it.
-
-It's off unless you set both keys below.
-
-<Steps>
-  <Step title="Create a Clerk application">
-    Create a free account at [clerk.com](https://clerk.com) and add an application.
-  </Step>
-  <Step title="Allow only Google and GitHub">
-    In the Clerk dashboard, open the sign-in options and switch on **Google** and **GitHub** only. Switch off email and every other method.
-  </Step>
-  <Step title="Copy the two keys">
-    In the dashboard, open **API keys**. Copy the **Publishable key** and the **JWT public key** into your `.env` file as the two settings below, then restart AppBlips.
-  </Step>
-</Steps>
-
-<ParamField body="CLERK_PUBLISHABLE_KEY" type="string">
-  The publishable key, which starts with `pk_live_` or `pk_test_`. It isn't secret: the page uses it to load the sign-in window.
-</ParamField>
-
-<ParamField body="CLERK_JWT_KEY" type="string">
-  The instance's PEM public key, from **API keys → JWT public key**. The server uses it to check each sign-in itself, without contacting Clerk. If your `.env` file needs it on one line, write the line breaks as `\n`.
-</ParamField>
-
-<ParamField body="APPBLIPS_FREE_SIGN_IN" type="string">
-  Set it to `off` to turn sign-in off while keeping the two keys in place.
-</ParamField>
-
-Each sign-in is accepted only when it was issued to the address your copy of AppBlips is opened from. If you also serve it from other addresses, list them in `APPBLIPS_CHAT_ALLOWED_ORIGINS`.
-
-## Photo library
-
-<ParamField body="UNSPLASH_ACCESS_KEY" type="string">
-  The Access Key of an Unsplash app you register at [unsplash.com/developers](https://unsplash.com/developers). With it, the AI picks real photos from Unsplash for websites and apps, through a search the server signs with this key, instead of writing image addresses from memory. Every photo it uses is shown from Unsplash, credited to its photographer with a link, and reported to Unsplash as used, as Unsplash's API guidelines require. Nobody using AppBlips needs an Unsplash account. Everyone on the server shares the key's hourly limit: 50 requests for a new (demo) app, 1,000 once Unsplash approves it for production. Searches are cached for an hour, and each visitor can make 30 an hour. The Secret Key isn't needed. Games don't use it.
-</ParamField>
-
-<ParamField body="APPBLIPS_PHOTO_LIBRARY_URL" type="string" default="https://web.appblips.com">
-  For the desktop and Android apps, which hold no Unsplash key: the AppBlips server their photo searches go to. That server's `UNSPLASH_ACCESS_KEY` signs them, and its cache and per-visitor limits apply. Set `off` to turn the photo library off, or start the app with `UNSPLASH_ACCESS_KEY` set to search with your own key.
-</ParamField>
-
-## Server
-
-<ParamField body="PORT" type="number" default="3000">
-  The port `npm start` listens on. A port is the number after the colon in an address such as `http://localhost:3000`. Docker ignores this setting: use `APPBLIPS_PORT` instead.
-</ParamField>
-
-<ParamField body="APPBLIPS_PORT" type="number" default="3000">
-  Docker only. The port on your computer where you open AppBlips.
-</ParamField>
-
-<ParamField body="HOST" type="string" default="127.0.0.1">
-  `npm start` only. The network address the server listens on. The default lets only your own computer connect. Change it only if you put your own sign-in in front of AppBlips. See [Security](/self-hosting/security#if-you-open-appblips-to-other-devices).
-</ParamField>
-
-<ParamField body="APPBLIPS_ALLOWED_HOSTS" type="string">
-  AppBlips only answers when you open it as `localhost`, `127.0.0.1` or `[::1]`. This stops other websites from reaching it by pointing their own domain name at your computer. To open AppBlips under another name, such as your reverse proxy's domain, list the names here, separated by commas, without `http://` or a port. For example: `appblips.home.example`.
-</ParamField>
-
-<ParamField body="APPBLIPS_CHAT_ALLOWED_ORIGINS" type="string">
-  AppBlips refuses AI requests sent from any page but its own. If a reverse proxy changes the address the server sees, builds can fail with `Requests from other sites are not allowed.` List the exact address you open AppBlips at here, separated by commas. For example: `https://appblips.home.example`.
-</ParamField>
-
-<ParamField body="APPBLIPS_DATA_DIR" type="string" default="~/.appblips">
-  A folder where AppBlips 0.1.27 and earlier kept the keys you saved in the browser version. AppBlips now keeps those keys in your browser and deletes any old key files from this folder when it starts. You don't need to set it. The Docker image uses `/data`.
-</ParamField>
-
-## Example `.env` files
+Examples:
 
 <CodeGroup>
 ```bash Anthropic
@@ -198,4 +83,107 @@ OPENAI_LLM_MODEL=your-model
 ```
 </CodeGroup>
 
-If a service other than the ones AppBlips knows rejects builds, set **Reasoning** to **Off** under [Settings → AI](/reference/settings#reasoning). AppBlips sends a reasoning setting with each build, and some services don't accept it.
+If a service rejects builds, set **Reasoning** to **Off** in [Settings → AI](/reference/settings#reasoning). Some services don't accept the reasoning setting AppBlips sends.
+
+## Limits on the Free option
+
+On a server other people can reach, the Free option is limited so one person can't use up your budget. People who use their own key are never limited. Each visitor is counted by IP address, or by account if you turn on [sign-in](#sign-in-for-the-free-option). Counts live in memory, so a restart resets them.
+
+These limits always apply and can't be changed. Each is per visitor:
+
+- 6 chat messages a minute
+- 3 seconds between messages
+- 120 AI requests an hour
+- 4 requests at once
+
+You can turn all limits off, or add token caps:
+
+<ParamField body="APPBLIPS_FREE_LIMITS" type="string" default="on">
+  Set to `off` to remove every limit. Do this when only you use the server.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY" type="number">
+  Tokens one visitor may use per day (midnight to midnight UTC). A token is a small piece of text, about three-quarters of a word. Empty or `0` means no cap.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_TOKENS_PER_DAY" type="number">
+  Tokens everyone together may use per day (UTC). Empty or `0` means no cap.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_MAX_OUTPUT_TOKENS" type="number">
+  The longest reply for one Free request. Empty keeps the app's own limit. If `APPBLIPS_MAX_OUTPUT_TOKENS` is also set, the lower one applies.
+</ParamField>
+
+## Sign-in for the Free option
+
+On a public server, you can require a Google or GitHub sign-in before someone uses the Free option, and the limits then count each account. Sign-in is provided by [Clerk](https://clerk.com). People with their own key never sign in. It's off unless both keys below are set.
+
+<Steps>
+  <Step title="Create a Clerk application">
+    Make a free account at [clerk.com](https://clerk.com) and add an application.
+  </Step>
+  <Step title="Allow only Google and GitHub">
+    In the dashboard's sign-in options, switch on **Google** and **GitHub** and switch off everything else.
+  </Step>
+  <Step title="Copy the keys into .env">
+    Under **API keys**, copy the **Publishable key** and the **JWT public key** into the settings below, then restart AppBlips.
+  </Step>
+</Steps>
+
+<ParamField body="CLERK_PUBLISHABLE_KEY" type="string">
+  Starts with `pk_live_` or `pk_test_`. It isn't secret.
+</ParamField>
+
+<ParamField body="CLERK_JWT_KEY" type="string">
+  The PEM public key from **API keys → JWT public key**. The server uses it to check sign-ins itself. In `.env`, write line breaks as `\n` to keep it on one line.
+</ParamField>
+
+<ParamField body="APPBLIPS_FREE_SIGN_IN" type="string">
+  Set to `off` to turn sign-in off but keep the keys in place.
+</ParamField>
+
+A sign-in only works from the address your copy is opened at. If you serve it from other addresses, list them in `APPBLIPS_CHAT_ALLOWED_ORIGINS`.
+
+<Accordion title="Optional: add new users to a Resend email list">
+  If you set a Clerk webhook (Clerk dashboard → Webhooks) to `POST /api/webhooks/clerk`, AppBlips can add new and updated users to a Resend audience.
+
+  - `CLERK_WEBHOOK_SIGNING_SECRET`: the webhook's signing secret.
+  - `RESEND_API_KEY`: your Resend API key.
+  - `RESEND_AUDIENCE_ID`: the audience to use. If empty, the first audience in your Resend account is used.
+</Accordion>
+
+## Photo library
+
+<ParamField body="UNSPLASH_ACCESS_KEY" type="string">
+  The Access Key of an Unsplash app you register at [unsplash.com/developers](https://unsplash.com/developers). With it, the AI uses real, credited Unsplash photos in websites and apps. Nobody needs an Unsplash account, and games don't use it. Everyone on your server shares the key's hourly limit: 50 requests for a new app, 1,000 once Unsplash approves it. You don't need the Secret Key.
+</ParamField>
+
+<ParamField body="APPBLIPS_PHOTO_LIBRARY_URL" type="string" default="https://web.appblips.com">
+  For the desktop and Android apps, which hold no Unsplash key: the AppBlips server their photo searches go to. Set it to `off` to turn the photo library off.
+</ParamField>
+
+## Server
+
+<ParamField body="PORT" type="number" default="3000">
+  The port `npm start` listens on. Docker ignores it. Use `APPBLIPS_PORT` instead.
+</ParamField>
+
+<ParamField body="APPBLIPS_PORT" type="number" default="3000">
+  Docker only. The port on your computer where you open AppBlips.
+</ParamField>
+
+<ParamField body="HOST" type="string" default="127.0.0.1">
+  `npm start` only. The network address the server listens on. The default lets only your own computer connect. Change it only if you put your own sign-in in front. See [Security](/self-hosting/security#if-you-open-appblips-to-other-devices).
+</ParamField>
+
+<ParamField body="APPBLIPS_ALLOWED_HOSTS" type="string">
+  AppBlips only answers when opened as `localhost`, `127.0.0.1` or `[::1]`. To use another name, such as a reverse proxy's domain, list it here. Separate names with commas, without `http://` or a port. Example: `appblips.home.example`.
+</ParamField>
+
+<ParamField body="APPBLIPS_CHAT_ALLOWED_ORIGINS" type="string">
+  AppBlips refuses AI requests that come from any page but its own. If a reverse proxy changes the address the server sees, builds can fail with `Requests from other sites are not allowed.` List the exact address you open AppBlips at, separated by commas. Example: `https://appblips.home.example`.
+</ParamField>
+
+<ParamField body="APPBLIPS_DATA_DIR" type="string" default="~/.appblips">
+  Older AppBlips versions stored saved keys here. Keys now stay in your browser, and the server deletes any old key files from this folder at startup. You don't need to set it. The Docker image uses `/data`.
+</ParamField>

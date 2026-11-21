@@ -1,12 +1,12 @@
 ---
 title: "Publish to the web"
 sidebarTitle: "Publishing"
-description: "Put your app, website or game online at a free surge.sh web address, or a domain you own, with HTTPS, straight from AppBlips."
+description: "Put your app, website or game online at a free surge.sh address, or your own domain, in a few clicks."
 ---
 
-**Publish** puts your project online so anyone can open it. AppBlips uses [Surge](https://surge.sh), a free hosting service, and gives your project its own web address, such as `https://my-bakery.surge.sh`. Every address uses HTTPS, the padlock in the address bar that keeps the connection secure.
+**Publish** puts your project online so anyone can open it. AppBlips uses [Surge](https://surge.sh), a free hosting service, and gives you an address such as `https://my-bakery.surge.sh`. It always uses HTTPS, the padlock that keeps the connection secure.
 
-Publishing works for apps, websites and games. Imported React + Vite sites can't be published from AppBlips; [export them](/features/importing-sites#export-the-project) instead.
+Publishing works for apps, websites and games. Imported React + Vite sites can't be published; [export them](/features/importing-sites#export-the-project) instead.
 
 ## Publish for the first time
 
@@ -14,27 +14,26 @@ You need a free Surge account. You can create one inside AppBlips.
 
 <Steps>
   <Step title="Open the Publish window">
-    Open your project. In the preview toolbar, click **Publish** (the globe, at the right end).
+    In the preview toolbar, click **Publish** (the globe at the right end).
   </Step>
   <Step title="Sign in to Surge">
-    - **New to Surge:** click **Create an account**. Type your email, choose a password, type it again under **Type the password again**, then click **Create account**.
-    - **Already have an account:** leave **I have an account** selected, type your email and password, then click **Sign in**.
+    New to Surge? Click **Create an account**, enter your email and a password, type it again under **Type the password again**, then click **Create account**.
+
+    Already have one? Keep **I have an account** selected, enter your email and password, then click **Sign in**.
   </Step>
   <Step title="Choose the web address">
-    Under **Web address**, AppBlips suggests a name. Keep it or type your own, using only lowercase letters, numbers and dashes. The address ends in `.surge.sh`.
-
-    To use a domain you've bought instead, click **Use a domain I own** and type it, such as `www.mybakery.com`. See [Use your own domain](#use-your-own-domain).
+    AppBlips suggests a name. Keep it or type your own, with lowercase letters, numbers and dashes. The address ends in `.surge.sh`.
   </Step>
-  <Step title="Choose the options you want">
-    All of these are optional. AppBlips remembers your choices for each project.
+  <Step title="Pick any options">
+    All are optional, and AppBlips remembers them for each project:
 
-    - **Site icon:** click **Add icon…** and pick a picture (PNG, JPEG, WebP, GIF, SVG or ICO). It's the small picture in the browser tab, in bookmarks and on a phone's home screen. A square image works best.
-    - **Let search engines find this site:** on at first, so Google and others can list your site. Turn it off to keep the site out of search results. See [Search engines](#search-engines).
-    - **Prompt visitors to install as an app:** visitors see a notice inviting them to add your site to their phone or computer like an app, with its own icon. This makes your site a PWA (progressive web app). Without a site icon, AppBlips makes a simple one from your project's name.
-    - **Password protect this site:** visitors must type a password before they see anything. See [Password protection](#password-protection).
+    - **Add icon…:** the small picture in browser tabs and bookmarks. A square image works best.
+    - **Let search engines find this site:** on by default. See [Search engines](#search-engines).
+    - **Prompt visitors to install as an app:** invites visitors to add your site to their phone or computer like an app.
+    - **Password protect this site:** see [Password protection](#password-protection).
   </Step>
   <Step title="Publish">
-    Click **Publish**. After a few seconds, the window says **Your site is live** and shows the link. Click **Copy** to copy it, or **Open site** to visit it.
+    Click **Publish**. After a few seconds you'll see **Your site is live**. Click **Copy** to copy the link, or **Open site** to visit it.
   </Step>
 </Steps>
 
@@ -42,96 +41,95 @@ You need a free Surge account. You can create one inside AppBlips.
   Unless you add a password, anyone with the link can see your site. Don't publish anything private.
 </Note>
 
-### Share it
-
-Under **Share it**, click an icon to share your link by email or on X, Facebook, LinkedIn, Reddit, Bluesky or WhatsApp. Your browser opens that service's share page (or your email app) with the link filled in. Nothing is posted until you post it there.
-
-To feature your project in the AppBlips Showcase, click **Submit it to the showcase**. See [Showcase](/features/showcase).
+Under **Share it**, click an icon to share the link by email or on X, Facebook, LinkedIn, Reddit, Bluesky or WhatsApp. Nothing is posted until you post it yourself. To feature your project in the Showcase, click **Submit it to the showcase**. See [Showcase](/features/showcase).
 
 ## Update a published site
 
-After you change your project, click **Publish** again. For a project that's already online, the window says **This project is online** and shows its address.
+After you change your project, click **Publish** again. The window says **This project is online**.
 
-- **Update site:** replaces what's online with your latest version, at the same address.
-- **Site icon**, search engines, install prompt and password: change them here, then click **Update site**.
-- **Publish to a different address:** puts a second copy online at a new address. The old one stays online until you unpublish it.
-- **Unpublish:** takes the site offline. See [Take a site offline](#take-a-site-offline).
+- **Update site:** replaces what's online with your latest version, at the same address. The icon, search, install and password options can be changed here too.
+- **Publish to a different address:** puts a second copy online at a new address. The old one stays up until you unpublish it.
+- **Unpublish:** takes the site offline.
 
-It can take a minute for the new version to appear everywhere.
+New versions can take a minute to appear everywhere.
 
 ## Use your own domain
 
-If you own a domain, such as `mybakery.com`, you can publish to it instead of a `.surge.sh` address. Surge hosts custom domains for free and adds HTTPS by itself.
+If you own a domain such as `mybakery.com`, you can publish to it instead. Surge hosts custom domains for free and adds HTTPS for you.
 
-1. In the Publish window, click **Use a domain I own** next to **Web address**.
-2. Type your domain, such as `www.mybakery.com` or `mybakery.com`, then click **Publish**.
-3. The window shows the one DNS record to add. Open the DNS settings at the company you bought the domain from and add it:
+<Steps>
+  <Step title="Switch to your domain">
+    In the Publish window, click **Use a domain I own** next to **Web address**.
+  </Step>
+  <Step title="Enter it and publish">
+    Type your domain, such as `www.mybakery.com`, then click **Publish**.
+  </Step>
+  <Step title="Add the DNS record">
+    The window shows one record to add. Add it in the DNS settings at the company where you bought the domain.
+  </Step>
+</Steps>
 
 | Your address | Type | Name | Value |
 | --- | --- | --- | --- |
-| `www.mybakery.com` (with a prefix) | CNAME | `www` | `geo.surge.world` |
-| `mybakery.com` (no prefix) | A | `@` | `138.197.235.123` |
+| `www.mybakery.com` | CNAME | `www` | `geo.surge.world` |
+| `mybakery.com` | A | `@` | `138.197.235.123` |
 
-Not sure where to add it? Under the record, click **Not sure how? Guides for GoDaddy, Namecheap and other providers** and pick the company you bought the domain from. Its own step-by-step guide opens in your browser.
+Not sure where to add it? Click **Not sure how? Guides for GoDaddy, Namecheap and other providers** under the record and pick your company.
 
-For a domain with no prefix, you can use an ALIAS or ANAME record pointing at `geo.surge.world` instead, if your provider offers one. Surge sends the `www` and plain versions of your domain to the same site, as long as both point at Surge.
+Custom domains are in beta. Two things can hold you up:
 
-After publishing, the window says **Uploaded to Surge** and keeps checking your domain's DNS every 30 seconds while it's open. Click **Check now** to check straight away. If your domain still points somewhere else, such as a parking page from the company you bought it from, the window shows where, so you know which record to change. When the record is in place, the window says **Your site is live**.
+- **Cloudflare:** if your DNS is at Cloudflare, turn the orange cloud beside the record grey (**DNS only**). The window tells you when this is the problem.
+- **Surge email:** Surge holds a custom domain until you verify your account. Click the link in Surge's email. The window can resend it.
 
-DNS changes can take up to a day to work everywhere. Until then, your domain won't open the site. To check again later, click **Publish**: the window shows **Waiting for DNS** or **Live** next to your domain, and **DNS setup** shows the record again.
+Once the record works, Surge gets a free HTTPS certificate on its own, usually within a few minutes.
 
-To check, AppBlips looks up your domain's public DNS records with Cloudflare's DNS service (or Google's, if Cloudflare's can't be reached). Only the domain name is sent.
+The window checks your DNS every 30 seconds while it's open. Click **Check now** to check straight away. When it works, it says **Your site is live**. DNS changes can take up to a day, so your domain may not open the site until then. Come back later and click **Publish** to see **Waiting for DNS** or **Live**.
 
 To go back to a free address, click **Publish to a different address**, then **Use a free .surge.sh address**.
 
 ## Search engines
 
-**Let search engines find this site** is on for new sites. A site you published while it was off stays off until you turn it on.
+**Let search engines find this site** is on for new sites.
 
-- **Off:** AppBlips adds a `robots.txt` file and a "noindex" tag that ask search engines to leave your site out of their results. Well-behaved search engines respect that, but it isn't a lock: anyone with the link can still open the site.
-- **On:** your site can show up in search results. If the [SEO tool](/features/tools#seo) is on and has your website address, AppBlips also publishes a `sitemap.xml` and `robots.txt` to help search engines find your pages. This switch decides, whatever the SEO tool's own setting says.
+- **Off:** AppBlips asks search engines to leave your site out of results. That's a polite request, not a lock. Anyone with the link can still open the site.
+- **On:** your site can appear in search results. If the [SEO tool](/features/tools#seo) is on and has your website address, AppBlips also publishes a `sitemap.xml` to help search engines find your pages.
 
 A password-protected site is always kept out of search results.
 
 ## Password protection
 
-Turn on **Password protect this site**, type a password of at least 10 characters under **Site password**, and type it again under **Type it again**. Visitors then see a lock screen and need the password to get in.
+Turn on **Password protect this site**, enter a password of at least 10 characters under **Site password**, and repeat it under **Type it again**. Visitors then see a lock screen and need the password to get in.
 
-AppBlips locks every page on your device before uploading anything, so what goes online is the lock screen with the pages scrambled inside it.
-
-- **Your password is never uploaded or saved**, by AppBlips or in the published files.
-- **Everything stays hidden until the password is typed**, including your pictures. Only the site icon stays public, because the lock screen shows it.
-- **Visitors unlock once per tab.** The site's other pages then open without asking again. Closing the tab locks it again.
-- **Updating asks for the password again**, because AppBlips doesn't keep it. Type the same one to keep it, or a new one to change it. Turn the switch off and click **Update site** to remove the password.
+- The pages are locked on your device before upload. Your password is never uploaded or saved.
+- Everything is hidden until the password is entered, including your pictures. Only the site icon is public.
+- Visitors enter the password once per browser tab.
+- Updating the site asks for the password again, because AppBlips doesn't keep it. Enter the same one, or a new one to change it. To remove the password, turn the switch off and click **Update site**.
 
 <Warning>
-  A static host can't count wrong guesses or lock anyone out. Someone who downloads the locked pages could try many passwords on their own computer. AppBlips makes each guess slow, but a short or common password can still be guessed. Use a long password, such as four random words, and don't reuse one from elsewhere.
+  A static host can't lock anyone out after wrong guesses, so someone could try many passwords offline. Use a long password, such as four random words.
 </Warning>
 
 ## Take a site offline
 
 1. Open the project and click **Publish**.
 2. Click **Unpublish**.
-3. Click **Unpublish** again to confirm, or **Keep it online** to change your mind.
+3. Click **Unpublish** again to confirm, or **Keep it online** to cancel.
 
-The site goes offline and the link stops working. Your project stays in AppBlips, so you can click **Publish again** later. Someone else could take a `.surge.sh` address in the meantime. A domain you own stays yours, and you can remove its DNS record for Surge.
+The link stops working, and your project stays in AppBlips. Someone else could claim a `.surge.sh` address after you free it.
 
-AppBlips only remembers the last address each project was published to. To remove an older address, install [Node.js](https://nodejs.org), open a terminal and run `npx surge teardown old-name.surge.sh` with your own address, then sign in with your Surge email and password.
+AppBlips only remembers each project's most recent address. To remove an older one, install [Node.js](https://nodejs.org) and run `npx surge teardown old-name.surge.sh` with your own address.
 
 ## Your Surge account
 
-- Your Surge password goes to Surge once and is never saved. AppBlips keeps only the sign-in Surge sends back:
-  - In the **desktop app**, it's encrypted with your computer's keychain.
-  - In the **browser version**, it's saved in your own web browser, not on the server.
-- To sign in ahead of time, or to sign out, click **Settings**, then **Extensions**, then the **Surge** card. You can also click **Sign out** in the Publish window.
-- Surge sends a confirmation email when you create an account. You can publish without confirming it.
-- If you forget your password, reset it at [surge.sh](https://surge.sh).
+- Your password goes to Surge once and is never saved. AppBlips keeps only the sign-in Surge sends back: encrypted with your computer's keychain in the desktop app, or unencrypted in your own browser in the browser version.
+- To sign in ahead of time or sign out, go to **Settings → Extensions** and open the **Surge** card. **Sign out** is also in the Publish window.
+- You can publish to a `.surge.sh` address without confirming Surge's email, but a custom domain needs it. If you forget your password, reset it at [surge.sh](https://surge.sh).
 
 ## Limits
 
-- Surge addresses are first come, first served. If the name you chose belongs to someone else, type a different one and click **Publish** again.
-- A custom domain can only be on one Surge account. If it's already on another account, remove it there first.
-- Surge limits how often you can publish in a short time. If Surge refuses, wait a few minutes and try again.
-- A site's images can be at most 60 MB in total. Only the [My images](/features/tools#my-images-beta) pictures your pages use are uploaded.
-- Images made with [Pollinations](/features/connectors#pollinations) are copied into your site, so they stay online as long as it does. Publish again after the AI changes an image.
+- Surge addresses are first come, first served. If yours is taken, pick another name.
+- A custom domain can be on only one Surge account.
+- If Surge refuses because you published too often, wait a few minutes.
+- Your site's images can total at most 60 MB. Only the [My images](/features/tools#my-images-beta) pictures your pages use are uploaded.
+- [Pollinations](/features/connectors#pollinations) images are copied into your site, so they stay as long as it does.
 - Surge's [terms](https://surge.sh/terms) apply to what you publish.
