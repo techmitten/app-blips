@@ -64,7 +64,10 @@
 }
 
 .preview-empty-logo-icon {
-  height: 100%;
+  /* Explicit width % instead of height: 100% so the flex item doesn't expand
+     to max-width: 100% when the parent's height is derived from aspect-ratio. */
+  width: 23.7%;
+  height: auto;
   aspect-ratio: 1;
   flex-shrink: 0;
   filter: drop-shadow(0 4px 10px rgb(15 23 42 / 0.10));
@@ -73,7 +76,7 @@
 .preview-empty-logo-img {
   min-width: 0;
   flex: 1;
-  height: 70%;
+  height: auto;
   object-fit: contain;
   object-position: center;
   filter: drop-shadow(0 4px 10px rgb(15 23 42 / 0.10));
