@@ -24,7 +24,7 @@
   --hero-subtitle: rgb(255 255 255 / 0.64);
   /* The stage is a clear step above the rail's ground and carries a visible
      edge, so the rail and the pane beside it read as two surfaces. */
-  --hero-stage-edge: rgb(255 255 255 / 0.11);
+  --hero-stage-edge: rgb(255 255 255 / 0.16);
   --hero-drift: rgb(235 97 80 / 0.06);
   --hero-stage-bg:
     radial-gradient(46% 40% at 92% 104%, rgb(235 97 80 / 0.18), transparent 70%),
@@ -62,7 +62,18 @@
   overflow: hidden;
   border-radius: 1.25rem;
   background: var(--hero-stage-bg);
+}
+
+/* Painted above child panes so .build-panel's background never covers the
+   stage's left/top/bottom border against the rail. */
+.hero-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   box-shadow: inset 0 0 0 1px var(--hero-stage-edge);
+  pointer-events: none;
+  z-index: 30;
 }
 
 /* A slow drift on the top-lit bloom keeps the screen alive without competing
@@ -650,9 +661,9 @@
    stage gradient; hairlines in the stage's edge colour separate them, and
    the pane headers become frosted strips. */
 .hero-landing-workspace {
-  --hero-pane-tint: rgb(22 22 22 / 0.5);
-  --hero-pane-head: rgb(26 26 26 / 0.7);
-  --hero-pane-line: rgb(255 255 255 / 0.09);
+  --hero-pane-tint: rgb(30 32 38 / 0.78);
+  --hero-pane-head: rgb(36 38 46 / 0.86);
+  --hero-pane-line: rgb(255 255 255 / 0.13);
 }
 
 .hero-landing-workspace:not(.dark) {

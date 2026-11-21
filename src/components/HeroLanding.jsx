@@ -5,7 +5,6 @@ import { TriangleAlert, RotateCcw, X } from 'lucide-react';
 import HeroSidebar from './HeroSidebar';
 import PromptInput from './PromptInput';
 import StarterIdeas from './StarterIdeas';
-import { loadHeroRailCollapsed, saveHeroRailCollapsed } from '../lib/config';
 
 const COPY = {
   ask: {
@@ -67,14 +66,11 @@ export default function HeroLanding({
   isResuming = false,
   ...sidebarProps
 }) {
-  const [railCollapsed, setRailCollapsed] = useState(loadHeroRailCollapsed);
-  const toggleRail = () => {
-    const next = !railCollapsed;
-    setRailCollapsed(next);
-    saveHeroRailCollapsed(next);
-    if (next && sidebarProps.isHistoryOpen) {
-      sidebarProps.onToggleHistory?.();
-    }
+  const [railPinned, setRailPinned] = useState(false);
+  const [railHovered, setRailHovered] = useState(false);
+  const railCollapsed = !railPinned && !railHovered;
+  const toggleRailPinned = () => {
+    setRailPinned((prev) => !prev);
   };
 
   const copy = COPY[chatMode === 'ask' ? 'ask' : COPY[studioMode] ? studioMode : 'app'];
@@ -84,7 +80,10 @@ export default function HeroLanding({
     <div className={`hero-landing${theme === 'light' ? '' : ' dark force-dark'}${workspaceActive ? ' hero-landing-workspace' : ''} flex-1 min-h-0 min-w-0 flex flex-col lg:flex-row`}>
       <HeroSidebar
         collapsed={railCollapsed}
-        onToggleCollapsed={toggleRail}
+        pinned={railPinned}
+        onToggleCollapsed={toggleRailPinned}
+        onMouseEnter={() => setRailHovered(true)}
+        onMouseLeave={() => setRailHovered(false)}
         workspaceActive={workspaceActive}
         resolvedTheme={theme}
         {...sidebarProps}

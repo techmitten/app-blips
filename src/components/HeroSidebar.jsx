@@ -47,7 +47,10 @@ function RailItem({ icon: Icon, label, tip = label, collapsed, onClick, href, ba
 
 export default function HeroSidebar({
   collapsed,
+  pinned = false,
   onToggleCollapsed,
+  onMouseEnter,
+  onMouseLeave,
   onNewApp,
   onOpenApps,
   savedAppsCount = 0,
@@ -92,6 +95,8 @@ export default function HeroSidebar({
     <aside
       className={`hero-rail shrink-0 flex flex-row lg:flex-col items-center lg:items-stretch gap-1 px-2 py-2 lg:px-2.5 lg:py-3 ${collapsed ? 'lg:w-15' : 'lg:w-56'}`}
       aria-label="Studio navigation"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       <div className={`hero-rail-brand flex items-center gap-2 px-1.5 ${collapsed ? 'is-collapsed' : ''}`}>
         <span className="hero-rail-brand-mark flex items-center gap-2 min-w-0">
@@ -106,12 +111,12 @@ export default function HeroSidebar({
           type="button"
           onClick={onToggleCollapsed}
           className="hero-rail-toggle hidden lg:inline-flex"
-          aria-label={collapsed ? 'Expand side panel' : 'Collapse side panel'}
-          aria-expanded={!collapsed}
-          data-tip={collapsed ? 'Expand side panel' : 'Collapse side panel'}
+          aria-label={pinned ? 'Unpin side panel' : 'Pin side panel open'}
+          aria-pressed={pinned}
+          data-tip={pinned ? 'Unpin side panel' : 'Pin side panel open'}
           data-tip-side="right"
         >
-          {collapsed ? <PanelLeftOpen size={16} aria-hidden="true" /> : <PanelLeftClose size={16} aria-hidden="true" />}
+          {pinned ? <PanelLeftClose size={16} aria-hidden="true" /> : <PanelLeftOpen size={16} aria-hidden="true" />}
         </button>
       </div>
 
