@@ -2,12 +2,24 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import {
   OTHER_OPTION_LABEL,
-  RECOMMENDED_TAG,
   formatClarifyingAnswers,
   stripRecommendedTag,
 } from '../lib/clarifyingQuestions';
 
 const OTHER_CHOICE = '__other__';
+const OPTION_SPLIT_RE = /^([^:]{2,48}):\s+(.+)$/;
+
+/**
+ * Split an option like "Warm & editorial: cream backgrounds, serif headings"
+ * into a scannable title and secondary description for display.
+ */
+function splitOptionLabel(label) {
+  const match = OPTION_SPLIT_RE.exec(label);
+  if (!match || match[1].includes('://')) {
+    return { title: label, description: '' };
+  }
+  return { title: match[1].trim(), description: match[2].trim() };
+}
 
 export default function ClarifyingQuestionsCard({ questions, onSubmit }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -58,7 +70,7 @@ export default function ClarifyingQuestionsCard({ questions, onSubmit }) {
     <form
       onSubmit={handleSubmit}
       aria-label="Clarifying questions"
-      className="pl-11.5 animate-fade-in"
+      className="animate-fade-in"
     >
       <div className="clarify-card">
         {questions.length > 1 && (
@@ -89,8 +101,8 @@ export default function ClarifyingQuestionsCard({ questions, onSubmit }) {
           </div>
         )}
 
-        <div key={safeIndex} className="clarify-body space-y-3 animate-fade-in">
-          <div className="space-y-1">
+        <div key={safeIndex} className="clarify-body space-y-3.5 animate-fade-in">
+          <div className="space-y-1.5">
             {questions.length > 1 && (
               <p className="clarify-step-label">
                 Question {safeIndex + 1} of {questions.length}
@@ -104,12 +116,13 @@ export default function ClarifyingQuestionsCard({ questions, onSubmit }) {
           <div
             role="radiogroup"
             aria-labelledby={groupLabelId}
-            className="flex flex-col gap-1.5"
+            className="flex flex-col gap-2"
           >
             {(item.options || []).map((option, optIdx) => {
               const isSelected = selected === optIdx;
               const isRecommended = optIdx === 0;
               const label = isRecommended ? stripRecommendedTag(option) : option;
+              const { title, description } = splitOptionLabel(label);
               return (
                 <button
                   key={`${optIdx}-${option}`}
@@ -120,10 +133,15 @@ export default function ClarifyingQuestionsCard({ questions, onSubmit }) {
                   className="clarify-option"
                 >
                   <span className="clarify-radio" aria-hidden="true" />
-                  <span className="min-w-0 wrap-break-word">
-                    {label}
-                    {isRecommended && (
-                      <span className="clarify-rec-tag">{RECOMMENDED_TAG}</span>
+                  <span className="clarify-option-content min-w-0">
+                    <span className="clarify-option-header">
+                      <span className="clarify-option-title">{title}</span>
+                      {isRecommended && (
+                        <span className="clarify-rec-badge">Recommended</span>
+                      )}
+                    </span>
+                    {description && (
+                      <span className="clarify-option-desc">{description}</span>
                     )}
                   </span>
                 </button>
@@ -138,7 +156,7 @@ export default function ClarifyingQuestionsCard({ questions, onSubmit }) {
               className="clarify-option"
             >
               <span className="clarify-radio" aria-hidden="true" />
-              <span>{OTHER_OPTION_LABEL}</span>
+              <span className="clarify-option-title">{OTHER_OPTION_LABEL}</span>
             </button>
 
             {isOtherSelected && (
