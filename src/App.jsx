@@ -1822,7 +1822,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     });
     const updatedVersions = versions.slice(0, currentVersionIndex + 1);
     const prevVersion = updatedVersions[updatedVersions.length - 1];
-    const shouldAskClarifyingQuestions = !generatedCode && !isAutoFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && askClarifyingQuestions && prevVersion?.editMode !== 'clarify' && studioMode !== 'codebase';
+    // Clarifying questions only run on the first initial prompt of a project.
+    const shouldAskClarifyingQuestions = updatedVersions.length === 0 && !generatedCode && !isAutoFix && currentPrompt !== SEO_APPLY_PROMPT && chatMode !== 'ask' && askClarifyingQuestions && studioMode !== 'codebase';
     // A request that uses My images waits for the user to confirm which image
     // each mention means (llm.js matchGalleryImages). Approving ("yes", or the
     // button) builds; any other answer is checked again as a correction.

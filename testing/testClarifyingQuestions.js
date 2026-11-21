@@ -15,7 +15,29 @@ try {
     formatClarifyingQuestionsReply,
     formatClarifyingAnswers,
   } = await server.ssrLoadModule('/src/lib/clarifyingQuestions.js');
+  const {
+    ASK_CLARIFYING_QUESTIONS_KEY,
+    loadAskClarifyingQuestions,
+    PROMPT_SUGGESTIONS_KEY,
+    loadPromptSuggestions,
+  } = await server.ssrLoadModule('/src/lib/config.js');
   const { generateAppCode } = await server.ssrLoadModule('/src/lib/llm.js');
+
+  // 0. Defaults: clarifying questions on by default, suggested prompts off by default.
+  const store = new Map();
+  globalThis.window.localStorage = {
+    get length() { return store.size; },
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+  };
+  assert.equal(loadAskClarifyingQuestions(), true, 'clarifying questions default to on');
+  assert.equal(loadPromptSuggestions(), false, 'suggested prompts default to off');
+  store.set(ASK_CLARIFYING_QUESTIONS_KEY, 'false');
+  assert.equal(loadAskClarifyingQuestions(), false, 'explicit false disables clarifying questions');
+  store.set(PROMPT_SUGGESTIONS_KEY, 'true');
+  assert.equal(loadPromptSuggestions(), true, 'explicit true enables suggested prompts');
+  store.clear();
 
   // 1. Normalization: caps at max 3, strips "Other"-like options, deduplicates,
   //    and guarantees the recommended choice is first and tagged with (recommended).
