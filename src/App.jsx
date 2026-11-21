@@ -420,6 +420,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   const [tempProjectName, setTempProjectName] = useState('');
   const [shouldGenerateAfterNaming, setShouldGenerateAfterNaming] = useState(false);
   const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
+  const [isChatResetConfirmOpen, setIsChatResetConfirmOpen] = useState(false);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
   // Mid-session studio pick: opened by "New" once any work has been confirmed
   // away (or when there is none). Cancelable -- unlike the forced gate.
@@ -2225,6 +2226,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // and chat history of earlier sessions stay untouched and grouped in version
   // history -- restoring one of their checkpoints re-activates that session.
   const handleStartNewChat = () => {
+    setIsChatResetConfirmOpen(false);
     if (isGenerating) {
       handleCancelGeneration();
     }
@@ -2242,6 +2244,17 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     if (currentProjectId) {
       saveProject({ chatContextStartToSave: cutoff, sessionIdToSave: nextSessionId });
     }
+  };
+
+  // The + button asks first, unless the chat is already empty (no visible
+  // transcript, nothing running or queued): then there is nothing to lose and
+  // a new chat would change nothing, so skip the modal.
+  const requestNewChat = () => {
+    if (!hasVisibleTranscript && !isGenerating && !pendingPrompt) {
+      handleStartNewChat();
+      return;
+    }
+    setIsChatResetConfirmOpen(true);
   };
 
   // Pages as they leave the app in an export: JSX is compiled and loop
@@ -3115,6 +3128,26 @@ export default function App({ coldStart = false, signInHandoff = null }) {
           </div>
         </ConfirmModal>
       )}
+      {isChatResetConfirmOpen && (
+        <ConfirmModal
+          title="Start a new chat?"
+          subtitle="Your app and version history are kept."
+          onClose={() => setIsChatResetConfirmOpen(false)}
+          onConfirm={handleStartNewChat}
+          confirmLabel="New chat"
+          confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
+        >
+          <div className="rounded-xl border border-amber-100 bg-amber-50 dark:border-slate-200 dark:bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
+            <TriangleAlert size={18} className="text-amber-500 dark:text-slate-900 shrink-0 mt-0.5" />
+            <span>
+              {isGenerating
+                ? 'The AI is still working. Starting a new chat will stop it. '
+                : ''}
+              The AI will forget this conversation and start fresh, but your app stays as it is and earlier chats remain in version history.
+            </span>
+          </div>
+        </ConfirmModal>
+      )}
       {isNewChatConfirmOpen && (
         <ConfirmModal
           title="Start something new?"
@@ -3233,7 +3266,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         onExit={() => setIsExitConfirmOpen(true)}
         mobileView={mobileView}
         onMobileViewChange={setMobileView}
-        onNewChat={handleStartNewChat}
+        onNewChat={requestNewChat}
         canNewChat={isChatActive && versions.length > 0 && !isGenerating}
         workspace={showHero || isResumingProject ? null : (
         <div className="workspace flex flex-1 min-w-0 min-h-0 overflow-hidden relative animate-fade-in">
@@ -3305,7 +3338,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 webSearchProvider={providerWeb.provider}
                 webSearch={webSearchOn}
                 onWebSearchChange={setWebSearchOn}
-                onNewChat={handleStartNewChat}
+                onNewChat={requestNewChat}
                 isHistoryOpen={isHistoryOpen}
                 onToggleHistory={() => setIsHistoryOpen((open) => !open)}
                 side={buildPaneSide}
