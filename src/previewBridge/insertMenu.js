@@ -54,12 +54,13 @@ export default `  // -----------------------------------------------------------
   }
 
   function editOnContextMenu(e) {
-    if (!editingActive) return;
     // Text being typed keeps the browser's own menu (spelling, paste).
     if (inlineEdit && inlineEdit.el.contains(e.target)) return;
+    if (drag || marquee || pendingCommits.length) return;
+    var subject = insertSubjectAt(e.clientX, e.clientY);
+    if (!editingActive && !(imageContextMenuActive && subject && detectRole(subject) === 'image')) return;
     e.preventDefault();
     e.stopPropagation();
-    if (drag || marquee || pendingCommits.length) return;
     clearInsertSpot();
     clearHover();
     var spot = null;
@@ -69,7 +70,6 @@ export default `  // -----------------------------------------------------------
       insertLine = dragChrome('z-index:2147483647;background:rgb(57,135,208);border-radius:2px;box-shadow:0 0 0 2px rgba(255,255,255,0.9);', 'line');
       placeBox(insertLine, lr.left, lr.top, lr.width, lr.height);
     }
-    var subject = insertSubjectAt(e.clientX, e.clientY);
     var area = subject ? null : containerAt(e.clientX, e.clientY);
     var subjectReport = subject ? buildElementDescription(subject) : null;
     // Outlined while the menu is open, so it's clear what Cut or Delete hits.

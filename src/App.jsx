@@ -973,6 +973,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   const handleInlineEditEnded = useCallback(() => setTextSession(null), []);
 
   const handleInsertMenu = useCallback((menu) => {
+    if (menu && studioModeRef.current !== 'website') return;
     setInsertMenu((prev) => (menu ? { ...menu, key: (prev?.key || 0) + 1 } : null));
   }, []);
 
@@ -1003,6 +1004,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     editingEnabled: isPreviewEditing,
     dragEnabled: isPreviewEditing && isDragMode,
     containerLock: isPreviewEditing && containerLock,
+    imageContextMenu: studioMode === 'website',
     muted: isGenerating && chatMode === 'build',
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
@@ -1327,6 +1329,53 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       height: image.height,
     }, { imagesToSave: list });
   }, [insertMenu, insertAtSpot, gallery]);
+  const replaceImageInputRef = useRef(null);
+  const replaceImageTargetRef = useRef(null);
+  const handleTriggerReplaceImage = useCallback(() => {
+    const element = insertMenu?.element;
+    if (!element || element.role !== 'image') return;
+    if (isGeneratingRef.current) return;
+    replaceImageTargetRef.current = element;
+    closeInsertMenu();
+    replaceImageInputRef.current?.click();
+  }, [insertMenu, closeInsertMenu]);
+  const handleReplaceImageFile = useCallback(async (file) => {
+    const element = replaceImageTargetRef.current;
+    replaceImageTargetRef.current = null;
+    if (!file || !element || element.role !== 'image') return;
+    if (isGeneratingRef.current) {
+      setElementEditError('Wait for the current build to finish, then try again.');
+      return;
+    }
+    if (!file.type?.startsWith('image/')) {
+      setElementEditError('Please choose an image file.');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setElementEditError('Image must be smaller than 8MB.');
+      return;
+    }
+    const { images, errors, list } = await gallery.addFiles([file]);
+    const image = images[0];
+    if (!image) {
+      setElementEditError(errors[0] || `${file.name} couldn't be added.`);
+      return;
+    }
+    const changes = { src: galleryPath(image) };
+    if (!element.attributes?.alt?.trim()) {
+      const inferredAlt = String(image.name || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+      if (inferredAlt) changes.alt = inferredAlt;
+    }
+    const result = applyElementChangesRef.current(element, changes, { imagesToSave: list });
+    if (!result.ok) {
+      if (result.reason !== 'no-op' && result.reason !== 'no-changes') {
+        setElementEditError(describeDirectEditFailure(result.reason));
+      }
+      return;
+    }
+    setSelectedElement(null);
+    setElementEditError(null);
+  }, [gallery]);
 
   // "Apply with AI" runs the edit straight away as a normal refinement; "Add
   // to chat" (or a chat box that already holds a draft or an attachment,
@@ -3535,7 +3584,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 galleryBytesVersion={gallery.bytesVersion}
                 onUploadGalleryImage={gallery.addFiles}
               />
-              {insertMenu && isPreviewEditing && activeTab === 'preview' && (
+              {insertMenu && studioMode === 'website' && activeTab === 'preview' && (
                 <Suspense fallback={null}>
                   <InsertMenu
                     key={insertMenu.key}
@@ -3547,10 +3596,22 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                     onAskAI={handleMenuAskAI}
                     onAddText={handleInsertText}
                     onAddImage={handleInsertImage}
+                    onReplaceImage={handleTriggerReplaceImage}
                     onClose={closeInsertMenu}
                   />
                 </Suspense>
               )}
+              <input
+                ref={replaceImageInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  handleReplaceImageFile(file);
+                }}
+              />
             </div>
           </main>
         </div>

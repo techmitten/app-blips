@@ -101,8 +101,9 @@ export default `  function editSelectParent(steps) {
     syncStateBadge();
   }
 
-  function setEditingEnabled(enabled, dragOn, lockOn) {
+  function setEditingEnabled(enabled, dragOn, lockOn, imageMenuOn) {
     containerLockActive = !!enabled && !!lockOn;
+    imageContextMenuActive = !!imageMenuOn;
     if (!!enabled === editingActive) {
       setDragMode(!!enabled && !!dragOn);
       return;

@@ -42,6 +42,7 @@ export default function usePreviewBridge({
   // Container lock: when enabled, resizing an image smaller than its container
   // shrinks the container to lock to the image.
   containerLock = false,
+  imageContextMenu = false,
   // A build is running: the frame silences its sound (set-muted).
   muted = false,
   onElementSelected,
@@ -95,6 +96,7 @@ export default function usePreviewBridge({
   const editingEnabledRef = useRef(editingEnabled);
   const dragEnabledRef = useRef(dragEnabled);
   const containerLockRef = useRef(containerLock);
+  const imageContextMenuRef = useRef(imageContextMenu);
   const mutedRef = useRef(muted);
   // requestId -> { resolve, reject, timeoutId }, for correlating the one
   // request/response pair in this otherwise push-only protocol.
@@ -121,6 +123,7 @@ export default function usePreviewBridge({
     editingEnabledRef.current = editingEnabled;
     dragEnabledRef.current = dragEnabled;
     containerLockRef.current = containerLock;
+    imageContextMenuRef.current = imageContextMenu;
     mutedRef.current = muted;
   });
 
@@ -184,6 +187,7 @@ export default function usePreviewBridge({
         enabled: editingEnabledRef.current,
         drag: editingEnabledRef.current && dragEnabledRef.current,
         containerLock: editingEnabledRef.current && containerLockRef.current,
+        imageContextMenu: imageContextMenuRef.current,
       });
       send('set-muted', { muted: mutedRef.current });
     };
@@ -269,7 +273,11 @@ export default function usePreviewBridge({
       // bridge only sends these while editing is on, but the token isn't a
       // secret (see above), so the generated page could send them itself:
       // outside editing they are dropped here, before any handler.
-      else if (!editingEnabledRef.current && EDITING_MESSAGES.has(data.type)) return;
+      else if (
+        !editingEnabledRef.current
+        && EDITING_MESSAGES.has(data.type)
+        && !(imageContextMenuRef.current && ((data.type === 'insert-menu' && data.payload?.element?.role === 'image') || data.type === 'insert-menu-dismissed'))
+      ) return;
       else if (data.type === 'element-selected' && onElementSelectedRef.current) onElementSelectedRef.current(data.payload);
       // Box select / Shift+click: several snapshots at once, handed on as one
       // group selection (see `selectedElement` in App.jsx).
@@ -402,8 +410,9 @@ export default function usePreviewBridge({
       enabled: editingEnabled,
       drag: editingEnabled && dragEnabled,
       containerLock: editingEnabled && containerLock,
+      imageContextMenu,
     });
-  }, [editingEnabled, dragEnabled, containerLock]);
+  }, [editingEnabled, dragEnabled, containerLock, imageContextMenu]);
 
   // Builds start and end without reloading the frame, so the mute is its own
   // push too. A build that brings new code loads a fresh document, which

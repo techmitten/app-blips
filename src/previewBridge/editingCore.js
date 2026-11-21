@@ -55,6 +55,7 @@ export default `  // -----------------------------------------------------------
   // image smaller than its single-image container also shrinks the container
   // to hug the image.
   var containerLockActive = false;
+  var imageContextMenuActive = false;
 
   function editCursorCss() { return dragModeActive ? DRAG_MODE_CURSOR_CSS : EDIT_CURSOR_CSS; }
 

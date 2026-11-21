@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Type, ImagePlus, Loader2, AlertTriangle, Scissors, Copy, ClipboardPaste, CopyPlus, Trash2, Move, Sparkles, Lock, Check,
+  Type, ImagePlus, Upload, Loader2, AlertTriangle, Scissors, Copy, ClipboardPaste, CopyPlus, Trash2, Move, Sparkles, Lock, Check,
 } from 'lucide-react';
 
 const EDGE = 8;
@@ -20,7 +20,7 @@ const SUBJECT_LABELS = { heading: 'Heading', text: 'Text', image: 'Image' };
 // pane's clipping don't reach it. Using the page again closes it from the
 // frame's side (insert-menu-dismissed).
 export default function InsertMenu({
-  menu, canPaste = false, clipboardLabel = '', containerLock = false, onElementAction, onAskAI, onAddText, onAddImage, onClose,
+  menu, canPaste = false, clipboardLabel = '', containerLock = false, onElementAction, onAskAI, onAddText, onAddImage, onReplaceImage, onClose,
 }) {
   const [mode, setMode] = useState('menu');
   const [text, setText] = useState('');
@@ -155,18 +155,30 @@ export default function InsertMenu({
               {item('duplicate', CopyPlus, 'Duplicate')}
               {item('move', Move, 'Move')}
               {subject.role === 'image' && (
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={containerLock}
-                  className={`insert-menu-item${containerLock ? ' insert-menu-item-active' : ''}`}
-                  disabled={busy}
-                  onClick={() => runAction('container-lock')}
-                >
-                  <Lock size={15} />
-                  <span>Container lock</span>
-                  {containerLock && <Check size={14} className="insert-menu-check" aria-hidden="true" />}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="insert-menu-item"
+                    disabled={busy}
+                    onClick={() => onReplaceImage?.()}
+                  >
+                    <Upload size={15} />
+                    <span>Replace Image</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={containerLock}
+                    className={`insert-menu-item${containerLock ? ' insert-menu-item-active' : ''}`}
+                    disabled={busy}
+                    onClick={() => runAction('container-lock')}
+                  >
+                    <Lock size={15} />
+                    <span>Container lock</span>
+                    {containerLock && <Check size={14} className="insert-menu-check" aria-hidden="true" />}
+                  </button>
+                </>
               )}
               {item('delete', Trash2, 'Delete', { danger: true })}
             </>

@@ -490,6 +490,27 @@ try {
   assert.equal(await liveFrame().locator('#hero-img').getAttribute('alt'), 'Crusty sourdough loaf on wooden board');
   console.log('ok - 8. undo/redo and persistence after reopening project verified');
 
+  // Right-click on an image WITHOUT enabling click-to-edit mode -> Replace Image opens native file picker & replaces image
+  await liveFrame().locator('#hero-img').click({ button: 'right' });
+  const replaceMenuItem = page.getByRole('menuitem', { name: 'Replace Image', exact: true });
+  await replaceMenuItem.waitFor();
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    replaceMenuItem.click(),
+  ]);
+  await page.locator('.insert-menu').waitFor({ state: 'detached' });
+  const RED_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  await fileChooser.setFiles({
+    name: 'croissant-hero.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(RED_PNG_BASE64, 'base64'),
+  });
+  await versionText().filter({ hasText: 'v9/9' }).waitFor();
+  await page.waitForTimeout(150);
+  const replacedSrc = await liveFrame().locator('#hero-img').getAttribute('src');
+  assert.ok((replacedSrc || '').includes(RED_PNG_BASE64), 'right-click Replace Image updated img src');
+  console.log('ok - 8b. right-click Replace Image opens file picker and replaces image');
+
   // ---------------------------------------------------------------------------
   // 9. Narrow viewport (390x844) & edge-clamped popovers/controls
   // ---------------------------------------------------------------------------

@@ -50,7 +50,8 @@ export default `  // -----------------------------------------------------------
       setEditingEnabled(
         !!(d.payload && d.payload.enabled),
         !!(d.payload && d.payload.drag),
-        !!(d.payload && d.payload.containerLock)
+        !!(d.payload && d.payload.containerLock),
+        !!(d.payload && d.payload.imageContextMenu)
       );
     } else if (d.type === 'nav-back' || d.type === 'nav-forward') {
       var goBack = d.type === 'nav-back';
