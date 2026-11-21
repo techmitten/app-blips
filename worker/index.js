@@ -88,14 +88,22 @@ const unsplashApiFor = (env) => {
   return unsplashApis.get(env.FREE_LIMITS);
 };
 
+const WORKER_SECURITY_HEADERS = {
+  ...SECURITY_HEADERS,
+  'Content-Security-Policy': "frame-ancestors 'none'; base-uri about:; object-src 'none'",
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+  'X-Frame-Options': 'DENY',
+  'Permissions-Policy': 'camera=(), geolocation=(), microphone=(self), payment=(), usb=()',
+};
+
 const text = (status, body, headers = {}) => new Response(body, {
   status,
-  headers: { ...SECURITY_HEADERS, 'content-type': 'text/plain; charset=utf-8', ...headers },
+  headers: { ...WORKER_SECURITY_HEADERS, 'content-type': 'text/plain; charset=utf-8', ...headers },
 });
 
 const withSecurityHeaders = (response) => {
   const headers = new Headers(response.headers);
-  for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
+  for (const [name, value] of Object.entries(WORKER_SECURITY_HEADERS)) headers.set(name, value);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 };
 

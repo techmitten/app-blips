@@ -3,11 +3,13 @@
 # desktop app (electron/server/staticFiles.js), and the same caching: Vite's
 # hashed bundles never change, everything else is revalidated.
 /*
-  Content-Security-Policy: frame-ancestors 'none'
+  Content-Security-Policy: frame-ancestors 'none'; base-uri about:; object-src 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), geolocation=(), microphone=(self), payment=(), usb=()
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
