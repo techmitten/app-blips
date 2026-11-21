@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-AppBlips turns a text prompt into a working single-file app, website or browser game with a live sandboxed preview. It also imports and edits React + Vite codebases. It is a React 19 + Vite 8 + Tailwind 4 client written in plain JavaScript (JSX, no TypeScript sources). The same client ships as an Electron desktop app, a browser version (`server.js`, Docker, Cloudflare Worker) and an Android app (Capacitor).
+AppBlips turns a text prompt into a working app, multi-page website, or browser game with a live sandboxed preview, and also imports and edits multi-file React + Vite codebases. It is a React 19 + Vite 8 + Tailwind 4 client written in plain JavaScript (JSX, no TypeScript sources). The same client ships as an Electron desktop app, a browser version (`server.js`, Docker, Cloudflare Worker) and an Android app (Capacitor).
 
 ## Commands
 
