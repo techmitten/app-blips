@@ -17,7 +17,7 @@
   // wiping OPENAI_LLM_MODEL and the like; secrets are never touched.
   "keep_vars": true,
   "build": {
-    "command": "npm run build && cp worker/_headers dist/_headers"
+    "command": "npx vite build --mode desktop --sourcemap && cp worker/_headers dist/_headers"
   },
   "assets": {
     "directory": "./dist",

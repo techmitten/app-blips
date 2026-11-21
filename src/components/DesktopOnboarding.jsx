@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import '../styles/app/desktop-onboarding.css';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Download, Eye, EyeOff,
@@ -6,7 +7,6 @@ import {
 } from 'lucide-react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
-import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { AVATAR_IDS, AVATAR_LABELS, MAX_NAME_LENGTH, cleanName, loadProfile, saveProfile } from '../lib/profile';
 import { SURVEY_QUESTIONS, SURVEY_STEP_IDS, loadSurvey, saveSurvey, submitOnboardingSurvey } from '../lib/onboardingSurvey';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
@@ -193,6 +193,7 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
     const runFor = testFor;
     setTest({ for: runFor, kind: 'busy', text: `Testing ${provider.label}…` });
     try {
+      const { requestModelText, CHAT_REASONING_EFFORT } = await import('../lib/llm');
       await requestModelText({
         messages: [{ role: 'user', content: 'Reply with the single word OK.' }],
         askMode: true,

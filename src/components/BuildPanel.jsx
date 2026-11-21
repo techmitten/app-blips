@@ -1,4 +1,8 @@
 import { TriangleAlert, RotateCcw, X, Plus, History, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import '../styles/app/build-panel.css';
+import '../styles/app/chat-transcript.css';
+import '../styles/app/token-usage.css';
+import '../styles/app/clarifying-card.css';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';

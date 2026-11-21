@@ -1,4 +1,10 @@
 import { useState, useEffect } from 'react';
+import '../styles/app/device-mockup.css';
+import '../styles/app/element-bar.css';
+import '../styles/app/browser.css';
+import '../styles/app/code-editor.css';
+import '../styles/app/empty-state.css';
+import '../styles/app/build-blueprint.css';
 import {
   Play, TerminalSquare, FolderTree, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
   ZoomIn, ZoomOut, Expand, ExternalLink, Globe, MousePointerClick, Move, RotateCw

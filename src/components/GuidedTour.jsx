@@ -1,4 +1,5 @@
 import { WIDE_LAYOUT_QUERY } from '../lib/config';
+import '../styles/app/tour.css';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {

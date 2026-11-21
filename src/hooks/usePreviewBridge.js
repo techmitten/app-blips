@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION, externalLinkUrl, youTubeWatchUrl } from '../previewBridge';
+import { BRIDGE_CHANNEL, BRIDGE_PROTOCOL_VERSION, externalLinkUrl, youTubeWatchUrl } from '../previewBridge/protocol';
 import { PREVIEW_MODES } from '../lib/constants';
 import { rasterizeDomSnapshot } from '../lib/attachments';
 import { logWarn } from '../lib/errorLog';

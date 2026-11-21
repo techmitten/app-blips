@@ -1,32 +1,13 @@
-/* App.css is a thin manifest over src/styles/app/ — each file owns one
-   feature/component area of the app's hand-written CSS (Tailwind's own
-   config lives separately in src/index.css). Import order mirrors the
-   original single-file layout for easy diffing; no two files style the
-   same selector at equal specificity, so the order has no visual effect. */
+/* App.css is a thin manifest over src/styles/app/ — shared/core styles live
+   here while feature-specific stylesheets are imported directly by their
+   lazy-loaded components so Vite code-splits them out of the render-blocking
+   initial CSS bundle. */
 @import './styles/app/tokens.css';
 @import './styles/app/base.css';
 @import './styles/app/premium-shadows.css';
-@import './styles/app/code-editor.css';
-@import './styles/app/device-mockup.css';
-@import './styles/app/browser.css';
-@import './styles/app/build-panel.css';
 @import './styles/app/prompt-input.css';
-@import './styles/app/starter-ideas.css';
-@import './styles/app/chat-transcript.css';
-@import './styles/app/token-usage.css';
-@import './styles/app/clarifying-card.css';
-@import './styles/app/history-sidebar.css';
-@import './styles/app/empty-state.css';
-@import './styles/app/build-blueprint.css';
-@import './styles/app/studio-choice.css';
-@import './styles/app/whats-new.css';
-@import './styles/app/hero-landing.css';
 @import './styles/app/chat-font.css';
 @import './styles/app/buttons.css';
-@import './styles/app/element-bar.css';
 @import './styles/app/tooltip.css';
-@import './styles/app/tour.css';
-@import './styles/app/desktop-onboarding.css';
-@import './styles/app/showcase.css';
 @import './styles/app/responsive.css';
 @import './styles/app/toolbar-keys.css';

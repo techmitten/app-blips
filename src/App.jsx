@@ -4,23 +4,24 @@ import { ensureFreeSignIn, openFreeSignIn } from './lib/freeSignIn';
 import { savePromptForSignIn, clearPromptForSignIn } from './lib/signInHandoff';
 import { flushSync } from 'react-dom';
 import './App.css';
-import { injectPreviewBridge } from './previewBridge';
 import { isDesktop, providerApi, clearBrowserProjectStore } from './lib/desktop';
 
-import HistorySidebar from './components/HistorySidebar';
-import BuildPanel, { BUILD_PANE_WIDTH } from './components/BuildPanel';
-import PreviewPane from './components/PreviewPane';
-import InsertMenu from './components/InsertMenu';
-import GuidedTour, { TourInvitation } from './components/GuidedTour';
-import HeroLanding from './components/HeroLanding';
-import NamingModal from './components/NamingModal';
+const HistorySidebar = lazy(() => import('./components/HistorySidebar'));
+const BuildPanel = lazy(() => import('./components/BuildPanel'));
+const BUILD_PANE_WIDTH = 'lg:w-[clamp(320px,35vw,420px)]';
+const PreviewPane = lazy(() => import('./components/PreviewPane'));
+const InsertMenu = lazy(() => import('./components/InsertMenu'));
+const GuidedTour = lazy(() => import('./components/GuidedTour'));
+const TourInvitation = lazy(() => import('./components/GuidedTour').then((m) => ({ default: m.TourInvitation })));
+const HeroLanding = lazy(() => import('./components/HeroLanding'));
+const NamingModal = lazy(() => import('./components/NamingModal'));
 import { isProjectNameTaken } from './lib/projectsStorage';
 import ConfirmModal from './components/ConfirmModal';
 
 import SplashScreen from './components/SplashScreen';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
-import DesktopOnboarding from './components/DesktopOnboarding';
+const DesktopOnboarding = lazy(() => import('./components/DesktopOnboarding'));
 import { BUNDLED_LEGAL_DATES, fetchLegalDates, loadAgreement, needsAgreement, saveAgreement } from './lib/legal';
 
 const loadSettingsModal = () => import('./components/SettingsModal');
@@ -36,7 +37,6 @@ import { forgetPixabayKey } from './lib/pixabay';
 import { forgetTavilyKey } from './lib/tavily';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
-import { describeAttachment, generateAppCode } from './lib/llm';
 import { addUsage, addUsageDelta, onUsageCorrection, sessionUsageFromVersions, setChatUsageBase, startUsageMeter } from './lib/tokenUsage';
 import { compressImageDataUrl } from './lib/attachments';
 import { slugifyName } from './lib/helpers';
@@ -56,9 +56,7 @@ import { sanitizeHtmlResponse, extractLeadingReply } from './lib/edits';
 import { extractStreamedEditCode } from './lib/helpers';
 import { LANDING_PAGE, checkFilesLimits, collectLinkTargets, getLanding, mapPages, pageNames, versionFiles } from './lib/pages';
 import { MAX_TEXT_FILE_BYTES, formatBytes, utf8Length } from './lib/codebase/paths';
-import { formatSyntaxErrors } from './lib/syntaxCheck';
 import { AUTO_FIX_PROMPT, AUTO_FIX_REPLY, AUTO_FIX_FAILURE, automaticRepairStatus, isAutomaticRepair } from './lib/buildMessages';
-import { checkSyntaxFiles } from './lib/pageTools';
 import {
   newChatSessionId, groupVersionsByChatSession, getChatSessionStartIndex
 } from './lib/chatSessions';
@@ -79,9 +77,6 @@ import usePreviewViewport from './hooks/usePreviewViewport';
 import usePreviewBridge from './hooks/usePreviewBridge';
 import usePageNavigation from './hooks/usePageNavigation';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
-import { buildNewTabShell } from './lib/newTabShell';
-import { createZip } from './lib/zip';
-import { injectLoopProtection } from './lib/loopProtection';
 import { injectPollinationsHelper } from './lib/pollinationsHelper';
 import { injectSheetsHelper } from './lib/sheetsHelper';
 import { collectSiteImages, inlineImages, pointAtCopies } from './lib/siteImages';
@@ -89,17 +84,13 @@ import { getPollinationsHelperOptions, getSheetsScriptUrl } from './lib/connecto
 import {
   SEO_APPLY_PROMPT, buildSeoNote, hashSeoForm, crawlExtraFiles, isSeoEnabled, normalizeSeoForm, seoExtraFiles, seoPending,
 } from './lib/seo';
-import { compileJsxScripts, hasJsxScripts } from './lib/jsxCompile';
-import { buildViteProject } from './lib/reactProject';
 import useCodebaseBuild from './hooks/useCodebaseBuild';
 import useImageGallery from './hooks/useImageGallery';
 import useReasoningLevels from './hooks/useReasoningLevels';
 import { nearestLevel } from '../electron/server/reasoning.js';
 import { galleryExportFiles, galleryPath, inlineGalleryImages, isImageApproval, referencedGalleryImages, renameGalleryRefs } from './lib/galleryImages';
-import { generateCodebaseEdit } from './lib/codebase/llm';
-import { checkCodebaseBuild, makeAssetUrl, mapPreviewLine } from './lib/codebase/preview';
+import { makeAssetUrl, mapPreviewLine } from './lib/codebase/previewHelpers';
 import { changedFiles } from './lib/codebase/fileInfo';
-import { loadEsbuild } from './lib/codebase/esbuildBrowser';
 import { blobBytes, ensureBlobs, putBlobs } from './lib/blobStore';
 import { logError, logWarn } from './lib/errorLog';
 import { confirmExternal } from './lib/externalLinks';
@@ -164,10 +155,11 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   const [legalDates, setLegalDates] = useState(BUNDLED_LEGAL_DATES);
   const [legalAgreement, setLegalAgreement] = useState(loadAgreement);
   useEffect(() => {
+    if (!skipSplash && !splashDone) return undefined;
     let cancelled = false;
     fetchLegalDates().then((dates) => { if (!cancelled) setLegalDates(dates); });
     return () => { cancelled = true; };
-  }, []);
+  }, [skipSplash, splashDone]);
   const agreeToLegal = () => setLegalAgreement(saveAgreement(legalDates));
   useEffect(() => {
     let cancelled = false;
@@ -661,7 +653,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
 
     syntaxErrorRetriesRef.current += 1;
     autoFixRunsRef.current += 1;
-    const errorDetails = formatSyntaxErrors(errorList) || 'JavaScript syntax error detected';
+    const errorDetails = (errorList || []).map((e) => `- Line ${e.line}: ${e.message}`).join('\n') || 'JavaScript syntax error detected';
     const promptText = `Fix these JavaScript syntax errors in the app code:\n${errorDetails}`;
     setIsAutoFixing(true);
     isAutoFixingRef.current = true;
@@ -670,7 +662,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     handleGenerateRef.current?.(null, promptText, true, errorDetails);
   }, [cancelPendingReload, chatMode, giveUpAutoFix]);
 
-  const confirmAndExecuteReload = useCallback(() => {
+  const confirmAndExecuteReload = useCallback(async () => {
     reloadStateRef.current.timerId = null;
     if (!reloadStateRef.current.pending) return;
     // An in-flight auto-fix is already covered by isGenerating (handleRuntimeError
@@ -686,6 +678,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
 
     // Check syntax one more time to ensure code integrity
     if (generatedCode) {
+      const { checkSyntaxFiles } = await import('./lib/pageTools');
+      if (!reloadStateRef.current.pending || isGeneratingRef.current) return;
       const syntax = checkSyntaxFiles(filesRef.current);
       if (syntax.errors && syntax.errors.length > 0) {
         reloadStateRef.current.pending = false;
@@ -876,11 +870,20 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     }
   }, [previewSync, isPreviewSynced]);
   const codeForPreview = isPreviewSynced ? previewSync.renderedCode : activeCode;
+  const [injectBridgeFn, setInjectBridgeFn] = useState(null);
+  useEffect(() => {
+    if (!codeForPreview || injectBridgeFn) return undefined;
+    let cancelled = false;
+    import('./previewBridge').then((m) => {
+      if (!cancelled) setInjectBridgeFn(() => m.injectPreviewBridge);
+    }).catch((err) => logError('Could not load the preview bridge', err));
+    return () => { cancelled = true; };
+  }, [codeForPreview, injectBridgeFn]);
 
   const { srcDoc: previewSrcDoc, token: previewToken } = useMemo(
     () =>
-      codeForPreview
-        ? injectPreviewBridge(codeForPreview, {
+      codeForPreview && injectBridgeFn
+        ? injectBridgeFn(codeForPreview, {
             projectMode: studioModeRef.current === 'codebase',
             // Click-to-edit (Website Studio only) finds elements by the
             // source numbers this adds to the preview copy.
@@ -912,7 +915,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     // the mode current at that moment; later mode switches are delivered to
     // the already-loaded frame via usePreviewBridge's configure push.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [codeForPreview, previewReloadCount, projectStorageVersion, activePage, previewGallery]
+    [codeForPreview, injectBridgeFn, previewReloadCount, projectStorageVersion, activePage, previewGallery]
   );
   // Every injection (AI shim, loop-check helper, bridge) lands right after
   // <head> and loop protection adds no newlines, so the app's lines are
@@ -1625,7 +1628,11 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   }, [webSearchOn]);
   const providerWeb = useProviderWeb();
   // Whether this server has the built-in photo library (lib/unsplash.js).
-  useEffect(() => { refreshPhotoLibrary(); }, []);
+  // Deferred until the splash finishes so it stays off the initial load path.
+  useEffect(() => {
+    if (!skipSplash && !splashDone) return;
+    refreshPhotoLibrary();
+  }, [skipSplash, splashDone]);
 
   useEffect(() => {
     localStorage.setItem(AUTO_FOLLOW_CODE_KEY, autoFollowCode);
@@ -1700,6 +1707,10 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // edited files, plus imports missing from package.json.
   const runCodebaseBuildCheck = async (checkFiles, checkAssets, { diagnostics, verifyRuntime = false } = {}) => {
     diagnostics?.info('Waiting for esbuild initialization');
+    const [{ loadEsbuild }, { checkCodebaseBuild }] = await Promise.all([
+      import('./lib/codebase/esbuildBrowser'),
+      import('./lib/codebase/preview'),
+    ]);
     const esbuild = await loadEsbuild();
     const result = await checkCodebaseBuild(esbuild, { files: checkFiles, assets: checkAssets, meta: codebaseMeta, baseline: files, diagnostics });
     if (result.errors.length || !verifyRuntime) return result;
@@ -1876,7 +1887,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     // Described alongside the build and saved with this turn, so later turns
     // still know what the image showed. Never rejects.
     const imageNotePromise = attachmentForRequest && !isAutoFix
-      ? describeAttachment({ attachment: attachmentForRequest, prompt: currentPrompt, signal: abortControllerRef.current.signal })
+      ? import('./lib/llm').then(({ describeAttachment }) => describeAttachment({ attachment: attachmentForRequest, prompt: currentPrompt, signal: abortControllerRef.current.signal }))
       : null;
     try {
       const handleChunk = (chunk, kind = 'content') => {
@@ -2013,7 +2024,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         }
       };
       const generationResult = studioMode === 'codebase'
-        ? await generateCodebaseEdit({
+        ? await (await import('./lib/codebase/llm')).generateCodebaseEdit({
             prompt: currentPrompt,
             projectId: currentProjectId,
             files,
@@ -2031,7 +2042,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
             maxReadOnlyTurns: isAutoFix && codebaseMeta?.environmentResolution === 'ai' ? 3 : 0,
             reasoningEffort: effectiveReasoningEffort,
           })
-        : await generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: effectiveReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt);
+        : await (await import('./lib/llm')).generateAppCode(currentPrompt, generatedCode, chatHistory, handleChunk, 'both', abortControllerRef.current.signal, chatMode === 'ask', shouldAskClarifyingQuestions, attachmentForRequest, isAutoFix, { build: effectiveReasoningEffort }, studioMode, files, projectName, gameEngineRouter, websiteAddonRouter, seoNote, confirmGalleryImages, galleryCheckPrompt);
       isEvaluatingNewCodeRef.current = true;
       const newFiles = generationResult.files ?? { ...files, [LANDING_PAGE]: generationResult.code };
       clearPreviewSync(true);
@@ -2093,7 +2104,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
 
       // Check syntax: verify code is valid and has no unclosed/broken syntax.
       // Imported codebases were already build-checked inside their edit loop.
-      const syntaxCheck = studioMode === 'codebase' ? { errors: [] } : checkSyntaxFiles(newFiles);
+      const syntaxCheck = studioMode === 'codebase' ? { errors: [] } : (await import('./lib/pageTools')).checkSyntaxFiles(newFiles);
       const syntaxErrors = (syntaxCheck.errors && syntaxCheck.errors.length > 0)
         ? syntaxCheck.errors
         : (generationResult.syntaxErrors && generationResult.syntaxErrors.length > 0)
@@ -2269,7 +2280,11 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // Pages as they leave the app in an export: JSX is compiled and loop
   // protection (and, for pages with AI features, the Pollinations helper)
   // added per page here, never stored in `files`.
-  const buildExportFiles = () => {
+  const buildExportFiles = async () => {
+    const [{ injectLoopProtection }, { compileJsxScripts }] = await Promise.all([
+      import('./lib/loopProtection'),
+      import('./lib/jsxCompile'),
+    ]);
     const pollinations = getPollinationsHelperOptions();
     const sheets = getSheetsScriptUrl();
     return mapPages(files, (html) => injectSheetsHelper(injectPollinationsHelper(injectLoopProtection(compileJsxScripts(html)), pollinations), sheets));
@@ -2286,8 +2301,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // (sign-in session, saved provider key) and /api/chat. The tab gets a
   // trusted shell instead, with the app in a sandboxed iframe like the preview
   // (lib/newTabShell.js).
-  const handleOpenInNewTab = () => {
+  const handleOpenInNewTab = async () => {
     if (!generatedCode) return;
+    const { buildNewTabShell } = await import('./lib/newTabShell');
     const shellHtml = buildNewTabShell({
       files,
       title: projectName || 'Preview',
@@ -2310,7 +2326,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // built into the page in a single file.
   const handleExportHtml = async () => {
     if (!generatedCode) return;
-    const pages = buildExportFiles();
+    const pages = await buildExportFiles();
     const { images } = await collectSiteImages(pages);
     const uploads = galleryExportFiles(pages, galleryImages, blobBytes);
     const baseName = slugifyName(projectName) || 'app';
@@ -2320,7 +2336,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     const asZip = names.length > 1 || extras.length > 0;
     const outputFiles = asZip ? pointAtCopies(pages, images) : inlineGalleryImages(inlineImages(pages, images), uploads);
     const blob = asZip
-      ? createZip([
+      ? (await import('./lib/zip')).createZip([
         ...names.map((name) => ({ name, data: outputFiles[name] })),
         ...[...images, ...uploads].map(({ path, bytes }) => ({ name: path, data: bytes })),
         ...extras.map(({ path, text }) => ({ name: path, data: text })),
@@ -2338,8 +2354,12 @@ export default function App({ coldStart = false, signInHandoff = null }) {
 
   // A React app's JSX as a Vite project (package.json, src/main.jsx) the user
   // can keep developing with npm. Offered only when the landing page has JSX.
-  const canExportReactProject = studioMode === 'app' && hasJsxScripts(generatedCode);
-  const handleExportReactProject = () => {
+  const canExportReactProject = studioMode === 'app' && typeof generatedCode === 'string' && /<script\b[^>]*\btype\s*=\s*["']?text\/jsx["']?/i.test(generatedCode);
+  const handleExportReactProject = async () => {
+    const [{ buildViteProject }, { createZip }] = await Promise.all([
+      import('./lib/reactProject'),
+      import('./lib/zip'),
+    ]);
     const baseName = slugifyName(projectName) || 'app';
     // The Pollinations helper stays in index.html like the rest of the page.
     const entries = buildViteProject(injectSheetsHelper(injectPollinationsHelper(generatedCode, getPollinationsHelperOptions()), getSheetsScriptUrl()), { name: baseName, title: projectName || 'My App' });
@@ -2902,25 +2922,36 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     }
   };
 
+  // Mounted at the same first-child position across loading, onboarding,
+  // studio choice and workspace so the splash video starts immediately without
+  // waiting for /api/provider and never remounts when loading resolves.
+  const splashNode = !desktopOnboarding?.replay && (
+    <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} aboveSetup />
+  );
+
   if (desktopOnboarding?.loading) {
     return (
+      <>
+      {splashNode}
       <div className="h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
         <Loader2 className="animate-spin text-slate-400" size={28} />
       </div>
+      </>
     );
   }
 
   if (desktopOnboarding) {
     return (
       <>
-      {/* Not on a replay from Settings: the app is already open then. */}
-      {!desktopOnboarding.replay && <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} aboveSetup />}
-      <DesktopOnboarding
-        providerInfo={desktopOnboarding.info}
-        onComplete={() => setDesktopOnboarding(null)}
-        onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
-        onAgree={agreeToLegal}
-      />
+      {splashNode}
+      <Suspense fallback={null}>
+        <DesktopOnboarding
+          providerInfo={desktopOnboarding.info}
+          onComplete={() => setDesktopOnboarding(null)}
+          onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
+          onAgree={agreeToLegal}
+        />
+      </Suspense>
       <UpdateNotice aboveOverlay />
       </>
     );
@@ -2931,7 +2962,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // An overlay over the app rather than in its place, so dates that arrive
   // mid-session don't unmount an open project.
   const legalGate = needsAgreement(legalAgreement, legalDates) && (
-    <DesktopOnboarding termsOnly onAgree={agreeToLegal} onComplete={() => {}} />
+    <Suspense fallback={null}>
+      <DesktopOnboarding termsOnly onAgree={agreeToLegal} onComplete={() => {}} />
+    </Suspense>
   );
 
   // Settings → Tools → SEO. Saving keeps what the AI was last told, so
@@ -3043,8 +3076,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   const showStudioChoice = isStudioChoiceOpen || (!isResumingProject && studioMode === null);
   if (showStudioChoice) {
     return (
+      <>
+      {splashNode}
       <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-        <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} />
         <Suspense fallback={null}>
           <StudioChoice
             onSelectStudio={handleChooseStudio}
@@ -3090,16 +3124,24 @@ export default function App({ coldStart = false, signInHandoff = null }) {
           </Suspense>
         )}
       </div>
+      </>
     );
   }
 
   return (
+    <>
+    {splashNode}
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-      <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} />
 
-      {!showHero && !isResumingProject && <TourInvitation onStart={startTour} building={isGenerating} />}
+      {!showHero && !isResumingProject && (
+        <Suspense fallback={null}>
+          <TourInvitation onStart={startTour} building={isGenerating} />
+        </Suspense>
+      )}
       {isTourOpen && (
-        <GuidedTour onClose={closeTour} onViewChange={setMobileView} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
+        <Suspense fallback={null}>
+          <GuidedTour onClose={closeTour} onViewChange={setMobileView} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
+        </Suspense>
       )}
 
       {settingsModal}
@@ -3210,14 +3252,16 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       )}
 
       {isNamingModalOpen && (
-        <NamingModal
-          name={tempProjectName}
-          onNameChange={setTempProjectName}
-          nameTaken={namingNameTaken}
-          onConfirm={handleConfirmNaming}
-          onCancel={handleCancelNaming}
-          studioMode={studioMode}
-        />
+        <Suspense fallback={null}>
+          <NamingModal
+            name={tempProjectName}
+            onNameChange={setTempProjectName}
+            nameTaken={namingNameTaken}
+            onConfirm={handleConfirmNaming}
+            onCancel={handleCancelNaming}
+            studioMode={studioMode}
+          />
+        </Suspense>
       )}
 
       {/* Publishes the same pages Export downloads (buildExportFiles). */}
@@ -3239,6 +3283,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       <DesktopStorageNotice />
       {legalGate}
 
+      <Suspense fallback={null}>
       <HeroLanding
         studioMode={studioMode}
         theme={resolvedTheme}
@@ -3504,6 +3549,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         </div>
         )}
       />
+      </Suspense>
     </div>
+    </>
   );
 }

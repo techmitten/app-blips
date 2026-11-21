@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import '../styles/app/hero-landing.css';
+import '../styles/app/starter-ideas.css';
 import { TriangleAlert, RotateCcw, X } from 'lucide-react';
 import HeroSidebar from './HeroSidebar';
 import PromptInput from './PromptInput';

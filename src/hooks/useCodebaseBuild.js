@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react';
-import { loadEsbuild } from '../lib/codebase/esbuildBrowser';
-import { buildCodebasePreview, makeAssetUrl } from '../lib/codebase/preview';
 import { blobBytes, ensureBlobs } from '../lib/blobStore';
 import { isDesktop } from '../lib/desktop';
 import { createCodebaseDiagnostics } from '../lib/codebase/diagnostics';
@@ -29,6 +27,10 @@ export default function useCodebaseBuild({ enabled, files, assets, meta, project
       };
       try {
         diagnostics.info('Waiting for esbuild initialization');
+        const [{ loadEsbuild }, { buildCodebasePreview, makeAssetUrl }] = await Promise.all([
+          import('../lib/codebase/esbuildBrowser'),
+          import('../lib/codebase/preview'),
+        ]);
         const esbuild = await loadEsbuild();
         // The browser dev build inlines assets, so their bytes must be loaded.
         if (!isDesktop && projectId) {

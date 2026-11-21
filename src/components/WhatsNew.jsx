@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowUpRight, FolderUp, Gauge, KeyRound, LayoutTemplate, LogIn, Megaphone, MousePointerClick, PanelLeft, Sparkles, Users } from 'lucide-react';
+import '../styles/app/whats-new.css';
 import { DISCORD_URL, DOCS_URL, GITHUB_URL, WEB_APP_URL } from '../lib/constants';
 
 // Keep announcements here so new entries can be added without changing the layout.

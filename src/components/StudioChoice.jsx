@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import '../styles/app/studio-choice.css';
 import { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,

@@ -68,6 +68,7 @@ export default function SplashScreen({ skip = false, onDone, aboveSetup = false 
           width={1920}
           height={1080}
           preload="auto"
+          fetchPriority="high"
           autoPlay
           muted
           playsInline

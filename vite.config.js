@@ -319,6 +319,12 @@ export default defineConfig(({ mode }) => ({
             // react-dom in with them, and the main bundle with it. Before the
             // name rules below ('react' would catch @emotion/react).
             if (CLERK_ONLY.has(packageOf(id))) return undefined
+            // Only StudioChoice (lazy-loaded) uses motion/framer-motion, and
+            // only preview/export/generation use acorn/sucrase; keep them out
+            // of the eager vendor chunk so initial page load skips them.
+            const pkg = packageOf(id);
+            if (pkg === 'motion' || pkg === 'framer-motion' || pkg.startsWith('motion-')) return undefined;
+            if (pkg === 'acorn' || pkg === 'acorn-jsx' || pkg === 'sucrase') return undefined;
             // Only imported codebases use these, through dynamic import(), so
             // keep them out of the eager vendor chunk.
             if (id.includes('esbuild-wasm') || id.includes('fflate')) return 'vendor_codebase';

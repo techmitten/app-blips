@@ -1,4 +1,5 @@
 import { displayBuildPrompt } from '../lib/buildMessages';
+import '../styles/app/history-sidebar.css';
 import { useState } from 'react';
 import { PanelLeftClose, Clock, ChevronRight, RotateCcw } from 'lucide-react';
 

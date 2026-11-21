@@ -358,7 +358,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     setBusy(true);
     setError('');
     if (from === 'ready') setStep('publishing');
-    const pages = buildFiles();
+    const pages = await buildFiles();
     if (!searchable || locked) {
       for (const name of Object.keys(pages)) if (name.endsWith('.html')) pages[name] = addNoIndex(pages[name]);
     }

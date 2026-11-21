@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import '../styles/app/showcase.css';
 import { ArrowLeft, ArrowUpRight, CircleAlert, Plus, Sparkles, X } from 'lucide-react';
 import Modal from './Modal';
 import ShowcaseSubmitModal from './ShowcaseSubmitModal';
