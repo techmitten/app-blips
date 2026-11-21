@@ -3536,18 +3536,20 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 onUploadGalleryImage={gallery.addFiles}
               />
               {insertMenu && isPreviewEditing && activeTab === 'preview' && (
-                <InsertMenu
-                  key={insertMenu.key}
-                  menu={insertMenu}
-                  canPaste={canPasteElement}
-                  clipboardLabel={elementClipboard?.label || ''}
-                  containerLock={containerLock}
-                  onElementAction={handleMenuElementAction}
-                  onAskAI={handleMenuAskAI}
-                  onAddText={handleInsertText}
-                  onAddImage={handleInsertImage}
-                  onClose={closeInsertMenu}
-                />
+                <Suspense fallback={null}>
+                  <InsertMenu
+                    key={insertMenu.key}
+                    menu={insertMenu}
+                    canPaste={canPasteElement}
+                    clipboardLabel={elementClipboard?.label || ''}
+                    containerLock={containerLock}
+                    onElementAction={handleMenuElementAction}
+                    onAskAI={handleMenuAskAI}
+                    onAddText={handleInsertText}
+                    onAddImage={handleInsertImage}
+                    onClose={closeInsertMenu}
+                  />
+                </Suspense>
               )}
             </div>
           </main>
