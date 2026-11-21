@@ -31,6 +31,13 @@
   "durable_objects": {
     "bindings": [{ "name": "FREE_LIMITS", "class_name": "FreeLimits" }]
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "appblips",
+      "database_id": "c910bde3-a443-453a-b4cf-6dca0c7408a4"
+    }
+  ],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["FreeLimits"] }],
   "observability": { "enabled": true }
 }

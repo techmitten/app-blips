@@ -387,6 +387,11 @@
 .onboarding-model-option { min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid transparent; border-radius: 11px; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
 .onboarding-model-option:hover { background: rgb(255 255 255 / 0.045); }
 .onboarding-model-option.is-selected { border-color: rgb(255 255 255 / 0.35); background: rgb(255 255 255 / 0.06); }
+.onboarding-survey-list { display: grid; gap: 8px; margin-top: 12px; }
+.onboarding-survey-option { width: 100%; text-align: left; border-color: rgb(255 255 255 / 0.09); background: rgb(0 0 0 / 0.28); }
+.onboarding-survey-option:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.onboarding-survey-option .onboarding-model-copy strong { font-size: 0.94rem; }
+.onboarding-survey-option .onboarding-model-copy small { font-size: 0.78rem; white-space: normal; }
 .onboarding-model-option input { position: absolute; opacity: 0; pointer-events: none; }
 .onboarding-model-radio { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border: 1px solid #737373; border-radius: 50%; color: #080808; }
 .is-selected .onboarding-model-radio { border-color: #ffffff; background: #ffffff; }
