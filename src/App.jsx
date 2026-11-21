@@ -68,6 +68,7 @@ import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_C
 
 import useTheme from './hooks/useTheme';
 import useProviderWeb from './hooks/useProviderWeb';
+import useFreeAiInUse from './hooks/useFreeAiInUse';
 import { useFreeSignIn } from './hooks/useFreeSignIn';
 import { refreshPhotoLibrary } from './lib/unsplash';
 import useVisualViewport from './hooks/useVisualViewport';
@@ -308,6 +309,18 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setTimeout(resolve, PREVIEW_SHUTTER_MS);
   }), []);
   const [attachmentError, setAttachmentError] = useState(null);
+  // Free AI in the browser version takes no images: the chat box offers no
+  // attach or screenshot buttons, and an image picked before switching to
+  // Free is dropped (chatProxy.js refuses them too).
+  const freeAi = useFreeAiInUse();
+  const [attachmentFreeAi, setAttachmentFreeAi] = useState(freeAi);
+  if (attachmentFreeAi !== freeAi) {
+    setAttachmentFreeAi(freeAi);
+    if (freeAi) {
+      setAttachment(null);
+      setAttachmentError(null);
+    }
+  }
   // Mirrors `attachment` for the duration of one in-flight request, purely so
   // the pending/"sending..." chat bubble can show the thumbnail -- see the
   // attachmentForRequest capture in handleGenerate.
@@ -3132,8 +3145,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         attachment={attachment}
         attachmentError={attachmentError}
         isCapturingScreenshot={isCapturingScreenshot}
-        onAttachScreenshot={handleAttachScreenshot}
-        onAttachFile={handleAttachFile}
+        onAttachScreenshot={freeAi ? undefined : handleAttachScreenshot}
+        onAttachFile={freeAi ? undefined : handleAttachFile}
         onRemoveAttachment={handleRemoveAttachment}
         webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
         webSearchProvider={providerWeb.provider}
@@ -3236,8 +3249,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 attachment={attachment}
                 attachmentError={attachmentError}
                 isCapturingScreenshot={isCapturingScreenshot}
-                onAttachScreenshot={handleAttachScreenshot}
-                onAttachFile={handleAttachFile}
+                onAttachScreenshot={freeAi ? undefined : handleAttachScreenshot}
+                onAttachFile={freeAi ? undefined : handleAttachFile}
                 onRemoveAttachment={handleRemoveAttachment}
                 webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
                 webSearchProvider={providerWeb.provider}

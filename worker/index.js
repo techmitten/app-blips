@@ -111,7 +111,7 @@ async function handleApi(request, env, ctx, path) {
     if (request.method !== 'POST') return text(405, 'Method not allowed');
     if (tooLarge(request, MAX_CHAT_BODY_BYTES)) return Response.json({ error: 'The request is too large.' }, { status: 413 });
     const freeLimits = freeLimitsFor(env, ctx);
-    return withKeys('provider', request, async (keys) => handleChatProxy(await withSavedProvider(request, keys), env, { freeLimits, visitor, messageId, checkSignIn }));
+    return withKeys('provider', request, async (keys) => handleChatProxy(await withSavedProvider(request, keys), env, { freeLimits, visitor, messageId, checkSignIn, freeImages: false }));
   }
   if (tooLarge(request, MAX_BODY_BYTES)) return Response.json({ error: 'The request is too large.' }, { status: 413 });
   if (startsWithPath(path, '/api/provider')) return withKeys('provider', request, (keys) => handleProviderApi(request, env, keys));
@@ -121,7 +121,7 @@ async function handleApi(request, env, ctx, path) {
   if (startsWithPath(path, '/api/tavily')) return withKeys('tavily', request, (keys) => handleTavilyApi(request, env, keys));
   if (path.startsWith('/api/web/')) {
     const freeLimits = freeLimitsFor(env, ctx);
-    return withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env, { freeLimits, visitor, messageId, checkSignIn }));
+    return withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env, { freeLimits, visitor, messageId, checkSignIn, freeSearch: false }));
   }
   if (path.startsWith('/api/unsplash/')) return unsplashApiFor(env)(request, env, { visitor });
   if (path === '/api/seo/scan') return handleSeoScanApi(request, env);

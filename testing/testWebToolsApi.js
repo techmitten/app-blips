@@ -270,3 +270,15 @@ test('on the Free option a provider search counts its tokens plus its search fee
   assert.equal((await call('/api/web/search', { query: 'q' }, env, { ...stub, freeLimits, visitor: 'v' })).status, 200);
   assert.equal(ended[0], 800 + 20_000);
 });
+
+test('freeSearch: false offers no search on Free AI but keeps the user\'s own key', async () => {
+  const stub = deepseek(() => jsonResponse(RESULTS));
+  const options = { ...stub, freeSearch: false };
+  assert.deepEqual((await call('/api/web/status', {}, ENV, options)).body, { available: false, paidBy: '', provider: '', fetch: false, searches: 0 });
+  const refused = await call('/api/web/search', { query: 'blue door café' }, ENV, options);
+  assert.equal(refused.status, 409);
+  assert.equal(refused.body.stop, true);
+  assert.equal(stub.calls.length, 0);
+  assert.equal((await call('/api/web/status', { user_provider: OWN }, ENV, options)).body.paidBy, 'own');
+  assert.equal((await call('/api/web/search', { query: 'blue door café', user_provider: OWN }, ENV, options)).status, 200);
+});

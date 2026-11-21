@@ -354,7 +354,10 @@ const KINDS = { '/api/web/status': 'status', '/api/web/search': 'search', '/api/
 // `request` has been through withSavedProvider. `freeLimits` (freeLimits.js)
 // limits calls paid by the environment provider per `visitor`; server.js
 // passes both, and `checkSignIn` as for /api/chat (chatProxy.js).
-export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globalThis.fetch, freeLimits = null, visitor = '', messageId = '', checkSignIn = null } = {}) {
+// `freeSearch: false` offers no web search on Free AI (the browser hosts):
+// the status says unavailable, so the page shows no globe, and searches are
+// refused.
+export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globalThis.fetch, freeLimits = null, visitor = '', messageId = '', checkSignIn = null, freeSearch = true } = {}) {
   const kind = KINDS[new URL(request.url).pathname.replace(/\/+$/, '')];
   if (!kind) return json(404, { error: 'Not found.' });
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
@@ -371,7 +374,8 @@ export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globa
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json(400, { error: 'Invalid JSON body.' });
 
   const paying = await webSearchProvider(env, payload, { fetchImpl, lookupModel: kind !== 'status' });
-  const { provider, own } = paying;
+  const { own } = paying;
+  const provider = own || freeSearch ? paying.provider : null;
   if (kind === 'status') {
     return json(200, provider
       ? { available: true, paidBy: own ? 'own' : 'free', provider: provider.id, fetch: provider.id === 'deepseek', searches: SEARCHES[provider.id] ?? DEFAULT_SEARCHES }

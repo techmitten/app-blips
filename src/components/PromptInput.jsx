@@ -182,6 +182,9 @@ export default function PromptInput({
     ? 'Web search is on: the AI searches the web when a request needs real facts. Click to turn it off.'
     : `Let the AI search the web for real facts. Each search has a small cost on your ${WEB_SEARCH_PROVIDERS[webSearchProvider] || 'AI provider'} key, usually about a cent or less.`;
 
+  const showAttach = Boolean(onAttachFile);
+  const showScreenshot = Boolean(hasCode && onAttachScreenshot);
+
   const isWebsite = studioMode === 'website';
   const noun = isWebsite ? 'Website' : studioMode === 'game' ? 'Game' : studioMode === 'codebase' ? 'Site' : 'App';
 
@@ -269,6 +272,7 @@ export default function PromptInput({
         <div className="flex items-center gap-x-2 gap-y-2">
           {!isGenerating ? (
             <>
+              {onAttachFile && (
               <input
                 ref={fileInputRef}
                 type="file"
@@ -276,7 +280,12 @@ export default function PromptInput({
                 onChange={handleFileChange}
                 className="hidden"
               />
+              )}
+              {/* Free AI in the browser version passes no attach handlers
+                  (App.jsx useFreeAiInUse): no paperclip, camera or paste. */}
+              {(showAttach || showScreenshot || showWebSearch) && (
               <div className="prompt-input-mode">
+                {showAttach && (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -286,7 +295,8 @@ export default function PromptInput({
                 >
                   <Paperclip size={18} aria-hidden="true" />
                 </button>
-                {hasCode && (
+                )}
+                {showScreenshot && (
                   <button
                     type="button"
                     onClick={onAttachScreenshot}
@@ -311,6 +321,7 @@ export default function PromptInput({
                   </button>
                 )}
               </div>
+              )}
               <button
                 type="button"
                 data-tour="mode"

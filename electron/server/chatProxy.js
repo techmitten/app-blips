@@ -157,9 +157,10 @@ export const UPSTREAM_CONNECT_MS = 120_000;
 // provider (the Free option) per `visitor`; server.js passes both.
 // `checkSignIn(request)` (freeAuth.js checkFreeSignIn), when given, must
 // accept a Free request first: { user } or { refused }; a signed-in user is
-// then counted as themselves instead of by address. The desktop app passes
-// none of these.
-export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '', messageId = '', checkSignIn = null } = {}) {
+// then counted as themselves instead of by address. `freeImages: false`
+// refuses Free requests that carry an image (the browser hosts: Free AI there
+// takes no attachments or screenshots). The desktop app passes none of these.
+export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '', messageId = '', checkSignIn = null, freeImages = true } = {}) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -199,6 +200,10 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   const picked = await pickProvider(env, payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
+
+  if (!freeImages && !provider.userSupplied && hasImageContent(payload.messages)) {
+    return badRequest('Free AI can’t read images. Add your own API key in Settings → AI to attach images or screenshots.');
+  }
 
   // The Free option: signed in, if the server asks for it, then counted per
   // visitor (and its output capped, if set).

@@ -523,3 +523,18 @@ test('temperature defaults to 0.0; OPENAI_LLM_TEMPERATURE changes it', async (t)
   const user = await runWith(t, {}, { user_provider: { id: 'openrouter', apiKey: 'u', model: 'x' } });
   assert.equal(user.upstream.body.temperature, 0);
 });
+
+test('freeImages: false refuses an image on Free AI but not with the user\'s own key', async (t) => {
+  const upstream = t.mock.method(globalThis, 'fetch', async () => new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } }));
+  const messages = [{ role: 'user', content: [{ type: 'text', text: 'Match this' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } }] }];
+  const send = (extra) => handleChatProxy(new Request('https://app.example/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages, ...extra }),
+  }), env, { freeImages: false });
+  const refused = await send({});
+  assert.equal(refused.status, 400);
+  assert.match((await refused.json()).error, /Free AI can’t read images/);
+  assert.equal(upstream.mock.callCount(), 0);
+  const own = await send({ user_provider: { id: 'openai', model: 'gpt-5', apiKey: 'sk-own' } });
+  assert.equal(own.status, 200);
+});

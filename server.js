@@ -152,7 +152,7 @@ const server = createServer((req, res) => {
       // For checking how a hosting platform forwards addresses; off by default.
       if (process.env.APPBLIPS_DEBUG_CLIENT_IP) console.log(`[free-limits] x-forwarded-for="${req.headers['x-forwarded-for'] || ''}" peer=${req.socket.remoteAddress} -> ${ip}`);
       const visitor = visitorKey(ip);
-      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env, { freeLimits, visitor, messageId: String(req.headers['x-appblips-message'] || ''), checkSignIn }));
+      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env, { freeLimits, visitor, messageId: String(req.headers['x-appblips-message'] || ''), checkSignIn, freeImages: false }));
       sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
     };
     handle().catch(fail);
@@ -205,7 +205,7 @@ const server = createServer((req, res) => {
   if (req.url.startsWith('/api/web/')) {
     const visitor = visitorKey(clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress));
     toFetchRequest(req, res)
-      .then((request) => withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), process.env, { freeLimits, visitor, messageId: String(req.headers['x-appblips-message'] || ''), checkSignIn })))
+      .then((request) => withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), process.env, { freeLimits, visitor, messageId: String(req.headers['x-appblips-message'] || ''), checkSignIn, freeSearch: false })))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;

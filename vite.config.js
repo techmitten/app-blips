@@ -126,7 +126,7 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const incoming = await toChatRequest(req, res)
-        const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env, { onReject: logRejectedSignIn }) }))
+        const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env, { onReject: logRejectedSignIn }), freeImages: false }))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       server.middlewares.use('/api/provider', guarded(async (req, res) => {
@@ -191,7 +191,7 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const request = await toFetchRequest(req, res)
-        const response = await withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env, { onReject: logRejectedSignIn }) }))
+        const response = await withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env, { onReject: logRejectedSignIn }), freeSearch: false }))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The built-in photo library, with the .env's Unsplash key.
