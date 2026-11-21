@@ -49,7 +49,7 @@ function computeGeometry(element, card, preferred) {
   const vp = viewportBox();
   const sheet = window.matchMedia(SHEET_QUERY).matches;
   const cardWidth = sheet ? vp.width : Math.min(380, vp.width - MARGIN * 2);
-  const cardHeight = card?.getBoundingClientRect().height || 260;
+  const cardHeight = Math.max(card?.scrollHeight || 0, card?.getBoundingClientRect().height || 260);
   const rect = element?.getBoundingClientRect();
   const visible = rect && rect.width > 0 && rect.height > 0
     && rect.bottom > vp.y && rect.top < vp.y + vp.height;
@@ -94,7 +94,8 @@ function computeGeometry(element, card, preferred) {
     left: t.left - GAP - cardWidth >= vp.x + MARGIN,
   };
   const order = [preferred, 'bottom', 'top', 'right', 'left'].filter(Boolean);
-  const placement = order.find(side => fits[side]) || 'overlay';
+  const canArrow = cardHeight <= maxHeight;
+  const placement = (canArrow && order.find(side => fits[side])) || 'overlay';
 
   const minLeft = vp.x + MARGIN;
   const maxLeft = vp.x + vp.width - cardWidth - MARGIN;

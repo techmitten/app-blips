@@ -2910,8 +2910,10 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   };
 
   const startTour = () => {
-    tourLayoutRef.current = { mobileView, activeTab };
+    tourLayoutRef.current = { mobileView, activeTab, isBuildPaneCollapsed, isHistoryOpen };
     setActiveTab('preview');
+    setIsBuildPaneCollapsed(false);
+    setIsHistoryOpen(false);
     setIsTourOpen(true);
   };
   const closeTour = () => {
@@ -2919,6 +2921,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     if (tourLayoutRef.current) {
       setMobileView(tourLayoutRef.current.mobileView);
       setActiveTab(tourLayoutRef.current.activeTab);
+      setIsBuildPaneCollapsed(tourLayoutRef.current.isBuildPaneCollapsed);
+      setIsHistoryOpen(tourLayoutRef.current.isHistoryOpen);
     }
   };
 
@@ -3140,7 +3144,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       )}
       {isTourOpen && (
         <Suspense fallback={null}>
-          <GuidedTour onClose={closeTour} onViewChange={setMobileView} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} />
+          <GuidedTour onClose={closeTour} onViewChange={setMobileView} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} isForcedMobile={isForcedMobile} />
         </Suspense>
       )}
 

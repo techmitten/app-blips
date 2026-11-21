@@ -23,7 +23,7 @@ export function setTourState(state) {
   try { localStorage.setItem(TOUR_KEY, state); } catch { /* Optional preference. */ }
 }
 
-export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }) {
+export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode, isForcedMobile = false }) {
   const site = studioMode === 'website';
   const game = studioMode === 'game';
   // An imported React + Vite project: no page strip, no Publish or Open, and
@@ -75,17 +75,19 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
     tips: wideScreen ? undefined : ['Use Chat and Preview at the top to switch panels.'],
   });
 
-  steps.push({
-    id: 'devices',
-    icon: 'devices',
-    target: ['devices', 'tools', 'preview'],
-    view: 'preview',
-    placement: 'bottom',
-    title: 'Check every screen size',
-    body: wideScreen
-      ? 'Switch between phone, tablet, and desktop frames. Beside them, rotate a phone or tablet, use Full size to fill the whole preview area, or reload. Zoom sits on the right.'
-      : 'Preview tools switch between phone, tablet, and desktop frames, and add rotation, Full size, and zoom.',
-  });
+  if (!isForcedMobile) {
+    steps.push({
+      id: 'devices',
+      icon: 'devices',
+      target: ['devices', 'tools', 'preview'],
+      view: 'preview',
+      placement: 'bottom',
+      title: 'Check every screen size',
+      body: wideScreen
+        ? 'Switch between phone, tablet, and desktop frames. Beside them, rotate a phone or tablet, use Full size to fill the whole preview area, or reload. Zoom sits on the right.'
+        : 'Preview tools switch between phone, tablet, and desktop frames, and add rotation, Full size, and zoom.',
+    });
+  }
 
   if (site && hasCode) {
     steps.push({
@@ -155,6 +157,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }
     placement: 'bottom',
     title: 'Fresh chat, same project',
     body: 'Start a new chat when the conversation gets long or you change direction. Your versions stay; the model just starts from the current code with a clean slate.',
+    tips: wideScreen ? undefined : ['Open the menu and tap New chat once you have a build.'],
   });
 
   if (wideScreen) {

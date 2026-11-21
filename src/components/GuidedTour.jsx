@@ -50,25 +50,43 @@ export function TourInvitation({ onStart, building = false }) {
     return () => clearTimeout(timer);
   }, [visible, held, paused, leaving]);
 
-  // On a phone the toast sits above the prompt dock, whose height changes as
-  // the prompt grows, so track it instead of guessing.
+  // On a phone/tablet the toast sits above the prompt dock, whose height changes
+  // as the prompt grows, so track it instead of guessing. BuildPanel may mount
+  // asynchronously after TourInvitation, so watch the DOM until it appears.
   const shown = visible && !held;
   useEffect(() => {
     const aside = asideRef.current;
-    if (!shown || wideScreen || !aside) return;
-    const composer = document.querySelector('.build-panel-composer');
-    if (!composer) return;
+    if (!aside) return;
+    if (!shown || wideScreen) {
+      aside.style.removeProperty('--tour-invite-bottom');
+      return;
+    }
+    let observedComposer = null;
+    const resizeObserver = new ResizeObserver(() => update());
     const update = () => {
+      const composer = document.querySelector('.build-panel-composer');
+      if (composer !== observedComposer) {
+        if (observedComposer) resizeObserver.unobserve(observedComposer);
+        if (composer) resizeObserver.observe(composer);
+        observedComposer = composer;
+      }
       // Hidden while the Preview view is showing; then the toast rests at the screen edge.
-      if (!composer.offsetParent) { aside.style.removeProperty('--tour-invite-bottom'); return; }
+      if (!composer || !composer.offsetParent) {
+        aside.style.removeProperty('--tour-invite-bottom');
+        return;
+      }
       const height = window.innerHeight - composer.getBoundingClientRect().top;
       aside.style.setProperty('--tour-invite-bottom', `${Math.max(0, Math.round(height)) + 10}px`);
     };
     update();
-    const observer = new ResizeObserver(update);
-    observer.observe(composer);
+    const mutationObserver = new MutationObserver(update);
+    mutationObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
     window.addEventListener('resize', update);
-    return () => { observer.disconnect(); window.removeEventListener('resize', update); };
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener('resize', update);
+    };
   }, [shown, wideScreen]);
 
   // Unmount after the fade. A timer rather than animationend so it still
@@ -108,11 +126,11 @@ export function TourInvitation({ onStart, building = false }) {
   );
 }
 
-export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeView, studioMode }) {
+export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeView, studioMode, isForcedMobile = false }) {
   const wideScreen = useMediaQuery(WIDE_LAYOUT_QUERY);
   const steps = useMemo(
-    () => buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode }),
-    [wideScreen, hasCode, showCodeView, studioMode],
+    () => buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode, isForcedMobile }),
+    [wideScreen, hasCode, showCodeView, studioMode, isForcedMobile],
   );
   const [index, setIndex] = useState(0);
   // Crossing the breakpoint changes the step count; never point past the end.
@@ -139,7 +157,7 @@ export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeVie
       if (root) root.inert = previousInert;
       const menu = document.querySelector('[data-tour="menu"]');
       const fallback = menu?.getBoundingClientRect().width ? menu : document.querySelector('[data-tour="help"]');
-      const restore = previousFocus?.isConnected && previousFocus !== document.body ? previousFocus : fallback;
+      const restore = previousFocus?.isConnected && previousFocus !== document.body && !previousFocus.closest('[inert]') ? previousFocus : fallback;
       restore?.focus({ preventScroll: true });
     };
   }, []);
