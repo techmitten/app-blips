@@ -89,6 +89,24 @@ export const loadPromptSuggestions = () => {
   }
 };
 
+// Boolean: whether the suggested-prompts list above the chat box is folded
+// away to its header. Open by default.
+export const PROMPT_SUGGESTIONS_COLLAPSED_KEY = 'orion-prompt-suggestions-collapsed';
+export const loadPromptSuggestionsCollapsed = () => {
+  try {
+    return safeStorage('local')?.getItem(PROMPT_SUGGESTIONS_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+export const savePromptSuggestionsCollapsed = (collapsed) => {
+  try {
+    safeStorage('local')?.setItem(PROMPT_SUGGESTIONS_COLLAPSED_KEY, collapsed ? 'true' : 'false');
+  } catch {
+    // Storage unavailable: the choice lasts only for this session.
+  }
+};
+
 // Boolean: whether the AI may search the web through the AI provider's own
 // search (lib/providerWeb.js), switched with the globe under the chat box.
 // On by default: the AI searches only when a request needs real facts, and

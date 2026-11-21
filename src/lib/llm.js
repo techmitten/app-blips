@@ -3,7 +3,7 @@ import { messageHeaders } from './messageId';
 import { freeSignInHeaders } from './freeSignIn';
 import { isDesktop, webProviderStore } from './desktop';
 import { loadOutputTokenLimit, loadPromptSuggestions } from './config';
-import { describeProjectForSuggestions, recentRequests, parseSuggestions, MAX_SUGGESTIONS } from './promptSuggestions';
+import { describeProjectForSuggestions, describeBuildLimits, recentRequests, parseSuggestions, MAX_SUGGESTIONS } from './promptSuggestions';
 import { connectorStatus, getActiveConnectors, savePollinationsAccount } from './connectors';
 import { findImageRequests, resolveImages } from './pollinations';
 import { MAX_IMAGES_PER_BUILD } from './pollinationsApp';
@@ -1656,7 +1656,7 @@ export const generatePromptSuggestions = async ({ prompt, studioMode, files, cha
       messages: [
         {
           role: 'system',
-          content: `You suggest what a non-developer could ask for next while building a ${noun} with an AI. Given the ${noun}'s current code and the requests made so far, propose the ${MAX_SUGGESTIONS} most useful next requests: features or content it is clearly missing, improvements to what is there, or polish that would make it feel finished. Each one is a short instruction the user could send as-is, written as the user (for example "Add a dark mode toggle" or "Let players pause with the Escape key"), under 80 characters, in plain words with no code, file or technical terms. Make them specific to this ${noun}, different from each other, and never something already done or already asked for. Reply with only a JSON array of strings.`
+          content: `You suggest what a non-developer could ask for next while building ${noun === 'app' ? 'an' : 'a'} ${noun} with an AI. Given an outline of the ${noun} as it is now (what is on its page, and for some the start of its script) and the requests made so far, propose the ${MAX_SUGGESTIONS} most useful next requests: features or content it is clearly missing, improvements to what is there, or polish that would make it feel finished. Each one is a short instruction the user could send as-is, written as the user (for example "Add a dark mode toggle" or "Let players pause with the Escape key"), under 80 characters, in plain words with no code, file or technical terms. Make them specific to this ${noun}, different from each other, and never something already done or already asked for. Every one must be something AppBlips can build into this ${noun} from that one request, within the limits below. Reply with only a JSON array of strings.\n\n${describeBuildLimits(studioMode, getActiveConnectors())}`
         },
         {
           role: 'user',

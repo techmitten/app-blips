@@ -438,7 +438,7 @@ export default function SettingsModal({
               <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask 2–3 multiple-choice questions about your goals before the initial build.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
               </SettingRow>
-              <SettingRow id="set-prompt-suggestions" title="Suggested prompts" description="Show AI-suggested next prompts above the chat box after each build. Uses a few extra tokens.">
+              <SettingRow id="set-prompt-suggestions" title="Suggested prompts" description="Show AI-suggested next prompts above the chat box after each build. Each build makes one extra AI request of about 2,000 tokens.">
                 <Switch checked={promptSuggestions} onChange={onPromptSuggestionsChange} labelledBy="set-prompt-suggestions" />
               </SettingRow>
               <SettingRow id="set-engine-router" title="Smart game engine" description="The AI picks an engine for each game, like Phaser or Three.js. An engine named in your prompt always wins.">
