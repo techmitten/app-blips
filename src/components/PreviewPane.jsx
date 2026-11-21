@@ -58,6 +58,7 @@ export default function PreviewPane({
   onExportHtml,
   onExportReactProject = null,
   onPublish = null,
+  isPublished = false,
   containerRef,
   iframeRef,
   shutterCount = 0,
@@ -419,12 +420,12 @@ export default function PreviewPane({
               data-tour="publish"
               onClick={onPublish}
               className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs"
-              aria-label="Publish to the web"
-              data-tip="Publish to the web (free surge.sh address or your own domain)"
+              aria-label={isPublished ? 'Update the published site' : 'Publish to the web'}
+              data-tip={isPublished ? 'Update your published site with the latest changes' : 'Publish to the web (free surge.sh address or your own domain)'}
               data-tip-align="end"
             >
               <Globe size={16} />
-              <span className="preview-key-label">Publish</span>
+              <span className="preview-key-label">{isPublished ? 'Update' : 'Publish'}</span>
             </button>
           )}
         </div>

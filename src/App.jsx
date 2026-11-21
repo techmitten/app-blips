@@ -28,7 +28,7 @@ import { BUNDLED_LEGAL_DATES, fetchLegalDates, loadAgreement, needsAgreement, sa
 import ImportSiteDialog from './components/ImportSiteDialog';
 import ShowcaseModal from './components/ShowcaseModal';
 import PublishDialog from './components/PublishDialog';
-import { surgeSignOut } from './lib/surge';
+import { loadPublishedName, surgeSignOut } from './lib/surge';
 import { pollinationsSignOut } from './lib/pollinations';
 import { forgetPixabayKey } from './lib/pixabay';
 import { forgetTavilyKey } from './lib/tavily';
@@ -3393,6 +3393,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 exportTip={isCodebase ? 'Download the project as a .zip (all files, ready for npm install)' : undefined}
                 onExportReactProject={canExportReactProject ? handleExportReactProject : null}
                 onPublish={isCodebase ? null : () => setIsPublishOpen(true)}
+                isPublished={Boolean(loadPublishedName(currentProjectId))}
                 containerRef={previewContainerRef}
                 iframeRef={setPreviewFrameRef}
                 shutterCount={shutterCount}

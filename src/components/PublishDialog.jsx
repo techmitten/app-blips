@@ -790,7 +790,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
               </button>
               <button type="submit" disabled={busy || !(ownDomain ? customDomain : name)} className={PRIMARY_BUTTON}>
                 {busy ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Globe size={16} aria-hidden="true" />}
-                {busy ? 'Publishing…' : 'Publish'}
+                {busy ? (published ? 'Updating…' : 'Publishing…') : (published ? 'Update' : 'Publish')}
               </button>
             </div>
           </div>
