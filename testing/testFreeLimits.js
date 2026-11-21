@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { clientIp, visitorKey, createFreeLimits, meterResponse, freeLimitsEnabled } from '../electron/server/freeLimits.js';
+import { clientIp, visitorKey, createFreeLimits, meterResponse, freeLimitsEnabled, usageTokens } from '../electron/server/freeLimits.js';
 import { handleChatProxy } from '../electron/server/chatProxy.js';
 
 // --- Client IP ----------------------------------------------------------------
@@ -168,6 +168,45 @@ test('a cancelled stream still ends the request', async () => {
   const metered = meterResponse(new Response(new ReadableStream({ pull() {} })), { sentChars: 40, done: (n) => { counted = n; } });
   await metered.body.cancel();
   assert.equal(counted, 10);
+});
+
+test('usageTokens weights cached input reads at 0.1 for both Anthropic and OpenAI-shaped usage', () => {
+  // Raw Anthropic usage: 1000 + 500 + ceil(10005 * 0.1) + 200 = 2701
+  assert.equal(usageTokens({
+    input_tokens: 1000,
+    cache_creation_input_tokens: 500,
+    cache_read_input_tokens: 10005,
+    output_tokens: 200,
+  }), 2701);
+
+  // OpenAI-shaped usage from anthropic.js usageOf(): prompt_tokens already includes cached_tokens
+  assert.equal(usageTokens({
+    prompt_tokens: 11505,
+    completion_tokens: 200,
+    total_tokens: 11705,
+    prompt_tokens_details: { cached_tokens: 10005, cache_write_tokens: 500 },
+  }), 2701);
+
+  // Without total_tokens
+  assert.equal(usageTokens({
+    prompt_tokens: 1000,
+    completion_tokens: 200,
+    prompt_tokens_details: { cached_tokens: 900 },
+  }), 390);
+});
+
+test('a stream with message_start input_usage and final usage does not double-count and weights cached reads at 0.1', async () => {
+  let counted = null;
+  const body = [
+    'data: {"object":"chat.completion.chunk","choices":[{"index":0,"delta":{}}],"input_usage":{"prompt_tokens":100000,"completion_tokens":0,"total_tokens":100000,"prompt_tokens_details":{"cached_tokens":90000,"cache_write_tokens":5000}}}\n\n',
+    'data: {"object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hi"}}]}\n\n',
+    'data: {"object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":100000,"completion_tokens":500,"total_tokens":100500,"prompt_tokens_details":{"cached_tokens":90000,"cache_write_tokens":5000}}}\n\n',
+    'data: [DONE]\n\n',
+  ];
+  const metered = meterResponse(streamOf(...body), { sentChars: 400000, done: (n) => { counted = n; } });
+  assert.equal(await metered.text(), body.join(''));
+  // (100000 - 90000) + ceil(90000 * 0.1) + 500 = 10000 + 9000 + 500 = 19500
+  assert.equal(counted, 19500);
 });
 
 // --- Proxy ----------------------------------------------------------------------------

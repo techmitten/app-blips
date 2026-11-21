@@ -39,5 +39,16 @@
     }
   ],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["FreeLimits"] }],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "vars": {
+    "APPBLIPS_ADMIN_USER_IDS": "user_3MIK0Pr8R9Tl9O8ToITvCtlkrad",
+    "APPBLIPS_FREE_TOKENS_PER_DAY": "50000000",
+    "APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY": "3000000",
+    "APPBLIPS_MAX_OUTPUT_TOKENS": "64000",
+    "APPBLIPS_REASONING_EFFORT": "low",
+    "CLERK_JWT_KEY": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuU7TURl9IOdujcxu4mqD\nTMXq1LRFCiXI/WvThIKF28HopHpBwNGqRJtpZ6UyazvFRo8ef/+CUBbcNiwHGvNl\nNdnYDWvmnQbNrYeqNviMUZ1ZtfeNWSrcTlGcubVEsD1+7Fp3UubUtMFOzLZjiP/v\nhYwV55yZZk5/ahL/ndMwtWucsTgBgBujeZvsRvGPLVMq/qi0WCQeik+0Yeq+qcgw\neKjku3VvP+6N+Ksrdjsqsv8rAXfXg3WiWaREaeHs/FJ8ZX7Kc0CwW81KmUPs6CMh\nL8KnXhIjyZtptWs8Gt67q1izY6CTrlpLuWM7TQMjH4uVqd8KG+fDCAaK0nGDG9/k\ngQIDAQAB\n-----END PUBLIC KEY-----\n",
+    "CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsuYXBwYmxpcHMuY29tJA",
+    "OPENAI_LLM_MODEL": "claude-haiku-5-5",
+    "OPENAI_LLM_PROVIDER": "anthropic"
+  }
 }

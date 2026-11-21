@@ -36,6 +36,7 @@
 // (bad key, no balance, a model without search, free allowance used up).
 import Anthropic from '@anthropic-ai/sdk';
 import { isForeignOrigin } from './chatProxy.js';
+import { usageTokens } from './freeLimits.js';
 import { resolveProvider, resolveUserProvider, providerLabel } from './providers.js';
 import { defaultModel } from './defaultModel.js';
 
@@ -216,11 +217,14 @@ const searchPrompt = (query) => `Search the web for: ${query}
 Report the facts you find that answer this, in plain text of at most about 200 words, and say which source each fact comes from. Only report what the search results say; if they don't answer it, say so. No markdown headings, no follow-up questions.`;
 
 const tokensOf = (usage) => {
-  const total = Number(usage?.total_tokens ?? usage?.totalTokenCount);
-  if (Number.isFinite(total) && total > 0) return total;
-  const sum = Number(usage?.input_tokens || usage?.prompt_tokens || usage?.promptTokenCount || 0)
-    + Number(usage?.output_tokens || usage?.completion_tokens || usage?.candidatesTokenCount || 0);
-  return sum > 0 ? sum : 0;
+  if (!usage || typeof usage !== 'object') return 0;
+  if ('promptTokenCount' in usage || 'totalTokenCount' in usage) {
+    const total = Number(usage.totalTokenCount);
+    if (Number.isFinite(total) && total > 0) return total;
+    const sum = Number(usage.promptTokenCount || 0) + Number(usage.candidatesTokenCount || 0);
+    return sum > 0 ? sum : 0;
+  }
+  return usageTokens(usage) ?? 0;
 };
 
 // A search's token counts in the chat-completions shape (prompt_tokens with

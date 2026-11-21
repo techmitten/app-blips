@@ -142,13 +142,36 @@ export const visitorKey = (ip) => {
 
 // Tokens a finished response used: the provider's usage totals (the last
 // stream chunk, or the JSON body), else an estimate of about 4 characters a
-// token over what was sent and received.
-const usageTokens = (usage) => {
+// token over what was sent and received. Cached input reads (Anthropic's
+// cache_read_input_tokens or OpenAI-style prompt_tokens_details.cached_tokens)
+// are weighted at 0.1 (10%), matching Anthropic's cache-read billing rate.
+const nonNeg = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+export const usageTokens = (usage) => {
   if (!usage || typeof usage !== 'object') return null;
-  const total = Number(usage.total_tokens);
-  if (Number.isFinite(total) && total > 0) return total;
-  const sum = Number(usage.prompt_tokens || usage.input_tokens || 0) + Number(usage.completion_tokens || usage.output_tokens || 0);
-  return sum > 0 ? sum : null;
+  const cacheRead = nonNeg(usage.cache_read_input_tokens ?? usage.prompt_tokens_details?.cached_tokens);
+  const weightedCacheRead = Math.ceil(cacheRead * 0.1);
+  const total = nonNeg(usage.total_tokens);
+  if (total > 0) {
+    // OpenAI-compatible totals (including anthropic.js usageOf) already include
+    // cached input tokens at 100%; replace that full weight with 10%.
+    const adjusted = total - Math.min(total, cacheRead) + weightedCacheRead;
+    return adjusted > 0 ? adjusted : null;
+  }
+  if ('prompt_tokens' in usage || 'completion_tokens' in usage) {
+    const prompt = nonNeg(usage.prompt_tokens);
+    const completion = nonNeg(usage.completion_tokens);
+    const adjusted = (prompt - Math.min(prompt, cacheRead)) + weightedCacheRead + completion;
+    return adjusted > 0 ? adjusted : null;
+  }
+  const effective = nonNeg(usage.input_tokens)
+    + nonNeg(usage.cache_creation_input_tokens)
+    + weightedCacheRead
+    + nonNeg(usage.output_tokens);
+  return effective > 0 ? effective : null;
 };
 
 // Wraps a response so `done(tokens)` runs once, when its body ends, fails or
