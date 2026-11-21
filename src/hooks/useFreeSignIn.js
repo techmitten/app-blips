@@ -22,7 +22,7 @@ export function useFreeSignIn() {
   useEffect(() => {
     if (isDesktop) return undefined;
     let live = true;
-    const refresh = () => freeSignInState()
+    const refresh = () => freeSignInState({ eager: false })
       .then((next) => { if (live) setState(next); })
       .catch((err) => { if (live) setState({ required: true, signedIn: false, name: '', displayName: '', email: '', imageUrl: '', error: err.message }); });
     refresh();

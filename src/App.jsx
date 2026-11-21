@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { startUserMessage } from './lib/messageId';
 import { ensureFreeSignIn, openFreeSignIn } from './lib/freeSignIn';
 import { savePromptForSignIn, clearPromptForSignIn } from './lib/signInHandoff';
@@ -11,23 +11,25 @@ import HistorySidebar from './components/HistorySidebar';
 import BuildPanel, { BUILD_PANE_WIDTH } from './components/BuildPanel';
 import PreviewPane from './components/PreviewPane';
 import InsertMenu from './components/InsertMenu';
-import SettingsModal from './components/SettingsModal';
 import GuidedTour, { TourInvitation } from './components/GuidedTour';
 import HeroLanding from './components/HeroLanding';
-import ProjectsListModal from './components/ProjectsListModal';
 import NamingModal from './components/NamingModal';
 import { isProjectNameTaken } from './lib/projectsStorage';
 import ConfirmModal from './components/ConfirmModal';
 
 import SplashScreen from './components/SplashScreen';
-import StudioChoice from './components/StudioChoice';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 import DesktopOnboarding from './components/DesktopOnboarding';
 import { BUNDLED_LEGAL_DATES, fetchLegalDates, loadAgreement, needsAgreement, saveAgreement } from './lib/legal';
-import ImportSiteDialog from './components/ImportSiteDialog';
-import ShowcaseModal from './components/ShowcaseModal';
-import PublishDialog from './components/PublishDialog';
+
+const loadSettingsModal = () => import('./components/SettingsModal');
+const SettingsModal = lazy(loadSettingsModal);
+const ProjectsListModal = lazy(() => import('./components/ProjectsListModal'));
+const StudioChoice = lazy(() => import('./components/StudioChoice'));
+const ImportSiteDialog = lazy(() => import('./components/ImportSiteDialog'));
+const ShowcaseModal = lazy(() => import('./components/ShowcaseModal'));
+const PublishDialog = lazy(() => import('./components/PublishDialog'));
 import { loadPublishedName, surgeSignOut } from './lib/surge';
 import { pollinationsSignOut } from './lib/pollinations';
 import { forgetPixabayKey } from './lib/pixabay';
@@ -149,6 +151,13 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // process owns the durable flag so clearing a provider later does not replay
   // onboarding, while a truly fresh install still gets it.
   const [desktopOnboarding, setDesktopOnboarding] = useState({ loading: true });
+  // Preload Settings once the user reaches a screen that actually has a
+  // Settings button (after onboarding and splash), so opening it feels instant
+  // without adding 150 KB to the initial page load.
+  useEffect(() => {
+    if (desktopOnboarding || (!skipSplash && !splashDone)) return;
+    loadSettingsModal().catch(() => {});
+  }, [desktopOnboarding, skipSplash, splashDone]);
   // Terms of Use / Privacy Policy agreement (lib/legal.js). The dates start as
   // this build's and are replaced by the landing site's once fetched, which
   // never holds up startup.
@@ -2986,45 +2995,47 @@ export default function App({ coldStart = false, signInHandoff = null }) {
 
   // Shared by the studio picker and the workspace.
   const settingsModal = isSettingsOpen && (
-        <SettingsModal
-          initialTab={settingsInitialTab}
-          onClose={() => { setIsSettingsOpen(false); setSettingsInitialTab(null); }}
-          themePreference={themePreference}
-          onThemePreferenceChange={setThemePreference}
-          resolvedTheme={resolvedTheme}
-          chatFont={chatFont}
-          onChatFontChange={setChatFont}
-          showCodeView={showCodeView}
-          onShowCodeViewChange={handleShowCodeViewChange}
-          askClarifyingQuestions={askClarifyingQuestions}
-          onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
-          promptSuggestions={promptSuggestions}
-          onPromptSuggestionsChange={setPromptSuggestions}
-          gameEngineRouter={gameEngineRouter}
-          onGameEngineRouterChange={setGameEngineRouter}
-          websiteAddonRouter={websiteAddonRouter}
-          onWebsiteAddonRouterChange={setWebsiteAddonRouter}
-          skipSplash={skipSplash}
-          onSkipSplashChange={setSkipSplash}
-          autoFollowCode={autoFollowCode}
-          onAutoFollowCodeChange={setAutoFollowCode}
-          codeAutocomplete={codeAutocomplete}
-          onCodeAutocompleteChange={setCodeAutocomplete}
-          liveCodePreview={liveCodePreview}
-          onLiveCodePreviewChange={setLiveCodePreview}
-          buildPaneSide={buildPaneSide}
-          onBuildPaneSideChange={setBuildPaneSide}
-          buildReasoningEffort={buildReasoningEffort}
-          reasoningLevels={reasoning}
-          onBuildReasoningEffortChange={setBuildReasoningEffort}
-          onDeleteAllProjects={handleDeleteAllProjects}
-          onResetApp={handleResetApp}
-          onRestartOnboarding={handleRestartOnboarding}
-          projectCount={myProjects.length}
-          seoProject={seoProject}
-          galleryProject={galleryProject}
-          freeAccount={freeAccount}
-        />
+    <Suspense fallback={null}>
+      <SettingsModal
+        initialTab={settingsInitialTab}
+        onClose={() => { setIsSettingsOpen(false); setSettingsInitialTab(null); }}
+        themePreference={themePreference}
+        onThemePreferenceChange={setThemePreference}
+        resolvedTheme={resolvedTheme}
+        chatFont={chatFont}
+        onChatFontChange={setChatFont}
+        showCodeView={showCodeView}
+        onShowCodeViewChange={handleShowCodeViewChange}
+        askClarifyingQuestions={askClarifyingQuestions}
+        onAskClarifyingQuestionsChange={setAskClarifyingQuestions}
+        promptSuggestions={promptSuggestions}
+        onPromptSuggestionsChange={setPromptSuggestions}
+        gameEngineRouter={gameEngineRouter}
+        onGameEngineRouterChange={setGameEngineRouter}
+        websiteAddonRouter={websiteAddonRouter}
+        onWebsiteAddonRouterChange={setWebsiteAddonRouter}
+        skipSplash={skipSplash}
+        onSkipSplashChange={setSkipSplash}
+        autoFollowCode={autoFollowCode}
+        onAutoFollowCodeChange={setAutoFollowCode}
+        codeAutocomplete={codeAutocomplete}
+        onCodeAutocompleteChange={setCodeAutocomplete}
+        liveCodePreview={liveCodePreview}
+        onLiveCodePreviewChange={setLiveCodePreview}
+        buildPaneSide={buildPaneSide}
+        onBuildPaneSideChange={setBuildPaneSide}
+        buildReasoningEffort={buildReasoningEffort}
+        reasoningLevels={reasoning}
+        onBuildReasoningEffortChange={setBuildReasoningEffort}
+        onDeleteAllProjects={handleDeleteAllProjects}
+        onResetApp={handleResetApp}
+        onRestartOnboarding={handleRestartOnboarding}
+        projectCount={myProjects.length}
+        seoProject={seoProject}
+        galleryProject={galleryProject}
+        freeAccount={freeAccount}
+      />
+    </Suspense>
   );
 
   // Cold launches begin at the picker; renderer reloads can resume a project
@@ -3034,39 +3045,49 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     return (
       <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
         <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} />
-        <StudioChoice
-          onSelectStudio={handleChooseStudio}
-          onImportSite={() => setIsImportSiteOpen(true)}
-          onOpenShowcase={() => setIsShowcaseOpen(true)}
-          onCancel={isStudioChoiceOpen && !isProjectsListOpen && !isShowcaseOpen ? handleCancelStudioChoice : null}
-          onOpenProjects={() => setIsProjectsListOpen(true)}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-          resolvedTheme={resolvedTheme}
-          onToggleTheme={handleToggleTheme}
-          freeAccount={freeAccount}
-        />
+        <Suspense fallback={null}>
+          <StudioChoice
+            onSelectStudio={handleChooseStudio}
+            onImportSite={() => setIsImportSiteOpen(true)}
+            onOpenShowcase={() => setIsShowcaseOpen(true)}
+            onCancel={isStudioChoiceOpen && !isProjectsListOpen && !isShowcaseOpen ? handleCancelStudioChoice : null}
+            onOpenProjects={() => setIsProjectsListOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            resolvedTheme={resolvedTheme}
+            onToggleTheme={handleToggleTheme}
+            freeAccount={freeAccount}
+          />
+        </Suspense>
         {settingsModal}
         <DesktopStorageNotice />
         <UpdateNotice />
         {legalGate}
         {isProjectsListOpen && (
-          <ProjectsListModal
-            projects={myProjects}
-            currentProjectId={currentProjectId}
-            onClose={() => setIsProjectsListOpen(false)}
-            onLoadProject={handleLoadProjectFromChoice}
-            onRenameProject={renameProject}
-            onDeleteProject={handleDeleteProject}
-          />
+          <Suspense fallback={null}>
+            <ProjectsListModal
+              projects={myProjects}
+              currentProjectId={currentProjectId}
+              onClose={() => setIsProjectsListOpen(false)}
+              onLoadProject={handleLoadProjectFromChoice}
+              onRenameProject={renameProject}
+              onDeleteProject={handleDeleteProject}
+            />
+          </Suspense>
         )}
-        {isShowcaseOpen && <ShowcaseModal onClose={() => setIsShowcaseOpen(false)} />}
+        {isShowcaseOpen && (
+          <Suspense fallback={null}>
+            <ShowcaseModal onClose={() => setIsShowcaseOpen(false)} />
+          </Suspense>
+        )}
         {isImportSiteOpen && (
-          <ImportSiteDialog
-            onImported={handleImportedSite}
-            onCancel={() => setIsImportSiteOpen(false)}
-            isNameTaken={(name) => isProjectNameTaken(myProjects, name)}
-            reasoningEffort={effectiveReasoningEffort}
-          />
+          <Suspense fallback={null}>
+            <ImportSiteDialog
+              onImported={handleImportedSite}
+              onCancel={() => setIsImportSiteOpen(false)}
+              isNameTaken={(name) => isProjectNameTaken(myProjects, name)}
+              reasoningEffort={effectiveReasoningEffort}
+            />
+          </Suspense>
         )}
       </div>
     );
@@ -3085,14 +3106,16 @@ export default function App({ coldStart = false, signInHandoff = null }) {
 
 
       {isProjectsListOpen && (
-        <ProjectsListModal
-          projects={myProjects}
-          currentProjectId={currentProjectId}
-          onClose={() => setIsProjectsListOpen(false)}
-          onLoadProject={loadProject}
-          onRenameProject={renameProject}
-          onDeleteProject={handleDeleteProject}
-        />
+        <Suspense fallback={null}>
+          <ProjectsListModal
+            projects={myProjects}
+            currentProjectId={currentProjectId}
+            onClose={() => setIsProjectsListOpen(false)}
+            onLoadProject={loadProject}
+            onRenameProject={renameProject}
+            onDeleteProject={handleDeleteProject}
+          />
+        </Suspense>
       )}
 
       {isExitConfirmOpen && (
@@ -3199,15 +3222,17 @@ export default function App({ coldStart = false, signInHandoff = null }) {
 
       {/* Publishes the same pages Export downloads (buildExportFiles). */}
       {isPublishOpen && (
-        <PublishDialog
-          projectId={currentProjectId}
-          projectName={projectName}
-          buildFiles={buildExportFiles}
-          galleryFiles={(pages) => galleryExportFiles(pages, galleryImages, blobBytes)}
-          extraFiles={publishExtras}
-          onClose={() => setIsPublishOpen(false)}
-          studioMode={studioMode}
-        />
+        <Suspense fallback={null}>
+          <PublishDialog
+            projectId={currentProjectId}
+            projectName={projectName}
+            buildFiles={buildExportFiles}
+            galleryFiles={(pages) => galleryExportFiles(pages, galleryImages, blobBytes)}
+            extraFiles={publishExtras}
+            onClose={() => setIsPublishOpen(false)}
+            studioMode={studioMode}
+          />
+        </Suspense>
       )}
 
       <UpdateNotice />

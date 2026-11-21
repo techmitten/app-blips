@@ -621,8 +621,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
       <main className={`desktop-onboarding-card is-setup${isTerms ? ' is-welcome' : ''}`}>
         <header className="onboarding-topbar">
           <div className="onboarding-brand">
-            <img src="/favicon.svg" alt="" aria-hidden="true" className="onboarding-brand-icon" />
-            <img src="/appblips-wordmark-dark.svg" alt="AppBlips" />
+            <img src="/favicon.svg" alt="" aria-hidden="true" width={28} height={28} className="onboarding-brand-icon" />
+            <img src="/appblips-wordmark-dark.svg" alt="AppBlips" width={1203} height={276} />
           </div>
           <div className="onboarding-topbar-actions">
             {onExit ? (

@@ -622,6 +622,8 @@ export default function DeviceMockup({
                     <img
                       src="/appblips-wordmark-light.svg"
                       alt="AppBlips"
+                      width={1203}
+                      height={276}
                       className="preview-empty-logo-img preview-empty-logo-light select-none"
                       draggable={false}
                     />
@@ -629,6 +631,8 @@ export default function DeviceMockup({
                       src="/appblips-wordmark-dark.svg"
                       alt=""
                       aria-hidden="true"
+                      width={1203}
+                      height={276}
                       className="preview-empty-logo-img preview-empty-logo-dark select-none"
                       draggable={false}
                     />

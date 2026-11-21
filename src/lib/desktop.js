@@ -233,6 +233,8 @@ const moveLegacyKey = () => {
   return legacyKeyMove;
 };
 
+let inFlightProviderGet = null;
+
 export const webProviderStore = {
   // The provider for an outgoing /api/chat request, without a key: browserDirect.js
   // attaches the saved one (withSavedProvider). A draft from "Test connection"
@@ -247,29 +249,33 @@ export const webProviderStore = {
     await moveLegacyKey();
     return providerRequest('/api/provider/models', 'POST', input);
   },
-  async get() {
-    await moveLegacyKey();
-    const info = readWebProvider();
-    // A legacy key the move couldn't hand over yet.
-    delete info.apiKey;
-    let server = { id: '', hasKey: false };
-    try { server = await providerRequest('/api/provider'); }
-    catch (err) { logWarn('Could not read the saved API key status', err); }
-    return {
-      enabled: false,
-      ...info,
-      hasKey: Boolean(info.id && server.id === info.id && server.hasKey),
-      // The server's environment variables (OPENAI_API_KEY…) provide AI when
-      // nothing is saved here, so onboarding doesn't ask for a key.
-      envConfigured: server.envConfigured === true,
-      ...(server.envProvider ? { envProvider: server.envProvider } : {}),
-      // Free AI needs a Google or GitHub sign-in on this server (freeSignIn.js).
-      ...(server.freeSignIn ? { freeSignIn: server.freeSignIn } : {}),
-      // The host sets the output limit (APPBLIPS_MAX_OUTPUT_TOKENS).
-      ...(server.maxOutputTokensFixed ? { maxOutputTokensFixed: true } : {}),
-      // The host sets Free AI's reasoning level (APPBLIPS_REASONING_EFFORT).
-      ...(server.reasoningEffortFixed ? { reasoningEffortFixed: server.reasoningEffortFixed } : {}),
-    };
+  get() {
+    if (inFlightProviderGet) return inFlightProviderGet;
+    inFlightProviderGet = (async () => {
+      await moveLegacyKey();
+      const info = readWebProvider();
+      // A legacy key the move couldn't hand over yet.
+      delete info.apiKey;
+      let server = { id: '', hasKey: false };
+      try { server = await providerRequest('/api/provider'); }
+      catch (err) { logWarn('Could not read the saved API key status', err); }
+      return {
+        enabled: false,
+        ...info,
+        hasKey: Boolean(info.id && server.id === info.id && server.hasKey),
+        // The server's environment variables (OPENAI_API_KEY…) provide AI when
+        // nothing is saved here, so onboarding doesn't ask for a key.
+        envConfigured: server.envConfigured === true,
+        ...(server.envProvider ? { envProvider: server.envProvider } : {}),
+        // Free AI needs a Google or GitHub sign-in on this server (freeSignIn.js).
+        ...(server.freeSignIn ? { freeSignIn: server.freeSignIn } : {}),
+        // The host sets the output limit (APPBLIPS_MAX_OUTPUT_TOKENS).
+        ...(server.maxOutputTokensFixed ? { maxOutputTokensFixed: true } : {}),
+        // The host sets Free AI's reasoning level (APPBLIPS_REASONING_EFFORT).
+        ...(server.reasoningEffortFixed ? { reasoningEffortFixed: server.reasoningEffortFixed } : {}),
+      };
+    })().finally(() => { inFlightProviderGet = null; });
+    return inFlightProviderGet;
   },
   async set(info) {
     const previous = readWebProvider();

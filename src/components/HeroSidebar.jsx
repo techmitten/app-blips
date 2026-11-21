@@ -95,11 +95,11 @@ export default function HeroSidebar({
     >
       <div className={`hero-rail-brand flex items-center gap-2 px-1.5 ${collapsed ? 'is-collapsed' : ''}`}>
         <span className="hero-rail-brand-mark flex items-center gap-2 min-w-0">
-          <img src="/favicon.svg" alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
+          <img src="/favicon.svg" alt="" aria-hidden="true" width={24} height={24} className="h-6 w-6 shrink-0" />
           {/* Same two wordmarks as the studio picker (one shows per theme). Fades out smoothly when the desktop rail collapses to icons. */}
           <span className="hero-rail-wordmark">
-            <img src="/appblips-wordmark-dark.svg" alt="AppBlips" className="hero-rail-wordmark-img studio-logo-dark" />
-            <img src="/appblips-wordmark-light.svg" alt="" aria-hidden="true" className="hero-rail-wordmark-img studio-logo-light" />
+            <img src="/appblips-wordmark-dark.svg" alt="AppBlips" width={1203} height={276} className="hero-rail-wordmark-img studio-logo-dark" />
+            <img src="/appblips-wordmark-light.svg" alt="" aria-hidden="true" width={1203} height={276} className="hero-rail-wordmark-img studio-logo-light" />
           </span>
         </span>
         <button

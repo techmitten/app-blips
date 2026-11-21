@@ -58,12 +58,16 @@ export default function SplashScreen({ skip = false, onDone, aboveSetup = false 
       }`}
       style={{ transitionDuration: `${fadeOutMs ?? 0}ms`, ...(aboveSetup ? { zIndex: 1400 } : null) }}
     >
-      {/* Capped at 960 CSS px (the video is 2560 wide, so this is sharp even
+      {/* Capped at 960 CSS px (the video is 1920 wide, so this is sharp even
           on high-DPI screens) so it sits centered instead of filling the
-          window; smaller screens scale it down. */}
-      <div className="relative max-h-full w-full max-w-[960px]">
+          window; smaller screens scale it down. aspect-video reserves the 16:9
+          box before metadata arrives so the vignette overlay doesn't shift. */}
+      <div className="relative aspect-video max-h-dvh w-full max-w-240">
         <video
           src={splashVideo}
+          width={1920}
+          height={1080}
+          preload="auto"
           autoPlay
           muted
           playsInline
@@ -76,7 +80,7 @@ export default function SplashScreen({ skip = false, onDone, aboveSetup = false 
           onEnded={() => endSplash(END_FADE_MS)}
           // A missing or undecodable video shouldn't leave a black screen up.
           onError={skipSplash}
-          className={`block max-h-dvh w-full object-contain transition-opacity ease-in-out ${
+          className={`block h-full w-full object-contain transition-opacity ease-in-out ${
             isPlaying ? 'opacity-100' : 'opacity-0'
           }`}
           style={{ transitionDuration: `${FADE_IN_MS}ms` }}

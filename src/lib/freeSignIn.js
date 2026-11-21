@@ -29,6 +29,36 @@ const isLoopbackHost = () => {
 };
 
 const CLERK_FLOW_PATTERN = /(?:__clerk_|\/(?:sso-callback|factor-|reset-password|verify|continue|tasks|create)(?:[/?#]|$))/i;
+const SIGNED_IN_HINT_KEY = 'appblips-free-signed-in';
+
+const setSignedInHint = (signedIn) => {
+  try {
+    if (signedIn) localStorage.setItem(SIGNED_IN_HINT_KEY, '1');
+    else localStorage.removeItem(SIGNED_IN_HINT_KEY);
+  } catch { /* storage blocked */ }
+};
+
+// True when this browser may already hold a Clerk session (or is mid-OAuth
+// callback) so we should hydrate Clerk automatically on startup. Fresh
+// visitors with no session skip downloading @clerk/clerk-js and @clerk/ui
+// until they click Sign in or send a Free AI prompt.
+const hasPossibleFreeSession = () => {
+  if (clerkPromise) return true;
+  if (typeof window === 'undefined') return true;
+  try {
+    if (localStorage.getItem(SIGNED_IN_HINT_KEY) === '1') return true;
+  } catch { /* storage blocked */ }
+  try {
+    if (typeof document !== 'undefined' && /(?:^|;\s*)__client_uat=[1-9]\d*/.test(document.cookie || '')) {
+      return true;
+    }
+  } catch { /* cookie access blocked */ }
+  const loc = window.location;
+  if (loc && CLERK_FLOW_PATTERN.test(`${loc.pathname || ''}${loc.search || ''}${loc.hash || ''}`)) {
+    return true;
+  }
+  return false;
+};
 
 // OAuth in a popup, so the page stays as it is; and Google shows its account
 // picker instead of quietly using whichever account the browser is signed in to.
@@ -244,6 +274,7 @@ export const syncClerkSession = async (clerk, { forceReload = false } = {}) => {
         }
       }
       lockOAuthAccount(clerk);
+      setSignedInHint(Boolean(clerk.isSignedIn || clerk.session?.status === 'active'));
       if (clerk.isSignedIn || clerk.session?.status === 'active') {
         clerk.closeSignIn?.();
         notify();
@@ -344,6 +375,7 @@ export const loadFreeSignIn = async ({ importClerk = defaultImportClerk } = {}) 
       clerk.addListener(({ session, user }) => {
         lockOAuthAccount(clerk);
         if (user) lockUserMethods(user);
+        setSignedInHint(Boolean(session));
         // Signed in: the sign-in modal has done its job (Clerk would otherwise
         // leave it to the navigation that no longer happens).
         if (session) clerk.closeSignIn();
@@ -367,17 +399,24 @@ export const loadFreeSignIn = async ({ importClerk = defaultImportClerk } = {}) 
 };
 
 // { required, signedIn, name, displayName, email, imageUrl } for UI indicators
-// and Settings → AI. Loads Clerk only if the server asks for sign-in.
-export const freeSignInState = async () => {
+// and Settings → AI. When `eager` is false, avoids loading the Clerk bundles
+// until the browser has a session hint or the user triggers sign-in.
+export const freeSignInState = async ({ eager = true } = {}) => {
+  if (!eager && !hasPossibleFreeSession()) {
+    const config = await freeSignInConfig();
+    return { required: Boolean(config), signedIn: false, name: '', displayName: '', email: '', imageUrl: '' };
+  }
   const clerk = await loadFreeSignIn();
   if (!clerk) return { required: false, signedIn: false, name: '', displayName: '', email: '', imageUrl: '' };
   if (!clerk.isSignedIn) await syncClerkSession(clerk);
   const user = clerk.user;
+  const signedIn = Boolean(clerk.isSignedIn && clerk.session && user);
+  setSignedInHint(signedIn);
   const email = user?.primaryEmailAddress?.emailAddress || '';
   const displayName = user ? (user.fullName || user.username || email || '') : '';
   return {
     required: true,
-    signedIn: Boolean(clerk.isSignedIn && clerk.session && user),
+    signedIn,
     name: user ? (email || user.username || user.fullName || '') : '',
     displayName,
     email,

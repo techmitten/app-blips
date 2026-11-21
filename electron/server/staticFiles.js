@@ -23,6 +23,7 @@ export const MIME_TYPES = {
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
   '.webm': 'video/webm',
   '.webmanifest': 'application/manifest+json',
   '.woff': 'font/woff',

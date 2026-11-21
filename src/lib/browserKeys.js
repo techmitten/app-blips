@@ -72,6 +72,20 @@ const sessionId = () => {
 const DIRECT_SLOTS = new Set(['provider', 'tavily', 'pixabay']);
 let directApi = null;
 
+// Tiny local decoder for GET /api/provider so startup never has to load
+// browserDirect.js (and @anthropic-ai/sdk) just to read { id, hasKey }.
+const describeStoredKey = (slot) => {
+  const value = read(STORAGE_PREFIX + slot);
+  if (!value) return { id: '', hasKey: false };
+  try {
+    const parsed = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(value), (c) => c.charCodeAt(0))));
+    if (typeof parsed?.id === 'string' && typeof parsed?.key === 'string') {
+      return { id: parsed.id, hasKey: Boolean(parsed.key) };
+    }
+  } catch { /* unreadable: treated as nothing saved */ }
+  return { id: '', hasKey: false };
+};
+
 export function installBrowserKeyStorage() {
   const originalFetch = window.fetch.bind(window);
   const loadDirectApi = () => {
@@ -96,6 +110,30 @@ export function installBrowserKeyStorage() {
 
     if (DIRECT_SLOTS.has(slot)) {
       const request = new Request(input instanceof Request ? input : url, init);
+      const path = url.pathname.replace(/\/+$/, '');
+      if (slot === 'provider' && path === '/api/provider' && request.method === 'GET') {
+        const response = await originalFetch(request);
+        let settings = {};
+        try { settings = await response.json(); } catch { /* not JSON */ }
+        return new Response(
+          JSON.stringify(response.ok ? { ...settings, ...describeStoredKey('provider') } : settings),
+          { status: response.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } },
+        );
+      }
+      if (slot === 'provider' && (path === '/api/chat' || path.startsWith('/api/web'))) {
+        const isOwn = request.method === 'POST' && await request.clone().text().then((text) => {
+          try {
+            const body = JSON.parse(text);
+            return body != null && typeof body === 'object' && body.user_provider != null;
+          } catch { return false; }
+        }).catch(() => false);
+        if (!isOwn) {
+          const headers = new Headers(request.headers);
+          headers.delete(KEY_HEADER);
+          headers.set(SESSION_HEADER, sessionId());
+          return originalFetch(new Request(request, { headers }));
+        }
+      }
       const { respond, handle } = await loadDirectApi();
       const response = await respond(handle, slot, request);
       if (response) return response;
