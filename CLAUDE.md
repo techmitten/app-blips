@@ -51,7 +51,7 @@ The renderer in `src/` is identical everywhere. What differs is who answers `/ap
 
 ### Preview
 
-- Generated code runs in an origin-isolated iframe (`sandbox` without `allow-same-origin`). `src/previewBridge.js` injects one inline script into the document: JSX compile, loop protection, Pollinations/Sheets helpers, source-position stamps for click-to-edit, gallery image rewriting. The parent talks to the frame only over `postMessage` (`hooks/usePreviewBridge.js`).
+- Generated code runs in an origin-isolated iframe (`sandbox` without `allow-same-origin`). `src/previewBridge.js` injects one inline script into the document: JSX compile, loop protection, Pollinations/Sheets helpers, source-position stamps for click-to-edit, gallery image rewriting. That script's source is split by topic into `src/previewBridge/*.js` (plain-text parts of one IIFE sharing one scope, joined in order by `src/previewBridge/index.js`). The parent talks to the frame only over `postMessage` (`hooks/usePreviewBridge.js`).
 - Visual click-to-edit maps preview elements back to source through `sourcePositions.js`/`sourceMap.js`. The edits themselves are made by `directEdits.js`.
 
 ### Imported codebases (React + Vite)
