@@ -404,10 +404,10 @@ export const loadFreeSignIn = async ({ importClerk = defaultImportClerk } = {}) 
 export const freeSignInState = async ({ eager = true } = {}) => {
   if (!eager && !hasPossibleFreeSession()) {
     const config = await freeSignInConfig();
-    return { required: Boolean(config), signedIn: false, name: '', displayName: '', email: '', imageUrl: '' };
+    return { required: Boolean(config), signedIn: false, userId: '', name: '', displayName: '', email: '', imageUrl: '' };
   }
   const clerk = await loadFreeSignIn();
-  if (!clerk) return { required: false, signedIn: false, name: '', displayName: '', email: '', imageUrl: '' };
+  if (!clerk) return { required: false, signedIn: false, userId: '', name: '', displayName: '', email: '', imageUrl: '' };
   if (!clerk.isSignedIn) await syncClerkSession(clerk);
   const user = clerk.user;
   const signedIn = Boolean(clerk.isSignedIn && clerk.session && user);
@@ -417,6 +417,7 @@ export const freeSignInState = async ({ eager = true } = {}) => {
   return {
     required: true,
     signedIn,
+    userId: user?.id || '',
     name: user ? (email || user.username || user.fullName || '') : '',
     displayName,
     email,

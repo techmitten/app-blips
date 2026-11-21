@@ -268,6 +268,7 @@ test('freeSignInState reports user profile fields and openFreeAccountDashboard o
   assert.deepEqual(await mod.freeSignInState(), {
     required: true,
     signedIn: true,
+    userId: '',
     name: 'u@example.com',
     displayName: 'Ada Lovelace',
     email: 'u@example.com',

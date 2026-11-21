@@ -24,7 +24,7 @@ export function useFreeSignIn() {
     let live = true;
     const refresh = () => freeSignInState({ eager: false })
       .then((next) => { if (live) setState(next); })
-      .catch((err) => { if (live) setState({ required: true, signedIn: false, name: '', displayName: '', email: '', imageUrl: '', error: err.message }); });
+      .catch((err) => { if (live) setState({ required: true, signedIn: false, userId: '', name: '', displayName: '', email: '', imageUrl: '', error: err.message }); });
     refresh();
     const unsubscribe = onFreeSignInChange(refresh);
     return () => { live = false; unsubscribe(); };

@@ -12,7 +12,11 @@ import { DEFAULT_SEARCHES_PER_VISITOR_HOUR } from '../electron/server/unsplashAp
 
 const VISITOR = 'v:';
 const UNSPLASH = 'u:';
+const BLOCK = 'b:';
 const SITE = 'site';
+const PAUSE = 'pause';
+const POLICY = 'policy';
+const EVENTS = 'events';
 const HOUR_MS = 3_600_000;
 const DELETE_BATCH = 128; // the most keys one storage.delete() takes
 
@@ -35,6 +39,7 @@ export function createFreeLimitsStore(env, storage, { now = Date.now, unsplashPe
       const saved = await storage.list();
       const day = today(now());
       const visitors = [];
+      const blocked = [];
       const stale = [];
       for (const [key, value] of saved) {
         if (key.startsWith(VISITOR)) {
@@ -43,9 +48,19 @@ export function createFreeLimitsStore(env, storage, { now = Date.now, unsplashPe
         } else if (key.startsWith(UNSPLASH)) {
           if (now() - Number(value?.start) >= HOUR_MS) stale.push(key);
           else unsplash.set(key.slice(UNSPLASH.length), value);
+        } else if (key.startsWith(BLOCK)) {
+          if (value?.expiresAt != null && Number(value.expiresAt) <= now()) stale.push(key);
+          else blocked.push([key.slice(BLOCK.length), value]);
         }
       }
-      limiter.restore({ site: saved.get(SITE), visitors });
+      limiter.restore({
+        site: saved.get(SITE),
+        visitors,
+        blocked,
+        pause: saved.get(PAUSE),
+        policy: saved.get(POLICY),
+        events: saved.get(EVENTS),
+      });
       for (let i = 0; i < stale.length; i += DELETE_BATCH) await storage.delete(stale.slice(i, i + DELETE_BATCH));
     })().catch((err) => {
       loading = null;
@@ -54,10 +69,14 @@ export function createFreeLimitsStore(env, storage, { now = Date.now, unsplashPe
     return loading;
   };
 
-  const save = (visitor) => storage.put({
-    [`${VISITOR}${visitor}`]: limiter.exportVisitor(visitor),
-    [SITE]: limiter.exportSite(),
-  });
+  const save = (visitor, { includeEvents = false } = {}) => {
+    const entries = {
+      [`${VISITOR}${visitor}`]: limiter.exportVisitor(visitor),
+      [SITE]: limiter.exportSite(),
+    };
+    if (includeEvents) entries[EVENTS] = limiter.exportEvents();
+    return storage.put(entries);
+  };
 
   return {
     limits: limiter.limits,
@@ -72,7 +91,18 @@ export function createFreeLimitsStore(env, storage, { now = Date.now, unsplashPe
         return { refused: { error: UNAVAILABLE, retryAfter: 60 } };
       }
       const started = limiter.begin(visitor, messageId);
-      if (started.refused) return started;
+      if (started.refused) {
+        // Persist refusal counts, abuse events, and any newly triggered auto-block.
+        const entries = {
+          [`${VISITOR}${visitor}`]: limiter.exportVisitor(visitor),
+          [SITE]: limiter.exportSite(),
+          [EVENTS]: limiter.exportEvents(),
+        };
+        const block = limiter.exportBlock(visitor);
+        if (block) entries[`${BLOCK}${visitor}`] = block;
+        await storage.put(entries).catch(() => {});
+        return started;
+      }
       try {
         await save(visitor);
       } catch (err) {
@@ -108,6 +138,65 @@ export function createFreeLimitsStore(env, storage, { now = Date.now, unsplashPe
       unsplash.set(id, entry);
       await storage.put(`${UNSPLASH}${id}`, entry);
       return true;
+    },
+
+    // Live daily usage & abuse snapshot for the admin dashboard (worker/freeUsageAdminApi.js).
+    async snapshot({ limit = 100, minPct = 0, flaggedOnly = false } = {}) {
+      await load();
+      const data = limiter.snapshot();
+      const maxVisitors = Math.max(1, Math.min(500, Math.floor(Number(limit) || 100)));
+      const pctFloor = Number.isFinite(Number(minPct)) && Number(minPct) > 0 ? Number(minPct) : 0;
+      let filtered = data.visitors;
+      if (flaggedOnly) {
+        filtered = filtered.filter((v) => v.riskLevel !== 'none');
+      } else if (pctFloor > 0) {
+        filtered = filtered.filter((v) => v.pct != null && v.pct >= pctFloor);
+      }
+      return {
+        ...data,
+        visitors: filtered.slice(0, maxVisitors),
+      };
+    },
+
+    async blockVisitor(visitor, options = {}) {
+      await load();
+      const id = String(visitor || '').trim();
+      if (!id) return null;
+      const entry = limiter.blockVisitor(id, options);
+      await storage.put({
+        [`${BLOCK}${id}`]: entry,
+        [EVENTS]: limiter.exportEvents(),
+      });
+      return entry;
+    },
+
+    async unblockVisitor(visitor) {
+      await load();
+      const id = String(visitor || '').trim();
+      const removed = limiter.unblockVisitor(id);
+      await storage.delete(`${BLOCK}${id}`);
+      await storage.put({ [EVENTS]: limiter.exportEvents() });
+      return removed;
+    },
+
+    async setPaused(paused, reason = '') {
+      await load();
+      const next = limiter.setPaused(paused, reason);
+      await storage.put({
+        [PAUSE]: next,
+        [EVENTS]: limiter.exportEvents(),
+      });
+      return next;
+    },
+
+    async setPolicy(options = {}) {
+      await load();
+      const next = limiter.setPolicy(options);
+      await storage.put({
+        [POLICY]: next,
+        [EVENTS]: limiter.exportEvents(),
+      });
+      return next;
     },
   };
 }

@@ -21,4 +21,24 @@ export class FreeLimits extends DurableObject {
   allowUnsplash(visitor) {
     return this.store.allowUnsplash(String(visitor || ''));
   }
+
+  snapshot(options) {
+    return this.store.snapshot(options);
+  }
+
+  blockVisitor(visitor, options) {
+    return this.store.blockVisitor(String(visitor || ''), options);
+  }
+
+  unblockVisitor(visitor) {
+    return this.store.unblockVisitor(String(visitor || ''));
+  }
+
+  setPaused(paused, reason) {
+    return this.store.setPaused(Boolean(paused), String(reason || ''));
+  }
+
+  setPolicy(options) {
+    return this.store.setPolicy(options);
+  }
 }
