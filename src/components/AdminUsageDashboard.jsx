@@ -219,6 +219,7 @@ export default function AdminUsageDashboard() {
   const [search, setSearch] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [copiedKey, setCopiedKey] = useState('');
+  const [showOwnerHint, setShowOwnerHint] = useState(false);
 
   // Prevention controls state
   const [busyAction, setBusyAction] = useState(false);
@@ -450,10 +451,21 @@ export default function AdminUsageDashboard() {
     }
     const q = search.trim().toLowerCase();
     if (!q) return list;
-    return list.filter((v) => v.visitor.toLowerCase().includes(q));
+    return list.filter((v) => (
+      v.visitor.toLowerCase().includes(q)
+      || (v.email && v.email.toLowerCase().includes(q))
+      || (v.name && v.name.toLowerCase().includes(q))
+    ));
   }, [data?.visitors, filterMode, search]);
 
+  const hasAccountVisitors = useMemo(
+    () => (data?.visitors || []).some((v) => v.visitor.startsWith('user:')),
+    [data?.visitors],
+  );
+
   const needsSignIn = !hasAuth || error?.status === 401 || error?.status === 403 || error?.status === 503;
+  const checkingAccess = hasAuth && !needsSignIn && !data && !error;
+  const isAuthenticated = hasAuth && !needsSignIn && Boolean(data);
   const isPaused = Boolean(data?.pause?.paused);
   const isAutoBlockOn = Boolean(data?.policy?.autoBlockAbuse);
   const health = buildHealthSummary(data);
@@ -483,9 +495,151 @@ export default function AdminUsageDashboard() {
 
   const nearOrAtCount = (data?.summary?.atLimit ?? 0) + (data?.summary?.nearLimit80 ?? 0);
 
+  if (!isAuthenticated) {
+    return (
+      <div className="palette-stock flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10 text-slate-100 antialiased">
+        {checkingAccess ? (
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 px-6 py-4 text-sm text-slate-300 shadow-2xl shadow-black/50">
+            <RefreshCw className="h-4 w-4 animate-spin text-sky-400" />
+            Verifying access…
+          </div>
+        ) : (
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-7 shadow-2xl shadow-black/50">
+            <div className="mb-5 flex items-center gap-3.5">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30">
+                {error?.status === 403 ? <ShieldAlert className="h-5 w-5 text-red-400" /> : <ShieldCheck className="h-5 w-5" />}
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-white">Sign In</h1>
+                <p className="text-xs text-slate-400">
+                  Authorized administrators only.
+                </p>
+              </div>
+            </div>
+
+            {error && (
+              <div className="mb-5 rounded-xl border border-red-500/35 bg-red-500/10 p-3.5 text-xs text-red-200">
+                <p className="font-medium">
+                  {error.status === 403
+                    ? 'Access denied. This account is not authorized.'
+                    : error.message}
+                </p>
+                {error.status === 403 && signInState?.userId && (
+                  <div className="mt-2.5 border-t border-red-500/20 pt-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowOwnerHint((v) => !v)}
+                      className="text-[11px] font-medium text-slate-300 underline decoration-slate-600 underline-offset-2 hover:text-white"
+                    >
+                      {showOwnerHint ? 'Hide owner setup info' : 'Site owner? Show your account ID'}
+                    </button>
+                    {showOwnerHint && (
+                      <div className="mt-2.5 text-slate-300">
+                        <p className="mb-2 leading-relaxed">
+                          Add this ID to{' '}
+                          <code className="rounded bg-slate-950 px-1.5 py-0.5 font-mono text-[11px] text-sky-300">
+                            APPBLIPS_ADMIN_USER_IDS
+                          </code>{' '}
+                          in Cloudflare:
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 truncate rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 font-mono text-xs text-slate-100">
+                            {signInState.userId}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => copyText('self', signInState.userId)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
+                          >
+                            {copiedKey === 'self' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copiedKey === 'self' ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {signInState?.required !== false && !signInState?.signedIn && (
+                <button
+                  type="button"
+                  onClick={() => signIn().catch(() => {})}
+                  disabled={authBusy}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:opacity-60"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Sign in with Google or GitHub
+                </button>
+              )}
+
+              {signInState?.signedIn && (
+                <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-white">{signInState.displayName || signInState.email}</div>
+                    <div className="truncate text-slate-400">{signInState.email}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="ml-2 shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowTokenForm((v) => !v)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  {showTokenForm ? 'Hide token sign-in' : 'Use admin token'}
+                </button>
+                <a
+                  href="/"
+                  className="text-xs font-medium text-slate-500 hover:text-slate-300"
+                >
+                  Return home
+                </a>
+              </div>
+
+              {(showTokenForm || signInState?.required === false) && (
+                <form onSubmit={handleTokenSubmit} className="space-y-2.5 border-t border-slate-800 pt-3.5">
+                  <label className="block text-xs font-medium text-slate-300">
+                    Admin Token
+                  </label>
+                  <input
+                    type="password"
+                    value={tokenInput}
+                    onChange={(e) => setTokenInput(e.target.value)}
+                    placeholder="Enter admin token"
+                    autoComplete="current-password"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!tokenInput.trim()}
+                    className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-white disabled:opacity-50"
+                  >
+                    Continue
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 antialiased">
-      {/* Top navigation bar */}
+    <div className="palette-stock min-h-screen bg-slate-950 text-slate-100 antialiased">
+      {/* Top navigation bar (rendered only after authentication succeeds) */}
       <header className="sticky top-0 z-20 border-b border-slate-800/90 bg-slate-950/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
           <div className="flex items-center gap-3">
@@ -511,193 +665,79 @@ export default function AdminUsageDashboard() {
             </div>
           </div>
 
-          {hasAuth && !needsSignIn && (
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setChatOpen((v) => !v)}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                chatOpen
+                  ? 'border-sky-400/60 bg-sky-500/20 text-sky-200'
+                  : 'border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Ask AI
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowGuide((v) => !v)}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+                showGuide
+                  ? 'border-sky-500/50 bg-sky-500/15 text-sky-200'
+                  : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white'
+              }`}
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Guide
+            </button>
+
+            {isPaused ? (
               <button
                 type="button"
-                onClick={() => setChatOpen((v) => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
-                  chatOpen
-                    ? 'border-sky-400/60 bg-sky-500/20 text-sky-200'
-                    : 'border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20'
-                }`}
+                onClick={() => handleTogglePause(false)}
+                disabled={busyAction}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
               >
-                <Sparkles className="h-3.5 w-3.5" />
-                Ask AI
+                <PlayCircle className="h-3.5 w-3.5" />
+                Resume Free AI
               </button>
-
+            ) : (
               <button
                 type="button"
-                onClick={() => setShowGuide((v) => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
-                  showGuide
-                    ? 'border-sky-500/50 bg-sky-500/15 text-sky-200'
-                    : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white'
-                }`}
+                onClick={() => setPauseModalOpen((v) => !v)}
+                disabled={busyAction}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-60"
               >
-                <HelpCircle className="h-3.5 w-3.5" />
-                Guide
+                <PauseCircle className="h-3.5 w-3.5" />
+                Pause Free AI
               </button>
+            )}
 
-              {isPaused ? (
-                <button
-                  type="button"
-                  onClick={() => handleTogglePause(false)}
-                  disabled={busyAction}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
-                >
-                  <PlayCircle className="h-3.5 w-3.5" />
-                  Resume Free AI
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setPauseModalOpen((v) => !v)}
-                  disabled={busyAction}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-60"
-                >
-                  <PauseCircle className="h-3.5 w-3.5" />
-                  Pause Free AI
-                </button>
-              )}
+            <button
+              type="button"
+              onClick={() => fetchUsage()}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:opacity-60"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
 
-              <button
-                type="button"
-                onClick={() => fetchUsage()}
-                disabled={loading}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:opacity-60"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-slate-700 hover:text-white"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                Sign out
-              </button>
-            </div>
-          )}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-slate-700 hover:text-white"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        {needsSignIn ? (
-          <div className="mx-auto mt-12 max-w-md rounded-2xl border border-slate-800 bg-slate-900/90 p-7 shadow-2xl shadow-black/40">
-            <div className="mb-5 flex items-center gap-3.5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30">
-                {error?.status === 403 ? <ShieldAlert className="h-5 w-5 text-red-400" /> : <ShieldCheck className="h-5 w-5" />}
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white">Admin Sign-In</h2>
-                <p className="text-xs text-slate-400">
-                  Sign in to view live Free AI usage and protection controls.
-                </p>
-              </div>
-            </div>
-
-            {error && (
-              <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-200">
-                <p className="font-medium">{error.message}</p>
-                {error.status === 403 && signInState?.userId && (
-                  <div className="mt-3 border-t border-red-500/20 pt-3 text-slate-300">
-                    <p className="mb-2 leading-relaxed">
-                      Add your Clerk user ID below to{' '}
-                      <code className="rounded bg-slate-950 px-1.5 py-0.5 font-mono text-[11px] text-sky-300">
-                        APPBLIPS_ADMIN_USER_IDS
-                      </code>{' '}
-                      in Cloudflare → Settings → Variables and Secrets:
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 truncate rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 font-mono text-xs text-slate-100">
-                        {signInState.userId}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => copyText('self', signInState.userId)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
-                      >
-                        {copiedKey === 'self' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                        {copiedKey === 'self' ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-3">
-              {signInState?.required !== false && !signInState?.signedIn && (
-                <button
-                  type="button"
-                  onClick={() => signIn().catch(() => {})}
-                  disabled={authBusy}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:opacity-60"
-                >
-                  <LogIn className="h-4 w-4" />
-                  Sign in with Google or GitHub
-                </button>
-              )}
-
-              {signInState?.signedIn && (
-                <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 px-3.5 py-2.5 text-xs">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-white">{signInState.displayName || signInState.email}</div>
-                    <div className="truncate text-slate-400">{signInState.email}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="ml-2 shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
-                  >
-                    Sign out
-                  </button>
-                </div>
-              )}
-
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowTokenForm((v) => !v)}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200"
-                >
-                  <KeyRound className="h-3.5 w-3.5" />
-                  {showTokenForm ? 'Hide admin token sign-in' : 'Or sign in with an admin token'}
-                </button>
-              </div>
-
-              {(showTokenForm || signInState?.required === false) && (
-                <form onSubmit={handleTokenSubmit} className="space-y-2.5 border-t border-slate-800 pt-3.5">
-                  <label className="block text-xs font-medium text-slate-300">
-                    Admin Token (<code className="font-mono text-[11px] text-sky-300">APPBLIPS_ADMIN_TOKEN</code>)
-                  </label>
-                  <input
-                    type="password"
-                    value={tokenInput}
-                    onChange={(e) => setTokenInput(e.target.value)}
-                    placeholder="Paste your admin token"
-                    autoComplete="current-password"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!tokenInput.trim()}
-                    className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-white disabled:opacity-50"
-                  >
-                    Unlock Dashboard
-                  </button>
-                  <p className="text-[11px] text-slate-500">
-                    Kept only for this browser tab and cleared automatically when you close it.
-                  </p>
-                </form>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
+        <div className="space-y-6">
             {/* Collapsible plain-English Quick Guide */}
             {showGuide && (
               <section className="rounded-2xl border border-sky-500/30 bg-sky-500/8 p-5 text-xs text-slate-200">
@@ -1060,8 +1100,8 @@ export default function AdminUsageDashboard() {
                       type="text"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search account or IP…"
-                      className="w-48 rounded-xl border border-slate-800 bg-slate-950 py-1.5 pr-3 pl-8.5 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500"
+                      placeholder="Search email, ID, or IP…"
+                      className="w-52 rounded-xl border border-slate-800 bg-slate-950 py-1.5 pr-3 pl-8.5 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500"
                     />
                   </div>
 
@@ -1078,6 +1118,12 @@ export default function AdminUsageDashboard() {
                   </select>
                 </div>
               </div>
+
+              {data && data.emailLookupEnabled === false && hasAccountVisitors && (
+                <div className="border-b border-slate-800 bg-slate-950/50 px-5 py-2.5 text-[11px] text-slate-400">
+                  Tip: Add <code className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-sky-300">CLERK_SECRET_KEY</code> as a secret in Cloudflare → Settings → Variables and Secrets to display user email addresses alongside Clerk IDs.
+                </div>
+              )}
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -1106,28 +1152,45 @@ export default function AdminUsageDashboard() {
                         return (
                           <tr key={v.visitor} className="transition hover:bg-slate-800/35">
                             <td className="px-5 py-3.5">
-                              <div className="flex items-center gap-2">
-                                <span className="rounded-md border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
-                                  {parsed.kind}
-                                </span>
-                                <span className="max-w-48 truncate font-mono text-xs font-medium text-slate-100" title={v.visitor}>
-                                  {parsed.label}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => copyText(v.visitor, v.visitor)}
-                                  title="Copy full ID"
-                                  className="rounded p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200"
-                                >
-                                  {copiedKey === v.visitor
-                                    ? <Check className="h-3 w-3 text-emerald-400" />
-                                    : <Copy className="h-3 w-3" />}
-                                </button>
-                                {v.inFlight > 0 && (
-                                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                                    Generating now
-                                  </span>
+                              <div className="space-y-1">
+                                {v.email && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="max-w-56 truncate text-xs font-semibold text-white" title={v.email}>
+                                      {v.email}
+                                    </span>
+                                    {v.inFlight > 0 && (
+                                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                        Generating now
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-md border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
+                                    {parsed.kind}
+                                  </span>
+                                  <span
+                                    className={`max-w-48 truncate font-mono ${v.email ? 'text-[11px] text-slate-400' : 'text-xs font-medium text-slate-100'}`}
+                                    title={v.visitor}
+                                  >
+                                    {parsed.label}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyText(v.visitor, v.visitor)}
+                                    title="Copy full ID"
+                                    className="rounded p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200"
+                                  >
+                                    {copiedKey === v.visitor
+                                      ? <Check className="h-3 w-3 text-emerald-400" />
+                                      : <Copy className="h-3 w-3" />}
+                                  </button>
+                                  {!v.email && v.inFlight > 0 && (
+                                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                      Generating now
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </td>
 
@@ -1333,7 +1396,12 @@ export default function AdminUsageDashboard() {
                       data.blocked.map((b) => (
                         <div key={b.visitor} className="flex items-center justify-between gap-3 py-3 text-xs">
                           <div className="min-w-0">
-                            <div className="truncate font-mono font-medium text-slate-100">{b.visitor}</div>
+                            {b.email && (
+                              <div className="truncate font-semibold text-white">{b.email}</div>
+                            )}
+                            <div className={`truncate font-mono ${b.email ? 'text-[11px] text-slate-400' : 'font-medium text-slate-100'}`}>
+                              {b.visitor}
+                            </div>
                             <div className="mt-0.5 text-[11px] text-slate-400">
                               {formatExpiry(b.expiresAt)}
                               {b.reason ? ` · ${b.reason}` : ''}
@@ -1388,8 +1456,11 @@ export default function AdminUsageDashboard() {
                               <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${info.cls}`}>
                                 {info.label}
                               </span>
-                              <span className="truncate font-mono text-[11px] font-medium text-slate-200">
-                                {parsed.label}
+                              <span className="truncate text-[11px] font-medium text-slate-200">
+                                {ev.email ? `${ev.email} ` : ''}
+                                <span className={`font-mono ${ev.email ? 'text-slate-400' : ''}`}>
+                                  {ev.email ? `(${parsed.label})` : parsed.label}
+                                </span>
                               </span>
                             </div>
                             {ev.detail && (
@@ -1406,13 +1477,11 @@ export default function AdminUsageDashboard() {
                 </div>
               </div>
             </section>
-          </div>
-        )}
+        </div>
       </main>
 
       {/* Built-in AI Assistant (unmetered, uses the same Free AI model) */}
-      {hasAuth && !needsSignIn && (
-        <>
+      <>
           {!chatOpen && (
             <button
               type="button"
@@ -1547,8 +1616,7 @@ export default function AdminUsageDashboard() {
               </form>
             </aside>
           )}
-        </>
-      )}
+      </>
     </div>
   );
 }

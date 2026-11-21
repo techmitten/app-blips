@@ -473,3 +473,45 @@ test('admin AI chat injects live usage data and never deducts from Free AI limit
   const snapAfter = await store.snapshot();
   assert.equal(snapAfter.site.tokens, 1000);
 });
+
+test('admin snapshot enriches Clerk user IDs with email addresses when CLERK_SECRET_KEY is set', async () => {
+  const clock = Date.UTC(2026, 10, 17, 10);
+  const storage = memoryStorage();
+  const env = {
+    APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: '5000',
+    APPBLIPS_ADMIN_TOKEN: 'admin-secret',
+    CLERK_SECRET_KEY: 'sk_test_fake',
+  };
+  const store = createFreeLimitsStore(env, storage, { now: () => clock, rates: RATES });
+  await store.end((await store.begin('user:user_email_1')).ticket, 'user:user_email_1', 750);
+
+  let fetchedUrl = '';
+  const fakeFetch = async (url, init) => {
+    fetchedUrl = String(url);
+    assert.equal(init.headers.authorization, 'Bearer sk_test_fake');
+    return Response.json([
+      {
+        id: 'user_email_1',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        primary_email_address_id: 'em_1',
+        email_addresses: [{ id: 'em_1', email_address: 'ada@example.com' }],
+      },
+    ]);
+  };
+
+  const res = await handleFreeUsageAdminApi(
+    new Request('https://web.appblips.com/api/admin/free-usage', {
+      headers: { authorization: 'Bearer admin-secret' },
+    }),
+    env,
+    store,
+    { fetchImpl: fakeFetch },
+  );
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.match(fetchedUrl, /api\.clerk\.com\/v1\/users\?.*user_id=user_email_1/);
+  assert.equal(body.emailLookupEnabled, true);
+  assert.equal(body.visitors[0].email, 'ada@example.com');
+  assert.equal(body.visitors[0].name, 'Ada Lovelace');
+});

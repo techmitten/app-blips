@@ -125,7 +125,107 @@ function sanitizeChatMessages(raw) {
   return cleaned;
 }
 
-export async function handleFreeUsageAdminApi(request, env, actionsOrSnapshot, { checkSignIn = checkFreeSignIn, chatProxy = handleChatProxy } = {}) {
+const CLERK_API_BASE = 'https://api.clerk.com/v1';
+const CLERK_CACHE_TTL_MS = 10 * 60_000;
+const CLERK_CACHE_MAX = 2000;
+const clerkUserCache = new Map(); // userId -> { email, name, at }
+
+const pickClerkEmail = (user) => {
+  const list = Array.isArray(user?.email_addresses) ? user.email_addresses : [];
+  const primary = list.find((e) => e?.id === user?.primary_email_address_id) || list[0];
+  return typeof primary?.email_address === 'string' ? primary.email_address.trim() : '';
+};
+
+const pickClerkName = (user) => {
+  const full = [user?.first_name, user?.last_name]
+    .map((s) => (typeof s === 'string' ? s.trim() : ''))
+    .filter(Boolean)
+    .join(' ');
+  return full || (typeof user?.username === 'string' ? user.username.trim() : '');
+};
+
+async function lookupClerkProfiles(visitorKeys, env, fetchImpl = fetch) {
+  const secretKey = String(env?.CLERK_SECRET_KEY ?? '').trim();
+  const profiles = new Map();
+  if (!secretKey) return { enabled: false, profiles };
+
+  const now = Date.now();
+  const missing = [];
+  const seen = new Set();
+  for (const key of visitorKeys) {
+    if (typeof key !== 'string' || !key.startsWith('user:')) continue;
+    const userId = key.slice(5).trim();
+    if (!userId || seen.has(userId)) continue;
+    seen.add(userId);
+    const cached = clerkUserCache.get(userId);
+    if (cached && now - cached.at < CLERK_CACHE_TTL_MS) {
+      profiles.set(userId, { email: cached.email, name: cached.name });
+    } else {
+      missing.push(userId);
+    }
+  }
+
+  for (let i = 0; i < missing.length; i += 100) {
+    const batch = missing.slice(i, i + 100);
+    const params = new URLSearchParams({ limit: '100' });
+    for (const id of batch) params.append('user_id', id);
+    try {
+      const res = await fetchImpl(`${CLERK_API_BASE}/users?${params.toString()}`, {
+        headers: { authorization: `Bearer ${secretKey}` },
+      });
+      if (!res.ok) {
+        console.warn('[free-limits] Clerk user lookup returned HTTP', res.status);
+        continue;
+      }
+      const payload = await res.json().catch(() => null);
+      const users = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+      for (const user of users) {
+        if (typeof user?.id !== 'string' || !user.id) continue;
+        const entry = { email: pickClerkEmail(user), name: pickClerkName(user) };
+        profiles.set(user.id, entry);
+        if (clerkUserCache.size >= CLERK_CACHE_MAX) {
+          clerkUserCache.delete(clerkUserCache.keys().next().value);
+        }
+        clerkUserCache.set(user.id, { ...entry, at: now });
+      }
+    } catch (err) {
+      console.warn('[free-limits] Clerk user lookup failed:', err?.message || err);
+    }
+  }
+
+  return { enabled: true, profiles };
+}
+
+async function enrichSnapshotWithEmails(snapshot, env, fetchImpl) {
+  const keys = [
+    ...(snapshot.visitors || []).map((v) => v.visitor),
+    ...(snapshot.blocked || []).map((b) => b.visitor),
+    ...(snapshot.recentEvents || []).map((e) => e.visitor),
+  ];
+  const { enabled, profiles } = await lookupClerkProfiles(keys, env, fetchImpl);
+  const profileFor = (visitor) => (typeof visitor === 'string' && visitor.startsWith('user:')
+    ? profiles.get(visitor.slice(5)) || null
+    : null);
+
+  return {
+    ...snapshot,
+    emailLookupEnabled: enabled,
+    visitors: (snapshot.visitors || []).map((v) => {
+      const p = profileFor(v.visitor);
+      return p ? { ...v, email: p.email, name: p.name } : v;
+    }),
+    blocked: (snapshot.blocked || []).map((b) => {
+      const p = profileFor(b.visitor);
+      return p ? { ...b, email: p.email, name: p.name } : b;
+    }),
+    recentEvents: (snapshot.recentEvents || []).map((e) => {
+      const p = profileFor(e.visitor);
+      return p ? { ...e, email: p.email, name: p.name } : e;
+    }),
+  };
+}
+
+export async function handleFreeUsageAdminApi(request, env, actionsOrSnapshot, { checkSignIn = checkFreeSignIn, chatProxy = handleChatProxy, fetchImpl = fetch } = {}) {
   const url = new URL(request.url);
   const path = url.pathname;
   const actions = normalizeActions(actionsOrSnapshot);
@@ -149,7 +249,8 @@ export async function handleFreeUsageAdminApi(request, env, actionsOrSnapshot, {
       : 0;
 
     try {
-      const data = await actions.snapshot({ limit, minPct, flaggedOnly });
+      const raw = await actions.snapshot({ limit, minPct, flaggedOnly });
+      const data = await enrichSnapshotWithEmails(raw, env, fetchImpl);
       return json(200, {
         enabled: freeLimitsEnabled(env),
         ...data,
@@ -226,7 +327,8 @@ export async function handleFreeUsageAdminApi(request, env, actionsOrSnapshot, {
         if (userMessages.length === 0 || userMessages[userMessages.length - 1].role !== 'user') {
           return json(400, { error: 'Please enter a question to ask the assistant.' });
         }
-        const liveSnapshot = await actions.snapshot({ limit: 50 });
+        const rawSnapshot = await actions.snapshot({ limit: 50 });
+        const liveSnapshot = await enrichSnapshotWithEmails(rawSnapshot, env, fetchImpl);
         const systemPrompt = buildAdminSystemPrompt(liveSnapshot, freeLimitsEnabled(env));
         const proxyPayload = {
           messages: [{ role: 'system', content: systemPrompt }, ...userMessages],
