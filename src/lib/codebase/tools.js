@@ -291,8 +291,11 @@ function executeTool(state, toolCall, checkLimits = true) {
       // generic 'not found'. Never apply a best guess from this diagnostic.
       const searchLine = result.failedBlock?.split(/\r?\n/).find((line) => line.trim().length > 3)?.trim();
       const near = result.matchLines?.[0] || (searchLine ? files[path].split(/\r?\n/).findIndex((line) => line.includes(searchLine)) + 1 : 0);
+      // failedBlock is left out: it is the model's own search text, already
+      // in the history as the call's arguments.
+      const { failedBlock: _failedBlock, ...details } = result; // eslint-disable-line no-unused-vars
       return fail(state, result.error, {
-        ...result, file: path, rolledBack: true,
+        ...details, file: path, rolledBack: true,
         ...(near ? { context: viewCode(files[path], { start_line: Math.max(1, near - 3), end_line: near + 6 }).code } : {}),
         instruction: `None of this file's edits were applied. Read ${path} for current source, remove line numbers, use a unique search block, and retry all edits. Blocks run in order against the result of earlier blocks.`,
       });

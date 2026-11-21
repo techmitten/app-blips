@@ -17,7 +17,7 @@ import {
 import { checkSyntax } from './syntaxCheck';
 import { logWarn } from './errorLog';
 import { trackRequest } from './tokenUsage';
-import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction } from './pageTools';
+import { executeFilesTool, checkSyntaxFiles, buildBrokenLinkInstruction, modelEditFailure } from './pageTools';
 import {
   MAX_RESEARCH_SEARCHES, formatWebResearch, isWebFetchCall, isWebToolCall, researchPage, startWebSearch,
 } from './webSearch';
@@ -871,7 +871,8 @@ export const executeRefinementTool = (workingCode, toolCall) => {
   }
   if (name === 'apply_surgical_edits') {
     const result = applySurgicalEdits(workingCode, args.edits);
-    return { code: result.success ? result.code : workingCode, applied: result.success, result };
+    if (!result.success) return { code: workingCode, applied: false, result: modelEditFailure(result) };
+    return { code: result.code, applied: true, result: { success: true, changed: result.code !== workingCode } };
   }
   return { code: workingCode, applied: false, result: { success: false, error: `Unknown tool: ${name}` } };
 };

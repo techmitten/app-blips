@@ -48,6 +48,11 @@ r = executeFilesTool(f, call('apply_surgical_edits', { file: 'about.html', edits
 assert.ok(r.applied && r.files['about.html'].includes('About us') && r.files['index.html'] === f['index.html']);
 r = executeFilesTool(f, call('apply_surgical_edits', { file: null, edits: [{ search: '<p>hello</p>', replace: '<p>hi</p>', occurrence: null, replace_all: null }] }));
 assert.ok(r.applied && r.files['index.html'].includes('<p>hi</p>'));
+// The model gets a short confirmation, not the whole page again.
+assert.deepEqual(r.result, { success: true, file: 'index.html', changed: true });
+// A failed edit keeps its error but doesn't echo the model's search text back.
+r = executeFilesTool(f, call('apply_surgical_edits', { file: null, edits: [{ search: '<p>missing</p>', replace: '', occurrence: null, replace_all: null }] }));
+assert.ok(!r.applied && r.result.success === false && /not found/.test(r.result.error) && !('failedBlock' in r.result));
 assert.equal(executeFilesTool(f, call('view_code', { file: 'nope.html', section: null, start_line: 1, end_line: 2 })).result.success, false);
 assert.equal(executeFilesTool(f, call('list_pages', {})).result.pages.length, 2);
 assert.equal(executeFilesTool(f, call('delete_page', { name: 'index.html' })).result.success, false);

@@ -7,7 +7,11 @@ import {
   LANDING_PAGE, MAX_PAGES, checkFilesLimits, findBrokenLinks, pageNames, pageTitle, validatePageName,
 } from './pages.js';
 
-const looksLikeDocument = (html) => typeof html === 'string' && /<html[\s>]|<!doctype html/i.test(html);
+// A failed edit as reported to the model, without failedBlock: that is the
+// model's own search text, already in the history as the call's arguments.
+export const modelEditFailure = ({ failedBlock: _failedBlock, ...rest }) => rest; // eslint-disable-line no-unused-vars
+
+const looksLikeDocument =(html) => typeof html === 'string' && /<html[\s>]|<!doctype html/i.test(html);
 
 // Runs one tool call against the site's files. Returns the (possibly updated)
 // files, whether anything changed, and the JSON-able result reported back to
@@ -72,11 +76,13 @@ export const executeFilesTool = (files, toolCall) => {
     if (name === 'list_sections') return { files, applied: false, result: { success: true, file, sections: listSections(code) } };
     if (name === 'view_code') return { files, applied: false, result: { file, ...viewCode(code, args) } };
     const result = applySurgicalEdits(code, args.edits);
-    if (!result.success) return { files, applied: false, result: { file, ...result } };
+    if (!result.success) return { files, applied: false, result: { file, ...modelEditFailure(result) } };
     const next = { ...files, [file]: result.code };
     const limit = checkFilesLimits(next);
     if (limit) return fail(limit);
-    return { files: next, applied: true, result: { file, ...result } };
+    // The model gets a short confirmation, not the whole page again: it already
+    // has the page and its own edits, and every later turn resends this result.
+    return { files: next, applied: true, result: { success: true, file, changed: result.code !== code } };
   }
 
   return fail(`Unknown tool: ${name}`);
