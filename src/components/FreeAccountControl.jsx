@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, LogIn, LogOut, Trash2, User, UserCog } from 'lucide-react';
-import DeleteAccountModal from './DeleteAccountModal';
+import { ChevronDown, LogIn, LogOut, User, UserCog } from 'lucide-react';
 
 const initialsFor = (state) => {
   const source = (state.displayName || state.email || '').trim();
@@ -58,7 +57,6 @@ export default function FreeAccountControl({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
 
@@ -125,21 +123,6 @@ export default function FreeAccountControl({
     setMenuOpen(true);
   };
 
-  const requestDelete = () => {
-    setMenuOpen(false);
-    onBeforeAction?.();
-    setConfirmDelete(true);
-  };
-
-  const deleteModal = confirmDelete ? createPortal(
-    <DeleteAccountModal
-      accountLabel={accountLabel}
-      onDelete={account.deleteAccount}
-      onClose={() => setConfirmDelete(false)}
-    />,
-    document.body,
-  ) : null;
-
   if (variant === 'menu' || variant === 'studio-menu') {
     const itemClass = variant === 'studio-menu' ? 'studio-menu-item studio-focus' : 'mobile-menu-item';
     if (!state.signedIn) {
@@ -182,11 +165,6 @@ export default function FreeAccountControl({
           <LogOut size={16} aria-hidden="true" />
           <span>Sign out</span>
         </button>
-        <button type="button" onClick={requestDelete} disabled={busy} className={`${itemClass} text-red-400 hover:text-red-300`}>
-          <Trash2 size={16} aria-hidden="true" />
-          <span>Delete account</span>
-        </button>
-        {deleteModal}
       </>
     );
   }

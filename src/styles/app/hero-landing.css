@@ -588,6 +588,7 @@
 .hero-menu {
   --sc-bg: var(--hero-ground);
   --sc-text-strong: var(--hero-rail-fg-strong);
+  --sc-text-muted: var(--hero-rail-muted);
   --sc-fill-hover: var(--hero-rail-hover);
   --sc-line: color-mix(in srgb, var(--hero-rail-fg-strong) 10%, transparent);
   --sc-line-strong: color-mix(in srgb, var(--hero-rail-fg-strong) 20%, transparent);

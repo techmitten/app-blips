@@ -225,14 +225,13 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
   ];
 
   return (
-    <div className="studio-choice relative flex-1 min-h-0 overflow-hidden">
+    <div className="studio-choice relative flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Behind everything, top bar and footer included, so they float on it. */}
       <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
-      <div ref={scrollRef} className="relative h-full overflow-y-auto overflow-x-hidden">
-        <div className="flex min-h-full flex-col">
-          {/* Top bar, like the landing page's: mark left, quick links centred
-              (md+), GitHub, theme and settings on the right. */}
-          <nav className="studio-topbar sticky top-0 z-20 shrink-0">
+      {/* Top bar, like the landing page's: mark left, quick links centred
+          (md+), GitHub, theme and settings on the right. Kept outside the
+          scroll container so it stays static when scrolling (e.g. What's New). */}
+      <nav className="studio-topbar relative z-20 shrink-0">
             <div className="studio-topbar-inner relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
               <span className="studio-logo mr-auto">
                 <img src="/favicon.svg" alt="" aria-hidden="true" width={28} height={28} className="studio-logo-icon" />
@@ -321,7 +320,9 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
             </div>
           </nav>
 
-          {showWhatsNew ? <WhatsNew onBack={() => navigateToNews(false)} /> : <div className="relative flex flex-1 flex-col">
+          <div ref={scrollRef} className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+            <div className="flex min-h-full flex-col">
+              {showWhatsNew ? <WhatsNew onBack={() => navigateToNews(false)} /> : <div className="relative flex flex-1 flex-col">
 
             <div className="studio-main relative mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
               <header className="flex flex-col items-center text-center animate-stagger-1">
@@ -475,8 +476,8 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
               <p className="studio-text-soft pb-1 text-xs">© 2026 TechMitten LLC. All rights reserved.</p>
             </div>
           </footer>
-        </div>
-      </div>
+            </div>
+          </div>
 
       {/* Mobile slide-out menu (below md): everything the header and footer
           drop at that width. Always mounted so it can animate; `inert` keeps
@@ -501,18 +502,19 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
             </button>
           </div>
           <div className="studio-menu-list">
-            <FreeAccountControl account={freeAccount} variant="studio-menu" onBeforeAction={() => setMenuOpen(false)} />
+            {freeAccount?.state?.required && (
+              <>
+                <p className="studio-menu-heading">Account</p>
+                <FreeAccountControl account={freeAccount} variant="studio-menu" onBeforeAction={() => setMenuOpen(false)} />
+                <div className="studio-menu-sep" role="separator" />
+              </>
+            )}
+            <p className="studio-menu-heading">Preferences</p>
             {onOpenSettings && (
               <button type="button" className={MENU_ITEM} onClick={fromMenu(onOpenSettings)}>
                 <Settings size={18} aria-hidden="true" /> Settings
               </button>
             )}
-            <button type="button" className={MENU_ITEM} onClick={fromMenu(() => setFeedbackOpen(true))}>
-              <MessageSquare size={18} aria-hidden="true" /> Send feedback
-            </button>
-            <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
-              <CircleHelp size={18} aria-hidden="true" /> Help
-            </a>
             {onToggleTheme && (
               <button type="button" className={MENU_ITEM} onClick={onToggleTheme}>
                 {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
@@ -524,9 +526,18 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
               {soundMuted ? 'Turn sounds on' : 'Mute sounds'}
             </button>
             <div className="studio-menu-sep" role="separator" />
+            <p className="studio-menu-heading">Help &amp; Feedback</p>
+            <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
+              <CircleHelp size={18} aria-hidden="true" /> Help
+            </a>
             <button type="button" className={MENU_ITEM} onClick={() => navigateToNews(true)}>
               <Megaphone size={18} aria-hidden="true" /> What’s New
             </button>
+            <button type="button" className={MENU_ITEM} onClick={fromMenu(() => setFeedbackOpen(true))}>
+              <MessageSquare size={18} aria-hidden="true" /> Send feedback
+            </button>
+            <div className="studio-menu-sep" role="separator" />
+            <p className="studio-menu-heading">Community</p>
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
               <Github size={18} aria-hidden="true" /> GitHub
             </a>
@@ -534,6 +545,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
               <DiscordIcon size={18} /> Discord
             </a>
             <div className="studio-menu-sep" role="separator" />
+            <p className="studio-menu-heading">Legal</p>
             <a href="https://www.appblips.com/privacy" target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
               <ShieldCheck size={18} aria-hidden="true" /> Privacy Policy
             </a>

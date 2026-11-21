@@ -544,6 +544,14 @@
 }
 .studio-menu-item:hover { background: var(--sc-fill-hover); }
 .studio-menu-sep { height: 1px; margin: 0.5rem 0.75rem; background: var(--sc-line); }
+.studio-menu-heading {
+  padding: 0.35rem 0.75rem 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sc-text-muted);
+}
 @media (prefers-reduced-motion: reduce) {
   .studio-menu-backdrop,
   .studio-menu-panel,

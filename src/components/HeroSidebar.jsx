@@ -255,7 +255,14 @@ export default function HeroSidebar({
           </button>
         </div>
         <div className="studio-menu-list">
-          <FreeAccountControl account={freeAccount} variant="studio-menu" onBeforeAction={() => setMenuOpen(false)} />
+          {freeAccount?.state?.required && (
+            <>
+              <p className="studio-menu-heading">Account</p>
+              <FreeAccountControl account={freeAccount} variant="studio-menu" onBeforeAction={() => setMenuOpen(false)} />
+              <div className="studio-menu-sep" role="separator" />
+            </>
+          )}
+          <p className="studio-menu-heading">Workspace</p>
           <button type="button" className="studio-menu-item" onClick={fromMenu(onNewApp)}>
             <Plus size={18} aria-hidden="true" /> New
           </button>
@@ -270,7 +277,7 @@ export default function HeroSidebar({
           {recentProjects.length > 0 && (
             <>
               <div className="studio-menu-sep" role="separator" />
-              <p className="hero-rail-heading">Recents</p>
+              <p className="studio-menu-heading">Recents</p>
               {recentProjects.map((project) => (
                 <button key={project.id} type="button" className="studio-menu-item" onClick={fromMenu(() => onLoadProject?.(project))}>
                   <span className="truncate">{project.name}</span>
@@ -279,26 +286,48 @@ export default function HeroSidebar({
             </>
           )}
           <div className="studio-menu-sep" role="separator" />
+          <p className="studio-menu-heading">Preferences</p>
           <button type="button" className="studio-menu-item" onClick={fromMenu(onOpenExtensions)}>
             <Plug size={18} aria-hidden="true" /> Extensions
           </button>
           <button type="button" className="studio-menu-item" onClick={fromMenu(onOpenSettings)}>
             <Settings size={18} aria-hidden="true" /> Settings
           </button>
-          <button type="button" className="studio-menu-item" onClick={fromMenu(() => setFeedbackOpen(true))}>
-            <MessageSquare size={18} aria-hidden="true" /> Send feedback
-          </button>
-          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
-            <CircleHelp size={18} aria-hidden="true" /> Help
-          </a>
           <button type="button" className="studio-menu-item" onClick={fromMenu(onToggleTheme)}>
             <ThemeIcon size={18} aria-hidden="true" /> {resolvedTheme === 'dark' ? 'Light theme' : 'Dark theme'}
           </button>
+          <div className="studio-menu-sep" role="separator" />
+          <p className="studio-menu-heading">Help &amp; Feedback</p>
+          <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
+            <CircleHelp size={18} aria-hidden="true" /> Help
+          </a>
+          {workspaceActive && (
+            <button type="button" className="studio-menu-item" onClick={fromMenu(onStartTour)}>
+              <Compass size={18} aria-hidden="true" /> Take the tour
+            </button>
+          )}
+          <button type="button" className="studio-menu-item" onClick={fromMenu(() => setFeedbackOpen(true))}>
+            <MessageSquare size={18} aria-hidden="true" /> Send feedback
+          </button>
+          <div className="studio-menu-sep" role="separator" />
+          <p className="studio-menu-heading">Community</p>
+          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
+            <Github size={18} aria-hidden="true" /> GitHub
+          </a>
+          <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
+            <DiscordIcon size={18} /> Discord
+          </a>
+          <div className="studio-menu-sep" role="separator" />
+          <p className="studio-menu-heading">Legal</p>
+          <a href="https://www.appblips.com/privacy" target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
+            <ShieldCheck size={18} aria-hidden="true" /> Privacy Policy
+          </a>
+          <a href="https://www.appblips.com/terms" target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
+            <ScrollText size={18} aria-hidden="true" /> Terms of Service
+          </a>
           {workspaceActive && (
             <>
-              <button type="button" className="studio-menu-item" onClick={fromMenu(onStartTour)}>
-                <Compass size={18} aria-hidden="true" /> Take the tour
-              </button>
+              <div className="studio-menu-sep" role="separator" />
               <button type="button" className="studio-menu-item" aria-label="Exit to the studio picker" onClick={fromMenu(onExit)}>
                 <DoorOpen size={18} aria-hidden="true" /> Exit
               </button>
@@ -309,20 +338,6 @@ export default function HeroSidebar({
               )}
             </>
           )}
-          <div className="studio-menu-sep" role="separator" />
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
-            <Github size={18} aria-hidden="true" /> GitHub
-          </a>
-          <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
-            <DiscordIcon size={18} /> Discord
-          </a>
-          <div className="studio-menu-sep" role="separator" />
-          <a href="https://www.appblips.com/privacy" target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
-            <ShieldCheck size={18} aria-hidden="true" /> Privacy Policy
-          </a>
-          <a href="https://www.appblips.com/terms" target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
-            <ScrollText size={18} aria-hidden="true" /> Terms of Service
-          </a>
         </div>
       </aside>
     </div>
