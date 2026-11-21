@@ -441,7 +441,6 @@ function NameForm({ formRef, onSubmit, name, setName, errors }) {
             maxLength={MAX_NAME_LENGTH}
             autoComplete="given-name"
             className="onboarding-name-input"
-            autoFocus
           />
         </span>
       </SetupField>
@@ -555,7 +554,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const titleRef = useRef(null);
   const formRef = useRef(null);
 
-  useEffect(() => { titleRef.current?.focus(); }, [step]);
+  useEffect(() => { titleRef.current?.focus({ preventScroll: true }); }, [step]);
   useEffect(() => {
     if (isDesktop) desktopBridge.folder.get().then(setFolder).catch((err) => logWarn('Could not read the projects folder location', err));
   }, []);
