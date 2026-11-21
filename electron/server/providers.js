@@ -55,6 +55,15 @@ export const DEFAULT_PROVIDER = 'deepseek';
 // largest limit its error allows (chatProxy.js). Ask mode keeps the provider
 // default, except on Anthropic, which requires a limit.
 export const DEFAULT_BUILD_MAX_TOKENS = 64000;
+
+// APPBLIPS_MAX_OUTPUT_TOKENS: an operator-set output limit for every chat
+// request on this server (the hosted web version). When set, the limit in
+// Settings → AI is ignored and hidden. 0 means not set; blank or unreadable
+// values count as not set.
+export const fixedMaxOutputTokens = (env) => {
+  const value = Number(String(env?.APPBLIPS_MAX_OUTPUT_TOKENS ?? '').replace(/[,_\s]/g, ''));
+  return Number.isSafeInteger(value) && value > 0 ? value : 0;
+};
 export const PROVIDER_IDS = ['deepseek'];
 
 const OFF_EFFORTS = new Set([false, 'none', 'off', 'disabled', '']);

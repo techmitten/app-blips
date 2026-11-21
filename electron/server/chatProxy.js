@@ -14,7 +14,7 @@
 // provider saved in Settings → AI themselves (withSavedProvider); the renderer
 // may also send its own `user_provider`. Anything else uses the env provider.
 
-import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
+import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS, fixedMaxOutputTokens } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
 import { defaultModel } from './defaultModel.js';
@@ -179,10 +179,12 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   }
 
   // Settings → AI may supply an output limit. Without one, builds get
-  // DEFAULT_BUILD_MAX_TOKENS and Ask uses the provider's default; environment
-  // caps are no longer read.
-  const maxTokens = payload?.max_tokens;
-  if (maxTokens != null && (!Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
+  // DEFAULT_BUILD_MAX_TOKENS and Ask uses the provider's default. A server
+  // that sets APPBLIPS_MAX_OUTPUT_TOKENS decides instead, for every request,
+  // and whatever the page sent is ignored.
+  const fixedLimit = fixedMaxOutputTokens(env);
+  const maxTokens = fixedLimit || payload?.max_tokens;
+  if (!fixedLimit && maxTokens != null && (!Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
     return badRequest('The output token limit must be a positive whole number. Change it in Settings → AI.');
   }
 

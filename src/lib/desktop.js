@@ -265,6 +265,8 @@ export const webProviderStore = {
       ...(server.envProvider ? { envProvider: server.envProvider } : {}),
       // Free AI needs a Google or GitHub sign-in on this server (freeSignIn.js).
       ...(server.freeSignIn ? { freeSignIn: server.freeSignIn } : {}),
+      // The host sets the output limit (APPBLIPS_MAX_OUTPUT_TOKENS).
+      ...(server.maxOutputTokensFixed ? { maxOutputTokensFixed: true } : {}),
     };
   },
   async set(info) {

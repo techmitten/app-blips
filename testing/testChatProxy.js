@@ -164,6 +164,22 @@ test('the plain OPENAI_* variables work as the generic provider', async (t) => {
   assert.equal(upstream.body.model, 'm');
 });
 
+test('APPBLIPS_MAX_OUTPUT_TOKENS sets every request\'s limit and ignores the page\'s', async (t) => {
+  const settings = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', APPBLIPS_MAX_OUTPUT_TOKENS: '48,000' };
+  for (const ask of [false, true]) {
+    for (const max_tokens of [undefined, null, 12000, 'junk', -5]) {
+      const { response, upstream } = await runWith(t, settings, { ask, max_tokens });
+      assert.equal(response.status, 200);
+      assert.equal(upstream.body.max_tokens, 48000);
+    }
+  }
+  // Unreadable values count as not set: the page's limit applies again.
+  for (const value of ['', '0', 'abc', '-1']) {
+    const { upstream } = await runWith(t, { ...settings, APPBLIPS_MAX_OUTPUT_TOKENS: value }, { max_tokens: 12000 });
+    assert.equal(upstream.body.max_tokens, 12000);
+  }
+});
+
 test('output limits come from Settings requests and ignore environment caps', async (t) => {
   const base = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm' };
   const settings = { ...base, OPENAI_LLM_MAX_TOKENS: '1', OPENAI_LLM_ASK_MAX_TOKENS: '2000', OPENAI_LLM_TEMPERATURE: '0.5' };

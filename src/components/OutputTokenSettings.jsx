@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
 import { loadOutputTokenLimit, saveOutputTokenLimit } from '../lib/config';
 import { DEFAULT_BUILD_MAX_TOKENS } from '../../electron/server/providers.js';
+import { providerApi } from '../lib/desktop';
 
 // Building has an app default (applied by the chat proxy); Ask leaves the
 // limit to the AI provider.
@@ -54,6 +55,15 @@ function OutputTokenLimit({ askMode = false, title, description }) {
 }
 
 export default function OutputTokenSettings() {
+  // A host that sets the limit itself (APPBLIPS_MAX_OUTPUT_TOKENS) ignores
+  // these fields, so they aren't shown.
+  const [fixed, setFixed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    providerApi.get().then((info) => { if (!cancelled) setFixed(info?.maxOutputTokensFixed === true); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  if (fixed) return null;
   return (
     <>
       <OutputTokenLimit title="Output tokens: building" description={`Maximum tokens per response when building, including thinking. Leave empty for the default of ${DEFAULT_BUILD_MAX_TOKENS.toLocaleString('en-US')}.`} />

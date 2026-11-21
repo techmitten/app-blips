@@ -5,12 +5,12 @@
 // primitives only, like chatProxy.js. The desktop app answers the same
 // questions over IPC instead (electron/main.js).
 //
-//   GET    /api/provider          -> { id, hasKey, envConfigured, envProvider?, freeSignIn? }
+//   GET    /api/provider          -> { id, hasKey, envConfigured, envProvider?, freeSignIn?, maxOutputTokensFixed? }
 //   PUT    /api/provider          -> save { id, model, apiKey, enabled }
 //   DELETE /api/provider          -> forget the key
 //   POST   /api/provider/models   -> [{ id, label }] for { id, apiKey? }
 import { isForeignOrigin } from './chatProxy.js';
-import { resolveUserProvider, envProviderStatus } from './providers.js';
+import { resolveUserProvider, envProviderStatus, fixedMaxOutputTokens } from './providers.js';
 import { freeSignInStatus } from './freeSignInConfig.js';
 import { listProviderModels } from './providerModels.js';
 
@@ -42,7 +42,16 @@ export async function handleProviderApi(request, env, keys) {
     // envConfigured: the host's environment variables (OPENAI_API_KEY…)
     // already provide AI, so the page needn't ask for a key.
     // freeSignIn: Free AI needs a Clerk sign-in here (freeAuth.js).
-    if (request.method === 'GET') return json({ ...keys.describe(), ...envProviderStatus(env), ...freeSignInStatus(env) });
+    // maxOutputTokensFixed: the host sets the output limit
+    // (APPBLIPS_MAX_OUTPUT_TOKENS), so Settings → AI doesn't offer one.
+    if (request.method === 'GET') {
+      return json({
+        ...keys.describe(),
+        ...envProviderStatus(env),
+        ...freeSignInStatus(env),
+        ...(fixedMaxOutputTokens(env) ? { maxOutputTokensFixed: true } : {}),
+      });
+    }
     if (request.method === 'DELETE') {
       await keys.clear();
       return json(keys.describe());
