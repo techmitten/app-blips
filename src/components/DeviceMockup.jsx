@@ -777,10 +777,10 @@ export default function DeviceMockup({
               <div className="device-sensor-dot-landscape animate-fade-in" aria-hidden="true" />
 
               {/* Antenna bands */}
-              <div className="device-antenna device-antenna-h -top-[2.5px] left-17" aria-hidden="true" />
-              <div className="device-antenna device-antenna-h -top-[2.5px] right-17" aria-hidden="true" />
-              <div className="device-antenna device-antenna-h -bottom-[2.5px] left-17" aria-hidden="true" />
-              <div className="device-antenna device-antenna-h -bottom-[2.5px] right-17" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h top-[-2.5px] left-17" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h top-[-2.5px] right-17" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h bottom-[-2.5px] left-17" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h bottom-[-2.5px] right-17" aria-hidden="true" />
 
               {/* Hardware buttons */}
               <div className="device-hw-btn-landscape -top-0.75 left-20 h-0.75 w-6 rounded-t-xs animate-fade-in" aria-hidden="true" />
@@ -801,10 +801,10 @@ export default function DeviceMockup({
               <div className="device-sensor-dot animate-fade-in" aria-hidden="true" />
 
               {/* Antenna bands */}
-              <div className="device-antenna device-antenna-v -left-[2.5px] top-17" aria-hidden="true" />
-              <div className="device-antenna device-antenna-v -left-[2.5px] bottom-17" aria-hidden="true" />
-              <div className="device-antenna device-antenna-v -right-[2.5px] top-17" aria-hidden="true" />
-              <div className="device-antenna device-antenna-v -right-[2.5px] bottom-17" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v left-[-2.5px] top-17" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v left-[-2.5px] bottom-17" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v right-[-2.5px] top-17" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v right-[-2.5px] bottom-17" aria-hidden="true" />
 
               {/* Hardware buttons */}
               <div className="device-hw-btn -left-0.75 top-20 w-0.75 h-6 rounded-l-xs animate-fade-in" aria-hidden="true" />
@@ -828,10 +828,10 @@ export default function DeviceMockup({
             <>
               <div className="device-front-camera-landscape device-tablet-camera animate-fade-in" aria-hidden="true" />
 
-              <div className="device-antenna device-antenna-h -top-[2.5px] left-24" aria-hidden="true" />
-              <div className="device-antenna device-antenna-h -top-[2.5px] right-24" aria-hidden="true" />
-              <div className="device-antenna device-antenna-h -bottom-[2.5px] left-24" aria-hidden="true" />
-              <div className="device-antenna device-antenna-h -bottom-[2.5px] right-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h top-[-2.5px] left-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h top-[-2.5px] right-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h bottom-[-2.5px] left-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-h bottom-[-2.5px] right-24" aria-hidden="true" />
 
               <div className="device-hw-btn -left-0.75 bottom-16 w-0.75 h-12 rounded-l-xs animate-fade-in" aria-hidden="true" />
               <div className="device-hw-btn-landscape -bottom-0.75 left-16 h-0.75 w-11 rounded-b-xs animate-fade-in" aria-hidden="true" />
@@ -845,10 +845,10 @@ export default function DeviceMockup({
             <>
               <div className="device-front-camera device-tablet-camera animate-fade-in" aria-hidden="true" />
 
-              <div className="device-antenna device-antenna-v -left-[2.5px] top-24" aria-hidden="true" />
-              <div className="device-antenna device-antenna-v -left-[2.5px] bottom-24" aria-hidden="true" />
-              <div className="device-antenna device-antenna-v -right-[2.5px] top-24" aria-hidden="true" />
-              <div className="device-antenna device-antenna-v -right-[2.5px] bottom-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v left-[-2.5px] top-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v left-[-2.5px] bottom-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v right-[-2.5px] top-24" aria-hidden="true" />
+              <div className="device-antenna device-antenna-v right-[-2.5px] bottom-24" aria-hidden="true" />
 
               <div className="device-hw-btn-landscape -top-0.75 right-16 h-0.75 w-12 rounded-t-xs animate-fade-in" aria-hidden="true" />
               <div className="device-hw-btn -right-0.75 top-16 w-0.75 h-11 rounded-r-xs animate-fade-in" aria-hidden="true" />

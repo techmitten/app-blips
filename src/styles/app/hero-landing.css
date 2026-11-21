@@ -524,6 +524,33 @@
   }
 }
 
+/* Smartphone: keep only the icon mark in the header so the view switch and
+   action buttons have room, and center the Chat/Preview switch horizontally. */
+@media (max-width: 639px) {
+  .hero-rail {
+    padding-top: max(0.875rem, env(safe-area-inset-top));
+    padding-bottom: 0.875rem;
+  }
+
+  .hero-rail-wordmark {
+    display: none;
+  }
+
+  .hero-rail:has(.header-view-switch) {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+  }
+
+  .hero-rail:has(.header-view-switch) .hero-rail-brand {
+    justify-self: start;
+  }
+
+  .hero-rail:has(.header-view-switch) .header-view-switch {
+    margin-left: 0;
+  }
+}
+
 /* ===== Light theme ===== */
 
 .hero-landing:not(.dark) {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Settings,
-  CircleHelp, MessageSquare, Plug, Menu, X, Github, ShieldCheck, ScrollText,
+  CircleHelp, MessageSquare, MessageSquarePlus, Plug, Menu, X, Github, ShieldCheck, ScrollText,
   History, Compass, Sun, Moon, DoorOpen, Power,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
@@ -143,20 +143,6 @@ export default function HeroSidebar({
       )}
 
       <div className="ml-auto flex items-center gap-1 lg:hidden">
-        {workspaceActive && canNewChat && onNewChat && (
-          <button
-            type="button"
-            onClick={onNewChat}
-            className="hero-menu-btn"
-            data-tip="New chat (keeps version history)"
-            aria-label="New chat (keeps version history)"
-          >
-            <Plus size={20} strokeWidth={2.6} aria-hidden="true" />
-          </button>
-        )}
-        {freeAccount?.state?.signedIn && (
-          <FreeAccountControl account={freeAccount} variant="header-mobile" />
-        )}
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
@@ -264,8 +250,13 @@ export default function HeroSidebar({
           )}
           <p className="studio-menu-heading">Workspace</p>
           <button type="button" className="studio-menu-item" onClick={fromMenu(onNewApp)}>
-            <Plus size={18} aria-hidden="true" /> New
+            <Plus size={18} aria-hidden="true" /> New Project
           </button>
+          {workspaceActive && canNewChat && onNewChat && (
+            <button type="button" className="studio-menu-item" onClick={fromMenu(onNewChat)}>
+              <MessageSquarePlus size={18} aria-hidden="true" /> New chat
+            </button>
+          )}
           <button type="button" className="studio-menu-item" onClick={fromMenu(onOpenApps)}>
             <FolderOpen size={18} aria-hidden="true" /> Projects{savedAppsCount > 0 ? ` (${savedAppsCount})` : ''}
           </button>
