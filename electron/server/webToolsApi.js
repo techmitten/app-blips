@@ -390,7 +390,7 @@ const KINDS = { '/api/web/status': 'status', '/api/web/search': 'search', '/api/
 // `freeSearch: false` offers no web search on Free AI (the browser hosts):
 // the status says unavailable, so the page shows no globe, and searches are
 // refused.
-export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globalThis.fetch, freeLimits = null, visitor = '', messageId = '', checkSignIn = null, freeSearch = true } = {}) {
+export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globalThis.fetch, freeLimits = null, visitor = '', clientIp = '', messageId = '', checkSignIn = null, freeSearch = true } = {}) {
   const kind = KINDS[new URL(request.url).pathname.replace(/\/+$/, '')];
   if (!kind) return json(404, { error: 'Not found.' });
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
@@ -429,7 +429,7 @@ export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globa
   }
   let ticket = null;
   if (freeLimits && !own) {
-    const started = await freeLimits.begin(visitor, messageId);
+    const started = await freeLimits.begin(visitor, messageId, clientIp || (visitor && !visitor.startsWith('user:') ? visitor : ''));
     if (started.refused) {
       const { error, retryAfter } = started.refused;
       return json(429, { error, source: 'free-limit', stop: true }, retryAfter ? { 'retry-after': String(retryAfter) } : {});

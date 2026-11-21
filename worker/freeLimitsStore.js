@@ -83,14 +83,14 @@ export function createFreeLimitsStore(env, storage, { now = Date.now, unsplashPe
 
     // { refused } or { ticket } to pass to end(). If the counts can't be read
     // or saved, the request is refused: Free AI never runs unlimited.
-    async begin(visitor, messageId = '') {
+    async begin(visitor, messageId = '', ip = '') {
       try {
         await load();
       } catch (err) {
         console.error('[free-limits] could not read the saved counts:', err);
         return { refused: { error: UNAVAILABLE, retryAfter: 60 } };
       }
-      const started = limiter.begin(visitor, messageId);
+      const started = limiter.begin(visitor, messageId, ip);
       if (started.refused) {
         // Persist refusal counts, abuse events, and any newly triggered auto-block.
         const entries = {

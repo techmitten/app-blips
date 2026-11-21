@@ -455,6 +455,8 @@ export default function AdminUsageDashboard() {
       v.visitor.toLowerCase().includes(q)
       || (v.email && v.email.toLowerCase().includes(q))
       || (v.name && v.name.toLowerCase().includes(q))
+      || (v.lastIp && v.lastIp.toLowerCase().includes(q))
+      || (Array.isArray(v.ips) && v.ips.some((ip) => ip.toLowerCase().includes(q)))
     ));
   }, [data?.visitors, filterMode, search]);
 
@@ -1130,6 +1132,7 @@ export default function AdminUsageDashboard() {
                   <thead className="border-b border-slate-800 bg-slate-950/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     <tr>
                       <th className="px-5 py-3">User</th>
+                      <th className="px-5 py-3">IP Address</th>
                       <th className="px-5 py-3">Status</th>
                       <th className="px-5 py-3">Daily Cap Used</th>
                       <th className="px-5 py-3">Recent Activity</th>
@@ -1139,13 +1142,15 @@ export default function AdminUsageDashboard() {
                   <tbody className="divide-y divide-slate-800/70">
                     {visibleVisitors.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400">
+                        <td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400">
                           {loading ? 'Loading today’s usage…' : 'No users match this filter right now.'}
                         </td>
                       </tr>
                     ) : (
                       visibleVisitors.map((v) => {
                         const parsed = parseVisitorLabel(v.visitor);
+                        const displayIp = v.lastIp || (!v.visitor.startsWith('user:') ? v.visitor : '');
+                        const extraIps = Array.isArray(v.ips) ? v.ips.filter((ip) => ip !== displayIp) : [];
                         const pill = statusPill(v.riskLevel, v.pct, v.hitLimit);
                         const flags = (v.abuseFlags || []).filter((f) => f !== 'blocked');
                         const perUserCap = data?.limits?.tokensPerIpPerDay || 0;
@@ -1192,6 +1197,39 @@ export default function AdminUsageDashboard() {
                                   )}
                                 </div>
                               </div>
+                            </td>
+
+                            <td className="px-5 py-3.5">
+                              {displayIp ? (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span
+                                    className="max-w-40 truncate font-mono text-xs text-slate-200"
+                                    title={extraIps.length > 0 ? [displayIp, ...extraIps].join(', ') : displayIp}
+                                  >
+                                    {displayIp}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyText(`ip:${v.visitor}`, displayIp)}
+                                    title="Copy IP address"
+                                    className="rounded p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200"
+                                  >
+                                    {copiedKey === `ip:${v.visitor}`
+                                      ? <Check className="h-3 w-3 text-emerald-400" />
+                                      : <Copy className="h-3 w-3" />}
+                                  </button>
+                                  {extraIps.length > 0 && (
+                                    <span
+                                      title={`Other IPs today: ${extraIps.join(', ')}`}
+                                      className="rounded-md border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-300"
+                                    >
+                                      +{extraIps.length}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
                             </td>
 
                             <td className="px-5 py-3.5">

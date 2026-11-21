@@ -278,6 +278,8 @@ export function createFreeLimits(env, { now = Date.now, rates = {} } = {}) {
         rateLimitRefusals: 0,
         lastRefusalAt: null,
         lastRefusalReason: '',
+        lastIp: '',
+        ips: [],
       };
       visitors.set(key, visitor);
     }
@@ -289,6 +291,7 @@ export function createFreeLimits(env, { now = Date.now, rates = {} } = {}) {
         rateLimitRefusals: 0,
         lastRefusalAt: null,
         lastRefusalReason: '',
+        ips: [],
       });
     }
     if (now() - visitor.hourStart >= HOUR_MS) Object.assign(visitor, { hourStart: now(), hourCount: 0 });
@@ -338,6 +341,7 @@ export function createFreeLimits(env, { now = Date.now, rates = {} } = {}) {
       const {
         day, tokens, hourStart, hourCount, minuteStart, minuteCount, lastMessageAt, messages,
         refusals = 0, rateLimitRefusals = 0, lastRefusalAt = null, lastRefusalReason = '',
+        lastIp = '', ips = [],
       } = v;
       return {
         day,
@@ -352,6 +356,8 @@ export function createFreeLimits(env, { now = Date.now, rates = {} } = {}) {
         rateLimitRefusals,
         lastRefusalAt,
         lastRefusalReason,
+        lastIp,
+        ips: Array.isArray(ips) ? [...ips] : [],
       };
     },
     exportSite: () => ({ ...site }),
@@ -475,6 +481,8 @@ export function createFreeLimits(env, { now = Date.now, rates = {} } = {}) {
 
         list.push({
           visitor: key,
+          lastIp: v.lastIp || '',
+          ips: Array.isArray(v.ips) ? [...v.ips] : [],
           tokens,
           remaining: limits.tokensPerIpPerDay ? Math.max(0, limits.tokensPerIpPerDay - tokens) : null,
           pct,
@@ -546,6 +554,8 @@ export function createFreeLimits(env, { now = Date.now, rates = {} } = {}) {
           rateLimitRefusals: Number(v.rateLimitRefusals) || 0,
           lastRefusalAt: v.lastRefusalAt ?? null,
           lastRefusalReason: String(v.lastRefusalReason || ''),
+          lastIp: String(v.lastIp || ''),
+          ips: Array.isArray(v.ips) ? v.ips.filter((x) => typeof x === 'string' && x).slice(0, 10) : [],
           messages: new Map(Array.isArray(v.messages) ? v.messages : []),
           inFlight: 0,
         });
@@ -581,8 +591,13 @@ export function createFreeLimits(env, { now = Date.now, rates = {} } = {}) {
       visitorFor(key).tokens += used;
       site.tokens += used;
     },
-    begin(key, messageId = '') {
+    begin(key, messageId = '', ip = '') {
       const visitor = visitorFor(key);
+      const cleanIp = String(ip || '').trim().slice(0, 64);
+      if (cleanIp && cleanIp !== 'unknown') {
+        visitor.lastIp = cleanIp;
+        visitor.ips = [cleanIp, ...(visitor.ips || []).filter((x) => x !== cleanIp)].slice(0, 10);
+      }
       if (pause.paused) {
         const msg = pause.reason
           ? `Free AI is temporarily paused: ${pause.reason} ${OWN_KEY}`

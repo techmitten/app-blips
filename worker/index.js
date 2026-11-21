@@ -46,10 +46,10 @@ function freeLimitsFor(env, ctx) {
   const stub = limiterStub(env);
   return {
     limits: createFreeLimits(env).limits,
-    async begin(visitor, messageId) {
+    async begin(visitor, messageId, ip) {
       let started;
       try {
-        started = await stub.begin(visitor, messageId);
+        started = await stub.begin(visitor, messageId, ip);
       } catch (err) {
         console.error('[free-limits] the counter could not be reached:', err);
         return { refused: { error: UNAVAILABLE, retryAfter: 60 } };
@@ -104,7 +104,8 @@ const tooLarge = (request, limit) => Number(request.headers.get('content-length'
 const startsWithPath = (path, prefix) => path === prefix || path.startsWith(`${prefix}/`);
 
 async function handleApi(request, env, ctx, path) {
-  const visitor = visitorKey(request.headers.get('cf-connecting-ip') || '');
+  const ip = request.headers.get('cf-connecting-ip') || '';
+  const visitor = visitorKey(ip);
   const messageId = request.headers.get(MESSAGE_HEADER) || '';
   // With Clerk keys set, Free AI needs a Google or GitHub sign-in (freeAuth.js).
   const checkSignIn = (req) => checkFreeSignIn(req, env);
@@ -113,7 +114,7 @@ async function handleApi(request, env, ctx, path) {
     if (request.method !== 'POST') return text(405, 'Method not allowed');
     if (tooLarge(request, MAX_CHAT_BODY_BYTES)) return Response.json({ error: 'The request is too large.' }, { status: 413 });
     const freeLimits = freeLimitsFor(env, ctx);
-    return withKeys('provider', request, async (keys) => handleChatProxy(await withSavedProvider(request, keys), env, { freeLimits, visitor, messageId, checkSignIn, freeImages: false }));
+    return withKeys('provider', request, async (keys) => handleChatProxy(await withSavedProvider(request, keys), env, { freeLimits, visitor, clientIp: ip, messageId, checkSignIn, freeImages: false }));
   }
   if (tooLarge(request, MAX_BODY_BYTES)) return Response.json({ error: 'The request is too large.' }, { status: 413 });
   if (startsWithPath(path, '/api/provider')) return withKeys('provider', request, (keys) => handleProviderApi(request, env, keys));
@@ -123,7 +124,7 @@ async function handleApi(request, env, ctx, path) {
   if (startsWithPath(path, '/api/tavily')) return withKeys('tavily', request, (keys) => handleTavilyApi(request, env, keys));
   if (path.startsWith('/api/web/')) {
     const freeLimits = freeLimitsFor(env, ctx);
-    return withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env, { freeLimits, visitor, messageId, checkSignIn, freeSearch: false }));
+    return withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env, { freeLimits, visitor, clientIp: ip, messageId, checkSignIn, freeSearch: false }));
   }
   if (path.startsWith('/api/unsplash/')) return unsplashApiFor(env)(request, env, { visitor });
   if (path === '/api/seo/scan') return handleSeoScanApi(request, env);

@@ -10,8 +10,8 @@ export class FreeLimits extends DurableObject {
     this.store = createFreeLimitsStore(env, ctx.storage);
   }
 
-  begin(visitor, messageId) {
-    return this.store.begin(String(visitor || ''), String(messageId || ''));
+  begin(visitor, messageId, ip) {
+    return this.store.begin(String(visitor || ''), String(messageId || ''), String(ip || ''));
   }
 
   end(ticket, visitor, tokens) {

@@ -161,7 +161,7 @@ export const UPSTREAM_CONNECT_MS = 120_000;
 // then counted as themselves instead of by address. `freeImages: false`
 // refuses Free requests that carry an image (the browser hosts: Free AI there
 // takes no attachments or screenshots). The desktop app passes none of these.
-export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '', messageId = '', checkSignIn = null, freeImages = true } = {}) {
+export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '', clientIp = '', messageId = '', checkSignIn = null, freeImages = true } = {}) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -228,7 +228,7 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   let ticket = null;
   if (freeLimits && !provider.userSupplied) {
     // Synchronous in server.js; a promise in the Cloudflare Worker.
-    const started = await freeLimits.begin(visitor, messageId);
+    const started = await freeLimits.begin(visitor, messageId, clientIp || (visitor && !visitor.startsWith('user:') ? visitor : ''));
     if (started.refused) {
       const { error, retryAfter } = started.refused;
       return new Response(JSON.stringify({ error, source: 'free-limit' }), {

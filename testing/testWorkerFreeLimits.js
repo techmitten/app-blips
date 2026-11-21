@@ -515,3 +515,30 @@ test('admin snapshot enriches Clerk user IDs with email addresses when CLERK_SEC
   assert.equal(body.visitors[0].email, 'ada@example.com');
   assert.equal(body.visitors[0].name, 'Ada Lovelace');
 });
+
+test('admin snapshot tracks visitor IP addresses (lastIp and ips) across restarts', async () => {
+  const clock = Date.UTC(2026, 10, 17, 10);
+  const storage = memoryStorage();
+  const env = {
+    APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: '5000',
+    APPBLIPS_ADMIN_TOKEN: 'admin-secret',
+  };
+  const first = createFreeLimitsStore(env, storage, { now: () => clock, rates: RATES });
+  await first.end((await first.begin('user:user_ip_1', '', '198.51.100.10')).ticket, 'user:user_ip_1', 300);
+  await first.end((await first.begin('user:user_ip_1', '', '203.0.113.42')).ticket, 'user:user_ip_1', 200);
+
+  const restarted = createFreeLimitsStore(env, storage, { now: () => clock, rates: RATES });
+  const res = await handleFreeUsageAdminApi(
+    new Request('https://web.appblips.com/api/admin/free-usage', {
+      headers: { authorization: 'Bearer admin-secret' },
+    }),
+    env,
+    restarted,
+  );
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.visitors.length, 1);
+  assert.equal(body.visitors[0].visitor, 'user:user_ip_1');
+  assert.equal(body.visitors[0].lastIp, '203.0.113.42');
+  assert.deepEqual(body.visitors[0].ips, ['203.0.113.42', '198.51.100.10']);
+});
