@@ -98,10 +98,14 @@
 }
 
 .chat-bubble-bot {
-  /* Solid fill and full-strength border: at 0.8/0.6 the bubble barely
-     separated from the white panel behind it. */
-  background: var(--color-blue-50);
-  border-color: var(--color-blue-200);
+  /* White card with a slate hairline and a soft lift: a pale blue fill
+     (blue-50 / blue-200) all but vanished against the pale blue-grey chat
+     panel and stage gradient behind it. */
+  background: #ffffff;
+  border-color: var(--color-slate-300);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.08),
+    0 4px 12px -6px rgb(15 23 42 / 0.18);
   color: var(--color-slate-900);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
