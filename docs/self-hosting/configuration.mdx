@@ -56,7 +56,7 @@ Set these to give the server its own AI provider. People then see a **Free (no k
 </ParamField>
 
 <ParamField body="APPBLIPS_MAX_OUTPUT_TOKENS" type="number">
-  The longest reply, in tokens, for every AI request on this server, for the Free option and for visitors' own keys. When set, the **Output tokens** fields in **Settings → AI** are hidden and ignored. Empty lets each person choose, with 64,000 as the default for building. Don't go much lower than that, or long builds can stop unfinished.
+  The longest reply, in tokens, for every AI request on this server, for the Free option and for visitors' own keys. When set, the **Output tokens** fields in **Settings → AI** are hidden and ignored. Empty lets each person choose, with 64,000 as the default for building. Requests with a visitor's own key go straight from their browser to the provider, so for those the browser applies this limit and a visitor could get around it. Don't go much lower than that, or long builds can stop unfinished.
 </ParamField>
 
 Examples:
@@ -159,7 +159,7 @@ A sign-in only works from the address your copy is opened at. If you serve it fr
 </ParamField>
 
 <ParamField body="APPBLIPS_PHOTO_LIBRARY_URL" type="string" default="https://web.appblips.com">
-  For the desktop and Android apps, which hold no Unsplash key: the AppBlips server their photo searches go to. Set it to `off` to turn the photo library off.
+  For the desktop app, which holds no Unsplash key: the AppBlips server their photo searches go to. Set it to `off` to turn the photo library off.
 </ParamField>
 
 ## Server

@@ -62,8 +62,7 @@ To switch, choose another provider and save. To remove your provider and key, cl
 ## Where your key is kept
 
 - **Desktop app:** encrypted by your computer's keychain and kept on your computer. On Linux without a keychain, the protection is weak, so install GNOME Keyring or KWallet. After saving, AppBlips can't show the key again. To change it, enter a new one and save.
-- **Browser version** (web.appblips.com, Pinokio, source, Docker): saved in your browser and sent with each request so it can reach your provider. The server doesn't store it. The browser keeps it unencrypted, so anyone who can use your browser profile on this computer could read it.
-- **Android app:** kept in the Android Keystore.
+- **Browser version** (web.appblips.com, Pinokio, source, Docker): saved in your browser. Your browser sends it straight to your provider, so it never reaches AppBlips' server. The browser keeps it unencrypted, so anyone who can use your browser profile on this computer could read it.
 
 Either way, your key never goes into your projects or anything you export or publish.
 

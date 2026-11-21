@@ -331,7 +331,14 @@ async function forward(request, env, payload, provider, maxTokens, connectTimeou
     // The client cancelled: nobody is waiting for an answer.
     if (request.signal?.aborted) return new Response(null, { status: 499 });
     console.error(`[proxy] could not reach ${provider.id} (${model}):`, err);
-    return new Response(JSON.stringify({ error: `Failed to reach LLM endpoint: ${err.message}` }), {
+    // In the browser version an own-key request goes straight from the page
+    // to the provider, and some providers (OpenAI) send their error replies
+    // without CORS headers, so a rejected key or a lack of credit looks like
+    // a network failure here.
+    const error = provider.userSupplied
+      ? `Couldn't reach ${providerLabel(provider.id)}. Check your internet connection, then check your API key and credit in Settings → AI.`
+      : `Failed to reach LLM endpoint: ${err.message}`;
+    return new Response(JSON.stringify({ error }), {
       status: 502,
       headers: { 'content-type': 'application/json' },
     });

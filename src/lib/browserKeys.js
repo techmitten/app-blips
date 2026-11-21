@@ -2,9 +2,12 @@
 // `npm run dev`): the AI provider key, the Surge sign-in, and the
 // Pollinations, Pixabay and Tavily keys are kept in this browser's
 // localStorage, never on the server, so a server shared by many people never
-// hands one person's key to another. Each /api request carries its key; the
-// server (electron/server/browserKeys.js) answers with any new or cleared one,
-// which is stored here. The desktop app (OS keychain) and the Android app
+// hands one person's key to another. The AI provider, Tavily and Pixabay keys
+// never leave the browser at all: those requests are answered inside the page
+// (browserDirect.js), straight to the provider. Surge and Pollinations don't
+// allow browser requests, so their requests carry the key to the server
+// (electron/server/browserKeys.js), which answers with any new or cleared one,
+// stored here. The desktop app (OS keychain) and the Android app
 // (Keystore) don't use this.
 //
 // localStorage can be read by scripts on AppBlips' own origin. The apps
@@ -62,14 +65,46 @@ const sessionId = () => {
   return id;
 };
 
+// Slots whose keys never leave this browser: their requests are answered
+// inside the page (browserDirect.js), straight to the provider. Requests on
+// them that aren't the user's own (Free AI) still go to the server, without
+// any key.
+const DIRECT_SLOTS = new Set(['provider', 'tavily', 'pixabay']);
+let directApi = null;
+
 export function installBrowserKeyStorage() {
   const originalFetch = window.fetch.bind(window);
+  const loadDirectApi = () => {
+    directApi ??= import('./browserDirect.js').then((m) => ({
+      respond: m.respond,
+      handle: m.createDirectApi({
+        fetchImpl: originalFetch,
+        fetchServer: originalFetch,
+        read: (slot) => read(STORAGE_PREFIX + slot),
+        write: (slot, value) => write(STORAGE_PREFIX + slot, value),
+      }),
+    }));
+    return directApi;
+  };
+
   window.fetch = async (input, init) => {
     let url;
     try { url = new URL(input instanceof Request ? input.url : String(input), window.location.href); }
     catch { return originalFetch(input, init); }
     const slot = slotFor(url);
     if (!slot) return originalFetch(input, init);
+
+    if (DIRECT_SLOTS.has(slot)) {
+      const request = new Request(input instanceof Request ? input : url, init);
+      const { respond, handle } = await loadDirectApi();
+      const response = await respond(handle, slot, request);
+      if (response) return response;
+      // Not the user's own provider (Free): the server answers, with no key.
+      const headers = new Headers(request.headers);
+      headers.delete(KEY_HEADER);
+      headers.set(SESSION_HEADER, sessionId());
+      return originalFetch(new Request(request, { headers }));
+    }
 
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
     headers.set(SESSION_HEADER, sessionId());

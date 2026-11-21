@@ -60,7 +60,7 @@ Short answers to the questions people ask most.
 
   <Accordion title="What happens to my API key?">
     - **Desktop app:** encrypted with your system's keychain and kept only on your computer. On Linux without a keychain, the protection is weak, and AppBlips warns you.
-    - **Browser version:** kept in your browser. Each request carries it to the AppBlips server, which passes it to your provider and doesn't store it.
+    - **Browser version:** kept in your browser, which sends it straight to your provider. It never reaches the AppBlips server.
 
     Your key is never written into your apps, projects or exports. See [Security](/self-hosting/security#your-api-key).
   </Accordion>
@@ -102,7 +102,7 @@ Short answers to the questions people ask most.
     **Always, or as part of normal use**
 
     - **Your AI provider** (the one in **Settings → AI**): receives your prompts, your project's code and any images you attach, to build your app.
-    - **The AppBlips server** (browser version): the page sends its AI and extension requests to the server it was opened from. For a copy you run yourself, that's your own computer. On web.appblips.com it's AppBlips' server, which passes requests on and doesn't store your projects or keys. With **Free (no key needed)**, it uses the AI provider chosen by whoever runs that copy.
+    - **The AppBlips server** (browser version): the server the page was opened from. For a copy you run yourself, that's your own computer. On web.appblips.com it's AppBlips' server. With your own key, AI requests and Tavily and Pixabay searches go straight from your browser to those services, not through the server. The server handles **Free (no key needed)**, using the AI provider chosen by whoever runs that copy, and passes on Publish (Surge) and Pollinations requests, which those services don't accept from a browser. It doesn't store your projects or keys.
     - **Free AI sign-in (Clerk):** only if your copy asks you to sign in to use **Free (no key needed)**. Sign-in uses Clerk with your Google or GitHub account.
     - **GitHub:** to check for new versions at startup and every hour. The AppImage also downloads updates from there. Turn this off in **Settings → Workspace → Check for updates**. The Snap version checks the Snap Store instead, and the Microsoft Store version only checks GitHub for announcements.
     - **AppBlips website (appblips.com):** the app checks the date of the Privacy Policy and Terms of Service so it can ask you to agree again if they change. Links to the policies, Showcase and docs open there.

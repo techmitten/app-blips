@@ -11,8 +11,9 @@ This page explains what protects your API key and your computer, and what you ne
 An API key is a secret code that lets AppBlips use your account with an AI provider. In every version, AppBlips never writes it into the apps you build, your saved projects or anything you export.
 
 - **Desktop app:** the key is encrypted with your computer's keychain and stored only on your computer. Only the app's background process reads it. On Linux without GNOME Keyring or KWallet, the encryption is weak, and AppBlips warns you.
-- **Browser version** ([web.appblips.com](/quickstart-browser), [from source](/quickstart-source) or [Docker](/self-hosting/docker)): the key is saved in your web browser, for that address only. It is not encrypted, so anyone who can use your browser profile on that computer could read it. Use a computer and browser profile only you use. Each request carries it to the server, which passes it to your provider and doesn't store it. The same goes for your Surge sign-in for [Publish](/features/publishing), your Pollinations sign-in, and your Pixabay and Tavily keys. One person's keys never reach another person on the same server.
-- **Android app:** the key is kept in the Android Keystore.
+- **Browser version** ([web.appblips.com](/quickstart-browser), [from source](/quickstart-source) or [Docker](/self-hosting/docker)): the key is saved in your web browser, for that address only. It is not encrypted, so anyone who can use your browser profile on that computer could read it. Use a computer and browser profile only you use. Your browser sends the key straight to your provider, so it never reaches the AppBlips server. Your Pixabay and Tavily keys work the same way.
+
+  Your Surge sign-in for [Publish](/features/publishing) and your Pollinations sign-in are the exception: those services don't accept requests from a browser, so each request carries the sign-in to the server, which passes it on and doesn't store it. One person's sign-ins never reach another person on the same server.
 
 Clearing your browser data for AppBlips removes saved keys. So does **Settings → Danger Zone → Factory Reset** in either version.
 

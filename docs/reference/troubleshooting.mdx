@@ -170,8 +170,18 @@ Linux doesn't use Smart App Control, so the AppImage and `.deb` aren't blocked t
     4. Click **Test connection**.
   </Accordion>
 
+  <Accordion title="&quot;Couldn't reach …. Check your internet connection, then check your API key and credit&quot;">
+    AppBlips couldn't get an answer from your AI provider.
+
+    1. Check that your computer is online and that no firewall, VPN, ad blocker or proxy blocks the provider.
+    2. In **Settings → AI**, click **Refresh models**. If the models load, your key works. If you see "rejected the API key", enter a new key.
+    3. Check that your provider account has credit left.
+
+    In the browser version this message can also mean the provider turned the request down, because some providers (OpenAI) don't let the browser read their error replies.
+  </Accordion>
+
   <Accordion title="&quot;Failed to reach LLM endpoint&quot;">
-    AppBlips couldn't connect to your AI provider. Check that your computer is online, that no firewall, VPN or proxy blocks the provider, and that the provider isn't having an outage.
+    AppBlips couldn't connect to the AI provider for **Free (no key needed)**. Check that your computer is online and that the provider isn't having an outage. If you run the server yourself, check its provider settings in `.env`.
   </Accordion>
 
   <Accordion title="The build hangs, or &quot;Stream stalled: no data received for 180s&quot;">

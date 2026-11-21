@@ -17,8 +17,9 @@ import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 
 // Settings → AI. In the desktop app the key is saved in the main process,
 // encrypted with the OS keychain (electron/providerStore.js); in the browser
-// version AppBlips' own server keeps it (electron/server/keyFile.js). Either
-// way it is attached to requests there, and the page only learns
+// version it stays in this browser and requests go straight to the provider
+// (lib/browserKeys.js, lib/browserDirect.js). Either way the key is attached
+// to requests outside this component, which only learns
 // { id, model, hasKey }, so the key field is write-only: blank means "keep the
 // saved key".
 // Edits are a draft until Save; `guardRef` lets SettingsModal stop the user
@@ -355,7 +356,7 @@ export default function DesktopProviderSettings({ guardRef }) {
               ? saved?.weakEncryption
                 ? 'Your key is stored only on this computer, never in your projects. For extra protection, set up a system keyring such as GNOME Keyring or KWallet.'
                 : 'Your key is encrypted with your system keychain and stored only on this computer, never in your projects.'
-              : 'Your key is saved in this browser only and sent to AppBlips’ server with each request. It is never stored on the server or in your projects.'}
+              : 'Your key is saved in this browser only and goes straight to your provider. It is never sent to AppBlips’ server or saved in your projects.'}
           </p>
           {['anthropic', 'openai', 'gemini', 'xai', 'deepseek'].includes(draft.id) && <p className="text-xs text-slate-500">
             <ConfirmedLink why="To sign in to your provider's account and create an API key. AppBlips needs a key to send your prompts to that provider." href={draft.id === 'gemini' ? 'https://aistudio.google.com/apikey' : draft.id === 'openai' ? 'https://platform.openai.com/api-keys' : draft.id === 'anthropic' ? 'https://platform.claude.com/settings/keys' : draft.id === 'xai' ? 'https://console.x.ai/team/default/api-keys' : 'https://platform.deepseek.com/api_keys'} >Create a {providerLabel(draft.id)} API key</ConfirmedLink>.

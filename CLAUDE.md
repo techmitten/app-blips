@@ -39,7 +39,7 @@ The renderer in `src/` is identical everywhere. What differs is who answers `/ap
   - `worker/index.js`: the hosted browser version at web.appblips.com on Cloudflare Workers (`wrangler.jsonc`). It deploys automatically on push to `master`. Free-AI counts live in a Durable Object (`worker/freeLimitsObject.js`).
 
   A new `/api/*` route has to be wired into each host that needs it.
-- **Browser hosts** keep projects in IndexedDB/localStorage. Each request carries the visitor's own keys (`browserKeys.js`), so one server never stores or shares keys. `src/lib/desktop.js` hides the difference: `isDesktop`, the project store and `providerApi`.
+- **Browser hosts** keep projects in IndexedDB/localStorage. Visitors' keys stay in their browser (`src/lib/browserKeys.js`). Own-key AI, Tavily and Pixabay requests are answered inside the page by the same handlers (`src/lib/browserDirect.js`, like `android.js`) and go straight to the provider, so those keys never reach the server. Only Free AI, Surge and Pollinations (no browser CORS) go through the server, with Surge/Pollinations sign-ins carried per request. `src/lib/desktop.js` hides the difference: `isDesktop`, the project store and `providerApi`.
 - **Free AI** (no key) is the server's own provider, limited by `freeLimits.js` and gated by Clerk sign-in (`freeAuth.js`, `freeSignInConfig.js`, `clerkWebhook.js`). Server settings are the `OPENAI_*`, `APPBLIPS_*` and `CLERK_*` variables in `.env.example`.
 - `chatProxy.js` forwards chat to the provider and `relay.js` streams the response back. `providers.js` holds the provider list (Anthropic, OpenAI, Gemini, xAI, DeepSeek, OpenRouter).
 

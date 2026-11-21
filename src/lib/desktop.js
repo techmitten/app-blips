@@ -169,10 +169,10 @@ export function createAppDataStorage(prefix) {
 
 // The browser version's Settings → AI (npm run dev, server.js, Docker). The
 // choice of provider and model is kept in this origin's localStorage. The API
-// key goes through AppBlips' server (/api/provider, providerApi.js), which
-// checks it and hands it back for lib/browserKeys.js to keep in this browser;
-// that attaches it to each /api request, so the server never stores it and a
-// shared server never mixes up visitors' keys. Code here only learns `hasKey`.
+// key is checked and kept by /api/provider (providerApi.js), which
+// lib/browserKeys.js answers inside the page (lib/browserDirect.js): the key
+// stays in this browser and own-key requests go straight to the provider,
+// never through AppBlips' server. Code here only learns `hasKey`.
 const WEB_PROVIDER_KEY = 'appblips-web-provider';
 
 const readWebProvider = () => {
@@ -208,12 +208,12 @@ const providerRequest = async (path, method = 'GET', body = undefined) => {
   });
   let data = null;
   try { data = await response.json(); } catch { /* not JSON: reported below */ }
-  if (!response.ok) throw new Error(data?.error || `AppBlips' server could not save the AI settings (HTTP ${response.status}).`);
+  if (!response.ok) throw new Error(data?.error || `AppBlips could not save the AI settings (HTTP ${response.status}).`);
   return data;
 };
 
-// Versions before this one kept the key in localStorage. Hand it to the
-// server once and remove it from the browser; until that succeeds it stays
+// Early versions kept the key in this provider record. Hand it to
+// /api/provider once, which keeps it in its own slot; until that succeeds it stays
 // where it was, so a failed move never loses the key.
 let legacyKeyMove = null;
 const moveLegacyKey = () => {
@@ -227,14 +227,14 @@ const moveLegacyKey = () => {
     () => writeWebProvider(readWebProvider()),
     (err) => {
       legacyKeyMove = null;
-      logWarn('Could not move the saved API key to AppBlips\' server, keeping it in the browser for now', err);
+      logWarn('Could not move the saved API key to its new place, keeping it where it was for now', err);
     },
   );
   return legacyKeyMove;
 };
 
 export const webProviderStore = {
-  // The provider for an outgoing /api/chat request, without a key: the server
+  // The provider for an outgoing /api/chat request, without a key: browserDirect.js
   // attaches the saved one (withSavedProvider). A draft from "Test connection"
   // goes as given, with its typed key or an empty one meaning "the saved key".
   forRequest(input = null) {
@@ -254,7 +254,7 @@ export const webProviderStore = {
     delete info.apiKey;
     let server = { id: '', hasKey: false };
     try { server = await providerRequest('/api/provider'); }
-    catch (err) { logWarn('Could not ask AppBlips\' server for the saved API key', err); }
+    catch (err) { logWarn('Could not read the saved API key status', err); }
     return {
       enabled: false,
       ...info,
@@ -279,7 +279,7 @@ export const webProviderStore = {
       return this.get();
     }
     await moveLegacyKey();
-    // The server checks the settings (with the saved key when none is typed)
+    // /api/provider checks the settings (with the saved key when none is typed)
     // and keeps the key; only the rest is saved here.
     await providerRequest('/api/provider', 'PUT', info);
     writeWebProvider({
