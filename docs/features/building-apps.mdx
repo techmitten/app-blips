@@ -185,6 +185,12 @@ Click the counter to open a breakdown. A bar shows how the total splits into the
 - **Output:** what the AI wrote, including any thinking.
 - **Unreported:** an estimate for requests the provider didn't report on. While a build runs, this is shown as **Still counting** until the exact counts arrive.
 
+If you click **Cancel** part-way through, the provider doesn't report that request's tokens, but you're still billed for the part it did. AppBlips keeps as much of the real count as it can:
+
+- **Claude:** the input is counted exactly. Only the output is estimated, and it may be low, because Claude shows a summary of its thinking rather than all of it.
+- **OpenRouter:** AppBlips asks OpenRouter for the request's real counts a few seconds later, and the counter updates to match.
+- **Other providers:** the request is estimated from the text that came back. The **Unreported** row says how many stopped requests it includes. Their estimate may be low, because thinking the AI didn't show in full isn't counted.
+
 Parts with nothing in them aren't shown. Below the bar you'll also see:
 
 - **Your last message:** what your most recent request used. While a build runs, it's **This message so far**.
@@ -193,7 +199,7 @@ Parts with nothing in them aren't shown. Below the bar you'll also see:
 Press **Esc** or click anywhere else to close the breakdown. With Free AI, nothing is billed to you, but the counter still shows what was used.
 
 <Warning>
-The counter is an estimate only, not a bill. It adds up the counts your AI provider reports, and providers price cached input, output and web searches differently. Some providers don't report every request, and a request you stop part-way is guessed from its size. Always check your provider's usage or billing page for what you actually pay.
+The counter is an estimate only, not a bill. It adds up the counts your AI provider reports, and providers price cached input, output and web searches differently. Some providers don't report every request, and a request you stop part-way is partly estimated. Always check your provider's usage or billing page for what you actually pay.
 </Warning>
 
 To compare providers and models, see [AI providers](/ai-providers).
