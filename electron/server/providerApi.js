@@ -6,7 +6,7 @@
 // primitives only, like chatProxy.js. The desktop app answers the same
 // questions over IPC instead (electron/main.js).
 //
-//   GET    /api/provider          -> { id, hasKey, envConfigured, envProvider?, freeSignIn?, maxOutputTokensFixed?, maxOutputTokens? }
+//   GET    /api/provider          -> { id, hasKey, envConfigured, envProvider?, freeSignIn?, maxOutputTokensFixed? }
 //   PUT    /api/provider          -> save { id, model, apiKey, enabled }
 //   DELETE /api/provider          -> forget the key
 //   POST   /api/provider/models   -> [{ id, label }] for { id, apiKey? }
@@ -43,16 +43,15 @@ export async function handleProviderApi(request, env, keys) {
     // envConfigured: the host's environment variables (OPENAI_API_KEY…)
     // already provide AI, so the page needn't ask for a key.
     // freeSignIn: Free AI needs a Clerk sign-in here (freeAuth.js).
-    // maxOutputTokensFixed: the host sets the output limit
-    // (APPBLIPS_MAX_OUTPUT_TOKENS), so Settings → AI doesn't offer one.
+    // maxOutputTokensFixed: the host sets the output limit for Free AI
+    // (APPBLIPS_MAX_OUTPUT_TOKENS), so Settings → AI doesn't offer one
+    // while Free is in use.
     if (request.method === 'GET') {
       return json({
         ...keys.describe(),
         ...envProviderStatus(env),
         ...freeSignInStatus(env),
-        // The number too: the browser version applies it to own-key requests,
-        // which it sends straight to the provider (src/lib/browserDirect.js).
-        ...(fixedMaxOutputTokens(env) ? { maxOutputTokensFixed: true, maxOutputTokens: fixedMaxOutputTokens(env) } : {}),
+        ...(fixedMaxOutputTokens(env) ? { maxOutputTokensFixed: true } : {}),
       });
     }
     if (request.method === 'DELETE') {

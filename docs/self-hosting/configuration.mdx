@@ -56,7 +56,7 @@ Set these to give the server its own AI provider. People then see a **Free (no k
 </ParamField>
 
 <ParamField body="APPBLIPS_MAX_OUTPUT_TOKENS" type="number">
-  The longest reply, in tokens, for every AI request on this server, for the Free option and for visitors' own keys. When set, the **Output tokens** fields in **Settings → AI** are hidden and ignored. Empty lets each person choose, with 64,000 as the default for building. Requests with a visitor's own key go straight from their browser to the provider, so for those the browser applies this limit and a visitor could get around it. Don't go much lower than that, or long builds can stop unfinished.
+  The exact output limit, in tokens, for every request that uses the Free option. When set, the **Output tokens** fields in **Settings → AI** are hidden and ignored while Free is in use. Requests with a visitor's own key are not affected: they always use the visitor's own setting. Empty lets each person choose, with 64,000 as the default for building. Don't set it much lower than 64,000, or long builds can stop unfinished.
 </ParamField>
 
 Examples:
@@ -111,7 +111,7 @@ You can turn all limits off, or add token caps:
 </ParamField>
 
 <ParamField body="APPBLIPS_FREE_MAX_OUTPUT_TOKENS" type="number">
-  The longest reply for one Free request. Empty keeps the app's own limit. If `APPBLIPS_MAX_OUTPUT_TOKENS` is also set, the lower one applies.
+  The most output tokens for one Free request. It only lowers a larger limit, such as the 64,000 default or a visitor's own setting, and never raises a smaller one. Empty keeps the app's own limit. If `APPBLIPS_MAX_OUTPUT_TOKENS` is also set, the lower of the two applies.
 </ParamField>
 
 ## Sign-in for the Free option

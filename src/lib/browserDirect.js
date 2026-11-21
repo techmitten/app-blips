@@ -19,7 +19,7 @@ import { handleWebToolsApi } from '../../electron/server/webToolsApi.js';
 import { handleTavilyApi } from '../../electron/server/tavilyApi.js';
 import { handlePixabayApi } from '../../electron/server/pixabayApi.js';
 import { withSavedProvider } from '../../electron/server/savedProvider.js';
-import { logError, logWarn } from './errorLog.js';
+import { logError } from './errorLog.js';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -57,25 +57,6 @@ const createLocalStore = (read, write) => ({
   async save(id, key) { write(encode({ id, key })); },
   async clear() { write(null); },
 });
-
-// The host's output limit (APPBLIPS_MAX_OUTPUT_TOKENS), applied here as the
-// server would. Asked once, without any key.
-let serverSettings = null;
-const getServerSettings = (fetchServer) => {
-  serverSettings ??= fetchServer(new URL('/api/provider', window.location.href).href)
-    .then((response) => (response.ok ? response.json() : {}))
-    .catch((err) => {
-      serverSettings = null;
-      logWarn('Could not ask AppBlips\' server for its settings', err);
-      return {};
-    });
-  return serverSettings;
-};
-const envFor = async (fetchServer) => {
-  const settings = await getServerSettings(fetchServer);
-  const limit = Number(settings?.maxOutputTokens);
-  return Number.isSafeInteger(limit) && limit > 0 ? { APPBLIPS_MAX_OUTPUT_TOKENS: String(limit) } : {};
-};
 
 // True when a JSON body names the user's own provider (`user_provider`),
 // which is how chat and web search requests say "not Free".
@@ -121,7 +102,6 @@ export function createDirectApi({ fetchImpl, fetchServer, read, write }) {
       let settings = {};
       try { settings = await response.json(); } catch { /* not JSON */ }
       if (!response.ok) return json(settings, response.status);
-      serverSettings = Promise.resolve(settings);
       return json({ ...settings, ...keys.describe() });
     }
     if (path.startsWith('/api/provider/')) return handleProviderApi(request, {}, keys);
@@ -130,9 +110,10 @@ export function createDirectApi({ fetchImpl, fetchServer, read, write }) {
     if (request.method !== 'POST') return null;
     const text = await request.clone().text();
     if (!usesOwnProvider(text)) return null;
-    const env = await envFor(fetchServer);
-    if (path === '/api/chat') return handleChatProxy(await withSavedProvider(request, keys), env);
-    if (path.startsWith('/api/web')) return handleWebToolsApi(await withSavedProvider(request, keys), env, { fetch: direct });
+    // The server's own settings (APPBLIPS_MAX_OUTPUT_TOKENS…) are for Free AI
+    // only, so own-key requests run with none.
+    if (path === '/api/chat') return handleChatProxy(await withSavedProvider(request, keys), {});
+    if (path.startsWith('/api/web')) return handleWebToolsApi(await withSavedProvider(request, keys), {}, { fetch: direct });
     return null;
   };
 }

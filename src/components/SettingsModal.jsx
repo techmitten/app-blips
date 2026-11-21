@@ -177,6 +177,9 @@ export default function SettingsModal({
   const providerGuardRef = useRef(null);
   const [pendingLeave, setPendingLeave] = useState(null); // { run, complete } while asking
   const [isSavingProvider, setIsSavingProvider] = useState(false);
+  // The saved AI settings, from the provider panel: the output token fields
+  // depend on which provider is in use.
+  const [providerInfo, setProviderInfo] = useState(null);
   const leaveAfterCheck = (run) => {
     const guard = providerGuardRef.current;
     if (guard?.unsaved) setPendingLeave({ run, complete: guard.complete });
@@ -427,8 +430,8 @@ export default function SettingsModal({
 
           {tab === 'ai' && (
             <>
-              <DesktopProviderSettings guardRef={providerGuardRef} />
-              <OutputTokenSettings />
+              <DesktopProviderSettings guardRef={providerGuardRef} onSavedChange={setProviderInfo} />
+              <OutputTokenSettings provider={providerInfo} />
               <ReasoningSetting value={buildReasoningEffort} onChange={onBuildReasoningEffortChange} reasoning={reasoningLevels} />
               <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask 2–3 multiple-choice questions about your goals before the initial build.">
                 <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />

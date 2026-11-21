@@ -137,8 +137,11 @@ const usesFree = (info) => Boolean(info?.envConfigured && !info.enabled);
 // shows "Select a provider" rather than quietly defaulting to the first.
 const EMPTY_DRAFT = { id: '', model: '', apiKey: '' };
 
-export default function DesktopProviderSettings({ guardRef }) {
+// `onSavedChange` hears each saved state (provider.get() result), so other
+// Settings rows can follow which provider is in use.
+export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
   const [saved, setSaved] = useState(null); // provider.get() result
+  useEffect(() => { if (saved) onSavedChange?.(saved); }, [saved, onSavedChange]);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [showKey, setShowKey] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);

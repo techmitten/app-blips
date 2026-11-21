@@ -180,9 +180,11 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
 
   // Settings → AI may supply an output limit. Without one, builds get
   // DEFAULT_BUILD_MAX_TOKENS and Ask uses the provider's default. A server
-  // that sets APPBLIPS_MAX_OUTPUT_TOKENS decides instead, for every request,
-  // and whatever the page sent is ignored.
-  const fixedLimit = fixedMaxOutputTokens(env);
+  // that sets APPBLIPS_MAX_OUTPUT_TOKENS decides instead for requests on its
+  // own provider (Free AI), and whatever the page sent is ignored. Requests
+  // with the user's own provider (`user_provider`, as in pickProvider) keep
+  // the user's limit.
+  const fixedLimit = payload?.user_provider != null ? 0 : fixedMaxOutputTokens(env);
   const maxTokens = fixedLimit || payload?.max_tokens;
   if (!fixedLimit && maxTokens != null && (!Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
     return badRequest('The output token limit must be a positive whole number. Change it in Settings → AI.');

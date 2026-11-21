@@ -76,15 +76,14 @@ test('a Free chat (no user_provider) goes to the server without any key', async 
   assert.equal(sentKeyToServer(), false);
 });
 
-test('the host output limit is applied to own-key chats', async () => {
+test('own-key chats keep the user\'s output limit when the host fixes Free AI\'s', async () => {
   saveProviderKey('openai', OPENAI_KEY);
-  serverSettings = { ...SERVER_SETTINGS, maxOutputTokensFixed: true, maxOutputTokens: 1234 };
-  // Settings → AI reads the server's settings first, as the app does.
+  serverSettings = { ...SERVER_SETTINGS, maxOutputTokensFixed: true };
   await fetch('/api/provider');
   await fetch('/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: { id: 'openai', model: 'gpt-4o' } }),
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: { id: 'openai', model: 'gpt-4o' }, max_tokens: 1234 }),
   });
   const sent = JSON.parse(toProviders()[0].body);
   assert.equal(sent.max_completion_tokens ?? sent.max_tokens, 1234);
