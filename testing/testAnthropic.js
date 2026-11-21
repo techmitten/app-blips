@@ -125,6 +125,9 @@ test('a streamed reply becomes OpenAI chunks through the SDK', async () => {
   assert.equal(sent.body.max_tokens, 64000);
   const chunks = (await response.text()).split('\n\n').filter(Boolean).map((line) => line.slice(6));
   assert.equal(chunks.at(-1), '[DONE]');
+  // The input counts come first, from message_start, so a stream stopped
+  // part-way still has them (the token counter, tokenUsage.js reportInput).
+  assert.deepEqual(JSON.parse(chunks[0]).input_usage, { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, prompt_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 } });
   const deltas = chunks.slice(0, -1).map((data) => JSON.parse(data).choices[0]);
   assert.equal(deltas.map((c) => c.delta.content).filter(Boolean).join(''), 'Editing.');
   assert.equal(deltas.map((c) => c.delta.reasoning_content).filter(Boolean).join(''), 'Plan.');

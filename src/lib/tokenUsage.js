@@ -10,12 +10,17 @@
 // arrives) and swapped for the reported counts at the end. Requests the
 // provider never reports on (a local server, or one stopped part-way, which is
 // still billed) keep their estimate, counted apart in `estimated`, so the total
-// is marked approximate.
+// is marked approximate. A stopped request keeps what is known exactly: Claude
+// reports its input when it starts (reportInput), and OpenRouter's final counts
+// can be looked up afterwards (cancel's `lookup`), which corrects the totals
+// the request already went into (onUsageCorrection).
 
 // Totals of a turn or a chat. input includes cached input (cached = read
 // from the provider's prompt cache at a discount, cacheWrite = written to it,
-// at a surcharge on Claude); output includes any thinking.
-export const emptyUsage = () => ({ input: 0, cached: 0, cacheWrite: 0, output: 0, estimated: 0, calls: 0, reported: 0 });
+// at a surcharge on Claude); output includes any thinking. stopped counts
+// the requests stopped part-way whose output is only estimated: thinking the
+// AI didn't show in full is missing from it, so it can be low.
+export const emptyUsage = () => ({ input: 0, cached: 0, cacheWrite: 0, output: 0, estimated: 0, calls: 0, reported: 0, stopped: 0 });
 const USAGE_KEYS = Object.keys(emptyUsage());
 
 const count = (value) => {
@@ -103,7 +108,14 @@ export const estimateRequestTokens = (body) => {
 
 const activeMeters = new Set();
 const liveRequests = new Set();
-const requestEstimate = (request) => request.input + Math.ceil(request.outputChars / CHARS_PER_TOKEN);
+const outputEstimate = (request) => Math.ceil(request.outputChars / CHARS_PER_TOKEN);
+// The input is exact once the provider has reported it (reportInput).
+const requestEstimate = (request) => (request.inputCounts?.input ?? request.input) + outputEstimate(request);
+// Turns whose totals went into their chat's base (and App's ledger), so a
+// later correction knows to fix the chat as well.
+const foldedMeters = new WeakSet();
+let lastTurnMeter = null;
+const correctionListeners = new Set();
 // The meter the header follows: the latest one started.
 let liveMeter = null;
 // What the current chat used before the running turn (App sets it from the
@@ -195,6 +207,8 @@ export const startUsageMeter = () => {
       if (activeMeters.delete(totals) && liveMeter === totals && meterChat.get(totals) === chatKey) {
         liveMeter = null;
         chatBase = addUsage(chatBase, totals);
+        foldedMeters.add(totals);
+        lastTurnMeter = totals;
         lastTurn = normalizeTotals(totals);
         notifyLive({ now: true });
       }
@@ -203,20 +217,78 @@ export const startUsageMeter = () => {
   };
 };
 
-const recordInto = (meters, counts, estimate) => {
+// A request's share of the totals: the reported counts, or what is known of
+// them (`partial`, the input) plus an estimate for the rest.
+const shareOf = ({ counts = null, partial = null, estimate = 0, stopped = false }) => {
+  const share = emptyUsage();
+  share.calls = 1;
+  if (counts) {
+    share.reported = 1;
+    share.input = counts.input;
+    share.cached = counts.cached;
+    share.cacheWrite = counts.cacheWrite;
+    share.output = counts.output;
+    return share;
+  }
+  if (partial) {
+    share.input = partial.input;
+    share.cached = partial.cached;
+    share.cacheWrite = partial.cacheWrite;
+  }
+  share.estimated = estimate;
+  if (stopped) share.stopped = 1;
+  return share;
+};
+
+const applyDelta = (totals, delta) => {
+  for (const key of USAGE_KEYS) totals[key] = Math.max(0, totals[key] + (delta[key] || 0));
+};
+
+const recordInto = (meters, share) => {
   for (const totals of meters) {
-    if (!activeMeters.has(totals)) continue;
-    totals.calls += 1;
-    if (!counts) {
-      totals.estimated += estimate;
+    if (activeMeters.has(totals)) applyDelta(totals, share);
+  }
+};
+
+// Swaps a recorded share for a better one, in every total it went into: the
+// meters still running, and the chats of turns that already ended (their
+// base here, and App's saved ledger through onUsageCorrection).
+const correctShare = (meters, recorded, better) => {
+  const delta = {};
+  for (const key of USAGE_KEYS) delta[key] = better[key] - recorded[key];
+  const chats = new Set();
+  for (const totals of meters) {
+    if (activeMeters.has(totals)) {
+      applyDelta(totals, delta);
       continue;
     }
-    totals.reported += 1;
-    totals.input += counts.input;
-    totals.cached += counts.cached;
-    totals.cacheWrite += counts.cacheWrite;
-    totals.output += counts.output;
+    if (!foldedMeters.has(totals)) continue;
+    applyDelta(totals, delta);
+    const key = meterChat.get(totals);
+    if (key === chatKey) {
+      chatBase = normalizeTotals(chatBase);
+      applyDelta(chatBase, delta);
+    }
+    if (totals === lastTurnMeter && key === chatKey) lastTurn = normalizeTotals(totals);
+    chats.add(key);
   }
+  for (const key of chats) {
+    for (const listener of correctionListeners) listener(key, delta);
+  }
+  notifyLive({ now: true });
+};
+
+// Called with (chatKey, delta) when a request's counts arrive after its turn
+// ended, so the chat's saved total can take the same delta (addUsageDelta).
+export const onUsageCorrection = (listener) => {
+  correctionListeners.add(listener);
+  return () => correctionListeners.delete(listener);
+};
+
+export const addUsageDelta = (totals, delta) => {
+  const next = normalizeTotals(totals);
+  applyDelta(next, delta);
+  return next;
 };
 
 // Counts of a request made outside requestModelText (a web search through the
@@ -225,7 +297,7 @@ const recordInto = (meters, counts, estimate) => {
 export const recordUsage = (usage) => {
   const counts = normalizeUsage(usage);
   if (!counts || !activeMeters.size) return;
-  recordInto(activeMeters, counts, 0);
+  recordInto(activeMeters, shareOf({ counts }));
   notifyLive();
 };
 
@@ -235,8 +307,11 @@ export const recordUsage = (usage) => {
 // cancel({ billed }) ends it without counts: dropped when the provider never
 // accepted it (a refused or failed request), or kept as an estimate when it
 // had started answering (stopped or cut off part-way), since that is billed.
+// Its input stays exact if the provider reported it (reportInput), and
+// `lookup` (async, resolving to the provider's usage or null) can fetch the
+// final counts afterwards and put them in place of the estimate.
 export const trackRequest = (body) => {
-  const request = { meters: new Set(activeMeters), input: estimateRequestTokens(body), outputChars: 0 };
+  const request = { meters: new Set(activeMeters), input: estimateRequestTokens(body), outputChars: 0, inputCounts: null };
   liveRequests.add(request);
   notifyLive();
   let open = true;
@@ -253,14 +328,41 @@ export const trackRequest = (body) => {
       request.outputChars += chars;
       notifyLive();
     },
-    finish(usage) {
-      if (!close()) return;
-      recordInto(request.meters, normalizeUsage(usage), requestEstimate(request));
+    // The input counts some providers send as they start (Claude), before
+    // the output is known. Kept if the request is then stopped.
+    reportInput(usage) {
+      const counts = normalizeUsage(usage);
+      if (!open || !counts) return;
+      request.inputCounts = { input: counts.input, cached: counts.cached, cacheWrite: counts.cacheWrite };
       notifyLive();
     },
-    cancel({ billed = false } = {}) {
+    finish(usage) {
       if (!close()) return;
-      if (billed) recordInto(request.meters, null, requestEstimate(request));
+      const counts = normalizeUsage(usage);
+      recordInto(request.meters, counts
+        ? shareOf({ counts })
+        : shareOf({ partial: request.inputCounts, estimate: request.inputCounts ? outputEstimate(request) : requestEstimate(request) }));
+      notifyLive();
+    },
+    cancel({ billed = false, lookup = null } = {}) {
+      if (!close()) return;
+      if (billed) {
+        const recorded = shareOf({
+          partial: request.inputCounts,
+          estimate: request.inputCounts ? outputEstimate(request) : requestEstimate(request),
+          stopped: true,
+        });
+        recordInto(request.meters, recorded);
+        if (lookup) {
+          Promise.resolve()
+            .then(lookup)
+            .then((usage) => {
+              const counts = normalizeUsage(usage);
+              if (counts) correctShare(request.meters, recorded, shareOf({ counts }));
+            })
+            .catch(() => { /* the estimate stays */ });
+        }
+      }
       notifyLive();
     },
   };

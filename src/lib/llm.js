@@ -371,6 +371,25 @@ export const generateChatReply = async ({
 // reject a tool-calling follow-up whose earlier reasoning is missing, so
 // whatever arrives is kept under its own field name and echoed back unchanged
 // on the next request. A provider only ever receives fields it sent itself.
+// OpenRouter's request ids (the `id` of each stream chunk).
+const GENERATION_ID = /^gen-[0-9A-Za-z-]{1,124}$/;
+
+// The final counts of an OpenRouter request that was stopped part-way, from
+// its generation stats (chatProxy.js `usage_lookup`, with the same saved key
+// as the request). Resolves to usage in the chat-completions shape, or null.
+// The browser version without a key of its own is on Free AI: nothing to ask.
+const lookupGenerationUsage = async (id, provider) => {
+  if (!isDesktop && !provider) return null;
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(provider ? { usage_lookup: id, user_provider: provider } : { usage_lookup: id }),
+  });
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => null);
+  return data?.usage ?? null;
+};
+
 const REASONING_TEXT_FIELDS = ['reasoning_content', 'reasoning'];
 const REASONING_ECHO_FIELDS = [...REASONING_TEXT_FIELDS, 'reasoning_details'];
 
@@ -437,6 +456,10 @@ export const requestModelText = async ({
   // The provider accepted the request and started answering: if it then
   // fails or is stopped, the part it already did is still billed.
   let accepted = false;
+  // OpenRouter's id for this request (on every stream chunk), so a request
+  // stopped before its usage chunk can still get its final counts.
+  let generationId = null;
+  let provider = userProvider ?? null;
   try {
     const headers = {
       'Content-Type': 'application/json',
@@ -465,7 +488,6 @@ export const requestModelText = async ({
     // connection" button passes one explicitly. The saved key never passes
     // through the page: the desktop main process or the browser version's
     // server attaches it (withSavedProvider).
-    let provider = userProvider ?? null;
     if (!isDesktop) provider = webProviderStore.forRequest(provider);
     // No provider of the user's own: Free AI, which may need a sign-in.
     if (!isDesktop && !provider) Object.assign(headers, await freeSignInHeaders());
@@ -601,6 +623,9 @@ export const requestModelText = async ({
           try {
             const json = JSON.parse(data);
             if (json.usage) usage = json.usage;
+            // Claude's input counts, sent as it starts (anthropic.js).
+            if (json.input_usage) usageTracker.reportInput(json.input_usage);
+            if (!generationId && typeof json.id === 'string' && GENERATION_ID.test(json.id)) generationId = json.id;
             const delta = json.choices?.[0]?.delta;
             if (json.choices?.[0]?.finish_reason) finishReason = json.choices[0].finish_reason;
             
@@ -679,7 +704,10 @@ export const requestModelText = async ({
     logModelReply({ content: text, tool_calls: toolCallsBuffer.filter(Boolean) }, finishReason);
     return { content: text, ...echoed, tool_calls: toolCallsBuffer.filter(Boolean), ...(finishReason ? { finishReason } : {}) };
   } catch (err) {
-    usageTracker?.cancel({ billed: accepted });
+    // Stopped part-way on OpenRouter: its final counts can be looked up
+    // once it has settled, in place of the estimate.
+    const lookupId = accepted ? generationId : null;
+    usageTracker?.cancel({ billed: accepted, lookup: lookupId ? () => lookupGenerationUsage(lookupId, provider) : null });
     if (onChunk) onChunk('', 'thinking_end');
     const willRetry = retry && !signal?.aborted && retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable;
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');

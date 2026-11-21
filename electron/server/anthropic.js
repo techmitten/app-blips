@@ -291,7 +291,9 @@ const streamAsChatChunks = (stream, firstEvent) => {
     switch (event.type) {
       case 'message_start':
         model = event.message.model;
-        return '';
+        // The input counts are known from the start; a stream stopped before
+        // the end still gets them (tokenUsage.js reportInput).
+        return event.message.usage ? chunk({}, { input_usage: usageOf(event.message.usage) }) : '';
       case 'content_block_start':
         if (event.content_block.type === 'tool_use') {
           const index = toolIndexes.size;

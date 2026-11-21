@@ -20,10 +20,18 @@ const breakdown = (usage) => [
   {
     key: 'estimated',
     label: usage.running ? 'Still counting' : 'Unreported',
-    detail: usage.running ? 'Estimated until the AI provider reports the exact count' : 'Estimated: the AI provider didn\'t report these',
+    detail: usage.running ? 'Estimated until the AI provider reports the exact count' : unreportedDetail(usage.stopped),
     value: usage.estimated,
   },
 ].filter((part) => part.always || part.value > 0);
+
+// Requests stopped part-way are estimated from the text that streamed back,
+// so thinking the AI kept hidden (or only summarised) is missing from them.
+function unreportedDetail(stopped) {
+  if (!stopped) return 'Estimated: the AI provider didn\'t report these';
+  const requests = stopped === 1 ? '1 stopped request' : `${exact(stopped)} stopped requests`;
+  return `Estimated, including ${requests}. May be low: thinking the AI didn't show in full isn't counted`;
+}
 
 // The current chat's token total, in the Build pane's header. It counts up
 // while the AI works, and opens a panel with the breakdown. Always labelled

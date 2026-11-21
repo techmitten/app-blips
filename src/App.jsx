@@ -35,7 +35,7 @@ import { forgetTavilyKey } from './lib/tavily';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { describeAttachment, generateAppCode } from './lib/llm';
-import { addUsage, sessionUsageFromVersions, setChatUsageBase, startUsageMeter } from './lib/tokenUsage';
+import { addUsage, addUsageDelta, onUsageCorrection, sessionUsageFromVersions, setChatUsageBase, startUsageMeter } from './lib/tokenUsage';
 import { compressImageDataUrl } from './lib/attachments';
 import { slugifyName } from './lib/helpers';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
@@ -520,6 +520,18 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   useEffect(() => {
     setChatUsageBase(chatUsage[currentChatSessionId] ?? sessionUsageFromVersions(versions, currentChatSessionId), currentChatSessionId);
   }, [chatUsage, currentChatSessionId, versions]);
+
+  // A stopped request's final counts can arrive after its turn ended
+  // (OpenRouter's lookup, lib/tokenUsage.js): its chat's saved total takes
+  // the same correction. A chat that isn't in this project's ledger (another
+  // project is open now) is left alone.
+  useEffect(() => onUsageCorrection((sessionId, delta) => {
+    const ledger = chatUsageRef.current;
+    if (!ledger[sessionId]) return;
+    chatUsageRef.current = { ...ledger, [sessionId]: addUsageDelta(ledger[sessionId], delta) };
+    setChatUsageState(chatUsageRef.current);
+    saveChatUsage(currentProjectId, chatUsageRef.current);
+  }), [currentProjectId, saveChatUsage]);
 
   // Renaming a gallery image changes the path pages use, so every version is
   // pointed at the new name (restoring an older one keeps working).

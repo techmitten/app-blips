@@ -12,7 +12,10 @@ try {
   const {
     startUsageMeter, normalizeUsage, formatTokenCount, trackRequest, getLiveUsage, estimateRequestTokens,
     recordUsage, setChatUsageBase, sessionUsageFromVersions, normalizeChatUsage, emptyUsage,
+    onUsageCorrection, addUsageDelta,
   } = await server.ssrLoadModule('/src/lib/tokenUsage.js');
+  const { lookupGenerationUsage, usageFromGeneration } = await import('../electron/server/generationUsage.js');
+  const { handleChatProxy } = await import('../electron/server/chatProxy.js');
   const { searchUsageOf } = await import('../electron/server/webToolsApi.js');
   // Live updates are batched for a moment; wait one batch out.
   const settle = () => new Promise((resolve) => setTimeout(resolve, 200));
@@ -23,12 +26,12 @@ try {
     [...chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`), 'data: [DONE]\n\n'].join(''),
     { headers: { 'content-type': 'text/event-stream' } },
   );
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, init) => {
     // The Free AI sign-in check (src/lib/freeSignIn.js): no sign-in here.
     if (url === '/api/provider') return Response.json({});
     const next = responses.shift();
     assert.ok(next, 'unexpected API request');
-    return next();
+    return next(url, init);
   };
   const messages = [{ role: 'user', content: 'hi' }];
   const stream = (signal = null) => requestModelText({ messages, onChunk: () => {}, retry: false, signal });
@@ -107,7 +110,7 @@ try {
   // A provider web search reports its own counts.
   recordUsage({ prompt_tokens: 300, completion_tokens: 30, total_tokens: 330 });
   turn = meter.stop();
-  assert.deepEqual(turn, totals({ input: 420, output: 39, estimated: 12, calls: 3, reported: 2 }));
+  assert.deepEqual(turn, totals({ input: 420, output: 39, estimated: 12, calls: 3, reported: 2, stopped: 1 }));
   await settle();
   assert.equal(getLiveUsage().total, 1100 + 420 + 39 + 12);
 
@@ -132,6 +135,114 @@ try {
   responses = [() => Response.json({ error: 'bad request' }, { status: 400 })];
   await assert.rejects(stream());
   assert.deepEqual(meter.stop(), emptyUsage());
+
+  // A stream that streams for a moment and is then stopped (aborted).
+  const stoppedStream = (controller, chunks) => () => new Response(new ReadableStream({
+    start(c) {
+      for (const chunk of chunks) c.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
+      controller.signal.addEventListener('abort', () => c.error(new DOMException('Aborted', 'AbortError')));
+      setTimeout(() => controller.abort(), 50);
+    },
+  }), { headers: { 'content-type': 'text/event-stream' } });
+
+  // Claude reports its input as it starts (anthropic.js input_usage): a
+  // request stopped part-way keeps that exactly, and only the output (400
+  // streamed characters) is estimated.
+  meter = startUsageMeter();
+  const claudeStop = new AbortController();
+  responses = [stoppedStream(claudeStop, [
+    { choices: [{ index: 0, delta: {} }], input_usage: { prompt_tokens: 5000, completion_tokens: 1, prompt_tokens_details: { cached_tokens: 4000, cache_write_tokens: 500 } } },
+    { choices: [{ index: 0, delta: { reasoning_content: 'y'.repeat(200) } }] },
+    { choices: [{ index: 0, delta: { content: 'x'.repeat(200) } }] },
+  ])];
+  await assert.rejects(stream(claudeStop.signal), { name: 'AbortError' });
+  assert.deepEqual(meter.stop(), totals({ input: 5000, cached: 4000, cacheWrite: 500, estimated: 100, calls: 1, stopped: 1 }));
+
+  // OpenRouter: a stopped request's final counts are looked up by its
+  // generation id afterwards, and replace the estimate in the chat's total
+  // even though the turn has ended; App's ledger gets the same correction.
+  setChatUsageBase(totals({ input: 100, output: 10, calls: 1, reported: 1 }), 'chat-or');
+  meter = startUsageMeter();
+  const orStop = new AbortController();
+  let lookupBody = null;
+  let looked;
+  const lookedUp = new Promise((resolve) => { looked = resolve; });
+  responses = [
+    stoppedStream(orStop, [{ id: 'gen-abc123', choices: [{ index: 0, delta: { content: 'x'.repeat(400) } }] }]),
+    (url, init) => {
+      lookupBody = JSON.parse(init.body);
+      looked();
+      return Response.json({ usage: { prompt_tokens: 3000, completion_tokens: 700, total_tokens: 3700, prompt_tokens_details: { cached_tokens: 1000 } } });
+    },
+  ];
+  const corrections = [];
+  const stopListening = onUsageCorrection((key, delta) => corrections.push({ key, delta }));
+  const orProvider = { id: 'openrouter', model: 'openai/gpt-5', apiKey: 'sk-or-test' };
+  await assert.rejects(requestModelText({ messages, onChunk: () => {}, retry: false, signal: orStop.signal, userProvider: orProvider }), { name: 'AbortError' });
+  turn = meter.stop();
+  assert.equal(turn.stopped, 1);
+  assert.equal(turn.estimated > 0, true);
+  await lookedUp;
+  await settle();
+  stopListening();
+  assert.equal(lookupBody.usage_lookup, 'gen-abc123');
+  assert.equal(lookupBody.messages, undefined, 'the lookup is not a chat request');
+  const corrected = getLiveUsage();
+  assert.deepEqual({ ...corrected, total: undefined, running: undefined, estimating: undefined, lastTurn: undefined }, {
+    ...totals({ input: 3100, cached: 1000, output: 710, calls: 2, reported: 2 }),
+    total: undefined, running: undefined, estimating: undefined, lastTurn: undefined,
+  });
+  assert.deepEqual(corrected.lastTurn, totals({ input: 3000, cached: 1000, output: 700, calls: 1, reported: 1 }));
+  assert.equal(corrections.length, 1);
+  assert.equal(corrections[0].key, 'chat-or');
+  assert.deepEqual(addUsageDelta(totals({ input: 100, output: 10, calls: 1, reported: 1, estimated: turn.estimated, stopped: 1 }), corrections[0].delta), totals({ input: 3100, cached: 1000, output: 710, calls: 1, reported: 2 }));
+
+  // A lookup that finds nothing leaves the estimate in place.
+  meter = startUsageMeter();
+  live = trackRequest({ messages: 'x'.repeat(40) });
+  live.cancel({ billed: true, lookup: async () => null });
+  await settle();
+  assert.equal(meter.stop().stopped, 1);
+
+  // The lookup itself (generationUsage.js): own OpenRouter keys only, and it
+  // waits out the moment before a generation is listed.
+  const orResolved = { id: 'openrouter', userSupplied: true, apiKey: 'sk-or-test', baseUrl: 'https://openrouter.ai/api/v1' };
+  const generation = { native_tokens_prompt: 3000, native_tokens_completion: 700, native_tokens_reasoning: 500, native_tokens_cached: 1000, tokens_prompt: 2900, tokens_completion: 690 };
+  const calls = [];
+  const found = await lookupGenerationUsage('gen-abc123', orResolved, {
+    delays: [0],
+    fetchImpl: async (url, init) => {
+      calls.push({ url, auth: init.headers.Authorization });
+      return calls.length === 1 ? new Response('not found', { status: 404 }) : Response.json({ data: generation });
+    },
+  });
+  assert.deepEqual(await found.json(), { usage: { prompt_tokens: 3000, completion_tokens: 700, total_tokens: 3700, prompt_tokens_details: { cached_tokens: 1000 } } });
+  assert.deepEqual(calls.map((c) => c.url), ['https://openrouter.ai/api/v1/generation?id=gen-abc123', 'https://openrouter.ai/api/v1/generation?id=gen-abc123']);
+  assert.equal(calls[0].auth, 'Bearer sk-or-test');
+  const neverListed = await lookupGenerationUsage('gen-abc123', orResolved, { delays: [0], fetchImpl: async () => new Response('', { status: 404 }) });
+  assert.deepEqual(await neverListed.json(), { usage: null });
+  assert.equal((await lookupGenerationUsage('gen-abc123', { ...orResolved, id: 'openai' })).status, 400);
+  assert.equal((await lookupGenerationUsage('gen-abc123', { ...orResolved, userSupplied: false })).status, 400);
+  assert.equal((await lookupGenerationUsage('../../keys', orResolved)).status, 400);
+  // Reasoning is a floor on the output, and normalized counts stand in when
+  // the native ones are missing.
+  assert.equal(usageFromGeneration({ native_tokens_prompt: 10, native_tokens_completion: 5, native_tokens_reasoning: 40 }).completion_tokens, 40);
+  assert.equal(usageFromGeneration({ tokens_prompt: 10, tokens_completion: 5 }).prompt_tokens, 10);
+  assert.equal(usageFromGeneration({ cancelled: true }), null);
+
+  // Through /api/chat (chatProxy.js), with no model call.
+  responses = [(url, init) => {
+    assert.equal(url, 'https://openrouter.ai/api/v1/generation?id=gen-xyz');
+    assert.equal(init.headers.Authorization, 'Bearer sk-or-test');
+    return Response.json({ data: generation });
+  }];
+  const proxied = await handleChatProxy(new Request('http://127.0.0.1/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ usage_lookup: 'gen-xyz', user_provider: orProvider }),
+  }), {});
+  assert.equal(proxied.status, 200);
+  assert.equal((await proxied.json()).usage.prompt_tokens, 3000);
 
   // Another chat opened while a turn is still running: the turn lets go of
   // the header and never adds to the new chat.

@@ -14,6 +14,7 @@
 // provider saved in Settings → AI themselves (withSavedProvider); the renderer
 // may also send its own `user_provider`. Anything else uses the env provider.
 
+import { lookupGenerationUsage } from './generationUsage.js';
 import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS, fixedMaxOutputTokens, freeReasoningEffort } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
@@ -200,6 +201,13 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   const picked = await pickProvider(env, payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
+
+  // The final counts of an OpenRouter request stopped part-way, for the
+  // token counter (generationUsage.js). Not a chat request: no model call,
+  // and Free AI's limits don't apply (own keys only).
+  if (payload && typeof payload === 'object' && 'usage_lookup' in payload) {
+    return lookupGenerationUsage(payload.usage_lookup, provider, { signal: request.signal });
+  }
 
   if (!freeImages && !provider.userSupplied && hasImageContent(payload.messages)) {
     return badRequest('Free AI can’t read images. Add your own API key in Settings → AI to attach images or screenshots.');
