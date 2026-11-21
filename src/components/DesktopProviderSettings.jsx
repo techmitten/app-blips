@@ -332,7 +332,7 @@ export default function DesktopProviderSettings({ guardRef }) {
                     askToReplace();
                   }
                 }}
-                placeholder={keepsSavedKey ? (saved?.weakEncryption ? 'Saved — type to replace' : 'Saved (encrypted) — type to replace') : draft.id ? `Your ${providerLabel(draft.id)} API key` : 'Your API key'}
+                placeholder={keepsSavedKey ? (isDesktop && !saved?.weakEncryption ? 'Saved (encrypted) — type to replace' : 'Saved — type to replace') : draft.id ? `Your ${providerLabel(draft.id)} API key` : 'Your API key'}
                 autoComplete="off"
                 spellCheck={false}
                 className={`${INPUT_CLASS} ${showsSavedKey ? '' : 'pr-11'} ${keyLocked ? 'cursor-pointer' : ''}`}
@@ -425,7 +425,7 @@ export default function DesktopProviderSettings({ guardRef }) {
     {confirmReplace && createPortal(
       <ConfirmModal
         title="Replace saved API key?"
-        subtitle={`Your ${providerLabel(draft.id)} key is saved and encrypted.`}
+        subtitle={isDesktop && !saved?.weakEncryption ? `Your ${providerLabel(draft.id)} key is saved and encrypted.` : `Your ${providerLabel(draft.id)} key is saved.`}
         onClose={() => setConfirmReplace(false)}
         onConfirm={allowReplace}
         confirmLabel="Replace key"

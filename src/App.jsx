@@ -2772,8 +2772,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
 
   const handleResetApp = async () => {
     await deleteAllProjects();
-    // Both versions keep the key outside the page (desktop: keychain; browser:
-    // AppBlips' server), so clearing localStorage alone would leave it behind.
+    // Clear the key through its own store (desktop: keychain; browser: its
+    // localStorage slot, lib/browserKeys.js) rather than relying on
+    // localStorage.clear() below, which can't reach the keychain.
     // The desktop store also holds the onboarding flag, which must go too or
     // the reloaded app skips first-run setup.
     try {
