@@ -55,6 +55,7 @@ For the full experience (projects saved as folders on disk, and an encrypted OS-
 - **Project Image Gallery ("My Images")** — Upload your own assets or pull free stock photos via Pixabay, then reference them in your prompts (e.g., *"use team-photo in the hero section"*).
 - **Local Voice Input** — Dictate prompts using a bundled Whisper model that runs entirely on your device—no audio ever leaves your machine.
 - **Automatic Versioning** — Every generation and manual edit is saved as a snapshot that you can undo or restore at any time.
+- **Token Estimate** — The Build pane's header estimates the tokens each chat has used, counting up live, with input, cached input and output on hover. It's an estimate only; your AI provider's usage page shows what you actually pay.
 
 ### AI & Integrations
 - **Bring Your Own Key** — Connect an API key from Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter with configurable model reasoning levels.

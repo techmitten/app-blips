@@ -173,4 +173,18 @@ Each AI reply has a length limit. It's set under **Output tokens: building** in 
 
 ## How much does a build use?
 
-AI providers bill by tokens. A token is a small piece of text, about three-quarters of a word. One build can be several requests, and each one sends your message, your app's code and the chat so far. AppBlips doesn't show a running total. Check your provider's usage or billing page. To compare providers and models, see [AI providers](/ai-providers).
+AI providers bill by tokens. A token is a small piece of text, about three-quarters of a word. One build can be several requests, and each one sends your message, your app's code and the chat so far.
+
+The Build pane's header shows an estimate of the tokens the current chat has used, for example **Est. 12.4k tokens**. It counts up while the AI works and starts again from zero when you start a new chat. Point at it to see the details:
+
+- **Input:** what was sent to the AI, including how much was read from or saved to the provider's cache. See [Prompt caching](/costs/prompt-caching).
+- **Output:** what the AI wrote, including any thinking.
+- **Your last message:** what your most recent request used.
+
+The counter appears on wider screens. With Free AI, nothing is billed to you, but the counter still shows what was used.
+
+<Warning>
+The counter is an estimate only, not a bill. It adds up the counts your AI provider reports, and providers price cached input, output and web searches differently. Some providers don't report every request, and a request you stop part-way is guessed from its size. Always check your provider's usage or billing page for what you actually pay.
+</Warning>
+
+To compare providers and models, see [AI providers](/ai-providers).
