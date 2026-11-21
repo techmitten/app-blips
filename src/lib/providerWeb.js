@@ -21,6 +21,7 @@ import { loadWebSearch } from './config.js';
 import { providerSearchEnabled } from './connectors.js';
 import { messageHeaders } from './messageId.js';
 import { freeSignInHeaders } from './freeSignIn.js';
+import { recordUsage } from './tokenUsage.js';
 
 // The browser version names the provider in use (without its key), as it does
 // for /api/chat; the desktop app's main process knows it already.
@@ -47,7 +48,14 @@ async function call(path, body, { signal = null } = {}) {
     return { error: 'Couldn’t reach AppBlips’ web search. Try again.' };
   }
   try {
-    return await response.json();
+    const answer = await response.json();
+    // A search runs the model with its search on: its tokens count toward
+    // the chat's total. The counts stay out of what the build model is sent.
+    if (answer && typeof answer === 'object' && answer.usage) {
+      recordUsage(answer.usage);
+      delete answer.usage;
+    }
+    return answer;
   } catch {
     return { error: `Web search failed (error ${response.status}).` };
   }

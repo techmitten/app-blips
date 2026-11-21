@@ -12,6 +12,7 @@ import { packVersions, referencedTextHashes, unpackVersions } from '../lib/codeb
 import { blobBytes, blobText, ensureBlobs, putBlobs } from '../lib/blobStore';
 import { normalizeGallery } from '../lib/galleryImages';
 import { normalizeSeoProfile } from '../lib/seo';
+import { normalizeChatUsage } from '../lib/tokenUsage';
 import { logError, logWarn } from '../lib/errorLog';
 import { trackStarPromptProjects, dismissStarPrompt } from '../lib/githubStarPrompt';
 
@@ -42,8 +43,8 @@ let codebaseSaveChain = Promise.resolve();
 // all stable React state setters.
 export default function useProjects({ workspace }) {
   const {
-    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta, galleryImages, seoProfile,
-    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setGalleryImages, setSeoProfile,
+    versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta, galleryImages, seoProfile, chatUsageRef,
+    setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setGalleryImages, setSeoProfile, setChatUsage,
     setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
     setIsResumingProject, clearStreamingState
   } = workspace;
@@ -106,6 +107,7 @@ export default function useProjects({ workspace }) {
       // elsewhere has the list but not the images.
       setGalleryImages(normalizeGallery(projectData.images));
       setSeoProfile(normalizeSeoProfile(projectData.seo));
+      setChatUsage(normalizeChatUsage(projectData.chatUsage));
       const currentVersion = migrated.versions[projectData.currentVersionIndex];
       if (currentVersion) {
         setFiles(versionFiles(currentVersion));
@@ -117,7 +119,7 @@ export default function useProjects({ workspace }) {
     } catch (err) {
       logError(`Could not load project ${projectId}`, err);
     }
-  }, [clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setGalleryImages, setSeoProfile, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
+  }, [clearStreamingState, setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setCodebaseMeta, setGalleryImages, setSeoProfile, setChatUsage, setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt]);
 
   const saveProject = useCallback(async (params = {}) => {
     const {
@@ -130,7 +132,10 @@ export default function useProjects({ workspace }) {
       studioModeToSave = studioMode,
       codebaseToSave = codebaseMeta,
       imagesToSave = galleryRef.current,
-      seoToSave = seoRef.current
+      seoToSave = seoRef.current,
+      // Tokens used per chat session (lib/tokenUsage.js), read at save time
+      // like the gallery: a turn adds to it just before saving.
+      chatUsageToSave = chatUsageRef?.current
     } = params;
 
     if (!versionsToSave.length && !params.force) return;
@@ -149,6 +154,7 @@ export default function useProjects({ workspace }) {
       if (mode === 'codebase' && codebaseToSave) projectData.codebase = codebaseToSave;
       if (mode !== 'codebase' && imagesToSave?.length) projectData.images = imagesToSave;
       if (mode !== 'codebase' && seoToSave) projectData.seo = seoToSave;
+      if (chatUsageToSave && Object.keys(chatUsageToSave).length) projectData.chatUsage = chatUsageToSave;
 
       const rows = readProjectRows();
       const existingIndex = rows.findIndex(r => r.id === projectId);
@@ -202,7 +208,23 @@ export default function useProjects({ workspace }) {
         ? 'This project could not be saved: the browser\'s storage for AppBlips is full. Export your projects from Settings → Data, delete some, and try again.'
         : `This project could not be saved: ${err?.message || err}. Export it from Settings → Data before leaving the page.`);
     }
-  }, [versions, currentVersionIndex, projectName, currentProjectId, studioMode, codebaseMeta, chatContextStartIndex, currentChatSessionId, loadUserProjects, setCurrentProjectId]);
+  }, [versions, currentVersionIndex, projectName, currentProjectId, studioMode, codebaseMeta, chatContextStartIndex, currentChatSessionId, chatUsageRef, loadUserProjects, setCurrentProjectId]);
+
+  // Writes only the token ledger into the saved row, for a turn that ended
+  // without a new version (failed or cancelled). Saving the whole workspace
+  // there could write back versions a newer run has since replaced.
+  const saveChatUsage = useCallback((projectId, ledger) => {
+    if (!projectId) return;
+    try {
+      const rows = readProjectRows();
+      const index = rows.findIndex((r) => r.id === projectId);
+      if (index < 0) return;
+      rows[index] = { ...rows[index], data: { ...(rows[index].data || {}), chatUsage: ledger } };
+      writeProjectRows(rows);
+    } catch (err) {
+      logWarn(`Could not save the token counts of project ${projectId}`, err);
+    }
+  }, []);
 
   // --- Auto-save Name Changes ---
   useEffect(() => {
@@ -280,6 +302,7 @@ export default function useProjects({ workspace }) {
     // writes whatever is loaded here into this project.
     setGalleryImages(normalizeGallery(project.images));
     setSeoProfile(normalizeSeoProfile(project.seo));
+    setChatUsage(normalizeChatUsage(project.chatUsage));
     if (migrated.versions && migrated.versions[project.currentVersionIndex]) {
       setFiles(versionFiles(migrated.versions[project.currentVersionIndex]));
       setActivePage(LANDING_PAGE);
@@ -366,6 +389,7 @@ export default function useProjects({ workspace }) {
     loadUserProjects,
     loadProject,
     saveProject,
+    saveChatUsage,
     renameProject,
     deleteProject,
     deleteAllProjects,

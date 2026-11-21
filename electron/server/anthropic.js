@@ -238,10 +238,20 @@ const toolCallsOf = (content) => content
   .filter((block) => block.type === 'tool_use')
   .map((block) => ({ id: block.id, type: 'function', function: { name: block.name, arguments: JSON.stringify(block.input ?? {}) } }));
 
+// Claude's counts in the OpenAI shape. prompt_tokens includes the cached
+// input, as on OpenAI; the cache reads and writes are reported apart (the
+// field names OpenAI and OpenRouter use) for the token counter.
 const usageOf = (usage) => {
-  const prompt = (usage?.input_tokens || 0) + (usage?.cache_read_input_tokens || 0) + (usage?.cache_creation_input_tokens || 0);
+  const cacheRead = usage?.cache_read_input_tokens || 0;
+  const cacheWrite = usage?.cache_creation_input_tokens || 0;
+  const prompt = (usage?.input_tokens || 0) + cacheRead + cacheWrite;
   const completion = usage?.output_tokens || 0;
-  return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion };
+  return {
+    prompt_tokens: prompt,
+    completion_tokens: completion,
+    total_tokens: prompt + completion,
+    prompt_tokens_details: { cached_tokens: cacheRead, cache_write_tokens: cacheWrite },
+  };
 };
 
 // A finished Claude message as a non-streaming chat.completion.

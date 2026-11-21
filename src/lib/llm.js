@@ -434,6 +434,9 @@ export const requestModelText = async ({
   const delays = [1000, 2000, 4000, 8000, 16000];
   // Feeds the live token counter; a retry is tracked as its own request.
   let usageTracker = null;
+  // The provider accepted the request and started answering: if it then
+  // fails or is stopped, the part it already did is still billed.
+  let accepted = false;
   try {
     const headers = {
       'Content-Type': 'application/json',
@@ -520,6 +523,7 @@ export const requestModelText = async ({
       err.isNonRetryable = response.status >= 400 && response.status < 500 && response.status !== 408;
       throw err;
     }
+    accepted = true;
 
     if (!onChunk) {
       const data = await response.json();
@@ -675,7 +679,7 @@ export const requestModelText = async ({
     logModelReply({ content: text, tool_calls: toolCallsBuffer.filter(Boolean) }, finishReason);
     return { content: text, ...echoed, tool_calls: toolCallsBuffer.filter(Boolean), ...(finishReason ? { finishReason } : {}) };
   } catch (err) {
-    usageTracker?.cancel();
+    usageTracker?.cancel({ billed: accepted });
     if (onChunk) onChunk('', 'thinking_end');
     const willRetry = retry && !signal?.aborted && retryCount < delays.length && err.name !== 'AbortError' && !err.isRateLimit && !err.isNonRetryable;
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');

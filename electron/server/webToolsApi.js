@@ -223,7 +223,40 @@ const tokensOf = (usage) => {
   return sum > 0 ? sum : 0;
 };
 
-// ---- Each provider's search: -> { billed, tokens, body } or { status, error, stop? } ----
+// A search's token counts in the chat-completions shape (prompt_tokens with
+// any cached input in it, completion_tokens with any thinking), sent back
+// with the results so the Build pane's token counter includes them
+// (src/lib/providerWeb.js). null when the provider reported none.
+const tokenCount = (value) => (Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : 0);
+export const searchUsageOf = (usage) => {
+  if (!usage || typeof usage !== 'object') return null;
+  // Gemini's usageMetadata: the search results it read are toolUsePrompt
+  // tokens, its thinking is thoughts tokens.
+  if ('promptTokenCount' in usage || 'totalTokenCount' in usage) {
+    const prompt = tokenCount(usage.promptTokenCount) + tokenCount(usage.toolUsePromptTokenCount);
+    const completion = tokenCount(usage.candidatesTokenCount) + tokenCount(usage.thoughtsTokenCount);
+    return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: Math.max(tokenCount(usage.totalTokenCount), prompt + completion), prompt_tokens_details: { cached_tokens: tokenCount(usage.cachedContentTokenCount) } };
+  }
+  // Chat Completions (OpenRouter): already this shape.
+  if ('prompt_tokens' in usage || 'completion_tokens' in usage) return usage;
+  // Responses API (OpenAI, xAI) and Claude: input_tokens/output_tokens. Claude
+  // counts its cache reads and writes apart from input_tokens.
+  if ('input_tokens' in usage || 'output_tokens' in usage) {
+    const read = tokenCount(usage.cache_read_input_tokens);
+    const write = tokenCount(usage.cache_creation_input_tokens);
+    const prompt = tokenCount(usage.input_tokens) + read + write;
+    const completion = tokenCount(usage.output_tokens);
+    return {
+      prompt_tokens: prompt,
+      completion_tokens: completion,
+      total_tokens: Math.max(tokenCount(usage.total_tokens), prompt + completion),
+      prompt_tokens_details: { cached_tokens: read || tokenCount(usage.input_tokens_details?.cached_tokens), cache_write_tokens: write },
+    };
+  }
+  return null;
+};
+
+// ---- Each provider's search: -> { billed, tokens, usage?, body } or { status, error, stop? } ----
 
 async function searchDeepSeek(query, { provider, own }, request, fetchImpl) {
   const result = await postJson(`${DEEPSEEK_TOOLS}/search`, { authorization: `Bearer ${provider.apiKey}` },
@@ -257,7 +290,7 @@ async function searchResponses(query, { provider, own }, request, fetchImpl) {
     .filter((note) => note?.type === 'url_citation')
     .map((note) => ({ url: note.url, title: note.title }));
   const searched = (result.body.output || []).some((item) => item?.type === 'web_search_call');
-  return { billed: searched, tokens: tokensOf(result.body.usage), body: { query, answer, results: uniqueSources(cited) } };
+  return { billed: searched, tokens: tokensOf(result.body.usage), usage: searchUsageOf(result.body.usage), body: { query, answer, results: uniqueSources(cited) } };
 }
 
 async function searchGemini(query, { provider, own }, request, fetchImpl) {
@@ -273,7 +306,7 @@ async function searchGemini(query, { provider, own }, request, fetchImpl) {
   const meta = candidate.groundingMetadata || {};
   const chunks = (Array.isArray(meta.groundingChunks) ? meta.groundingChunks : []).map((chunk) => ({ url: chunk?.web?.uri, title: chunk?.web?.title }));
   const searched = (meta.webSearchQueries?.length || 0) > 0 || chunks.length > 0;
-  return { billed: searched, tokens: tokensOf(result.body.usageMetadata), body: { query, answer, results: uniqueSources(chunks) } };
+  return { billed: searched, tokens: tokensOf(result.body.usageMetadata), usage: searchUsageOf(result.body.usageMetadata), body: { query, answer, results: uniqueSources(chunks) } };
 }
 
 async function searchOpenRouter(query, { provider, own }, request, fetchImpl) {
@@ -292,7 +325,7 @@ async function searchOpenRouter(query, { provider, own }, request, fetchImpl) {
   const cited = (Array.isArray(message.annotations) ? message.annotations : [])
     .filter((note) => note?.type === 'url_citation')
     .map((note) => ({ url: note.url_citation?.url, title: note.url_citation?.title, content: note.url_citation?.content }));
-  return { billed: true, tokens: tokensOf(result.body.usage), body: { query, answer: answerText(message.content), results: uniqueSources(cited) } };
+  return { billed: true, tokens: tokensOf(result.body.usage), usage: searchUsageOf(result.body.usage), body: { query, answer: answerText(message.content), results: uniqueSources(cited) } };
 }
 
 async function searchAnthropic(query, { provider, own }, request, fetchImpl) {
@@ -324,7 +357,7 @@ async function searchAnthropic(query, { provider, own }, request, fetchImpl) {
     .flatMap((block) => block.content)
     .map((item) => ({ url: item?.url, title: item?.title, date: item?.page_age }));
   const searches = Number(message.usage?.server_tool_use?.web_search_requests) || 0;
-  return { billed: searches > 0, tokens: tokensOf(message.usage), body: { query, answer, results: uniqueSources(found) } };
+  return { billed: searches > 0, tokens: tokensOf(message.usage), usage: searchUsageOf(message.usage), body: { query, answer, results: uniqueSources(found) } };
 }
 
 const SEARCH = {
@@ -416,5 +449,5 @@ export async function handleWebToolsApi(request, env, { fetch: fetchImpl = globa
   const fee = outcome.billed ? (SEARCH_FEE_TOKENS[provider.id] ?? DEFAULT_SEARCH_FEE_TOKENS) : 0;
   ticket?.end((outcome.tokens || 0) + fee);
   if (outcome.error) return json(outcome.status, { error: outcome.error, ...(outcome.stop ? { stop: true } : {}) });
-  return json(200, outcome.body);
+  return json(200, outcome.usage ? { ...outcome.body, usage: outcome.usage } : outcome.body);
 }

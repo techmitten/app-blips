@@ -3,6 +3,7 @@ import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';
 import PromptSuggestions from './PromptSuggestions';
+import ChatTokenUsage from './ChatTokenUsage';
 import { displayBuildPrompt } from '../lib/buildMessages';
 
 // The pane's open width at lg+, shared with the animated wrapper in App.
@@ -122,13 +123,17 @@ export default function BuildPanel({
       <div className={`absolute inset-0 pointer-events-none z-0 prompt-atmosphere ${!isChatActive ? 'prompt-atmosphere-hero' : ''}`} />
 
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
-      <div className="build-panel-header relative h-14 sm:h-16 shrink-0 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
+      {/* Three columns: title, the chat's token count centred in the header,
+          quick actions. The equal outer columns keep the middle centred
+          without letting it overlap either side. */}
+      <div className="build-panel-header relative h-14 sm:h-16 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
         <div className="flex items-center">
           {side !== 'right' && collapseButton}
           <h2 className="build-panel-title text-sm 2xl:text-base font-bold text-slate-900 whitespace-nowrap tracking-tight">Build</h2>
         </div>
+        <ChatTokenUsage />
         {/* Quick actions */}
-        <div className="flex items-center">
+        <div className="col-start-3 justify-self-end flex items-center">
           <button
             type="button"
             onClick={onToggleHistory}

@@ -36,7 +36,7 @@ import { forgetTavilyKey } from './lib/tavily';
 import { TriangleAlert, Loader2 } from 'lucide-react';
 
 import { describeAttachment, generateAppCode } from './lib/llm';
-import { startUsageMeter } from './lib/tokenUsage';
+import { addUsage, sessionUsageFromVersions, setChatUsageBase, startUsageMeter } from './lib/tokenUsage';
 import { compressImageDataUrl } from './lib/attachments';
 import { slugifyName } from './lib/helpers';
 import { savePendingJob, clearPendingJob, loadPendingJob } from './lib/pendingJob';
@@ -238,6 +238,20 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   const [seoProfile, setSeoProfile] = useState(null);
   const seoProfileRef = useRef(seoProfile);
   seoProfileRef.current = seoProfile;
+  // Tokens each chat session of this project used, { [sessionId]: totals }
+  // (lib/tokenUsage.js), shown for the current chat in the Build pane's
+  // header. Kept apart from versions so failed, cancelled and undone turns
+  // still count. Saved with the project row. The ref is what saves read; the
+  // epoch changes whenever another project's ledger replaces it, so a turn
+  // that ends afterwards doesn't add to the wrong project.
+  const [chatUsage, setChatUsageState] = useState({});
+  const chatUsageRef = useRef(chatUsage);
+  const chatUsageEpochRef = useRef(0);
+  const setChatUsage = useCallback((ledger) => {
+    chatUsageEpochRef.current += 1;
+    chatUsageRef.current = ledger;
+    setChatUsageState(ledger);
+  }, []);
   const [isImportSiteOpen, setIsImportSiteOpen] = useState(false);
   const [isShowcaseOpen, setIsShowcaseOpen] = useState(false);
   const [isPublishOpen, setIsPublishOpen] = useState(false);
@@ -486,11 +500,11 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // --- Projects (list / persistence) ---
   const {
     myProjects, isProjectsListOpen, setIsProjectsListOpen, showStarPrompt, dismissGitHubStarPrompt,
-    loadProject, saveProject, renameProject, deleteProject, deleteAllProjects,
+    loadProject, saveProject, saveChatUsage, renameProject, deleteProject, deleteAllProjects,
   } = useProjects({
     workspace: {
-      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta: codebaseMetaToSave, galleryImages, seoProfile,
-      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setGalleryImages, setSeoProfile,
+      versions, currentVersionIndex, chatContextStartIndex, currentChatSessionId, projectName, currentProjectId, studioMode, codebaseMeta: codebaseMetaToSave, galleryImages, seoProfile, chatUsageRef,
+      setProjectName, setVersions, setCurrentVersionIndex, setChatContextStartIndex, setCurrentChatSessionId, setStudioMode, setGalleryImages, setSeoProfile, setChatUsage,
       setCodebaseMeta: applyCodebaseMeta,
       setFiles, setActivePage, setCurrentProjectId, setHasSentFirstPrompt,
       setIsResumingProject, clearStreamingState,
@@ -501,6 +515,12 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // remembers the previous project's id.
   const saveProjectRef = useRef(saveProject);
   saveProjectRef.current = saveProject;
+
+  // The header's token counter starts from what the current chat has used so
+  // far; a running turn adds to it live (lib/tokenUsage.js).
+  useEffect(() => {
+    setChatUsageBase(chatUsage[currentChatSessionId] ?? sessionUsageFromVersions(versions, currentChatSessionId), currentChatSessionId);
+  }, [chatUsage, currentChatSessionId, versions]);
 
   // Renaming a gallery image changes the path pages use, so every version is
   // pointed at the new name (restoring an older one keeps working).
@@ -1814,8 +1834,24 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       : '';
     const seoSentHash = seoNote ? hashSeoForm(seoProfileRef.current.form) : '';
 
-    // Every AI request this turn makes, shown under its reply.
+    // Every AI request this turn makes, added to this chat's total in the
+    // Build pane's header. The turn's totals also stay on its version.
     const usageMeter = startUsageMeter();
+    const usageEpoch = chatUsageEpochRef.current;
+    let usageAdded = false;
+    let usageSavedWithVersion = false;
+    const finishUsage = () => {
+      const turn = usageMeter.stop();
+      if (!usageAdded && usageEpoch === chatUsageEpochRef.current && turn.calls) {
+        const ledger = chatUsageRef.current;
+        // A chat from before the ledger starts from its versions' totals.
+        const before = ledger[currentChatSessionId] ?? sessionUsageFromVersions(versions, currentChatSessionId);
+        chatUsageRef.current = { ...ledger, [currentChatSessionId]: addUsage(before, turn) };
+        setChatUsageState(chatUsageRef.current);
+      }
+      usageAdded = true;
+      return turn;
+    };
     // Described alongside the build and saved with this turn, so later turns
     // still know what the image showed. Never rejects.
     const imageNotePromise = attachmentForRequest && !isAutoFix
@@ -2000,7 +2036,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         // Structured multiple-choice clarifying questions before the build starts.
         ...(generationResult.clarifyingQuestions?.length ? { clarifyingQuestions: generationResult.clarifyingQuestions } : {}),
         sessionId: currentChatSessionId,
-        usage: usageMeter.stop(),
+        usage: finishUsage(),
       };
       if (studioMode === 'codebase') newVersion.assets = generationResult.assets || currentAssets || {};
       const isBuildVersion = newVersion.editMode === 'full-generation' || newVersion.editMode === 'surgical';
@@ -2024,6 +2060,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       }
 
       // Auto-save
+      usageSavedWithVersion = true;
       saveProject({
         versionsToSave: finalVersions,
         indexToSave: updatedVersions.length,
@@ -2092,7 +2129,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       // and re-submit themselves; stale job records would be confusing.
       clearPendingJob();
     } finally {
-      usageMeter.stop();
+      finishUsage();
+      // A turn that left no version (failed or cancelled) still used tokens.
+      if (!usageSavedWithVersion && usageEpoch === chatUsageEpochRef.current) saveChatUsage(currentProjectId, chatUsageRef.current);
       // Cancelled and already replaced by a newer run (a retry wait ends
       // after the next prompt was sent): that run owns the state now.
       if (runId === generationRunRef.current) {
@@ -2688,6 +2727,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setPendingAttachment(null);
     setGalleryImages([]);
     setSeoProfile(null);
+    setChatUsage({});
     setHasSentFirstPrompt(false);
     setChatMode('build');
     setError(null);
