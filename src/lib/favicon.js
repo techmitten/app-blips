@@ -57,6 +57,22 @@ export async function makeFavicon(file) {
   }
 }
 
+// The AppBlips icon (public/apple-touch-icon.png, 180px), used for a site
+// whose owner picked no icon of their own. '' if it can't be fetched, which
+// publishes the site without an icon like before.
+export async function defaultFaviconBase64() {
+  try {
+    const response = await fetch('/apple-touch-icon.png');
+    if (!response.ok) return '';
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(binary);
+  } catch {
+    return '';
+  }
+}
+
 export const faviconBase64 = (dataUrl) => (
   typeof dataUrl === 'string' && dataUrl.startsWith('data:image/png;base64,') ? dataUrl.slice(22) : ''
 );
@@ -88,6 +104,16 @@ export function addFaviconLinks(html) {
   return html.slice(0, at) + links + html.slice(at);
 }
 
-export const withFavicon = (files) => Object.fromEntries(
-  Object.entries(files).map(([name, html]) => [name, name.endsWith('.html') ? addFaviconLinks(html) : html]),
+const hasIconLink = (html) => {
+  const headEnd = html.search(/<\/head\s*>/i);
+  return headEnd !== -1 && new RegExp(ICON_LINK_RE.source, 'i').test(html.slice(0, headEnd));
+};
+
+// keepOwn: the default icon only goes on pages that have no icon of their
+// own, so a page's own <link rel="icon"> (say an emoji) isn't replaced.
+export const withFavicon = (files, { keepOwn = false } = {}) => Object.fromEntries(
+  Object.entries(files).map(([name, html]) => [
+    name,
+    name.endsWith('.html') && !(keepOwn && typeof html === 'string' && hasIconLink(html)) ? addFaviconLinks(html) : html,
+  ]),
 );

@@ -12,7 +12,7 @@ import { buildPwaManifest, buildServiceWorker, defaultPwaIconBase64, injectPwaPr
 import { MIN_GATE_PASSWORD_LENGTH, checkGatePassword } from '../lib/passwordGate';
 import { shareLinks } from '../lib/share';
 import { bytesToBase64, collectSiteImages, pointAtCopies } from '../lib/siteImages';
-import { FAVICON_PATH, faviconBase64, makeFavicon, withFavicon } from '../lib/favicon';
+import { FAVICON_PATH, defaultFaviconBase64, faviconBase64, makeFavicon, withFavicon } from '../lib/favicon';
 import ShareIcon from './ShareIcons';
 import ShowcaseSubmitModal from './ShowcaseSubmitModal';
 import DnsHelpModal from './DnsHelpModal';
@@ -110,7 +110,7 @@ function SiteIconRow({ icon, onIcon, disabled }) {
             ? <p role="alert" className="mt-0.5 text-xs leading-snug text-red-600">{error}</p>
             : (
               <p className="mt-0.5 text-xs leading-snug text-slate-600">
-                Shown in browser tabs and bookmarks. Square works best.
+                Shown in browser tabs and bookmarks. Square works best. Without one, your site uses the AppBlips icon.
               </p>
             )}
         </div>
@@ -373,6 +373,8 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     if (!icon && pwaPrompt) {
       icon = defaultPwaIconBase64(projectName);
     }
+    const ownIcon = Boolean(icon);
+    if (!icon) icon = await defaultFaviconBase64();
     if (icon) uploads[FAVICON_PATH] = icon;
     const sitePages = pointAtCopies(pages, images);
     // sitemap.xml and robots.txt from the SEO connector (lib/seo.js).
@@ -383,7 +385,7 @@ export default function PublishDialog({ projectId, projectName, buildFiles, gall
     }
     const result = await surgePublish(
       clean,
-      icon ? withFavicon(sitePages) : sitePages,
+      icon ? withFavicon(sitePages, { keepOwn: !ownIcon }) : sitePages,
       Object.keys(uploads).length ? uploads : undefined,
       Object.keys(extras).length ? extras : undefined,
       locked ? sitePassword : undefined,
