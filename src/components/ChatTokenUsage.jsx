@@ -14,7 +14,7 @@ const percent = (part, whole) => {
 // cache reads and writes (tokenUsage.js), so fresh input is what's left.
 const breakdown = (usage) => [
   { key: 'input', label: 'Input', detail: 'Your code, AppBlips\' instructions and the chat', value: Math.max(0, usage.input - usage.cached - usage.cacheWrite), always: true },
-  { key: 'cached', label: 'Cache reads', detail: 'Input the AI reused from its cache, usually at a discount', value: usage.cached },
+  { key: 'cached', label: 'Cache reads', detail: 'Input the AI reused from its cache (weighted at 10%)', value: Math.ceil(Math.min(usage.input, usage.cached) * 0.1) },
   { key: 'cache-write', label: 'Cache writes', detail: 'Input saved to the AI\'s cache for reuse', value: usage.cacheWrite },
   { key: 'output', label: 'Output', detail: 'What the AI wrote, including any thinking', value: usage.output, always: true },
   {
@@ -107,6 +107,7 @@ export default function ChatTokenUsage() {
   const parts = breakdown(usage);
   const turn = usage.lastTurn?.calls ? usage.lastTurn : null;
   const unreported = usage.calls - usage.reported;
+  const isEstimate = usage.running || usage.estimating;
 
   return (
     <>
@@ -117,11 +118,11 @@ export default function ChatTokenUsage() {
         aria-expanded={isOpen}
         aria-haspopup="dialog"
         aria-controls={isOpen ? panelId : undefined}
-        aria-label={`Estimated ${exact(usage.total)} tokens used in this chat. Show details`}
+        aria-label={`${isEstimate ? 'Estimated ' : ''}${exact(usage.total)} tokens used in this chat. Show details`}
         className={`chat-token-usage group inline-flex min-w-0 items-center gap-1 rounded-md px-2 py-1 text-xs 2xl:text-sm font-medium tabular-nums text-slate-500 transition-colors cursor-pointer hover:bg-slate-900/5 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white ${isOpen ? 'bg-slate-900/5 text-slate-900 dark:bg-white/10 dark:text-white' : ''}`}
       >
         {usage.running && <span className="token-usage-live-dot" aria-hidden="true" />}
-        <span className="truncate">Est. {formatTokenCount(usage.total)} tokens</span>
+        <span className="truncate">{isEstimate ? `Est. ${formatTokenCount(usage.total)} tokens` : `${formatTokenCount(usage.total)} tokens`}</span>
         <ChevronDown
           size={13}
           aria-hidden="true"
@@ -151,7 +152,7 @@ export default function ChatTokenUsage() {
 
           <p className="token-usage-total">
             <span className="token-usage-total-value">{exact(usage.total)}</span>
-            <span className="token-usage-total-label">estimated tokens</span>
+            <span className="token-usage-total-label">{isEstimate ? 'estimated tokens' : 'tokens'}</span>
           </p>
 
           <div className="token-usage-bar" aria-hidden="true">

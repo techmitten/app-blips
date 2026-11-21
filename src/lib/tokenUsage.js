@@ -61,7 +61,11 @@ export const sessionUsageFromVersions = (versions, sessionId) => (Array.isArray(
   .filter((version) => version?.usage && version.sessionId === sessionId)
   .reduce((sum, version) => addUsage(sum, version.usage), emptyUsage());
 
-export const usageTotal =(totals) => (totals ? totals.input + totals.output + totals.estimated : 0);
+export const usageTotal = (totals) => {
+  if (!totals) return 0;
+  const cached = Math.min(totals.input || 0, totals.cached || 0);
+  return (totals.input - cached) + Math.ceil(cached * 0.1) + totals.output + totals.estimated;
+};
 
 // The OpenAI-shaped `usage` every provider path returns (anthropic.js
 // converts Claude's counts to it), as { input, cached, cacheWrite, output },
@@ -110,7 +114,12 @@ const activeMeters = new Set();
 const liveRequests = new Set();
 const outputEstimate = (request) => Math.ceil(request.outputChars / CHARS_PER_TOKEN);
 // The input is exact once the provider has reported it (reportInput).
-const requestEstimate = (request) => (request.inputCounts?.input ?? request.input) + outputEstimate(request);
+const requestEstimate = (request) => {
+  const input = request.inputCounts
+    ? (request.inputCounts.input - request.inputCounts.cached) + Math.ceil(request.inputCounts.cached * 0.1)
+    : request.input;
+  return input + outputEstimate(request);
+};
 // Turns whose totals went into their chat's base (and App's ledger), so a
 // later correction knows to fix the chat as well.
 const foldedMeters = new WeakSet();

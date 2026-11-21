@@ -58,8 +58,8 @@ try {
   assert.deepEqual(meter.stop(), firstTurn);
   assert.deepEqual(meter.stop(), firstTurn, 'stop() is repeatable');
   await settle();
-  // The finished turn joins the chat's total, once.
-  assert.equal(getLiveUsage().total, 2350);
+  // The finished turn joins the chat's total, once (with 0.1x cache-read weighting).
+  assert.equal(getLiveUsage().total, 1450);
   assert.equal(getLiveUsage().running, false);
   assert.deepEqual(getLiveUsage().lastTurn, firstTurn);
 
@@ -68,7 +68,7 @@ try {
   await stream();
   assert.deepEqual(meter.stop(), firstTurn);
   await settle();
-  assert.equal(getLiveUsage().total, 2350);
+  assert.equal(getLiveUsage().total, 1450);
 
   // Non-streamed reply with usage; a reply without usage keeps an estimate.
   meter = startUsageMeter();
