@@ -23,7 +23,6 @@ import SplashScreen from './components/SplashScreen';
 import StudioChoice from './components/StudioChoice';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
-import GitHubStarNotice from './components/GitHubStarNotice';
 import DesktopOnboarding from './components/DesktopOnboarding';
 import { BUNDLED_LEGAL_DATES, fetchLegalDates, loadAgreement, needsAgreement, saveAgreement } from './lib/legal';
 import ImportSiteDialog from './components/ImportSiteDialog';
@@ -499,7 +498,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
 
   // --- Projects (list / persistence) ---
   const {
-    myProjects, isProjectsListOpen, setIsProjectsListOpen, showStarPrompt, dismissGitHubStarPrompt,
+    myProjects, isProjectsListOpen, setIsProjectsListOpen,
     loadProject, saveProject, saveChatUsage, renameProject, deleteProject, deleteAllProjects,
   } = useProjects({
     workspace: {
@@ -3025,7 +3024,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         <DesktopStorageNotice />
         <UpdateNotice />
         {legalGate}
-        {showStarPrompt && !isGenerating && <GitHubStarNotice onDismiss={dismissGitHubStarPrompt} />}
         {isProjectsListOpen && (
           <ProjectsListModal
             projects={myProjects}
@@ -3168,7 +3166,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       )}
 
       <UpdateNotice />
-      {showStarPrompt && !isGenerating && <GitHubStarNotice onDismiss={dismissGitHubStarPrompt} />}
       <DesktopStorageNotice />
       {legalGate}
 
