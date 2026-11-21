@@ -175,13 +175,22 @@ Each AI reply has a length limit. It's set under **Output tokens: building** in 
 
 AI providers bill by tokens. A token is a small piece of text, about three-quarters of a word. One build can be several requests, and each one sends your message, your app's code and the chat so far.
 
-The Build pane's header shows an estimate of the tokens the current chat has used, for example **Est. 12.4k tokens**. It counts up while the AI works and starts again from zero when you start a new chat. Point at it to see the details:
+AppBlips shows an estimate of the tokens the current chat has used, for example **Est. 12.4k tokens**. On a computer it's in the Build pane's header. On a phone or tablet it's just above the prompt box. It counts up while the AI works, with a green dot while a build is running, and starts again from zero when you start a new chat.
 
-- **Input:** what was sent to the AI, including how much was read from or saved to the provider's cache. See [Prompt caching](/costs/prompt-caching).
+Click the counter to open a breakdown. A bar shows how the total splits into these parts:
+
+- **Input:** what was sent to the AI that wasn't cached: your message, your app's code and AppBlips' instructions.
+- **Cache reads:** input the AI reused from its cache, usually at a lower price. See [Prompt caching](/costs/prompt-caching).
+- **Cache writes:** input saved to the AI's cache so later requests can reuse it.
 - **Output:** what the AI wrote, including any thinking.
-- **Your last message:** what your most recent request used.
+- **Unreported:** an estimate for requests the provider didn't report on. While a build runs, this is shown as **Still counting** until the exact counts arrive.
 
-The counter appears on wider screens. With Free AI, nothing is billed to you, but the counter still shows what was used.
+Parts with nothing in them aren't shown. Below the bar you'll also see:
+
+- **Your last message:** what your most recent request used. While a build runs, it's **This message so far**.
+- **AI requests:** how many requests the chat has made, and how many of them the provider didn't report on.
+
+Press **Esc** or click anywhere else to close the breakdown. With Free AI, nothing is billed to you, but the counter still shows what was used.
 
 <Warning>
 The counter is an estimate only, not a bill. It adds up the counts your AI provider reports, and providers price cached input, output and web searches differently. Some providers don't report every request, and a request you stop part-way is guessed from its size. Always check your provider's usage or billing page for what you actually pay.
