@@ -281,6 +281,11 @@ export default function BuildPanel({
 
       {/* Fixed Bottom Input Area */}
       <div className="build-panel-composer shrink-0 p-3 sm:p-4 border-t border-slate-200/90 dark:border-white/10 bg-surface/95 backdrop-blur-xl relative z-1">
+        {/* The token counter's home on phones and touch devices, where the
+            pane header above is hidden (responsive.css). */}
+        <div className="build-panel-meta">
+          <ChatTokenUsage />
+        </div>
         {/* Next-step ideas for Build mode only: they are build requests. */}
         {chatMode === 'build' && !isGenerating && onPickSuggestion && (
           <PromptSuggestions suggestions={suggestions} onPick={onPickSuggestion} />

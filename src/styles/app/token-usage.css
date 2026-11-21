@@ -1,0 +1,208 @@
+/* The Build pane header's token counter and its details panel
+   (ChatTokenUsage.jsx). The panel is portalled to <body>, so it is sized in
+   px rather than inheriting the Build pane's zoom, and it shares the menu
+   surface of .insert-menu (element-bar.css). */
+
+.token-usage-panel {
+  position: fixed;
+  z-index: 60;
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-slate-200);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px -12px rgb(0 0 0 / 0.45), 0 0 0 1px var(--hairline);
+  font-family: var(--font-control);
+  font-size: 13px;
+  color: var(--color-slate-800);
+  animation: tokenUsageIn 0.16s ease-out both;
+}
+.token-usage-panel:focus { outline: none; }
+
+/* Only shown where the Build pane header is hidden (responsive.css). */
+.build-panel-meta { display: none; }
+:is(html.dark, .force-dark) .token-usage-panel {
+  border-color: rgb(255 255 255 / 0.14);
+  background: #1b1e2b;
+  color: rgb(255 255 255 / 0.88);
+}
+
+@keyframes tokenUsageIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .token-usage-panel { animation: none; }
+}
+
+.token-usage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.token-usage-title,
+.token-usage-scope {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-slate-500);
+}
+.token-usage-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.token-usage-total {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+.token-usage-total-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-slate-900);
+}
+:is(html.dark, .force-dark) .token-usage-total-value { color: #ffffff; }
+.token-usage-total-label {
+  font-size: 12px;
+  color: var(--color-slate-500);
+}
+
+/* One bar split by share of the total; each part's colour matches its row. */
+.token-usage-bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-slate-100);
+}
+:is(html.dark, .force-dark) .token-usage-bar { background: rgb(255 255 255 / 0.08); }
+.token-usage-seg {
+  min-width: 3px;
+  transition: width 0.3s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .token-usage-seg { transition: none; }
+}
+
+.token-usage-input { background: #3b82f6; }
+.token-usage-cached { background: #14b8a6; }
+.token-usage-cache-write { background: #a855f7; }
+.token-usage-output { background: #f59e0b; }
+.token-usage-estimated {
+  background: repeating-linear-gradient(135deg, #94a3b8 0 3px, #cbd5e1 3px 6px);
+}
+
+.token-usage-rows,
+.token-usage-facts {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.token-usage-rows { gap: 8px; }
+.token-usage-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.token-usage-row dt {
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  column-gap: 8px;
+  min-width: 0;
+}
+.token-usage-swatch {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 2px;
+}
+.token-usage-label {
+  font-weight: 600;
+  color: var(--color-slate-800);
+}
+:is(html.dark, .force-dark) .token-usage-label { color: rgb(255 255 255 / 0.9); }
+.token-usage-detail {
+  grid-column: 2;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--color-slate-500);
+}
+.token-usage-row dd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.token-usage-value { font-weight: 600; }
+.token-usage-percent,
+.token-usage-muted {
+  font-size: 11px;
+  color: var(--color-slate-500);
+}
+
+.token-usage-divider {
+  height: 1px;
+  margin: 12px 0 10px;
+  background: var(--color-slate-200);
+}
+:is(html.dark, .force-dark) .token-usage-divider { background: rgb(255 255 255 / 0.1); }
+
+.token-usage-facts { gap: 4px; }
+.token-usage-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.token-usage-facts dt { color: var(--color-slate-600); }
+:is(html.dark, .force-dark) .token-usage-facts dt { color: rgb(255 255 255 / 0.65); }
+.token-usage-facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.token-usage-note {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--color-slate-50);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-slate-600);
+}
+:is(html.dark, .force-dark) .token-usage-note {
+  background: rgb(255 255 255 / 0.05);
+  color: rgb(255 255 255 / 0.6);
+}
+
+/* Pulses beside the counter while the AI is working. */
+.token-usage-live-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #22c55e;
+  animation: tokenUsagePulse 1.4s ease-in-out infinite;
+}
+@keyframes tokenUsagePulse {
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .token-usage-live-dot { animation: none; }
+}

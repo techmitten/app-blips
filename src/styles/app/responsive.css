@@ -220,6 +220,17 @@
      three: .build-panel-header still aligns with .preview-pane-header at lg
      and up, which is what --chrome-row-h exists to guarantee. */
   .build-panel-header { display: none; }
+  /* The header's token counter moves to a slim row over the composer. The
+     key keeps a 44px tap target; negative margins fold most of that into the
+     composer's padding, so the row adds about 26px. Empty (no usage yet), it
+     takes no space. */
+  .build-panel-meta {
+    display: flex;
+    justify-content: flex-end;
+    margin: -10px -6px -8px 0;
+  }
+  .build-panel-meta:empty { display: none; }
+  .build-panel-meta .chat-token-usage { min-height: 44px; }
 
   .header-view-switch { flex: 1 1 auto; min-width: 0; }
   /* 34px segments in a 3px-padded track: about 42px overall, a phone's own
