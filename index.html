@@ -47,6 +47,25 @@
         }
       })();
     </script>
+    <!-- Umami visitor tracking for the web version only (omitted in the
+         desktop and Android builds). -->
+    <script>
+      (function () {
+        try {
+          var isDesktop = Boolean(window.appblipsDesktop) || window.location.protocol === 'appblips:';
+          var isAndroid = Boolean(window.androidBridge || (window.Capacitor && typeof window.Capacitor.getPlatform === 'function' && window.Capacitor.getPlatform() === 'android'));
+          if (!isDesktop && !isAndroid) {
+            var el = document.createElement('script');
+            el.defer = true;
+            el.src = 'https://umami.techmitten.com/script.js';
+            el.setAttribute('data-website-id', 'd5b8a23c-5f0b-41ee-a4b1-508e45512d23');
+            document.head.appendChild(el);
+          }
+        } catch (e) {
+          /* ignore tracking errors in restricted environments */
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
