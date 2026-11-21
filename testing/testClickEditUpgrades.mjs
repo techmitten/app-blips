@@ -35,6 +35,7 @@ const SAMPLE_INDEX_HTML = `<!DOCTYPE html>
   </style>
 </head>
 <body>
+  <nav style="padding:8px 32px"><a id="top-nav-link" href="#specials-section">Specials</a></nav>
   <section id="hero-section">
     <h1 id="main-headline">Fresh Sourdough Daily</h1>
     <p id="intro-para">We bake with organic stone-ground flour. Check our <a id="inline-link" href="#contact">seasonal menu</a> for morning specials.</p>
@@ -172,6 +173,27 @@ try {
   });
   assert.match(hoverState.outline, /dashed/, 'hover state uses dashed outline');
   assert.equal(hoverState.badgeState, 'hover', 'hover state shows hover badge');
+
+  await liveFrame().locator('#top-nav-link').hover();
+  await page.waitForTimeout(80);
+  const topLinkHover = await evalInLiveFrame(() => {
+    const el = document.getElementById('top-nav-link');
+    const badge = document.querySelector('[data-orion-badge="true"]');
+    const lr = el.getBoundingClientRect();
+    const br = badge.getBoundingClientRect();
+    return {
+      badgeText: badge?.textContent,
+      linkTop: lr.top,
+      linkBottom: lr.bottom,
+      badgeTop: br.top,
+      badgeBottom: br.bottom,
+    };
+  });
+  assert.equal(topLinkHover.badgeText, 'Link', 'top nav link hover shows Link badge');
+  assert.ok(
+    topLinkHover.badgeTop >= topLinkHover.linkBottom || topLinkHover.badgeBottom <= topLinkHover.linkTop,
+    `hover badge (${topLinkHover.badgeTop}..${topLinkHover.badgeBottom}) must not cover top link (${topLinkHover.linkTop}..${topLinkHover.linkBottom})`,
+  );
 
   await liveFrame().locator('#cta-link').click();
   await page.getByRole('toolbar', { name: /Edit selected/i }).waitFor();

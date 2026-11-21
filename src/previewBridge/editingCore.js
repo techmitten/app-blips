@@ -132,10 +132,20 @@ export default `  // -----------------------------------------------------------
       'letter-spacing:0.01em;box-shadow:0 2px 6px rgba(15,23,42,0.25);white-space:nowrap;';
     var vw = window.innerWidth || document.documentElement.clientWidth || 800;
     var vh = window.innerHeight || document.documentElement.clientHeight || 600;
-    var bw = Math.max(54, Math.round(text.length * 6.5 + 16));
-    var bh = 20;
+    var bw = Math.max(54, stateBadge.offsetWidth || Math.round(text.length * 6.5 + 16));
+    var bh = Math.max(20, stateBadge.offsetHeight || 0);
     var left = Math.max(4, Math.min(r.left, vw - bw - 4));
-    var top = r.top >= bh + 4 ? r.top - bh - 3 : Math.min(vh - bh - 4, Math.max(4, r.top + 4));
+    // Prefer above the element; if there isn't room above (e.g. top navbar links),
+    // place below so the badge never covers the element. Fall back to inside only
+    // when the element spans near both the top and bottom of the viewport.
+    var top;
+    if (r.top >= bh + 4) {
+      top = r.top - bh - 3;
+    } else if (r.bottom + bh + 4 <= vh) {
+      top = Math.max(4, r.bottom + 3);
+    } else {
+      top = Math.min(vh - bh - 4, Math.max(4, r.top + 4));
+    }
     stateBadge.style.left = Math.round(left) + 'px';
     stateBadge.style.top = Math.round(top) + 'px';
   }
