@@ -29,11 +29,22 @@ export default function useReasoningLevels() {
 
   const providerId = provider?.enabled && provider.id && provider.model ? provider.id : null;
   const model = providerId ? provider.model : null;
-  return useMemo(() => ({
+  // A server that sets Free AI's level (APPBLIPS_REASONING_EFFORT) leaves no
+  // choice while Free is in use: builds send that level and Settings hides
+  // the Reasoning row (`fixed`).
+  const fixedLevel = !provider?.enabled && typeof provider?.reasoningEffortFixed === 'string' ? provider.reasoningEffortFixed : null;
+  return useMemo(() => (fixedLevel ? {
+    levels: [fixedLevel],
+    defaultLevel: fixedLevel,
+    note: '',
+    fixed: true,
+    providerId: null,
+    model: null,
+  } : {
     ...reasoningLevels({ providerId, model, info: providerId ? cachedModelReasoning(providerId, model) : undefined }),
     providerId,
     model,
   // revision: the cached levels can change without the provider changing.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [providerId, model, revision]);
+  }), [providerId, model, fixedLevel, revision]);
 }

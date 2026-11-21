@@ -191,6 +191,35 @@ test('APPBLIPS_MAX_OUTPUT_TOKENS leaves own-key requests to the user\'s limit', 
   assert.equal(invalid.response.status, 400);
 });
 
+test('APPBLIPS_REASONING_EFFORT sets the server provider\'s level for reasoning requests', async (t) => {
+  const settings = { OPENAI_API_KEY: 'or-key', OPENAI_LLM_MODEL: 'deepseek-v4-flash', APPBLIPS_REASONING_EFFORT: ' High ' };
+  for (const reasoning_effort of ['low', 'medium', 'max']) {
+    const { upstream } = await runWith(t, settings, { reasoning_effort });
+    assert.equal(upstream.body.reasoning_effort, 'high');
+  }
+  // Chat-only calls ask for Off and keep it.
+  for (const reasoning_effort of [undefined, 'none']) {
+    const { upstream } = await runWith(t, settings, { reasoning_effort });
+    assert.equal(upstream.body.reasoning_effort, undefined);
+    assert.deepEqual(upstream.body.thinking, { type: 'disabled' });
+  }
+  // off turns reasoning off for every request.
+  const off = await runWith(t, { ...settings, APPBLIPS_REASONING_EFFORT: 'off' }, { reasoning_effort: 'high' });
+  assert.deepEqual(off.upstream.body.thinking, { type: 'disabled' });
+  // Unreadable values count as not set: the page's level applies again.
+  for (const value of ['', 'turbo']) {
+    const { upstream } = await runWith(t, { ...settings, APPBLIPS_REASONING_EFFORT: value }, { reasoning_effort: 'low' });
+    assert.equal(upstream.body.reasoning_effort, 'low');
+  }
+});
+
+test('APPBLIPS_REASONING_EFFORT leaves own-key requests to the user\'s level', async (t) => {
+  const settings = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', APPBLIPS_REASONING_EFFORT: 'high' };
+  const user_provider = { id: 'deepseek', apiKey: 'u', model: 'deepseek-v4-flash' };
+  const { upstream } = await runWith(t, settings, { user_provider, reasoning_effort: 'low' });
+  assert.equal(upstream.body.reasoning_effort, 'low');
+});
+
 test('output limits come from Settings requests and ignore environment caps', async (t) => {
   const base = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm' };
   const settings = { ...base, OPENAI_LLM_MAX_TOKENS: '1', OPENAI_LLM_ASK_MAX_TOKENS: '2000', OPENAI_LLM_TEMPERATURE: '0.5' };

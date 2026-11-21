@@ -40,7 +40,7 @@ const PROVIDERS = {
   },
 };
 
-import { staticReasoningLevels, nearestLevel } from './reasoning.js';
+import { staticReasoningLevels, nearestLevel, EFFORT_SCALE } from './reasoning.js';
 
 const PRESET_DEFAULTS = { forcedToolChoice: true, streamUsage: true };
 
@@ -67,6 +67,24 @@ export const fixedMaxOutputTokens = (env) => {
 export const PROVIDER_IDS = ['deepseek'];
 
 const OFF_EFFORTS = new Set([false, 'none', 'off', 'disabled', '']);
+
+// APPBLIPS_REASONING_EFFORT: an operator-set reasoning level for Free AI (the
+// server's own provider): one of EFFORT_SCALE, or off. When set, the
+// Reasoning choice in Settings → AI is hidden while Free is in use. Blank or
+// unreadable values count as not set ('').
+export const fixedReasoningEffort = (env) => {
+  const value = String(env?.APPBLIPS_REASONING_EFFORT ?? '').trim().toLowerCase();
+  if (value === 'off') return 'none';
+  return EFFORT_SCALE.includes(value) ? value : '';
+};
+
+// The level a Free AI request runs with. Chat-only calls ask for Off and keep
+// it (they never reason); calls that ask for any level get the server's.
+export const freeReasoningEffort = (env, requested) => {
+  const fixed = fixedReasoningEffort(env);
+  if (!fixed || requested == null || OFF_EFFORTS.has(requested)) return requested;
+  return fixed;
+};
 
 const read = (env, name) => String(env?.[name] ?? '').trim();
 const warned = new Set();

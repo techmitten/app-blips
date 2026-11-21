@@ -267,6 +267,8 @@ export const webProviderStore = {
       ...(server.freeSignIn ? { freeSignIn: server.freeSignIn } : {}),
       // The host sets the output limit (APPBLIPS_MAX_OUTPUT_TOKENS).
       ...(server.maxOutputTokensFixed ? { maxOutputTokensFixed: true } : {}),
+      // The host sets Free AI's reasoning level (APPBLIPS_REASONING_EFFORT).
+      ...(server.reasoningEffortFixed ? { reasoningEffortFixed: server.reasoningEffortFixed } : {}),
     };
   },
   async set(info) {

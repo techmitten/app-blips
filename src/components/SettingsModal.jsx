@@ -48,6 +48,8 @@ const PROVIDER_NAMES = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemi
 // App). The saved choice isn't overwritten when it isn't offered: the
 // nearest offered level is shown and used until the user picks one.
 function ReasoningSetting({ value, onChange, reasoning }) {
+  // The server sets Free AI's level (APPBLIPS_REASONING_EFFORT).
+  if (reasoning.fixed) return null;
   const { levels, defaultLevel, note, providerId, model } = reasoning;
   const source = providerId ? `${PROVIDER_NAMES[providerId] || providerId} · ${model}` : null;
   const shown = nearestLevel(value, levels);

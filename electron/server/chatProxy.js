@@ -14,7 +14,7 @@
 // provider saved in Settings → AI themselves (withSavedProvider); the renderer
 // may also send its own `user_provider`. Anything else uses the env provider.
 
-import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS, fixedMaxOutputTokens } from './providers.js';
+import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS, fixedMaxOutputTokens, freeReasoningEffort } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
 import { defaultModel } from './defaultModel.js';
@@ -188,6 +188,12 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   const maxTokens = fixedLimit || payload?.max_tokens;
   if (!fixedLimit && maxTokens != null && (!Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
     return badRequest('The output token limit must be a positive whole number. Change it in Settings → AI.');
+  }
+
+  // Likewise APPBLIPS_REASONING_EFFORT sets Free AI's reasoning level; own-key
+  // requests keep the user's.
+  if (payload && typeof payload === 'object' && payload.user_provider == null) {
+    payload.reasoning_effort = freeReasoningEffort(env, payload.reasoning_effort);
   }
 
   const picked = await pickProvider(env, payload);
