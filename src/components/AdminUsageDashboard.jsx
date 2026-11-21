@@ -1,23 +1,30 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Activity,
   AlertTriangle,
   ArrowLeft,
   Ban,
+  Bot,
   Check,
+  CheckCircle2,
   Clock,
   Copy,
+  HelpCircle,
   KeyRound,
   LogIn,
   LogOut,
+  MessageSquare,
   PauseCircle,
   PlayCircle,
   RefreshCw,
   Search,
+  Send,
   ShieldAlert,
   ShieldCheck,
   ShieldOff,
+  Sparkles,
+  Trash2,
   Users,
+  X,
 } from 'lucide-react';
 import { useFreeSignIn } from '../hooks/useFreeSignIn';
 import { freeSignInHeaders } from '../lib/freeSignIn';
@@ -25,30 +32,37 @@ import { freeSignInHeaders } from '../lib/freeSignIn';
 const ADMIN_TOKEN_KEY = 'appblips-admin-usage-token';
 const AUTO_REFRESH_MS = 30_000;
 
+const CHAT_STARTERS = [
+  'Is any API abuse happening right now?',
+  'Explain today’s usage in plain English',
+  'Who are the heaviest users and should I block anyone?',
+  'Do I need to raise my daily token limits?',
+];
+
 const FLAG_LABELS = {
-  blocked: 'Blocked',
-  repeated_rate_limit: 'Repeated rate limits',
-  rate_limit_hits: 'Rate-limit hits',
-  high_request_rate: 'High req/hr',
-  elevated_request_rate: 'Elevated req/hr',
-  post_cap_hammering: 'Post-cap hammering',
+  blocked: 'Blocked by you',
+  repeated_rate_limit: 'Hit speed limit many times',
+  rate_limit_hits: 'Hit speed limit',
+  high_request_rate: 'Very high request rate',
+  elevated_request_rate: 'Busy this hour',
+  post_cap_hammering: 'Kept retrying after hitting cap',
 };
 
-const EVENT_STYLES = {
-  blocked: { label: 'Blocked', cls: 'bg-red-500/15 text-red-700 dark:text-red-300' },
-  auto_block: { label: 'Auto-blocked', cls: 'bg-red-500/15 text-red-700 dark:text-red-300' },
-  admin_block: { label: 'Admin block', cls: 'bg-red-500/15 text-red-700 dark:text-red-300' },
-  admin_unblock: { label: 'Unblocked', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
-  admin_pause: { label: 'Paused', cls: 'bg-red-500/15 text-red-700 dark:text-red-300' },
-  admin_resume: { label: 'Resumed', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
-  admin_auto_on: { label: 'Auto-block ON', cls: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300' },
-  admin_auto_off: { label: 'Manual mode', cls: 'bg-slate-500/15 text-slate-700 dark:text-slate-300' },
-  hourly_rate_limit: { label: 'Hourly cap', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-  minute_rate_limit: { label: 'Minute cap', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-  message_gap: { label: 'Rapid-fire', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-  concurrency_limit: { label: 'Concurrency', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-  user_token_cap: { label: 'User token cap', cls: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
-  site_token_cap: { label: 'Site token cap', cls: 'bg-red-500/15 text-red-700 dark:text-red-300' },
+const EVENT_INFO = {
+  blocked: { label: 'Blocked attempt', cls: 'bg-red-500/15 text-red-300 border-red-500/30' },
+  auto_block: { label: 'Auto-blocked', cls: 'bg-red-500/15 text-red-300 border-red-500/30' },
+  admin_block: { label: 'You blocked user', cls: 'bg-red-500/15 text-red-300 border-red-500/30' },
+  admin_unblock: { label: 'You unblocked user', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+  admin_pause: { label: 'Free AI paused', cls: 'bg-red-500/15 text-red-300 border-red-500/30' },
+  admin_resume: { label: 'Free AI resumed', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+  admin_auto_on: { label: 'Auto-block turned ON', cls: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
+  admin_auto_off: { label: 'Switched to Manual Mode', cls: 'bg-slate-700/70 text-slate-300 border-slate-600' },
+  hourly_rate_limit: { label: 'Hourly speed limit', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+  minute_rate_limit: { label: 'Too many prompts/min', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+  message_gap: { label: 'Sent too fast', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+  concurrency_limit: { label: 'Too many at once', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+  user_token_cap: { label: 'Hit personal daily cap', cls: 'bg-orange-500/15 text-orange-300 border-orange-500/30' },
+  site_token_cap: { label: 'Hit site-wide daily cap', cls: 'bg-red-500/15 text-red-300 border-red-500/30' },
 };
 
 const formatNumber = (n) => (Number.isFinite(n) ? n.toLocaleString() : '—');
@@ -61,7 +75,7 @@ const formatCompact = (n) => {
 };
 
 const formatRelativeTime = (iso) => {
-  if (!iso) return '—';
+  if (!iso) return 'Just now';
   const diffSec = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 1000));
   if (diffSec < 60) return `${diffSec}s ago`;
   const diffMin = Math.floor(diffSec / 60);
@@ -80,40 +94,47 @@ const formatResetCountdown = (iso) => {
 };
 
 const formatExpiry = (iso) => {
-  if (!iso) return 'Indefinite';
+  if (!iso) return 'Until you unblock them';
   const diffMs = Date.parse(iso) - Date.now();
   if (diffMs <= 0) return 'Expired';
   const totalMin = Math.ceil(diffMs / 60_000);
-  if (totalMin < 60) return `in ${totalMin}m`;
+  if (totalMin < 60) return `Ends in ${totalMin}m`;
   const hours = Math.floor(totalMin / 60);
-  if (hours < 48) return `in ${hours}h`;
-  return `in ${Math.ceil(hours / 24)}d`;
+  if (hours < 48) return `Ends in ${hours}h`;
+  return `Ends in ${Math.ceil(hours / 24)}d`;
+};
+
+const parseVisitorLabel = (visitor) => {
+  if (visitor.startsWith('user:')) {
+    return { kind: 'Account', label: visitor.slice(5) };
+  }
+  return { kind: 'IP', label: visitor };
 };
 
 const barTone = (pct, hitLimit) => {
   if (hitLimit || (pct != null && pct >= 100)) return 'bg-red-500';
-  if (pct != null && pct >= 80) return 'bg-amber-500';
-  if (pct != null && pct >= 50) return 'bg-sky-500';
-  return 'bg-emerald-500';
+  if (pct != null && pct >= 80) return 'bg-amber-400';
+  if (pct != null && pct >= 50) return 'bg-sky-400';
+  return 'bg-emerald-400';
 };
 
-const riskBadge = (riskLevel, pct, hitLimit) => {
+const statusPill = (riskLevel, pct, hitLimit) => {
   if (riskLevel === 'blocked') {
-    return { label: 'Blocked', cls: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30' };
+    return { label: 'Blocked', cls: 'bg-red-500/15 text-red-300 border-red-500/35' };
   }
   if (riskLevel === 'high') {
-    return { label: 'High risk', cls: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30' };
+    return { label: 'Suspicious', cls: 'bg-red-500/15 text-red-300 border-red-500/35' };
   }
   if (riskLevel === 'medium') {
-    return { label: 'Medium risk', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' };
+    return { label: 'Watch', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/35' };
   }
   if (hitLimit || (pct != null && pct >= 100)) {
-    return { label: 'At limit', cls: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30' };
+    return { label: 'Hit daily cap', cls: 'bg-orange-500/15 text-orange-300 border-orange-500/35' };
   }
   if (pct != null && pct >= 80) {
-    return { label: 'Near limit', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' };
+    return { label: 'Near cap', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/35' };
   }
-  return { label: 'Healthy', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30' };
+  return { label: 'Normal', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
 };
 
 const readSessionToken = () => {
@@ -131,6 +152,55 @@ const writeSessionToken = (token) => {
   } catch { /* sessionStorage unavailable */ }
 };
 
+function buildHealthSummary(data) {
+  if (!data) {
+    return {
+      tone: 'neutral',
+      title: 'Loading today’s Free AI status…',
+      body: 'Pulling live usage numbers from Cloudflare.',
+    };
+  }
+  if (data.pause?.paused) {
+    return {
+      tone: 'danger',
+      title: 'Free AI is paused for everyone right now',
+      body: `No Free AI requests are being accepted until you click Resume. Visitors using their own API keys are unaffected.${data.pause.reason ? ` Note: ${data.pause.reason}` : ''}`,
+    };
+  }
+  if (data.site?.hitLimit) {
+    return {
+      tone: 'danger',
+      title: 'Today’s site-wide Free AI budget is 100% used',
+      body: `Free AI is paused automatically until midnight UTC (in ${formatResetCountdown(data.resetsAt)}). Raise APPBLIPS_FREE_TOKENS_PER_DAY in Cloudflare if you want to add more budget today.`,
+    };
+  }
+  if ((data.summary?.flaggedVisitors ?? 0) > 0) {
+    const n = data.summary.flaggedVisitors;
+    return {
+      tone: 'warning',
+      title: `${n} ${n === 1 ? 'user is' : 'users are'} showing unusual activity`,
+      body: data.policy?.autoBlockAbuse
+        ? 'Automated abuse blocking is ON, so repeat offenders will be blocked automatically. You can review them in the list below.'
+        : 'You are in Manual Mode, so nobody has been auto-blocked. Click "Suspicious" below to inspect them and decide whether to block.',
+    };
+  }
+  if (data.site?.pct != null && data.site.pct >= 80) {
+    return {
+      tone: 'warning',
+      title: `Today’s site-wide budget is ${data.site.pct}% used`,
+      body: `About ${formatCompact(data.site.remaining)} tokens remain before the midnight UTC reset (in ${formatResetCountdown(data.resetsAt)}). No abuse has been detected.`,
+    };
+  }
+  const active = data.summary?.activeVisitors ?? 0;
+  return {
+    tone: 'healthy',
+    title: 'Everything looks healthy right now',
+    body: active === 0
+      ? 'No one has used Free AI yet today, and no suspicious activity has been detected.'
+      : `${active} ${active === 1 ? 'person has' : 'people have'} used Free AI today with no suspicious activity detected.`,
+  };
+}
+
 export default function AdminUsageDashboard() {
   const { state: signInState, busy: authBusy, signIn, signOut } = useFreeSignIn();
   const [adminToken, setAdminToken] = useState(readSessionToken);
@@ -142,16 +212,17 @@ export default function AdminUsageDashboard() {
   const [error, setError] = useState(null);
   const [actionNotice, setActionNotice] = useState(null);
   const [lastFetchedAt, setLastFetchedAt] = useState(null);
+  const [showGuide, setShowGuide] = useState(false);
 
-  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'flagged' | '50' | '80' | '100'
+  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'flagged' | '80' | '100' | 'blocked'
   const [limit, setLimit] = useState(100);
   const [search, setSearch] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [copiedId, setCopiedId] = useState(false);
+  const [copiedKey, setCopiedKey] = useState('');
 
   // Prevention controls state
   const [busyAction, setBusyAction] = useState(false);
-  const [blockTarget, setBlockTarget] = useState(null); // visitor string for inline row block modal
+  const [blockTarget, setBlockTarget] = useState(null);
   const [blockDuration, setBlockDuration] = useState(24);
   const [blockReason, setBlockReason] = useState('');
   const [manualVisitor, setManualVisitor] = useState('');
@@ -160,6 +231,14 @@ export default function AdminUsageDashboard() {
   const [pauseModalOpen, setPauseModalOpen] = useState(false);
   const [pauseReason, setPauseReason] = useState('');
   const [autoBlockHoursInput, setAutoBlockHoursInput] = useState(24);
+
+  // Built-in AI assistant state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const chatEndRef = useRef(null);
 
   const hasAuth = Boolean(adminToken || signInState?.signedIn);
 
@@ -174,13 +253,13 @@ export default function AdminUsageDashboard() {
     try {
       const headers = await getAuthHeaders();
       if (!headers.authorization) {
-        setError({ status: 401, message: 'Sign in to view Free AI usage.' });
+        setError({ status: 401, message: 'Sign in to view your Free AI dashboard.' });
         setData(null);
         return;
       }
       const params = new URLSearchParams({ limit: String(limit) });
       if (filterMode === 'flagged') params.set('flagged', '1');
-      else if (filterMode === '50' || filterMode === '80' || filterMode === '100') params.set('minPct', filterMode);
+      else if (filterMode === '80' || filterMode === '100') params.set('minPct', filterMode);
 
       const res = await fetch(`/api/admin/free-usage?${params.toString()}`, {
         headers,
@@ -247,7 +326,7 @@ export default function AdminUsageDashboard() {
     const ok = await postAdminAction(
       '/api/admin/free-usage/block',
       { visitor: blockTarget, durationHours: blockDuration, reason: blockReason },
-      `Blocked ${blockTarget}.`,
+      `Blocked ${blockTarget} from Free AI.`,
     );
     if (ok) {
       setBlockTarget(null);
@@ -262,7 +341,7 @@ export default function AdminUsageDashboard() {
     const ok = await postAdminAction(
       '/api/admin/free-usage/block',
       { visitor, durationHours: manualDuration, reason: manualReason },
-      `Blocked ${visitor}.`,
+      `Blocked ${visitor} from Free AI.`,
     );
     if (ok) {
       setManualVisitor('');
@@ -282,7 +361,7 @@ export default function AdminUsageDashboard() {
     const ok = await postAdminAction(
       '/api/admin/free-usage/pause',
       { paused: nextPaused, reason: nextPaused ? pauseReason : '' },
-      nextPaused ? 'Free AI is now paused site-wide.' : 'Free AI has been resumed.',
+      nextPaused ? 'Free AI is now paused for everyone.' : 'Free AI is back online.',
     );
     if (ok) {
       setPauseModalOpen(false);
@@ -296,9 +375,42 @@ export default function AdminUsageDashboard() {
       '/api/admin/free-usage/mode',
       { autoBlockAbuse: enable, autoBlockHours: hours },
       enable
-        ? `Automated abuse blocking activated (${hours}h blocks).`
-        : 'Automated abuse blocking turned OFF (manual control only).',
+        ? `Automated abuse blocking is now ON (${hours}h auto-blocks).`
+        : 'Switched back to Manual Mode — nobody will be auto-blocked.',
     );
+  };
+
+  useEffect(() => {
+    if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatOpen, chatMessages, chatBusy]);
+
+  const sendChatMessage = async (textOverride) => {
+    const prompt = String(textOverride ?? chatInput).trim();
+    if (!prompt || chatBusy) return;
+    const nextMessages = [...chatMessages, { role: 'user', content: prompt }];
+    setChatMessages(nextMessages);
+    setChatInput('');
+    setChatError('');
+    setChatBusy(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/free-usage/chat', {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ messages: nextMessages }),
+        cache: 'no-store',
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setChatError(body?.error || `Assistant error (${res.status}).`);
+        return;
+      }
+      setChatMessages([...nextMessages, { role: 'assistant', content: body.reply }]);
+    } catch (err) {
+      setChatError(err?.message || 'Could not reach the AI assistant.');
+    } finally {
+      setChatBusy(false);
+    }
   };
 
   const handleTokenSubmit = (e) => {
@@ -322,54 +434,117 @@ export default function AdminUsageDashboard() {
     }
   };
 
-  const copyUserId = async () => {
-    if (!signInState?.userId) return;
+  const copyText = async (key, text) => {
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(signInState.userId);
-      setCopiedId(true);
-      setTimeout(() => setCopiedId(false), 2000);
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(''), 1800);
     } catch { /* clipboard blocked */ }
   };
 
   const visibleVisitors = useMemo(() => {
-    const list = data?.visitors || [];
+    let list = data?.visitors || [];
+    if (filterMode === 'blocked') {
+      list = list.filter((v) => Boolean(v.blocked));
+    }
     const q = search.trim().toLowerCase();
     if (!q) return list;
     return list.filter((v) => v.visitor.toLowerCase().includes(q));
-  }, [data?.visitors, search]);
+  }, [data?.visitors, filterMode, search]);
 
   const needsSignIn = !hasAuth || error?.status === 401 || error?.status === 403 || error?.status === 503;
   const isPaused = Boolean(data?.pause?.paused);
   const isAutoBlockOn = Boolean(data?.policy?.autoBlockAbuse);
+  const health = buildHealthSummary(data);
+
+  const healthStyles = {
+    healthy: {
+      wrap: 'border-emerald-500/30 bg-emerald-500/10',
+      icon: <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-400" />,
+      title: 'text-emerald-200',
+    },
+    warning: {
+      wrap: 'border-amber-500/35 bg-amber-500/10',
+      icon: <AlertTriangle className="h-6 w-6 shrink-0 text-amber-400" />,
+      title: 'text-amber-200',
+    },
+    danger: {
+      wrap: 'border-red-500/40 bg-red-500/12',
+      icon: <ShieldAlert className="h-6 w-6 shrink-0 text-red-400" />,
+      title: 'text-red-200',
+    },
+    neutral: {
+      wrap: 'border-slate-800 bg-slate-900/90',
+      icon: <Sparkles className="h-6 w-6 shrink-0 text-sky-400" />,
+      title: 'text-slate-100',
+    },
+  }[health.tone];
+
+  const nearOrAtCount = (data?.summary?.atLimit ?? 0) + (data?.summary?.nearLimit80 ?? 0);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 antialiased">
+      {/* Top navigation bar */}
+      <header className="sticky top-0 z-20 border-b border-slate-800/90 bg-slate-950/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
           <div className="flex items-center gap-3">
             <a
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-slate-700 hover:bg-slate-800 hover:text-white"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              AppBlips
+              Back to AppBlips
             </a>
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-brand" />
-              <h1 className="text-base font-semibold tracking-tight sm:text-lg">
-                Free AI Usage &amp; Abuse Dashboard
-              </h1>
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              <div>
+                <h1 className="text-sm font-semibold tracking-tight text-white sm:text-base">
+                  Free AI Admin Dashboard
+                </h1>
+                <p className="hidden text-[11px] text-slate-400 sm:block">
+                  Live token usage, daily limits, and abuse protection
+                </p>
+              </div>
             </div>
           </div>
 
           {hasAuth && !needsSignIn && (
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setChatOpen((v) => !v)}
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                  chatOpen
+                    ? 'border-sky-400/60 bg-sky-500/20 text-sky-200'
+                    : 'border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20'
+                }`}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Ask AI
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowGuide((v) => !v)}
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+                  showGuide
+                    ? 'border-sky-500/50 bg-sky-500/15 text-sky-200'
+                    : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white'
+                }`}
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                Guide
+              </button>
+
               {isPaused ? (
                 <button
                   type="button"
                   onClick={() => handleTogglePause(false)}
                   disabled={busyAction}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
                 >
                   <PlayCircle className="h-3.5 w-3.5" />
                   Resume Free AI
@@ -379,34 +554,27 @@ export default function AdminUsageDashboard() {
                   type="button"
                   onClick={() => setPauseModalOpen((v) => !v)}
                   disabled={busyAction}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-500/20 dark:text-red-300 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-60"
                 >
                   <PauseCircle className="h-3.5 w-3.5" />
                   Pause Free AI
                 </button>
               )}
-              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="accent-brand"
-                />
-                Auto (30s)
-              </label>
+
               <button
                 type="button"
                 onClick={() => fetchUsage()}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-brand-fg transition hover:bg-brand-hover disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:opacity-60"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
+
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-slate-700 hover:text-white"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 Sign out
@@ -418,39 +586,42 @@ export default function AdminUsageDashboard() {
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         {needsSignIn ? (
-          <div className="mx-auto mt-10 max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                {error?.status === 403 ? <ShieldAlert className="h-5 w-5 text-red-500" /> : <ShieldCheck className="h-5 w-5" />}
+          <div className="mx-auto mt-12 max-w-md rounded-2xl border border-slate-800 bg-slate-900/90 p-7 shadow-2xl shadow-black/40">
+            <div className="mb-5 flex items-center gap-3.5">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30">
+                {error?.status === 403 ? <ShieldAlert className="h-5 w-5 text-red-400" /> : <ShieldCheck className="h-5 w-5" />}
               </div>
               <div>
-                <h2 className="text-base font-semibold">Admin Sign-In</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Restricted to authorized AppBlips administrators.
+                <h2 className="text-lg font-semibold text-white">Admin Sign-In</h2>
+                <p className="text-xs text-slate-400">
+                  Sign in to view live Free AI usage and protection controls.
                 </p>
               </div>
             </div>
 
             {error && (
-              <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-700 dark:text-red-300">
+              <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-200">
                 <p className="font-medium">{error.message}</p>
                 {error.status === 403 && signInState?.userId && (
-                  <div className="mt-2 border-t border-red-500/20 pt-2 text-slate-700 dark:text-slate-300">
-                    <p className="mb-1">
-                      To grant access to your account, add your Clerk user ID to{' '}
-                      <code className="font-mono text-[11px]">APPBLIPS_ADMIN_USER_IDS</code> in Cloudflare:
+                  <div className="mt-3 border-t border-red-500/20 pt-3 text-slate-300">
+                    <p className="mb-2 leading-relaxed">
+                      Add your Clerk user ID below to{' '}
+                      <code className="rounded bg-slate-950 px-1.5 py-0.5 font-mono text-[11px] text-sky-300">
+                        APPBLIPS_ADMIN_USER_IDS
+                      </code>{' '}
+                      in Cloudflare → Settings → Variables and Secrets:
                     </p>
-                    <div className="flex items-center gap-1.5">
-                      <code className="flex-1 truncate rounded bg-white/80 px-2 py-1 font-mono text-[11px] dark:bg-slate-950/60">
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 truncate rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 font-mono text-xs text-slate-100">
                         {signInState.userId}
                       </code>
                       <button
                         type="button"
-                        onClick={copyUserId}
-                        className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
+                        onClick={() => copyText('self', signInState.userId)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
                       >
-                        {copiedId ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                        {copiedId ? 'Copied' : 'Copy'}
+                        {copiedKey === 'self' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                        {copiedKey === 'self' ? 'Copied' : 'Copy'}
                       </button>
                     </div>
                   </div>
@@ -464,7 +635,7 @@ export default function AdminUsageDashboard() {
                   type="button"
                   onClick={() => signIn().catch(() => {})}
                   disabled={authBusy}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-brand-fg transition hover:bg-brand-hover disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:opacity-60"
                 >
                   <LogIn className="h-4 w-4" />
                   Sign in with Google or GitHub
@@ -472,15 +643,15 @@ export default function AdminUsageDashboard() {
               )}
 
               {signInState?.signedIn && (
-                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-800 dark:bg-slate-800/50">
+                <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 px-3.5 py-2.5 text-xs">
                   <div className="min-w-0">
-                    <div className="truncate font-medium">{signInState.displayName || signInState.email}</div>
-                    <div className="truncate text-slate-500 dark:text-slate-400">{signInState.email}</div>
+                    <div className="truncate font-medium text-white">{signInState.displayName || signInState.email}</div>
+                    <div className="truncate text-slate-400">{signInState.email}</div>
                   </div>
                   <button
                     type="button"
                     onClick={handleSignOut}
-                    className="ml-2 shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium hover:bg-white dark:border-slate-700 dark:hover:bg-slate-800"
+                    className="ml-2 shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 hover:bg-slate-700"
                   >
                     Sign out
                   </button>
@@ -491,17 +662,17 @@ export default function AdminUsageDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowTokenForm((v) => !v)}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200"
                 >
                   <KeyRound className="h-3.5 w-3.5" />
-                  {showTokenForm ? 'Hide admin token sign-in' : 'Use admin token instead'}
+                  {showTokenForm ? 'Hide admin token sign-in' : 'Or sign in with an admin token'}
                 </button>
               </div>
 
               {(showTokenForm || signInState?.required === false) && (
-                <form onSubmit={handleTokenSubmit} className="space-y-2.5 border-t border-slate-200 pt-3 dark:border-slate-800">
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">
-                    Admin Token (<code className="font-mono text-[11px]">APPBLIPS_ADMIN_TOKEN</code>)
+                <form onSubmit={handleTokenSubmit} className="space-y-2.5 border-t border-slate-800 pt-3.5">
+                  <label className="block text-xs font-medium text-slate-300">
+                    Admin Token (<code className="font-mono text-[11px] text-sky-300">APPBLIPS_ADMIN_TOKEN</code>)
                   </label>
                   <input
                     type="password"
@@ -509,17 +680,17 @@ export default function AdminUsageDashboard() {
                     onChange={(e) => setTokenInput(e.target.value)}
                     placeholder="Paste your admin token"
                     autoComplete="current-password"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 dark:border-slate-700 dark:bg-slate-950"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                   />
                   <button
                     type="submit"
                     disabled={!tokenInput.trim()}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                    className="w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-white disabled:opacity-50"
                   >
                     Unlock Dashboard
                   </button>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Stored only in this browser tab&apos;s sessionStorage and cleared when you close the tab.
+                  <p className="text-[11px] text-slate-500">
+                    Kept only for this browser tab and cleared automatically when you close it.
                   </p>
                 </form>
               )}
@@ -527,59 +698,111 @@ export default function AdminUsageDashboard() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Emergency pause active banner */}
-            {isPaused && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-xs text-red-800 dark:text-red-200">
-                <div className="flex items-center gap-2.5">
-                  <ShieldOff className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+            {/* Collapsible plain-English Quick Guide */}
+            {showGuide && (
+              <section className="rounded-2xl border border-sky-500/30 bg-sky-500/8 p-5 text-xs text-slate-200">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold">Emergency Kill Switch Active — Free AI is paused site-wide</p>
-                    <p className="text-red-700/80 dark:text-red-300/80">
-                      Users with their own API keys are unaffected.
-                      {data?.pause?.reason ? ` Reason: ${data.pause.reason}` : ''}
+                    <h2 className="text-sm font-semibold text-sky-200">How to read this dashboard</h2>
+                    <p className="mt-0.5 text-slate-400">A quick cheat sheet — no technical jargon.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowGuide(false)}
+                    aria-label="Close guide"
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5">
+                    <p className="font-semibold text-white">1. What are tokens?</p>
+                    <p className="mt-1 leading-relaxed text-slate-400">
+                      Tokens measure AI text sent and received. Because each edit resends the project context, a few normal builds can use millions of tokens (roughly ~30M tokens ≈ $1 on DeepSeek).
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5">
+                    <p className="font-semibold text-white">2. What does &ldquo;Manual Mode&rdquo; mean?</p>
+                    <p className="mt-1 leading-relaxed text-slate-400">
+                      In Manual Mode, this page only flags suspicious users — it will never auto-block anyone. Your normal daily caps and speed limits still apply, and you decide who to block.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5">
+                    <p className="font-semibold text-white">3. What makes a user &ldquo;Suspicious&rdquo;?</p>
+                    <p className="mt-1 leading-relaxed text-slate-400">
+                      Users who repeatedly hammer speed limits (5+ times), send a very high number of requests per hour, or keep retrying after hitting their daily cap.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3.5">
+                    <p className="font-semibold text-white">4. When do counts reset?</p>
+                    <p className="mt-1 leading-relaxed text-slate-400">
+                      All daily token counts reset automatically at midnight UTC. Raising a cap in Cloudflare unblocks users right away without waiting for midnight.
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleTogglePause(false)}
-                  disabled={busyAction}
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-                >
-                  Resume Free AI
-                </button>
-              </div>
+              </section>
             )}
+
+            {/* Plain-English Health Verdict Banner */}
+            <section className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 ${healthStyles.wrap}`}>
+              <div className="flex items-start gap-3.5">
+                {healthStyles.icon}
+                <div>
+                  <h2 className={`text-base font-semibold ${healthStyles.title}`}>
+                    {health.title}
+                  </h2>
+                  <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-300">
+                    {health.body}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950/60 px-2.5 py-1">
+                  <Clock className="h-3.5 w-3.5 text-sky-400" />
+                  Resets in <strong className="font-mono text-slate-200">{formatResetCountdown(data?.resetsAt)}</strong>
+                </span>
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950/60 px-2.5 py-1 text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={autoRefresh}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                    className="accent-sky-500"
+                  />
+                  Live updates (30s)
+                </label>
+              </div>
+            </section>
 
             {/* Confirm pause inline panel */}
             {pauseModalOpen && !isPaused && (
-              <div className="rounded-2xl border border-red-500/30 bg-white p-4 shadow-sm dark:border-red-500/30 dark:bg-slate-900">
-                <p className="text-sm font-semibold text-red-700 dark:text-red-300">
-                  Pause Free AI for all visitors?
+              <div className="rounded-2xl border border-red-500/40 bg-slate-900 p-5 shadow-lg">
+                <p className="text-sm font-semibold text-red-300">
+                  Pause Free AI for everyone?
                 </p>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  Immediately blocks all Free AI requests until you click Resume. Users with their own API keys can still build normally.
+                <p className="mt-1 text-xs text-slate-400">
+                  This immediately stops all Free AI requests until you click Resume. Users with their own API key are not affected.
                 </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="mt-3.5 flex flex-wrap items-center gap-2">
                   <input
                     type="text"
                     value={pauseReason}
                     onChange={(e) => setPauseReason(e.target.value)}
-                    placeholder="Optional reason shown to users (e.g. Investigating traffic spike)"
-                    className="min-w-60 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs outline-none focus:border-red-500 dark:border-slate-700 dark:bg-slate-950"
+                    placeholder="Optional note shown to users (e.g. Back in a few minutes)"
+                    className="min-w-60 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-red-500"
                   />
                   <button
                     type="button"
                     onClick={() => handleTogglePause(true)}
                     disabled={busyAction}
-                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                    className="rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-60"
                   >
-                    Confirm Pause
+                    Yes, Pause Free AI
                   </button>
                   <button
                     type="button"
                     onClick={() => setPauseModalOpen(false)}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700"
                   >
                     Cancel
                   </button>
@@ -587,34 +810,12 @@ export default function AdminUsageDashboard() {
               </div>
             )}
 
-            {/* Meta status bar */}
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-200">
-                  <span className={`h-2 w-2 rounded-full ${isPaused ? 'bg-red-500' : 'bg-emerald-500'}`} />
-                  UTC Day: <span className="font-mono">{data?.day || '—'}</span>
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  Resets in <span className="font-mono font-medium">{formatResetCountdown(data?.resetsAt)}</span>
-                </span>
-                {data && !data.enabled && (
-                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
-                    Free limits currently OFF
-                  </span>
-                )}
-              </div>
-              <div>
-                {lastFetchedAt ? `Updated ${lastFetchedAt.toLocaleTimeString()}` : 'Loading…'}
-              </div>
-            </div>
-
             {actionNotice && (
               <div
-                className={`rounded-xl border px-4 py-2.5 text-xs font-medium ${
+                className={`rounded-xl border px-4 py-3 text-xs font-medium ${
                   actionNotice.tone === 'error'
-                    ? 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300'
-                    : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    ? 'border-red-500/35 bg-red-500/10 text-red-200'
+                    : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200'
                 }`}
               >
                 {actionNotice.text}
@@ -622,288 +823,253 @@ export default function AdminUsageDashboard() {
             )}
 
             {error && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">
+              <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
                 {error.message}
               </div>
             )}
 
-            {/* Abuse Blocking Mode control bar */}
-            <section
-              className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-xs shadow-sm ${
-                isAutoBlockOn
-                  ? 'border-indigo-500/40 bg-indigo-500/10 text-slate-800 dark:text-slate-100'
-                  : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200'
-              }`}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">
-                    Abuse Blocking Mode:{' '}
-                    <span className={isAutoBlockOn ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-900 dark:text-white'}>
-                      {isAutoBlockOn ? `Automated (${data?.policy?.autoBlockHours || 24}h auto-blocks)` : 'Manual Only (Monitor Mode)'}
-                    </span>
-                  </span>
-                </div>
-                <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                  {isAutoBlockOn
-                    ? 'Users who repeatedly hammer rate limits or token caps (5+ refusals) are automatically blocked. Standard rate limits & token caps also remain active.'
-                    : 'This admin system only flags suspicious users and will NOT automatically block anyone. Only your manual Block clicks (and your standard rate limits / token caps) apply.'}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {!isAutoBlockOn ? (
-                  <>
-                    <select
-                      value={autoBlockHoursInput}
-                      onChange={(e) => setAutoBlockHoursInput(Number(e.target.value))}
-                      aria-label="Auto-block duration"
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs outline-none focus:border-brand dark:border-slate-700 dark:bg-slate-950"
-                    >
-                      <option value={1}>Auto-block: 1h</option>
-                      <option value={24}>Auto-block: 24h</option>
-                      <option value={168}>Auto-block: 7d</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAutoBlock(true)}
-                      disabled={busyAction}
-                      className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-brand-fg transition hover:bg-brand-hover disabled:opacity-60"
-                    >
-                      Activate Automated Mode
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleToggleAutoBlock(false)}
-                    disabled={busyAction}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-60"
-                  >
-                    Switch to Manual Only
-                  </button>
-                )}
-              </div>
-            </section>
-
-            {/* Site-wide daily allowance card */}
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-wrap items-end justify-between gap-3">
+            {/* Today's Overall Free AI Budget */}
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6">
+              <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Site-Wide Daily Free AI Usage
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Today’s Total Free AI Usage (Everyone Combined)
                   </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="font-mono text-2xl font-bold sm:text-3xl">
+                  <div className="mt-2 flex flex-wrap items-baseline gap-2.5">
+                    <span className="font-mono text-3xl font-bold text-white sm:text-4xl">
                       {formatCompact(data?.site?.tokens ?? 0)}
                     </span>
-                    <span className="font-mono text-sm text-slate-500 dark:text-slate-400">
-                      / {data?.site?.limit ? formatCompact(data.site.limit) : 'No cap'} tokens
+                    <span className="font-mono text-sm text-slate-400">
+                      of {data?.site?.limit ? `${formatCompact(data.site.limit)} daily cap` : 'no daily cap set'}
                     </span>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   {data?.site?.pct != null ? (
                     <>
-                      <span className="font-mono text-2xl font-bold">{data.site.pct}%</span>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {formatNumber(data.site.remaining)} remaining today
+                      <span className="font-mono text-3xl font-bold text-white">{data.site.pct}%</span>
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        {formatCompact(data.site.remaining)} tokens left today
                       </p>
                     </>
                   ) : (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      Set <code className="font-mono">APPBLIPS_FREE_TOKENS_PER_DAY</code> for a site cap
-                    </span>
+                    <p className="text-xs text-slate-400">
+                      Set <code className="rounded bg-slate-950 px-1.5 py-0.5 font-mono text-sky-300">APPBLIPS_FREE_TOKENS_PER_DAY</code> in Cloudflare to add a cap
+                    </p>
                   )}
                 </div>
               </div>
+
               {data?.site?.limit > 0 && (
-                <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div className="mt-4 h-3.5 w-full overflow-hidden rounded-full bg-slate-800">
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${barTone(data.site.pct, data.site.hitLimit)}`}
+                    className={`h-full rounded-full transition-all duration-500 ${barTone(data.site.pct, data.site.hitLimit)}`}
                     style={{ width: `${Math.min(100, data.site.pct ?? 0)}%` }}
                   />
                 </div>
               )}
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                <span>
+                  Per-person daily cap:{' '}
+                  <strong className="font-mono text-slate-300">
+                    {data?.limits?.tokensPerIpPerDay ? `${formatCompact(data.limits.tokensPerIpPerDay)} tokens` : 'Not set'}
+                  </strong>
+                </span>
+                <span>
+                  UTC Day: <strong className="font-mono text-slate-300">{data?.day || '—'}</strong>
+                  {lastFetchedAt ? ` · Updated ${lastFetchedAt.toLocaleTimeString()}` : ''}
+                </span>
+              </div>
             </section>
 
-            {/* KPI Summary Cards */}
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Active Today</span>
-                  <Users className="h-4 w-4 text-slate-400" />
+            {/* 4 Easy-to-Scan Summary Cards */}
+            <section className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+              <button
+                type="button"
+                onClick={() => setFilterMode('all')}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  filterMode === 'all'
+                    ? 'border-sky-500/50 bg-slate-900'
+                    : 'border-slate-800 bg-slate-900/80 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-medium text-slate-400">
+                  <span>People Active Today</span>
+                  <Users className="h-4 w-4 text-sky-400" />
                 </div>
-                <div className="mt-2 font-mono text-2xl font-bold">
+                <div className="mt-2.5 font-mono text-3xl font-bold text-white">
                   {formatNumber(data?.summary?.activeVisitors ?? 0)}
                 </div>
-                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  Cap: {data?.limits?.tokensPerIpPerDay ? formatCompact(data.limits.tokensPerIpPerDay) : 'None'}
+                <p className="mt-1 text-xs text-slate-400">
+                  Signed-in accounts or IPs today
                 </p>
-              </div>
+              </button>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Near Limit</span>
-                  <AlertTriangle className={`h-4 w-4 ${(data?.summary?.nearLimit80 ?? 0) > 0 ? 'text-amber-500' : 'text-slate-400'}`} />
+              <button
+                type="button"
+                onClick={() => setFilterMode(filterMode === '80' ? 'all' : '80')}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  filterMode === '80' || filterMode === '100'
+                    ? 'border-amber-500/50 bg-amber-500/8'
+                    : 'border-slate-800 bg-slate-900/80 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-medium text-slate-400">
+                  <span>Close to or At Cap</span>
+                  <AlertTriangle className={`h-4 w-4 ${nearOrAtCount > 0 ? 'text-amber-400' : 'text-slate-500'}`} />
                 </div>
-                <div className={`mt-2 font-mono text-2xl font-bold ${(data?.summary?.nearLimit80 ?? 0) > 0 ? 'text-amber-600 dark:text-amber-400' : ''}`}>
-                  {formatNumber(data?.summary?.nearLimit80 ?? 0)}
+                <div className={`mt-2.5 font-mono text-3xl font-bold ${nearOrAtCount > 0 ? 'text-amber-300' : 'text-white'}`}>
+                  {formatNumber(nearOrAtCount)}
                 </div>
-                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  80–99% of cap
+                <p className="mt-1 text-xs text-slate-400">
+                  {data?.summary?.atLimit ?? 0} at 100% · {data?.summary?.nearLimit80 ?? 0} at 80–99%
                 </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>At Limit</span>
-                  <Activity className={`h-4 w-4 ${(data?.summary?.atLimit ?? 0) > 0 ? 'text-orange-500' : 'text-slate-400'}`} />
-                </div>
-                <div className={`mt-2 font-mono text-2xl font-bold ${(data?.summary?.atLimit ?? 0) > 0 ? 'text-orange-600 dark:text-orange-400' : ''}`}>
-                  {formatNumber(data?.summary?.atLimit ?? 0)}
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  100% token cap
-                </p>
-              </div>
+              </button>
 
               <button
                 type="button"
                 onClick={() => setFilterMode(filterMode === 'flagged' ? 'all' : 'flagged')}
-                className={`rounded-2xl border p-4 text-left shadow-sm transition ${
+                className={`rounded-2xl border p-4 text-left transition ${
                   filterMode === 'flagged'
-                    ? 'border-red-500/60 bg-red-500/5'
-                    : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700'
+                    ? 'border-red-500/50 bg-red-500/10'
+                    : 'border-slate-800 bg-slate-900/80 hover:border-slate-700'
                 }`}
               >
-                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Flagged Abuse</span>
-                  <ShieldAlert className={`h-4 w-4 ${(data?.summary?.flaggedVisitors ?? 0) > 0 ? 'text-red-500' : 'text-slate-400'}`} />
+                <div className="flex items-center justify-between text-xs font-medium text-slate-400">
+                  <span>Suspicious Activity</span>
+                  <ShieldAlert className={`h-4 w-4 ${(data?.summary?.flaggedVisitors ?? 0) > 0 ? 'text-red-400' : 'text-slate-500'}`} />
                 </div>
-                <div className={`mt-2 font-mono text-2xl font-bold ${(data?.summary?.flaggedVisitors ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                <div className={`mt-2.5 font-mono text-3xl font-bold ${(data?.summary?.flaggedVisitors ?? 0) > 0 ? 'text-red-300' : 'text-white'}`}>
                   {formatNumber(data?.summary?.flaggedVisitors ?? 0)}
                 </div>
-                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  Click to filter
+                <p className="mt-1 text-xs text-slate-400">
+                  {formatNumber(data?.summary?.refusalsToday ?? 0)} blocked/limited requests today
                 </p>
               </button>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Refusals Today</span>
-                  <ShieldOff className={`h-4 w-4 ${(data?.summary?.refusalsToday ?? 0) > 0 ? 'text-amber-500' : 'text-slate-400'}`} />
+              <button
+                type="button"
+                onClick={() => setFilterMode(filterMode === 'blocked' ? 'all' : 'blocked')}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  filterMode === 'blocked'
+                    ? 'border-red-500/50 bg-red-500/10'
+                    : 'border-slate-800 bg-slate-900/80 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-medium text-slate-400">
+                  <span>Blocked Users</span>
+                  <Ban className={`h-4 w-4 ${(data?.summary?.blockedVisitors ?? 0) > 0 ? 'text-red-400' : 'text-slate-500'}`} />
                 </div>
-                <div className="mt-2 font-mono text-2xl font-bold">
-                  {formatNumber(data?.summary?.refusalsToday ?? 0)}
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  429s blocked
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Blocked</span>
-                  <Ban className={`h-4 w-4 ${(data?.summary?.blockedVisitors ?? 0) > 0 ? 'text-red-500' : 'text-slate-400'}`} />
-                </div>
-                <div className={`mt-2 font-mono text-2xl font-bold ${(data?.summary?.blockedVisitors ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                <div className={`mt-2.5 font-mono text-3xl font-bold ${(data?.summary?.blockedVisitors ?? 0) > 0 ? 'text-red-300' : 'text-white'}`}>
                   {formatNumber(data?.summary?.blockedVisitors ?? 0)}
                 </div>
-                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  Active blocks
+                <p className="mt-1 text-xs text-slate-400">
+                  {isAutoBlockOn ? 'Auto-blocking ON' : 'Manual blocking only'}
                 </p>
-              </div>
+              </button>
             </section>
 
             {/* Inline row block drawer */}
             {blockTarget && (
               <form
                 onSubmit={handleConfirmRowBlock}
-                className="rounded-2xl border border-red-500/30 bg-white p-4 shadow-sm dark:bg-slate-900"
+                className="rounded-2xl border border-red-500/40 bg-slate-900 p-5 shadow-lg"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-red-700 dark:text-red-300">
-                    Block <code className="font-mono">{blockTarget}</code> from Free AI
+                  <p className="text-sm font-semibold text-red-300">
+                    Block <code className="rounded bg-slate-950 px-1.5 py-0.5 font-mono text-xs text-white">{blockTarget}</code> from Free AI
                   </p>
                   <button
                     type="button"
                     onClick={() => setBlockTarget(null)}
-                    className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    className="text-xs text-slate-400 hover:text-white"
                   >
                     Cancel
                   </button>
                 </div>
-                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <p className="mt-1 text-xs text-slate-400">
+                  They won&apos;t be able to use your Free AI key until the timer ends or you unblock them.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <select
                     value={blockDuration}
                     onChange={(e) => setBlockDuration(Number(e.target.value))}
-                    className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs outline-none focus:border-red-500 dark:border-slate-700 dark:bg-slate-950"
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-red-500"
                   >
-                    <option value={1}>1 hour</option>
-                    <option value={24}>24 hours</option>
-                    <option value={168}>7 days</option>
-                    <option value={0}>Permanent (until unblocked)</option>
+                    <option value={1}>Block for 1 hour</option>
+                    <option value={24}>Block for 24 hours</option>
+                    <option value={168}>Block for 7 days</option>
+                    <option value={0}>Block until I unblock them</option>
                   </select>
                   <input
                     type="text"
                     value={blockReason}
                     onChange={(e) => setBlockReason(e.target.value)}
-                    placeholder="Optional reason (e.g. Automated scraping)"
-                    className="min-w-56 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs outline-none focus:border-red-500 dark:border-slate-700 dark:bg-slate-950"
+                    placeholder="Optional note for yourself (e.g. Spamming prompts)"
+                    className="min-w-56 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-red-500"
                   />
                   <button
                     type="submit"
                     disabled={busyAction}
-                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                    className="rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-60"
                   >
-                    Block User
+                    Confirm Block
                   </button>
                 </div>
               </form>
             )}
 
-            {/* Filter & Users Table */}
-            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {[
-                    { label: 'All', value: 'all' },
-                    { label: 'Flagged', value: 'flagged' },
-                    { label: '50%+', value: '50' },
-                    { label: '80%+', value: '80' },
-                    { label: 'At limit', value: '100' },
-                  ].map((pill) => (
-                    <button
-                      key={pill.value}
-                      type="button"
-                      onClick={() => setFilterMode(pill.value)}
-                      className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
-                        filterMode === pill.value
-                          ? 'bg-brand text-brand-fg'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      {pill.label}
-                    </button>
-                  ))}
+            {/* Users Table */}
+            <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/90">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-5 py-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-white">People Using Free AI Today</h2>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    Sorted from highest token usage at the top.
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
+                    {[
+                      { label: 'Everyone', value: 'all' },
+                      { label: 'Suspicious', value: 'flagged' },
+                      { label: '80%+ Used', value: '80' },
+                      { label: 'At Cap', value: '100' },
+                      { label: 'Blocked', value: 'blocked' },
+                    ].map((pill) => (
+                      <button
+                        key={pill.value}
+                        type="button"
+                        onClick={() => setFilterMode(pill.value)}
+                        className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                          filterMode === pill.value
+                            ? 'bg-sky-600 text-white'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        {pill.label}
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="relative">
-                    <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
                     <input
                       type="text"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Filter user ID or IP…"
-                      className="w-48 rounded-lg border border-slate-200 bg-slate-50 py-1 pr-2.5 pl-8 text-xs outline-none focus:border-brand focus:bg-white dark:border-slate-700 dark:bg-slate-950"
+                      placeholder="Search account or IP…"
+                      className="w-48 rounded-xl border border-slate-800 bg-slate-950 py-1.5 pr-3 pl-8.5 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500"
                     />
                   </div>
+
                   <select
                     value={limit}
                     onChange={(e) => setLimit(Number(e.target.value))}
                     aria-label="Max users shown"
-                    className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs outline-none focus:border-brand dark:border-slate-700 dark:bg-slate-950"
+                    className="rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-sky-500"
                   >
                     <option value={50}>Top 50</option>
                     <option value={100}>Top 100</option>
@@ -915,97 +1081,121 @@ export default function AdminUsageDashboard() {
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
+                  <thead className="border-b border-slate-800 bg-slate-950/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     <tr>
-                      <th className="px-4 py-2.5">User / Visitor</th>
-                      <th className="px-4 py-2.5">Risk &amp; Signals</th>
-                      <th className="px-4 py-2.5">Daily Token Usage</th>
-                      <th className="px-4 py-2.5 text-right">Tokens</th>
-                      <th className="px-4 py-2.5 text-right">Req / 1h</th>
-                      <th className="px-4 py-2.5 text-right">429s</th>
-                      <th className="px-4 py-2.5 text-right">Last Active</th>
-                      <th className="px-4 py-2.5 text-right">Action</th>
+                      <th className="px-5 py-3">User</th>
+                      <th className="px-5 py-3">Status</th>
+                      <th className="px-5 py-3">Daily Cap Used</th>
+                      <th className="px-5 py-3">Recent Activity</th>
+                      <th className="px-5 py-3 text-right">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                  <tbody className="divide-y divide-slate-800/70">
                     {visibleVisitors.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-10 text-center text-slate-500 dark:text-slate-400">
-                          {loading ? 'Loading live usage…' : 'No matching users found for today.'}
+                        <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400">
+                          {loading ? 'Loading today’s usage…' : 'No users match this filter right now.'}
                         </td>
                       </tr>
                     ) : (
                       visibleVisitors.map((v) => {
-                        const badge = riskBadge(v.riskLevel, v.pct, v.hitLimit);
+                        const parsed = parseVisitorLabel(v.visitor);
+                        const pill = statusPill(v.riskLevel, v.pct, v.hitLimit);
                         const flags = (v.abuseFlags || []).filter((f) => f !== 'blocked');
+                        const perUserCap = data?.limits?.tokensPerIpPerDay || 0;
                         return (
-                          <tr key={v.visitor} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
-                            <td className="px-4 py-2.5 font-mono text-xs font-medium">
+                          <tr key={v.visitor} className="transition hover:bg-slate-800/35">
+                            <td className="px-5 py-3.5">
                               <div className="flex items-center gap-2">
-                                <span className="max-w-52 truncate" title={v.visitor}>
-                                  {v.visitor}
+                                <span className="rounded-md border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
+                                  {parsed.kind}
                                 </span>
+                                <span className="max-w-48 truncate font-mono text-xs font-medium text-slate-100" title={v.visitor}>
+                                  {parsed.label}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => copyText(v.visitor, v.visitor)}
+                                  title="Copy full ID"
+                                  className="rounded p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200"
+                                >
+                                  {copiedKey === v.visitor
+                                    ? <Check className="h-3 w-3 text-emerald-400" />
+                                    : <Copy className="h-3 w-3" />}
+                                </button>
                                 {v.inFlight > 0 && (
-                                  <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                                    {v.inFlight} live
+                                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                    Generating now
                                   </span>
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-2.5">
-                              <div className="flex flex-wrap items-center gap-1">
-                                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${badge.cls}`}>
-                                  {badge.label}
+
+                            <td className="px-5 py-3.5">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${pill.cls}`}>
+                                  {pill.label}
                                 </span>
                                 {flags.map((flag) => (
                                   <span
                                     key={flag}
-                                    className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                    className="rounded-md bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300"
                                   >
                                     {FLAG_LABELS[flag] || flag}
                                   </span>
                                 ))}
                               </div>
                             </td>
-                            <td className="px-4 py-2.5">
+
+                            <td className="px-5 py-3.5">
                               {v.pct != null ? (
-                                <div className="flex items-center gap-2">
-                                  <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                                    <div
-                                      className={`h-full rounded-full ${barTone(v.pct, v.hitLimit)}`}
-                                      style={{ width: `${Math.min(100, v.pct)}%` }}
-                                    />
+                                <div className="min-w-44">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-800">
+                                      <div
+                                        className={`h-full rounded-full ${barTone(v.pct, v.hitLimit)}`}
+                                        style={{ width: `${Math.min(100, v.pct)}%` }}
+                                      />
+                                    </div>
+                                    <span className="w-12 text-right font-mono text-xs font-semibold text-white">
+                                      {v.pct}%
+                                    </span>
                                   </div>
-                                  <span className="w-11 font-mono text-[11px] font-semibold">
-                                    {v.pct}%
-                                  </span>
+                                  <p className="mt-1 font-mono text-[11px] text-slate-400">
+                                    {formatCompact(v.tokens)} / {formatCompact(perUserCap)} tokens
+                                  </p>
                                 </div>
                               ) : (
-                                <span className="text-slate-400">No cap</span>
+                                <div>
+                                  <span className="font-mono text-xs font-semibold text-white">
+                                    {formatCompact(v.tokens)} tokens
+                                  </span>
+                                  <p className="text-[11px] text-slate-500">No per-user cap set</p>
+                                </div>
                               )}
                             </td>
-                            <td className="px-4 py-2.5 text-right font-mono font-medium">
-                              {formatCompact(v.tokens)}
+
+                            <td className="px-5 py-3.5">
+                              <div className="text-xs text-slate-200">
+                                {v.hourRequests} {v.hourRequests === 1 ? 'request' : 'requests'} this hour
+                              </div>
+                              <div className="mt-0.5 text-[11px] text-slate-400">
+                                {formatRelativeTime(v.lastActiveAt)}
+                                {(v.refusals || 0) > 0 && (
+                                  <span className="ml-1.5 font-medium text-amber-300">
+                                    · {v.refusals} {v.refusals === 1 ? 'limit hit' : 'limit hits'} today
+                                  </span>
+                                )}
+                              </div>
                             </td>
-                            <td className="px-4 py-2.5 text-right font-mono text-slate-600 dark:text-slate-300">
-                              {v.hourRequests}
-                              {data?.limits?.requestsPerHour ? (
-                                <span className="text-slate-400">/{data.limits.requestsPerHour}</span>
-                              ) : null}
-                            </td>
-                            <td className={`px-4 py-2.5 text-right font-mono ${(v.refusals || 0) >= 3 ? 'font-semibold text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                              {v.refusals || 0}
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-slate-500 dark:text-slate-400">
-                              {formatRelativeTime(v.lastActiveAt)}
-                            </td>
-                            <td className="px-4 py-2.5 text-right">
+
+                            <td className="px-5 py-3.5 text-right">
                               {v.blocked ? (
                                 <button
                                   type="button"
                                   onClick={() => handleUnblock(v.visitor)}
                                   disabled={busyAction}
-                                  className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300 disabled:opacity-50"
+                                  className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
                                 >
                                   Unblock
                                 </button>
@@ -1014,7 +1204,7 @@ export default function AdminUsageDashboard() {
                                   type="button"
                                   onClick={() => { setBlockTarget(v.visitor); setBlockDuration(24); setBlockReason(''); }}
                                   disabled={busyAction}
-                                  className="rounded-lg border border-red-500/30 bg-red-500/5 px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-500/15 dark:text-red-300 disabled:opacity-50"
+                                  className="rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
                                 >
                                   Block
                                 </button>
@@ -1029,119 +1219,184 @@ export default function AdminUsageDashboard() {
               </div>
             </section>
 
-            {/* Bottom 2-column Security Panel: Active Blocks + Recent Abuse Events */}
-            <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {/* Active Blocks & Manual Block */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold">
-                    <Ban className="h-4 w-4 text-red-500" />
-                    Blocked Visitors ({data?.blocked?.length ?? 0})
-                  </h2>
-                </div>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Block a Clerk user (<code className="font-mono">user_…</code> prefixed as <code className="font-mono">user:user_…</code>) or IP address from Free AI.
-                </p>
-
-                <form onSubmit={handleManualBlock} className="mt-3 space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      type="text"
-                      value={manualVisitor}
-                      onChange={(e) => setManualVisitor(e.target.value)}
-                      placeholder="user:user_2abc… or 203.0.113.5"
-                      className="min-w-44 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 font-mono text-xs outline-none focus:border-brand dark:border-slate-700 dark:bg-slate-950"
-                    />
-                    <select
-                      value={manualDuration}
-                      onChange={(e) => setManualDuration(Number(e.target.value))}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs outline-none focus:border-brand dark:border-slate-700 dark:bg-slate-950"
-                    >
-                      <option value={1}>1h</option>
-                      <option value={24}>24h</option>
-                      <option value={168}>7d</option>
-                      <option value={0}>Permanent</option>
-                    </select>
+            {/* Bottom 2-column Controls & Activity Feed */}
+            <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              {/* Safety Controls & Blocked Users */}
+              <div className="space-y-5 rounded-2xl border border-slate-800 bg-slate-900/90 p-5">
+                {/* Automated vs Manual Mode */}
+                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <ShieldOff className={`h-4 w-4 ${isAutoBlockOn ? 'text-sky-400' : 'text-slate-400'}`} />
+                      <h3 className="text-sm font-semibold text-white">
+                        Abuse Blocking:{' '}
+                        <span className={isAutoBlockOn ? 'text-sky-300' : 'text-emerald-300'}>
+                          {isAutoBlockOn ? `Automated (${data?.policy?.autoBlockHours || 24}h)` : 'Manual Only'}
+                        </span>
+                      </h3>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={manualReason}
-                      onChange={(e) => setManualReason(e.target.value)}
-                      placeholder="Optional reason"
-                      className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs outline-none focus:border-brand dark:border-slate-700 dark:bg-slate-950"
-                    />
-                    <button
-                      type="submit"
-                      disabled={busyAction || !manualVisitor.trim()}
-                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Add Block
-                    </button>
-                  </div>
-                </form>
-
-                <div className="mt-4 divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
-                  {(data?.blocked?.length ?? 0) === 0 ? (
-                    <p className="py-5 text-center text-xs text-slate-400">
-                      No active blocks right now.
-                    </p>
-                  ) : (
-                    data.blocked.map((b) => (
-                      <div key={b.visitor} className="flex items-center justify-between gap-3 py-2.5 text-xs">
-                        <div className="min-w-0">
-                          <div className="truncate font-mono font-medium">{b.visitor}</div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                            Expires: {formatExpiry(b.expiresAt)}
-                            {b.reason ? ` · ${b.reason}` : ''}
-                          </div>
-                        </div>
+                  <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+                    {isAutoBlockOn
+                      ? 'Users who hammer speed limits or retry after their daily cap 5+ times are blocked automatically.'
+                      : 'Nobody is auto-blocked by this dashboard. You review flagged users and click Block only if you want to.'}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {!isAutoBlockOn ? (
+                      <>
+                        <select
+                          value={autoBlockHoursInput}
+                          onChange={(e) => setAutoBlockHoursInput(Number(e.target.value))}
+                          aria-label="Auto-block duration"
+                          className="rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-sky-500"
+                        >
+                          <option value={1}>Auto-block for 1h</option>
+                          <option value={24}>Auto-block for 24h</option>
+                          <option value={168}>Auto-block for 7d</option>
+                        </select>
                         <button
                           type="button"
-                          onClick={() => handleUnblock(b.visitor)}
+                          onClick={() => handleToggleAutoBlock(true)}
                           disabled={busyAction}
-                          className="shrink-0 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
+                          className="rounded-xl bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:opacity-60"
                         >
-                          Unblock
+                          Turn On Automated Mode
                         </button>
-                      </div>
-                    ))
-                  )}
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAutoBlock(false)}
+                        disabled={busyAction}
+                        className="rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700 disabled:opacity-60"
+                      >
+                        Switch Back to Manual Only
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Manual Block Form + Active Blocks */}
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Ban className="h-4 w-4 text-red-400" />
+                    Blocked Users ({data?.blocked?.length ?? 0})
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Manually block a specific Clerk account (<code className="font-mono text-slate-300">user:user_…</code>) or IP address.
+                  </p>
+
+                  <form onSubmit={handleManualBlock} className="mt-3 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        type="text"
+                        value={manualVisitor}
+                        onChange={(e) => setManualVisitor(e.target.value)}
+                        placeholder="user:user_2abc… or 203.0.113.5"
+                        className="min-w-44 flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 font-mono text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500"
+                      />
+                      <select
+                        value={manualDuration}
+                        onChange={(e) => setManualDuration(Number(e.target.value))}
+                        className="rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-2 text-xs text-slate-200 outline-none focus:border-sky-500"
+                      >
+                        <option value={1}>1 hour</option>
+                        <option value={24}>24 hours</option>
+                        <option value={168}>7 days</option>
+                        <option value={0}>Permanent</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={manualReason}
+                        onChange={(e) => setManualReason(e.target.value)}
+                        placeholder="Optional note (e.g. Bot traffic)"
+                        className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={busyAction || !manualVisitor.trim()}
+                        className="rounded-xl bg-red-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-red-500 disabled:opacity-50"
+                      >
+                        Block
+                      </button>
+                    </div>
+                  </form>
+
+                  <div className="mt-4 divide-y divide-slate-800/80 border-t border-slate-800">
+                    {(data?.blocked?.length ?? 0) === 0 ? (
+                      <p className="py-5 text-center text-xs text-slate-500">
+                        Nobody is blocked right now.
+                      </p>
+                    ) : (
+                      data.blocked.map((b) => (
+                        <div key={b.visitor} className="flex items-center justify-between gap-3 py-3 text-xs">
+                          <div className="min-w-0">
+                            <div className="truncate font-mono font-medium text-slate-100">{b.visitor}</div>
+                            <div className="mt-0.5 text-[11px] text-slate-400">
+                              {formatExpiry(b.expiresAt)}
+                              {b.reason ? ` · ${b.reason}` : ''}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleUnblock(b.visitor)}
+                            disabled={busyAction}
+                            className="shrink-0 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20"
+                          >
+                            Unblock
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Recent Abuse & Rate-Limit Events */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="flex items-center gap-2 text-sm font-semibold">
-                  <ShieldAlert className="h-4 w-4 text-amber-500" />
-                  Recent Security &amp; Rate-Limit Events
+              {/* Recent Alerts & Activity Log */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <ShieldAlert className="h-4 w-4 text-amber-400" />
+                  Recent Alerts &amp; Limit Hits
                 </h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Latest 50 refusals, rate-limit hits, blocks, and kill-switch actions.
+                <p className="mt-1 text-xs text-slate-400">
+                  Live feed of the latest 50 limit hits, blocks, and setting changes.
                 </p>
 
-                <div className="mt-3 max-h-80 divide-y divide-slate-100 overflow-y-auto border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+                <div className="mt-4 max-h-96 divide-y divide-slate-800/80 overflow-y-auto border-t border-slate-800 pr-1">
                   {(data?.recentEvents?.length ?? 0) === 0 ? (
-                    <p className="py-8 text-center text-xs text-slate-400">
-                      No rate-limit or abuse events recorded yet.
-                    </p>
+                    <div className="py-12 text-center">
+                      <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-500/60" />
+                      <p className="mt-2 text-xs text-slate-400">
+                        No alerts or limit hits recorded yet.
+                      </p>
+                    </div>
                   ) : (
                     data.recentEvents.map((ev, idx) => {
-                      const style = EVENT_STYLES[ev.type] || { label: ev.type, cls: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' };
+                      const info = EVENT_INFO[ev.type] || {
+                        label: ev.type,
+                        cls: 'bg-slate-800 text-slate-300 border-slate-700',
+                      };
+                      const parsed = ev.visitor === 'site'
+                        ? { kind: 'Site', label: 'Whole site' }
+                        : parseVisitorLabel(ev.visitor);
                       return (
-                        <div key={`${ev.at}-${ev.visitor}-${idx}`} className="flex items-start justify-between gap-2 py-2 text-xs">
+                        <div key={`${ev.at}-${ev.visitor}-${idx}`} className="flex items-start justify-between gap-3 py-3 text-xs">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${style.cls}`}>
-                                {style.label}
+                              <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${info.cls}`}>
+                                {info.label}
                               </span>
-                              <span className="truncate font-mono text-[11px] font-medium">{ev.visitor}</span>
+                              <span className="truncate font-mono text-[11px] font-medium text-slate-200">
+                                {parsed.label}
+                              </span>
                             </div>
                             {ev.detail && (
-                              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{ev.detail}</p>
+                              <p className="mt-1 text-[11px] text-slate-400">{ev.detail}</p>
                             )}
                           </div>
-                          <span className="shrink-0 text-[11px] text-slate-400">
+                          <span className="shrink-0 text-[11px] text-slate-500">
                             {formatRelativeTime(ev.at)}
                           </span>
                         </div>
@@ -1154,6 +1409,146 @@ export default function AdminUsageDashboard() {
           </div>
         )}
       </main>
+
+      {/* Built-in AI Assistant (unmetered, uses the same Free AI model) */}
+      {hasAuth && !needsSignIn && (
+        <>
+          {!chatOpen && (
+            <button
+              type="button"
+              onClick={() => setChatOpen(true)}
+              className="fixed right-5 bottom-5 z-30 inline-flex items-center gap-2 rounded-2xl bg-sky-600 px-4 py-3 text-xs font-semibold text-white shadow-xl shadow-sky-950/60 ring-1 ring-sky-400/40 transition hover:bg-sky-500"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Ask AI about this page
+            </button>
+          )}
+
+          {chatOpen && (
+            <aside
+              aria-label="Admin AI Assistant"
+              className="fixed right-4 bottom-4 z-40 flex h-140 max-h-[82vh] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-slate-700/90 bg-slate-900 shadow-2xl shadow-black/70"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-slate-800 bg-slate-950/90 px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-xs font-semibold text-white">Dashboard AI Assistant</h2>
+                    <p className="text-[11px] text-emerald-400">
+                      Unmetered · Does not count toward Free AI limits
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {chatMessages.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setChatMessages([]); setChatError(''); }}
+                      title="Clear conversation"
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setChatOpen(false)}
+                    aria-label="Close AI assistant"
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 text-xs">
+                {chatMessages.length === 0 ? (
+                  <div className="space-y-3">
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 text-slate-300">
+                      <p className="font-medium text-white">Ask me anything about today’s Free AI data.</p>
+                      <p className="mt-1 leading-relaxed text-slate-400">
+                        I can see your live usage totals, top users, risk flags, and recent events — and help you decide if any API abuse is happening.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-medium text-slate-400">Try asking:</p>
+                      {CHAT_STARTERS.map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => sendChatMessage(q)}
+                          disabled={chatBusy}
+                          className="block w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-left text-xs text-slate-200 transition hover:border-sky-500/40 hover:bg-slate-800/80 disabled:opacity-50"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  chatMessages.map((msg, idx) => (
+                    <div
+                      key={`${msg.role}-${idx}`}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-sky-600 text-white'
+                            : 'border border-slate-800 bg-slate-950/80 text-slate-200'
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {chatBusy && (
+                  <div className="flex justify-start">
+                    <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/80 px-3.5 py-2.5 text-slate-400">
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin text-sky-400" />
+                      Analyzing live dashboard data…
+                    </div>
+                  </div>
+                )}
+
+                {chatError && (
+                  <div className="rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-2 text-red-200">
+                    {chatError}
+                  </div>
+                )}
+
+                <div ref={chatEndRef} />
+              </div>
+
+              <form
+                onSubmit={(e) => { e.preventDefault(); sendChatMessage(); }}
+                className="flex items-center gap-2 border-t border-slate-800 bg-slate-950/90 p-3"
+              >
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Ask about usage or possible abuse…"
+                  disabled={chatBusy}
+                  className="flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500 disabled:opacity-60"
+                />
+                <button
+                  type="submit"
+                  disabled={chatBusy || !chatInput.trim()}
+                  aria-label="Send message"
+                  className="inline-flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white transition hover:bg-sky-500 disabled:opacity-50"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              </form>
+            </aside>
+          )}
+        </>
+      )}
     </div>
   );
 }

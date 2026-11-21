@@ -414,3 +414,62 @@ test('automated abuse blocking only auto-blocks once admin activates it, and per
   const snapOff = await afterBlockRestart.snapshot();
   assert.equal(snapOff.policy.autoBlockAbuse, false);
 });
+
+test('admin AI chat injects live usage data and never deducts from Free AI limits or gets paused', async () => {
+  const clock = Date.UTC(2026, 10, 17, 10);
+  const storage = memoryStorage();
+  const env = {
+    APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: '1000',
+    APPBLIPS_FREE_TOKENS_PER_DAY: '1000',
+    APPBLIPS_ADMIN_TOKEN: 'admin-secret',
+  };
+  const store = createFreeLimitsStore(env, storage, { now: () => clock, rates: RATES });
+  // Max out site & pause Free AI to prove admin chat is completely unrestricted
+  await store.end((await store.begin('user:heavy')).ticket, 'user:heavy', 1000);
+  await store.setPaused(true, 'Testing');
+
+  let captured = null;
+  const fakeChatProxy = async (proxyReq, _env, opts) => {
+    captured = { body: await proxyReq.json(), opts };
+    return Response.json({
+      model: 'deepseek-chat',
+      choices: [{ message: { role: 'assistant', content: 'user:heavy hit 100% of their daily cap.' } }],
+    });
+  };
+
+  // Unauthenticated request is rejected
+  const denied = await handleFreeUsageAdminApi(
+    new Request('https://web.appblips.com/api/admin/free-usage/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'Any abuse?' }] }),
+    }),
+    env,
+    store,
+    { chatProxy: fakeChatProxy },
+  );
+  assert.equal(denied.status, 401);
+
+  // Authorized admin chat succeeds even while site is paused & at 100% cap
+  const res = await handleFreeUsageAdminApi(
+    new Request('https://web.appblips.com/api/admin/free-usage/chat', {
+      method: 'POST',
+      headers: { authorization: 'Bearer admin-secret', 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'Is any abuse happening?' }] }),
+    }),
+    env,
+    store,
+    { chatProxy: fakeChatProxy },
+  );
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.match(body.reply, /user:heavy/);
+  assert.equal(captured.opts.freeLimits, null);
+  assert.equal(captured.opts.checkSignIn, null);
+  assert.equal(captured.body.messages[0].role, 'system');
+  assert.match(captured.body.messages[0].content, /user:heavy/);
+
+  // Site token count is untouched (still 1000)
+  const snapAfter = await store.snapshot();
+  assert.equal(snapAfter.site.tokens, 1000);
+});

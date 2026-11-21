@@ -13,9 +13,12 @@
 //   POST /api/admin/free-usage/block    { visitor, durationHours, reason }
 //   POST /api/admin/free-usage/unblock  { visitor }
 //   POST /api/admin/free-usage/pause    { paused, reason }
+//   POST /api/admin/free-usage/mode     { autoBlockAbuse, autoBlockHours }
+//   POST /api/admin/free-usage/chat     { messages } — unmetered admin AI assistant
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { freeLimitsEnabled } from '../electron/server/freeLimits.js';
 import { checkFreeSignIn } from '../electron/server/freeAuth.js';
+import { handleChatProxy } from '../electron/server/chatProxy.js';
 
 const NO_STORE_JSON = {
   'content-type': 'application/json',
@@ -70,11 +73,59 @@ async function authorizeAdmin(request, env, checkSignIn) {
 }
 
 // `actions` can be either a Durable Object stub / store object ({ snapshot,
-// blockVisitor, unblockVisitor, setPaused }) or (for backwards compatibility
-// with simple callers) a function `(options) => snapshot`.
+// blockVisitor, unblockVisitor, setPaused, setPolicy }) or (for backwards
+// compatibility with simple callers) a function `(options) => snapshot`.
 const normalizeActions = (actions) => (typeof actions === 'function' ? { snapshot: actions } : actions);
 
-export async function handleFreeUsageAdminApi(request, env, actionsOrSnapshot, { checkSignIn = checkFreeSignIn } = {}) {
+function buildAdminSystemPrompt(snapshot, limitsEnabled) {
+  const compactSnapshot = {
+    freeLimitsEnabled: limitsEnabled,
+    day: snapshot.day,
+    resetsAt: snapshot.resetsAt,
+    pause: snapshot.pause,
+    policy: snapshot.policy,
+    limits: snapshot.limits,
+    site: snapshot.site,
+    summary: snapshot.summary,
+    blocked: (snapshot.blocked || []).slice(0, 25),
+    topUsers: (snapshot.visitors || []).slice(0, 40),
+    recentEvents: (snapshot.recentEvents || []).slice(0, 30),
+  };
+  return [
+    'You are the built-in AI assistant inside the AppBlips Free AI Admin Dashboard.',
+    'Your job is to help the site owner understand the dashboard, interpret live token usage, and spot potential API abuse in plain, beginner-friendly English.',
+    '',
+    'Important AppBlips context:',
+    '- Free AI uses the server owner’s own AI key. Users with their own API key in Settings -> AI are never tracked or limited here.',
+    '- Daily token counts reset automatically at 00:00 UTC. Raising a cap in Cloudflare unblocks affected users immediately.',
+    '- Normal multi-turn app builds resend the project context on each edit, so a single normal user can legitimately use several million tokens in a day (roughly ~30M tokens is ~$1 on DeepSeek with prompt caching). High token usage alone does NOT automatically mean abuse.',
+    '- Strong signs of abuse include: repeated rate-limit hits (5+ refusals), hammering requests after already hitting 100% of the daily cap, very high hourly request rates (near 120/hr), or many rapid-fire attempts.',
+    '- In Manual Only mode (default), the admin system only flags suspicious users and NEVER auto-blocks them. Automated mode auto-blocks users who hit 5+ rate-limit or post-cap refusals.',
+    '- Controls on this page: "Block" (blocks one account/IP for 1h/24h/7d/permanent), "Pause Free AI" (emergency site-wide kill switch; own-key users unaffected), and "Abuse Blocking Mode" (Manual Only vs Automated).',
+    '',
+    'Guidelines:',
+    '- Be concise, clear, and easy to scan (short paragraphs or brief bullet points).',
+    '- Base every answer strictly on the live dashboard data below. Cite specific numbers, percentages, and user IDs when relevant.',
+    '- If there is no sign of abuse, reassure the owner clearly.',
+    '',
+    'LIVE DASHBOARD DATA (JSON):',
+    JSON.stringify(compactSnapshot),
+  ].join('\n');
+}
+
+function sanitizeChatMessages(raw) {
+  if (!Array.isArray(raw)) return [];
+  const cleaned = [];
+  for (const item of raw.slice(-20)) {
+    if (!item || typeof item !== 'object') continue;
+    const role = item.role === 'assistant' ? 'assistant' : item.role === 'user' ? 'user' : '';
+    const content = typeof item.content === 'string' ? item.content.trim().slice(0, 4000) : '';
+    if (role && content) cleaned.push({ role, content });
+  }
+  return cleaned;
+}
+
+export async function handleFreeUsageAdminApi(request, env, actionsOrSnapshot, { checkSignIn = checkFreeSignIn, chatProxy = handleChatProxy } = {}) {
   const url = new URL(request.url);
   const path = url.pathname;
   const actions = normalizeActions(actionsOrSnapshot);
@@ -114,6 +165,7 @@ export async function handleFreeUsageAdminApi(request, env, actionsOrSnapshot, {
     || path === '/api/admin/free-usage/unblock'
     || path === '/api/admin/free-usage/pause'
     || path === '/api/admin/free-usage/mode'
+    || path === '/api/admin/free-usage/chat'
   ) {
     if (request.method !== 'POST') {
       return new Response('Method not allowed', {
@@ -167,6 +219,50 @@ export async function handleFreeUsageAdminApi(request, env, actionsOrSnapshot, {
         const autoBlockHours = body.autoBlockHours != null ? Number(body.autoBlockHours) : undefined;
         const policy = await actions.setPolicy({ autoBlockAbuse, autoBlockHours });
         return json(200, { ok: true, policy });
+      }
+
+      if (path === '/api/admin/free-usage/chat') {
+        const userMessages = sanitizeChatMessages(body.messages);
+        if (userMessages.length === 0 || userMessages[userMessages.length - 1].role !== 'user') {
+          return json(400, { error: 'Please enter a question to ask the assistant.' });
+        }
+        const liveSnapshot = await actions.snapshot({ limit: 50 });
+        const systemPrompt = buildAdminSystemPrompt(liveSnapshot, freeLimitsEnabled(env));
+        const proxyPayload = {
+          messages: [{ role: 'system', content: systemPrompt }, ...userMessages],
+          stream: false,
+          ask: true,
+          max_tokens: 1500,
+          reasoning_effort: 'none',
+        };
+        const proxyRequest = new Request('https://admin.internal/api/chat', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(proxyPayload),
+          signal: request.signal,
+        });
+        // Uses the same server-configured Free AI provider, with freeLimits and
+        // checkSignIn omitted so admin chats never deduct usage or get limited.
+        const upstream = await chatProxy(proxyRequest, env, {
+          freeLimits: null,
+          checkSignIn: null,
+          freeImages: false,
+        });
+        const upstreamBody = await upstream.json().catch(() => null);
+        if (!upstream.ok) {
+          return json(upstream.status >= 400 ? upstream.status : 502, {
+            error: upstreamBody?.error || 'The AI assistant could not answer right now.',
+          });
+        }
+        const reply = String(upstreamBody?.choices?.[0]?.message?.content ?? '').trim();
+        if (!reply) {
+          return json(502, { error: 'The AI returned an empty response.' });
+        }
+        return json(200, {
+          reply,
+          model: upstreamBody?.model || '',
+          generatedAt: new Date().toISOString(),
+        });
       }
     } catch (err) {
       console.error('[free-limits] admin action failed:', err);
