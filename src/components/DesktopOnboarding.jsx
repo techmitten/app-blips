@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Download, Eye, EyeOff,
-  FileText, FolderOpen, Gift, Globe, HardDrive, Info, KeyRound, Laptop, Loader2, Plug, Settings, ShieldCheck, Sparkles, Trash2, UserRound, X, Zap,
+  FileText, FolderOpen, Gift, Globe, HardDrive, Info, KeyRound, Laptop, Loader2, MonitorSmartphone, Plug, Settings, ShieldCheck, Sparkles, Trash2, UserRound, X, Zap,
 } from 'lucide-react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
@@ -355,8 +355,48 @@ function StoragePanel({ formRef, onSubmit }) {
   );
 }
 
-// First slide: the Terms of Service and Privacy Policy, agreed to with the
-// "I agree" button before anything else.
+// First slide: welcomes the user, explains what AppBlips is, and encourages
+// them to get started.
+function WelcomePanel({ formRef, onSubmit }) {
+  const highlights = [
+    {
+      icon: Sparkles,
+      title: 'Apps, websites & games from a prompt',
+      text: 'Describe what you want in plain English and AppBlips builds it for you—no coding required.',
+    },
+    {
+      icon: MonitorSmartphone,
+      title: 'Instant live preview & visual editing',
+      text: 'Watch your creation run side by side, click elements to edit them directly, or inspect and tweak the code.',
+    },
+    {
+      icon: Globe,
+      title: 'Yours to keep, export, or publish',
+      text: 'Download your project as standalone HTML or a React + Vite codebase, or publish online in one click.',
+    },
+  ];
+  return (
+    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      <ul className="onboarding-free-list">
+        {highlights.map(({ icon: Icon, title, text }) => (
+          <li key={title}>
+            <span className="onboarding-free-icon"><Icon size={18} /></span>
+            <span><strong>{title}</strong><span>{text}</span></span>
+          </li>
+        ))}
+      </ul>
+      <p className="onboarding-key-help">
+        Want to learn more about the project?
+        <a href="https://appblips.com" target="_blank" rel="noopener noreferrer">
+          Visit appblips.com <ArrowUpRight size={15} aria-hidden="true" />
+        </a>
+      </p>
+    </form>
+  );
+}
+
+// Second slide (or sole slide when `termsOnly`): the Terms of Service and
+// Privacy Policy, agreed to with the "I agree" button before continuing.
 function TermsPanel({ formRef, onSubmit }) {
   const documents = [
     { icon: FileText, title: 'Terms of Service', href: TERMS_URL, text: 'The rules for using AppBlips and the projects you build with it.' },
@@ -469,12 +509,12 @@ function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFold
 // `termsOnly` shows just the terms slide, to a returning user after the terms
 // or privacy policy change (App.jsx); `onAgree` saves the agreement.
 export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup, termsOnly = false, onAgree }) {
-  const [step, setStep] = useState('terms');
+  const [step, setStep] = useState(termsOnly ? 'terms' : 'welcome');
   // Slide direction follows the step order; only updated when the step
   // changes so unrelated re-renders don't restart the animation.
-  const [slide, setSlide] = useState({ step, rank: 0, dir: 'forward' });
+  const [slide, setSlide] = useState({ step, rank: termsOnly ? 1 : 0, dir: 'forward' });
   if (slide.step !== step) {
-    const rank = { terms: 0, name: 1, avatar: 2, storage: 3, free: 4, ai: 5 }[step];
+    const rank = { welcome: 0, terms: 1, name: 2, avatar: 3, storage: 4, free: 5, ai: 6 }[step];
     setSlide({ step, rank, dir: rank < slide.rank ? 'back' : 'forward' });
   }
   const [profile] = useState(loadProfile);
@@ -592,6 +632,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     }
   };
 
+  const isWelcome = step === 'welcome';
   const isTerms = step === 'terms';
   const isName = step === 'name';
   const isAvatar = step === 'avatar';
@@ -599,7 +640,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const isFreeStep = step === 'free';
   const isLast = step === 'ai';
   // The slides in order; storage and Free only appear where they apply.
-  const steps = termsOnly ? ['terms'] : ['terms', 'name', 'avatar', ...(hasStorage ? ['storage'] : []), ...(hasFree ? ['free'] : []), 'ai'];
+  const steps = termsOnly ? ['terms'] : ['welcome', 'terms', 'name', 'avatar', ...(hasStorage ? ['storage'] : []), ...(hasFree ? ['free'] : []), 'ai'];
   const stepIndex = steps.indexOf(step);
   const back = stepIndex > 0 ? steps[stepIndex - 1] : null;
   const stepCount = steps.length;
@@ -613,12 +654,12 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     if (termsOnly) onComplete();
     else setStep('name');
   };
-  const next = isTerms ? agree : isName ? continueToAvatar : isStorage ? () => setStep(afterStorage) : isFreeStep ? () => setStep('ai') : continueToAi;
+  const next = isWelcome ? () => setStep('terms') : isTerms ? agree : isName ? continueToAvatar : isStorage ? () => setStep(afterStorage) : isFreeStep ? () => setStep('ai') : continueToAi;
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
       <div className="onboarding-backdrop" aria-hidden="true"><i /><i /><i /></div>
-      <main className={`desktop-onboarding-card is-setup${isTerms ? ' is-welcome' : ''}`}>
+      <main className={`desktop-onboarding-card is-setup${isWelcome || (termsOnly && isTerms) ? ' is-welcome' : ''}`}>
         <header className="onboarding-topbar">
           <div className="onboarding-brand">
             <img src="/favicon.svg" alt="" aria-hidden="true" width={28} height={28} className="onboarding-brand-icon" />
@@ -637,7 +678,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
 
         <div className="onboarding-stage" key={step} data-dir={slide.dir}>
           <section className="onboarding-copy has-panel">
-            <span className="onboarding-eyebrow"><Sparkles size={14} /> {termsOnly ? 'Updated terms' : isTerms ? 'Welcome to AppBlips' : `Step ${stepNumber} of ${stepCount}`}</span>
+            <span className="onboarding-eyebrow"><Sparkles size={14} /> {termsOnly ? 'Updated terms' : isWelcome ? 'Welcome to AppBlips' : `Step ${stepNumber} of ${stepCount}`}</span>
             {/* Greeted once, right after they give their name, not again on the AI step. */}
             {isAvatar && cleanName(name) && (
               <div className="onboarding-greeting">
@@ -645,7 +686,11 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 <span>Hi, {cleanName(name)}!</span>
               </div>
             )}
-            {isTerms ? (
+            {isWelcome ? (
+              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
+                Turn your ideas into <span className="onboarding-title-accent">working apps.</span>
+              </h1>
+            ) : isTerms ? (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 {termsOnly ? 'We’ve updated ' : 'First, a quick look at '}<span className="onboarding-title-accent">our terms.</span>
               </h1>
@@ -670,7 +715,9 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
               </h1>
             )}
-            {isTerms ? (
+            {isWelcome ? (
+              <p>AppBlips turns plain-English prompts into working apps, websites, and browser games with a live preview. Let’s get you set up in under a minute.</p>
+            ) : isTerms ? (
               <p>{termsOnly
                 ? 'Please review the latest Terms of Service and Privacy Policy before you continue using AppBlips.'
                 : 'Please review how AppBlips works and how your data is handled before you continue.'}</p>
@@ -701,7 +748,9 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             )}
           </section>
           <section className="onboarding-visual-wrap">
-            {isTerms ? (
+            {isWelcome ? (
+              <WelcomePanel formRef={formRef} onSubmit={() => setStep('terms')} />
+            ) : isTerms ? (
               <TermsPanel formRef={formRef} onSubmit={agree} />
             ) : isName ? (
               <NameForm formRef={formRef} onSubmit={continueToAvatar} {...{ name, setName }} errors={profileErrors} />
@@ -742,7 +791,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
             {isLast && status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
             {!isLast ? (
               <button type="button" className="onboarding-next" onClick={next}>
-                {isTerms ? 'I agree' : isStorage ? 'I understand' : 'Continue'} <ArrowRight size={18} />
+                {isWelcome ? 'Get started' : isTerms ? 'I agree' : isStorage ? 'I understand' : 'Continue'} <ArrowRight size={18} />
               </button>
             ) : (
               <button

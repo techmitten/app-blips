@@ -261,7 +261,7 @@
   color: var(--ob-ink);
   font-size: clamp(1.75rem, 11cqi, 3.15rem);
   font-weight: 750;
-  line-height: 1.04;
+  line-height: 1.08;
   letter-spacing: -0.045em;
   text-wrap: balance;
   outline: none;
@@ -269,6 +269,10 @@
 
 .onboarding-title-accent {
   display: block;
+  /* Extra bottom padding (offset by negative margin) keeps descenders like
+     g, p, and y from being clipped by background-clip: text. */
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
   color: #d4d4d4;
   /* The same grey-to-white sweep the dark theme uses for accent text. */
   background: linear-gradient(90deg, #a3a3a3, #ffffff);
