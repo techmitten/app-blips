@@ -189,6 +189,14 @@
 }
 
 @media (max-width: 1023px), ((hover: none) and (pointer: coarse)) {
+  /* Phone layout shows no scrollbars anywhere; every box still scrolls by
+     touch, wheel and keyboard. !important outranks the per-class styling
+     (.custom-scrollbar, .chat-scrollbar ...). The ::-webkit-scrollbar rule
+     covers WebKit builds that predate scrollbar-width. The preview iframe
+     is its own document and is not affected. */
+  * { scrollbar-width: none !important; }
+  *::-webkit-scrollbar { display: none !important; }
+
   .build-panel-scroll { margin-right: 0; padding-inline: 16px; }
   .build-panel-stage { min-width: 0; overflow-wrap: anywhere; }
   .build-panel-composer {
