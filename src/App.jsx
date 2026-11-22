@@ -977,7 +977,20 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setElementEditError(null);
   }, []);
 
-  const isPreviewEditing = studioMode === 'website' && !isGenerating;
+  // Try it (preview toolbar): editing is on by default in Website Studio, and
+  // this hands clicks back to the page so its buttons and links can be tested.
+  const [isTryMode, setIsTryMode] = useState(false);
+  const isPreviewEditing = studioMode === 'website' && !isGenerating && !isTryMode;
+  // The frame drops its selection when editing turns off without reporting
+  // it, so the parent's editor state is cleared here to match.
+  const handleToggleTryMode = useCallback(() => {
+    setIsTryMode((on) => !on);
+    setSelectedElement(null);
+    setTextSession(null);
+    setElementEditError(null);
+    setInsertMenu(null);
+    pendingScrollRef.current = null;
+  }, []);
 
   const pageNav = usePageNavigation({ files, activePage, setActivePage });
   pageNavRef.current = pageNav;
@@ -999,7 +1012,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     editingEnabled: isPreviewEditing,
     dragEnabled: isPreviewEditing,
     containerLock: isPreviewEditing && containerLock,
-    imageContextMenu: studioMode === 'website',
+    imageContextMenu: studioMode === 'website' && !isTryMode,
     muted: isGenerating && chatMode === 'build',
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
@@ -2806,6 +2819,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setTempProjectName('');
     setShouldGenerateAfterNaming(false);
     setIsNamingModalOpen(false);
+    setIsTryMode(false);
     setSelectedElement(null);
     setElementEditError(null);
     setStudioMode(nextStudioMode);
@@ -3514,6 +3528,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 codeAutocomplete={codeAutocomplete}
                 autoFollowCode={autoFollowCode}
                 studioMode={studioMode}
+                isTryMode={isTryMode}
+                onToggleTryMode={handleToggleTryMode}
                 selectedElement={selectedElement}
                 selectionKey={selectionKey}
                 textSession={textSession}

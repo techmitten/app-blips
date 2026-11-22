@@ -7,7 +7,7 @@ import '../styles/app/empty-state.css';
 import '../styles/app/build-blueprint.css';
 import {
   Play, TerminalSquare, FolderTree, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, Expand, ExternalLink, Globe, RotateCw
+  ZoomIn, ZoomOut, Expand, ExternalLink, Globe, RotateCw, MousePointerClick
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -90,6 +90,8 @@ export default function PreviewPane({
   codeAutocomplete = true,
   autoFollowCode,
   studioMode = 'app',
+  isTryMode = false,
+  onToggleTryMode,
   selectedElement = null,
   selectionKey = 0,
   textSession = null,
@@ -351,6 +353,22 @@ export default function PreviewPane({
                 <ZoomIn size={16} />
               </button>
             </div>
+          )}
+
+          {/* Website Studio edits on click by default. Try it hands clicks
+              back to the page so buttons, links and forms can be tested;
+              pressed again, editing returns. */}
+          {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && onToggleTryMode && (
+            <button
+              data-tour="try"
+              onClick={onToggleTryMode}
+              aria-pressed={isTryMode}
+              aria-label="Try it"
+              data-tip={isTryMode ? 'Back to editing' : 'Try it: use buttons and links normally'}
+              className={`nav-btn nav-ghost nav-btn-icon ${isTryMode ? 'nav-ghost-active' : ''}`}
+            >
+              <MousePointerClick size={16} />
+            </button>
           )}
 
           {hasSavedCode && onOpenNewTab && (
