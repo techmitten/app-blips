@@ -663,7 +663,9 @@ export default function DeviceMockup({
                     Enter a prompt to generate and interact with your app in real-time.
                   </p>
 
-                  <div className="flex flex-col gap-2 w-full max-w-65 sm:max-w-75">
+                  {/* Sized to the longest row so the left-aligned rows sit
+                      centred under the title instead of in a wider column. */}
+                  <div className="flex flex-col gap-2 w-max max-w-full">
                     <div className="preview-empty-pill flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium">
                       <Zap size={14} className="text-amber-500 shrink-0" />
                       <span className="whitespace-nowrap">Instant live rendering</span>
