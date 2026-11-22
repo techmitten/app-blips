@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import '../styles/app/hero-landing.css';
 import '../styles/app/starter-ideas.css';
 import { TriangleAlert, RotateCcw, X } from 'lucide-react';
@@ -68,10 +68,22 @@ export default function HeroLanding({
 }) {
   const [railPinned, setRailPinned] = useState(false);
   const [railHovered, setRailHovered] = useState(false);
+  const hoverCloseTimerRef = useRef(null);
   const railCollapsed = !railPinned && !railHovered;
   const toggleRailPinned = () => {
     setRailPinned((prev) => !prev);
   };
+  const handleRailMouseEnter = () => {
+    clearTimeout(hoverCloseTimerRef.current);
+    setRailHovered(true);
+  };
+  const handleRailMouseLeave = () => {
+    clearTimeout(hoverCloseTimerRef.current);
+    hoverCloseTimerRef.current = setTimeout(() => {
+      setRailHovered(false);
+    }, 200);
+  };
+  useEffect(() => () => clearTimeout(hoverCloseTimerRef.current), []);
 
   const copy = COPY[chatMode === 'ask' ? 'ask' : COPY[studioMode] ? studioMode : 'app'];
   const workspaceActive = Boolean(workspace);
@@ -82,8 +94,8 @@ export default function HeroLanding({
         collapsed={railCollapsed}
         pinned={railPinned}
         onToggleCollapsed={toggleRailPinned}
-        onMouseEnter={() => setRailHovered(true)}
-        onMouseLeave={() => setRailHovered(false)}
+        onMouseEnter={handleRailMouseEnter}
+        onMouseLeave={handleRailMouseLeave}
         workspaceActive={workspaceActive}
         resolvedTheme={theme}
         {...sidebarProps}

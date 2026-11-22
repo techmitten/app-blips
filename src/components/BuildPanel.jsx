@@ -1,13 +1,11 @@
 import { TriangleAlert, RotateCcw, X, Plus, History, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import '../styles/app/build-panel.css';
 import '../styles/app/chat-transcript.css';
-import '../styles/app/token-usage.css';
 import '../styles/app/clarifying-card.css';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';
 import PromptSuggestions from './PromptSuggestions';
-import ChatTokenUsage from './ChatTokenUsage';
 import { displayBuildPrompt } from '../lib/buildMessages';
 
 // The pane's open width at lg+, shared with the animated wrapper in App.
@@ -127,15 +125,11 @@ export default function BuildPanel({
       <div className={`absolute inset-0 pointer-events-none z-0 prompt-atmosphere ${!isChatActive ? 'prompt-atmosphere-hero' : ''}`} />
 
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
-      {/* Three columns: title, the chat's token count centred in the header,
-          quick actions. The equal outer columns keep the middle centred
-          without letting it overlap either side. */}
       <div className="build-panel-header relative h-14 sm:h-16 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
         <div className="flex items-center">
           {side !== 'right' && collapseButton}
           <h2 className="build-panel-title text-sm 2xl:text-base font-bold text-slate-900 whitespace-nowrap tracking-tight">Build</h2>
         </div>
-        <ChatTokenUsage />
         {/* Quick actions */}
         <div className="col-start-3 justify-self-end flex items-center">
           <button
@@ -285,11 +279,6 @@ export default function BuildPanel({
 
       {/* Fixed Bottom Input Area */}
       <div className="build-panel-composer shrink-0 p-3 sm:p-4 border-t border-slate-200/90 dark:border-white/10 bg-surface/95 backdrop-blur-xl relative z-1">
-        {/* The token counter's home on phones and touch devices, where the
-            pane header above is hidden (responsive.css). */}
-        <div className="build-panel-meta">
-          <ChatTokenUsage />
-        </div>
         {/* Next-step ideas for Build mode only: they are build requests. */}
         {chatMode === 'build' && !isGenerating && onPickSuggestion && (
           <PromptSuggestions suggestions={suggestions} onPick={onPickSuggestion} />

@@ -97,6 +97,20 @@ try {
       await page.locator('.hero-rail [data-tour="tour"]').click();
     }
     await page.locator('.tour-card').waitFor();
+    if (viewport.width >= 1024) {
+      // Moving off the hover-expanded rail collapses it after a 0.2s delay; spotlight must track the shift.
+      await page.mouse.move(viewport.width / 2, viewport.height / 2);
+      await page.locator('.hero-rail.lg\\:w-15').waitFor();
+      await waitAnimations(page.locator('.hero-rail'));
+      await page.locator('.tour-spotlight:not(.tour-spotlight-empty)').waitFor();
+      await waitAnimations(page.locator('.tour-spotlight'));
+      const spotlightBox = await page.locator('.tour-spotlight').boundingBox();
+      const promptBox = await page.locator('[data-tour="prompt"]').boundingBox();
+      assert.ok(
+        Math.abs((spotlightBox.x + 6) - promptBox.x) <= 2 && Math.abs((spotlightBox.width - 12) - promptBox.width) <= 2,
+        `Spotlight stayed aligned after rail collapse: spotlight=${JSON.stringify(spotlightBox)} prompt=${JSON.stringify(promptBox)}`,
+      );
+    }
     const jumpStep = viewport.hasTouch ? 4 : 5;
     await page.getByRole('button', { name: `Go to step ${jumpStep}: Every change is a version` }).click();
     await page.getByText(`Step ${jumpStep} of ${totalSteps}`, { exact: true }).waitFor();

@@ -135,6 +135,7 @@ export default function useTourGeometry({ targets, placement, cardRef, stepKey }
   useLayoutEffect(() => {
     let frame;
     let observed = null;
+    let observedRail = null;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const resizeObserver = new ResizeObserver(() => schedule());
 
@@ -146,6 +147,14 @@ export default function useTourGeometry({ targets, placement, cardRef, stepKey }
         if (observed) resizeObserver.unobserve(observed);
         if (element) resizeObserver.observe(element);
         observed = element;
+      }
+      // Track the collapsible side rail too: when it expands/collapses on hover,
+      // sibling panes translate horizontally without changing their own size.
+      const rail = document.querySelector('.hero-rail');
+      if (rail !== observedRail) {
+        if (observedRail) resizeObserver.unobserve(observedRail);
+        if (rail) resizeObserver.observe(rail);
+        observedRail = rail;
       }
       const next = computeGeometry(element, cardRef.current, placement);
       setGeometry(previous => (sameGeometry(previous, next) ? previous : next));
@@ -176,6 +185,8 @@ export default function useTourGeometry({ targets, placement, cardRef, stepKey }
 
     window.addEventListener('resize', schedule);
     window.addEventListener('scroll', schedule, true);
+    document.addEventListener('transitionend', schedule, true);
+    document.addEventListener('animationend', schedule, true);
     window.visualViewport?.addEventListener('resize', schedule);
     window.visualViewport?.addEventListener('scroll', schedule);
     return () => {
@@ -185,6 +196,8 @@ export default function useTourGeometry({ targets, placement, cardRef, stepKey }
       mutationObserver.disconnect();
       window.removeEventListener('resize', schedule);
       window.removeEventListener('scroll', schedule, true);
+      document.removeEventListener('transitionend', schedule, true);
+      document.removeEventListener('animationend', schedule, true);
       window.visualViewport?.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('scroll', schedule);
     };

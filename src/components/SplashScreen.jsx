@@ -58,11 +58,12 @@ export default function SplashScreen({ skip = false, onDone, aboveSetup = false 
       }`}
       style={{ transitionDuration: `${fadeOutMs ?? 0}ms`, ...(aboveSetup ? { zIndex: 1400 } : null) }}
     >
-      {/* Capped at 960 CSS px (the video is 1920 wide, so this is sharp even
-          on high-DPI screens) so it sits centered instead of filling the
-          window; smaller screens scale it down. aspect-video reserves the 16:9
-          box before metadata arrives so the vignette overlay doesn't shift. */}
-      <div className="relative aspect-video max-h-dvh w-full max-w-240">
+      {/* Capped at 672 CSS px (42rem, well below the 1920px video width so it
+          stays sharp on high-DPI screens) so it sits centered instead of
+          filling the window; smaller screens scale it down. aspect-video
+          reserves the 16:9 box before metadata arrives so the vignette overlay
+          doesn't shift. */}
+      <div className="relative aspect-video max-h-dvh w-full max-w-2xl">
         <video
           src={splashVideo}
           width={1920}
