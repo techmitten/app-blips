@@ -111,7 +111,7 @@ function BetaBadge() {
   return <span className="ml-1.5 align-middle rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 bg-indigo-500/15">Beta</span>;
 }
 
-function ConnectorCard({ name, tagline, Icon, status, beta = false, tool = false, onClick }) {
+export function ConnectorCard({ name, tagline, Icon, status, beta = false, tool = false, onClick }) {
   return (
     <button
       type="button"

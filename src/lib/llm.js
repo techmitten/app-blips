@@ -2,7 +2,7 @@ import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extra
 import { messageHeaders } from './messageId';
 import { freeSignInHeaders } from './freeSignIn';
 import { isDesktop, webProviderStore } from './desktop';
-import { loadOutputTokenLimit, loadPromptSuggestions } from './config';
+import { loadAskClarifyingQuestions, loadOutputTokenLimit, loadPromptSuggestions } from './config';
 import { describeProjectForSuggestions, describeBuildLimits, recentRequests, parseSuggestions, MAX_SUGGESTIONS } from './promptSuggestions';
 import { connectorStatus, getActiveConnectors, savePollinationsAccount } from './connectors';
 import { findImageRequests, resolveImages } from './pollinations';
@@ -25,6 +25,7 @@ import {
   LANDING_PAGE, MAX_PAGES, findBrokenLinks, formatFilesForPrompt, getLanding, makeFiles, sniffStreamedPage,
 } from './pages';
 import { parseClarifyingQuestionsArgs } from './clarifyingQuestions';
+import { parseSkillCommand, stripSkillCommand } from './skills';
 import {
   buildHtmlSystemPrompt,
   buildAskConnectorNote,
@@ -34,6 +35,10 @@ import {
   getRefinementTools,
   buildCreatePageParts,
   ASK_CLARIFYING_QUESTIONS_TOOL,
+  ASK_CLARIFYING_QUESTIONS_SKILL_TOOL,
+  CLARIFYING_QUESTIONS_SKILL_NOTE,
+  CLARIFYING_QUESTIONS_SKILL_OFF_NOTE,
+  CALLS_CLARIFYING_SKILL_RE,
   PUBLIC_WRITING_ASK_TOOL,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
@@ -104,7 +109,10 @@ export const generateClarifyingQuestion = async ({
   currentCode = null,
   chatHistory = [],
   signal = null,
-  studioMode = 'app'
+  studioMode = 'app',
+  // The user called the Clarify skill (/clarify): always ask, about the
+  // change they named when the project already exists.
+  force = false
 }) => {
   const isWebsite = studioMode === 'website';
   const isGame = studioMode === 'game';
@@ -112,7 +120,7 @@ export const generateClarifyingQuestion = async ({
     ? WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT
     : isGame ? GAME_CLARIFYING_QUESTIONS_SYSTEM_PROMPT : CLARIFYING_QUESTIONS_SYSTEM_PROMPT;
   const messages = [
-    { role: 'system', content: clarifyPrompt },
+    { role: 'system', content: force ? `${clarifyPrompt}\n\n${clarifySkillCallNote(Boolean(currentCode), Boolean(prompt))}` : clarifyPrompt },
     ...chatHistory,
     {
       role: 'user',
@@ -125,7 +133,7 @@ export const generateClarifyingQuestion = async ({
   const message = await requestModelText({
     messages,
     tools: [ASK_CLARIFYING_QUESTIONS_TOOL],
-    tool_choice: 'auto',
+    tool_choice: force ? 'required' : 'auto',
     reasoningEffort: CHAT_REASONING_EFFORT,
     signal
   });
@@ -980,6 +988,40 @@ const createMissingPages = async ({ files, request, signal, onChunk, projectName
   return result;
 };
 
+// The CLARIFY SKILL note for a forced /clarify call: what to ask about.
+const clarifySkillCallNote = (hasProject, hasRequest) => `The user called the Clarify skill, so you MUST call ask_clarifying_questions now, even if the request seems clear: then ask about the details it leaves open (just one question is fine), never a question its words already answer. ${
+  hasProject
+    ? `The project already exists: ask only about ${hasRequest ? 'the change or feature in the request' : 'what they want to change or add next'}, not about the project as a whole.`
+    : hasRequest ? '' : 'The user has not said what to build yet: ask what they want to make.'
+}`.trim();
+
+// A skill called by its command (lib/skills.js). Returns a result like
+// generateAppCode's; the project is never changed here.
+const runSkill = async ({ skill, request }, { currentCode, chatHistory, signal, studioMode, onChunk, isAskMode }) => {
+  const noChange = (reply) => ({ code: currentCode || '', editMode: 'ask', editSummary: `/${skill.command} ${request}`.trim(), reply });
+  if (!skill.isEnabled()) {
+    return noChange(`The ${skill.name} skill is turned off. Turn it on in Settings → Skills, then try /${skill.command} again.`);
+  }
+  if (isAskMode) {
+    return noChange(`/${skill.command} works in Build mode. Switch to Build, then send it again.`);
+  }
+  if (skill.id === 'clarify') {
+    if (onChunk) onChunk('Thinking of questions…', 'status');
+    const clarifying = await generateClarifyingQuestion({ prompt: request, currentCode, chatHistory, signal, studioMode, force: true });
+    if (!clarifying) {
+      return noChange('I couldn’t come up with questions this time. Tell me a bit more about what you need, or try /clarify again.');
+    }
+    return {
+      code: currentCode || '',
+      editMode: 'clarify',
+      editSummary: request || `/${skill.command}`,
+      reply: clarifying.reply,
+      ...(clarifying.questions ? { clarifyingQuestions: clarifying.questions } : {}),
+    };
+  }
+  return noChange(`/${skill.command} isn’t available here.`);
+};
+
 const generateAppCodeCore = async (
   prompt,
   currentCode = null,
@@ -1027,11 +1069,22 @@ const generateAppCodeCore = async (
     : isGame
       ? (p) => buildGameInitialGenerationPrompt(p, projectName, engineDirective)
       : (p) => buildInitialGenerationPrompt(p, layoutTarget, projectName);
+  // The Clarify skill (Settings → Skills): on, the agent may call it on
+  // request after the first build, and the first build still asks.
+  const clarifySkill = loadAskClarifyingQuestions();
+  // A skill command ("/clarify ...") is for AppBlips, not the AI: earlier
+  // prompts lose it, and this one runs the skill.
+  chatHistory = chatHistory.map((m) => (m.role === 'user' && typeof m.content === 'string' ? { ...m, content: stripSkillCommand(m.content) } : m));
+  const skillCall = isAutoFix ? null : parseSkillCommand(prompt);
+  if (skillCall) return runSkill(skillCall, { currentCode, chatHistory, signal, studioMode, onChunk, isAskMode });
   // A question typed in Build mode is answered like Ask mode, without touching
   // the project.
   let routedFromBuild = false;
   if (!isAskMode && !isAutoFix) {
-    routedFromBuild = await isQuestionOnly({ prompt, chatHistory, signal });
+    // Asking for the Clarifying questions skill is a request to act, even
+    // when phrased as a question ("can you ask me some questions?").
+    const callsSkill = currentCode && clarifySkill && CALLS_CLARIFYING_SKILL_RE.test(prompt);
+    routedFromBuild = callsSkill ? false : await isQuestionOnly({ prompt, chatHistory, signal });
   }
   if (isAskMode || routedFromBuild) {
     if (routedFromBuild && onChunk) onChunk('Answering your question…', 'status');
@@ -1390,7 +1443,7 @@ const generateAppCodeCore = async (
   // The photo library, for websites and apps.
   const photoSearch = isGame ? null : startPhotoSearch({ signal });
   const systemPrompt = buildHtmlSystemPrompt(studioMode, getActiveConnectors());
-  const fullSystemPrompt = [systemPrompt, webSearch?.guidance].filter(Boolean).join('\n\n');
+  const fullSystemPrompt = [systemPrompt, webSearch?.guidance, clarifySkill ? CLARIFYING_QUESTIONS_SKILL_NOTE : CLARIFYING_QUESTIONS_SKILL_OFF_NOTE].filter(Boolean).join('\n\n');
   const messages = [
     { role: 'system', content: fullSystemPrompt },
     ...formattedChatHistory,
@@ -1449,6 +1502,7 @@ const generateAppCodeCore = async (
       ...getRefinementTools(studioMode),
       ...(webSearch ? webSearch.tools() : []),
       ...(photoSearch ? photoSearch.tools() : []),
+      ...(clarifySkill ? [ASK_CLARIFYING_QUESTIONS_SKILL_TOOL] : []),
     ];
 
     // Once edits have applied cleanly, the next turn is normally just the model

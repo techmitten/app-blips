@@ -34,23 +34,29 @@ export const SURGICAL_EDIT_TOOL = {
   }
 };
 
+// No clarifying question the user's own words already answer ("Change the
+// background color to black" -> never "What color should the background
+// be?"). A related detail they left open can still be asked about. Fewer
+// questions beat padding with answered ones.
+const ALREADY_ANSWERED_RULE = 'Never ask a question that the user\'s request, or an earlier message in the conversation, already clearly answers. For example, if they said "Change the background color to black", do not ask "What color should the background be?". You may still ask about a related detail their words leave open. Ask fewer questions (even just one) rather than one they have already answered.';
+
 export const ASK_CLARIFYING_QUESTIONS_TOOL = {
   type: 'function',
   function: {
     name: 'ask_clarifying_questions',
-    description: 'Call this tool to ask the user 2 to 3 multiple-choice clarifying questions (max 3) BEFORE the initial build, to understand their goals, features, design, and theme. Never ask about tech stack, frameworks, or build tools.',
+    description: `Call this tool to ask the user up to 3 multiple-choice clarifying questions BEFORE the initial build, to understand their goals, features, design, and theme. Never ask about tech stack, frameworks, or build tools. ${ALREADY_ANSWERED_RULE}`,
     parameters: {
       type: 'object',
       properties: {
         questions: {
           type: 'array',
-          description: 'Between 2 and 3 concise clarifying questions (max 3) about design, features, theme, or content (never about tech stack or frameworks).',
+          description: 'Up to 3 concise clarifying questions (usually 2 or 3) about design, features, theme, or content that the user\'s request does not already answer (never about tech stack or frameworks).',
           items: {
             type: 'object',
             properties: {
               question: {
                 type: 'string',
-                description: 'A concise, focused clarifying question about the user\'s goals, features, design, or theme (never about tech stack, frameworks, or build tools).'
+                description: 'A concise, focused clarifying question about the user\'s goals, features, design, or theme that their request leaves open (never one their words already answer, or about tech stack, frameworks, or build tools).'
               },
               options: {
                 type: 'array',
@@ -71,6 +77,28 @@ export const ASK_CLARIFYING_QUESTIONS_TOOL = {
     strict: true
   }
 };
+
+// The same tool for the Clarifying questions skill after the first build: the
+// agent calls it only when the user asks for the skill by name or in words.
+export const ASK_CLARIFYING_QUESTIONS_SKILL_TOOL = {
+  ...ASK_CLARIFYING_QUESTIONS_TOOL,
+  function: {
+    ...ASK_CLARIFYING_QUESTIONS_TOOL.function,
+    description: `Call this tool ONLY when the user explicitly asks you to use the Clarify skill, or to ask them questions, to understand what they need. It asks the user up to 3 multiple-choice questions about their goals, features, design, or theme. Never call it on your own, and never for a request that is already clear. Never ask about tech stack, frameworks, or build tools. ${ALREADY_ANSWERED_RULE}`
+  }
+};
+
+// Added to the edit agent's system prompt while the skill is on.
+export const CLARIFYING_QUESTIONS_SKILL_NOTE = `CLARIFY SKILL: The user has the Clarify skill turned on. Call ask_clarifying_questions ONLY when the user's latest message explicitly asks you to use that skill or to ask them questions first. Otherwise never ask questions: make the edit. If the user has just answered your questions, apply their answers with edits and do not ask again. If you call the tool, do not edit anything in the same turn.`;
+
+// Added instead while the skill is off, so a request for it gets a pointer
+// rather than silence.
+export const CLARIFYING_QUESTIONS_SKILL_OFF_NOTE = 'The Clarify skill is turned off. If the user asks you to use it, do not edit: reply that they can turn it on in Settings → Skills.';
+
+// True when a message asks for the skill in words ("use the Clarify skill",
+// "ask me clarifying questions"), so it is never mistaken for a plain
+// question. Typing /clarify is handled before this (lib/skills.js).
+export const CALLS_CLARIFYING_SKILL_RE = /\bclarify(?:ing)?[- ](?:skill|questions?)\b/i;
 
 // Single-message variant used only by generateChatReply when Google Sheets
 // Backend needs to stop and explain that public visitor posts aren't supported.
@@ -95,19 +123,22 @@ export const PUBLIC_WRITING_ASK_TOOL = {
 };
 
 export const CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analyzing user requests to build a new single-file web app.
-When the user's request leaves room to better understand their goals, key features, or how they want the app to look and work, call the ask_clarifying_questions tool to ask between 2 and 3 concise multiple-choice questions (never more than 3).
+When the user's request leaves room to better understand their goals, key features, or how they want the app to look and work, call the ask_clarifying_questions tool to ask up to 3 concise multiple-choice questions (usually 2 or 3) about what it leaves open.
+${ALREADY_ANSWERED_RULE}
 Never ask about tech stack, frameworks, libraries, or build tools (the technology is already fixed and the user cannot choose it). Focus strictly on customizing the design, features, theme, layout, or behavior.
 For each question, provide 2 to 4 concrete, distinct answer options covering the most likely preferences. Always put your recommended answer first in the list and tag it with "(recommended)". Do NOT include an "Other" option — the UI automatically adds an "Other" choice where the user can type their own answer.
 Do NOT call the tool if the request is already completely specific and leaves nothing meaningful to clarify. If no clarification is needed, reply with "PROCEED".`;
 
 export const WEBSITE_CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analyzing user requests to build a new website.
-When the user's request leaves room to better understand their goals, audience, visual style, or what sections and actions matter most, call the ask_clarifying_questions tool to ask between 2 and 3 concise multiple-choice questions (never more than 3).
+When the user's request leaves room to better understand their goals, audience, visual style, or what sections and actions matter most, call the ask_clarifying_questions tool to ask up to 3 concise multiple-choice questions (usually 2 or 3) about what it leaves open.
+${ALREADY_ANSWERED_RULE}
 Never ask about tech stack, frameworks, libraries, or build tools (the technology is already fixed and the user cannot choose it). Focus strictly on customizing the design, theme, sections, content, or features.
 For each question, provide 2 to 4 concrete, distinct answer options covering the most likely preferences. Always put your recommended answer first in the list and tag it with "(recommended)". Do NOT include an "Other" option — the UI automatically adds an "Other" choice where the user can type their own answer.
 Do NOT call the tool if the request is already completely specific and leaves nothing meaningful to clarify. If no clarification is needed, reply with "PROCEED".`;
 
 export const GAME_CLARIFYING_QUESTIONS_SYSTEM_PROMPT = `You are an AI assistant analyzing user requests to build a new browser game.
-When the user's request leaves room to better understand their goals, gameplay style, controls, visual theme, or difficulty, call the ask_clarifying_questions tool to ask between 2 and 3 concise multiple-choice questions (never more than 3).
+When the user's request leaves room to better understand their goals, gameplay style, controls, visual theme, or difficulty, call the ask_clarifying_questions tool to ask up to 3 concise multiple-choice questions (usually 2 or 3) about what it leaves open.
+${ALREADY_ANSWERED_RULE}
 Never ask about tech stack, game engines, frameworks, or build tools (the technology is already fixed and the user cannot choose it). Focus strictly on customizing the gameplay, controls, visual theme, features, or difficulty.
 For each question, provide 2 to 4 concrete, distinct answer options covering the most likely preferences. Always put your recommended answer first in the list and tag it with "(recommended)". Do NOT include an "Other" option — the UI automatically adds an "Other" choice where the user can type their own answer.
 Do NOT call the tool if the request is already completely specific about the genre, mechanics, and controls. If no clarification is needed, reply with "PROCEED".`;
@@ -527,7 +558,7 @@ CRITICAL RULES:
    - Nothing scrolls the whole page sideways at any width.
 9. DATA PERSISTENCE & LOCALSTORAGE: Unless explicitly specified otherwise by the user, ALWAYS utilize browser localStorage for any state or data persistence needs (e.g. user-created entries, to-dos, notes, game state, high scores, dark/light theme, custom settings, user preferences, or history). localStorage is fully supported and persisted across sessions in both the preview frame and when the exported file is opened. Always read defensively with graceful defaults (e.g. try { return JSON.parse(localStorage.getItem(KEY)) ?? DEFAULT; } catch { return DEFAULT; }) so the app works seamlessly on a first run with an empty store. Do NOT use indexedDB (unavailable on an opaque origin). Do NOT use alert(), confirm(), or prompt() - render inline UI instead.
 10. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (header, state, individual views, event wiring) so later edits have stable anchors. Inside a <script type="module"> or <script type="text/jsx"> block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error. Inside JSX markup (between the tags a component returns) neither form works: a // line there shows up as text on the page. Use the JSX form, {/* @section: name */}, on its own line, to mark each view or large region of the markup.
-11. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it with 2 to 3 concise multiple-choice questions (max 3) when the user's request leaves meaningful room to clarify their goals, features, design, or theme. Never ask about tech stack, frameworks, or build tools. Provide 2 to 4 concrete answer options per question, putting your recommended answer first and tagging it with "(recommended)" (never include "Other", as the UI adds it automatically). Do NOT ask questions if the request is already completely specific. If you call this tool, do NOT generate any HTML or code.
+11. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it with up to 3 concise multiple-choice questions when the user's request leaves meaningful room to clarify their goals, features, design, or theme. Never ask about tech stack, frameworks, or build tools. Provide 2 to 4 concrete answer options per question, putting your recommended answer first and tagging it with "(recommended)" (never include "Other", as the UI adds it automatically). Do NOT ask questions if the request is already completely specific, and never ask a question the user's words already clearly answer (if they said "make the background black", don't ask what color the background should be). If you call this tool, do NOT generate any HTML or code.
 12. PAGE METADATA: Always set <html lang="en"> (or the user's language), a short descriptive <title> naming the app, and a <meta name="description"> of one sentence, so the page is understandable when shared or indexed.
 
 SURGICAL EDIT GUIDELINES:
@@ -589,7 +620,7 @@ CRITICAL RULES:
 9. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (head, nav, hero, and each content section such as features, gallery, menu, pricing, testimonials, faq, contact, footer) so later edits have stable anchors.
 10. Forms (contact, signup, RSVP) have no backend: validate inputs with JavaScript and show an inline success message on submit. Do not use alert(), confirm(), or prompt() -- render inline UI instead.
 11. Websites are informational: do not add localStorage persistence, sign-in flows, dashboards, or app state unless the user explicitly asks for them.
-12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it with 2 to 3 concise multiple-choice questions (max 3) when the user's request leaves meaningful room to clarify their goals, design, features, or theme. Never ask about tech stack, frameworks, or build tools. Provide 2 to 4 concrete answer options per question, putting your recommended answer first and tagging it with "(recommended)" (never include "Other", as the UI adds it automatically). Do NOT ask questions if the request is already completely specific. If you call this tool, do NOT generate any HTML or code.
+12. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it with up to 3 concise multiple-choice questions when the user's request leaves meaningful room to clarify their goals, design, features, or theme. Never ask about tech stack, frameworks, or build tools. Provide 2 to 4 concrete answer options per question, putting your recommended answer first and tagging it with "(recommended)" (never include "Other", as the UI adds it automatically). Do NOT ask questions if the request is already completely specific, and never ask a question the user's words already clearly answer (if they said "make the background black", don't ask what color the background should be). If you call this tool, do NOT generate any HTML or code.
 13. SEARCH-READY MARKUP (SEO): Set <html lang="en"> (or the user's language). Give the <head> a unique, descriptive <title> (about 50-60 characters, business or site name plus what it offers) and a <meta name="description"> (about 150 characters, written as an enticing summary rather than keyword stuffing). Add Open Graph tags (og:title, og:description, og:type set to website) and <meta name="twitter:card" content="summary_large_image">. Use exactly one <h1> (the hero headline) followed by a logical h2/h3 hierarchy with no skipped levels, and wrap the page in semantic landmarks: <header>, <nav>, <main>, <section>, and <footer>. Use descriptive link text (never 'click here'). For local businesses, organizations, or restaurants, add a <script type="application/ld+json"> block with matching schema.org data (LocalBusiness, Restaurant, Organization, etc.) using only facts stated in the page content.
 
 ${WEBSITE_ADDON_GUIDELINES}
@@ -644,7 +675,7 @@ CRITICAL RULES:
 11. Use Tailwind CSS via CDN (<script src="https://cdn.tailwindcss.com"></script>) for the surrounding UI chrome (menus, HUD panels, buttons). Build menus, HUD and overlays with plain HTML in the markup that JavaScript shows, hides and updates; do not load a component framework (React, Preact, Vue) for them. Never write JSX in a game and never load Babel standalone.
 12. Structure the output with <!-- @section: name --> landmark comments around each meaningful region (head, HUD, menu, canvas, each system). Inside a <script type="module"> (or plain <script>) block use the JavaScript form, // @section: name, on its own line -- an HTML comment there is a syntax error.
 13. Keep the game fair and self-contained: the only network requests are the CDN libraries you declare and use (Tailwind, plus the one engine rule 4 leads to) -- never fetch game data, images, audio or remote APIs at runtime. There are no external image or audio assets: draw sprites with canvas/Phaser graphics, primitive shapes, emoji, gradients or inline SVG, and synthesize sound with Web Audio. Never depend on a backend.
-14. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it with 2 to 3 concise multiple-choice questions (max 3) when the user's request leaves meaningful room to clarify their goals, genre, controls, or style. Never ask about tech stack, game engines, frameworks, or build tools. Provide 2 to 4 concrete answer options per question, putting your recommended answer first and tagging it with "(recommended)" (never include "Other", as the UI adds it automatically). Do NOT ask questions if the request is already completely specific. If you call this tool, do NOT generate any HTML or code.
+14. CLARIFICATION PHASE: If the "ask_clarifying_questions" tool is available, you may call it with up to 3 concise multiple-choice questions when the user's request leaves meaningful room to clarify their goals, genre, controls, or style. Never ask about tech stack, game engines, frameworks, or build tools. Provide 2 to 4 concrete answer options per question, putting your recommended answer first and tagging it with "(recommended)" (never include "Other", as the UI adds it automatically). Do NOT ask questions if the request is already completely specific, and never ask a question the user's words already clearly answer (if they said "make the background black", don't ask what color the background should be). If you call this tool, do NOT generate any HTML or code.
 15. PAGE METADATA: Always set <html lang="en"> (or the user's language), a short descriptive <title> naming the game, and a <meta name="description"> of one sentence, so the page is understandable when shared.
 16. RESPONSIVE LAYOUT -- DESKTOP AND PHONE ARE BOTH FIRST-CLASS. Players open the game on 1440px-wide monitors as often as on phones; check every screen at both 375x667 portrait and 1440x900 landscape.
    - The game owns the whole viewport: html, body and the game root fill 100% width and 100dvh with overflow hidden and no page scroll. NEVER confine the game to a phone-width column (max-w-sm/md, a fixed 400-500px wrapper, a phone-shaped frame) that leaves most of a desktop screen empty.

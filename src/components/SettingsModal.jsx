@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
-import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, RotateCcw, Info } from 'lucide-react';
+import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, Lightbulb, RotateCcw, Info } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import DeleteAccountModal from './DeleteAccountModal';
 import ConnectorsSettings from './ConnectorsSettings';
+import SkillsSettings from './SkillsSettings';
 import DataSettings from './DataSettings';
 import AboutSettings from './AboutSettings';
 import { UpdateCheckButton, UpdateCheckResult } from './UpdateCheckButton';
@@ -23,10 +24,10 @@ import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in
 // App, chat font size from useChatFont, build pane side), Workspace (code
-// view, splash), AI (your own AI provider, then reasoning, clarifying
-// questions, suggested prompts),
+// view, splash), AI (your own AI provider, then reasoning, suggested prompts),
 // Connectors (services the AI wires into projects), Tools (built-in extras
-// like SEO and My images, the native connectors), Data (project backup and the desktop projects folder),
+// like SEO and My images, the native connectors), Skills (abilities the AI
+// can use or be asked to use, like clarifying questions), Data (project backup and the desktop projects folder),
 // About (logo, version, copyright, then the legal links and open source licenses),
 // and Danger Zone (deleting all projects, factory reset).
 const CHAT_FONT_LABELS = { small: 'Small', default: 'Default', large: 'Large', xlarge: 'XL' };
@@ -79,6 +80,7 @@ const TABS = [
   { id: 'ai', label: 'AI', Icon: Sparkles },
   { id: 'connectors', label: 'Extensions', Icon: Plug },
   { id: 'tools', label: 'Tools', Icon: Wrench },
+  { id: 'skills', label: 'Skills', Icon: Lightbulb },
   { id: 'data', label: 'Data', Icon: HardDrive },
   { id: 'about', label: 'About', Icon: Info },
   { id: 'danger', label: 'Danger Zone', Icon: ShieldAlert },
@@ -435,9 +437,6 @@ export default function SettingsModal({
               <DesktopProviderSettings guardRef={providerGuardRef} onSavedChange={setProviderInfo} />
               <OutputTokenSettings provider={providerInfo} />
               <ReasoningSetting value={buildReasoningEffort} onChange={onBuildReasoningEffortChange} reasoning={reasoningLevels} />
-              <SettingRow id="set-clarify" title="Clarifying questions" description="Let the AI ask 2–3 multiple-choice questions about your goals before the initial build.">
-                <Switch checked={askClarifyingQuestions} onChange={onAskClarifyingQuestionsChange} labelledBy="set-clarify" />
-              </SettingRow>
               <SettingRow id="set-prompt-suggestions" title="Suggested prompts" description="Show AI-suggested next prompts above the chat box after each build. Each build makes one extra AI request of about 2,000 tokens.">
                 <Switch checked={promptSuggestions} onChange={onPromptSuggestionsChange} labelledBy="set-prompt-suggestions" />
               </SettingRow>
@@ -451,6 +450,8 @@ export default function SettingsModal({
           )}
 
           {tab === 'connectors' && <ConnectorsSettings key="services" seoProject={seoProject} galleryProject={galleryProject} {...connectorPagesFor('services')} />}
+
+          {tab === 'skills' && <SkillsSettings enabled={askClarifyingQuestions} onEnabledChange={onAskClarifyingQuestionsChange} />}
 
           {tab === 'tools' && <ConnectorsSettings key="tools" kind="tools" seoProject={seoProject} galleryProject={galleryProject} {...connectorPagesFor('tools')} />}
 

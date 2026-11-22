@@ -89,7 +89,7 @@ try {
     const body = JSON.parse(options.body);
     requests.push(body);
     const system = body.messages?.[0]?.content || '';
-    const isClarify = /between 2 and 3 concise multiple-choice questions/.test(system);
+    const isClarify = /questions \(usually 2 or 3\) about what it leaves open/.test(system);
     const message = isClarify
       ? clarifyResponse
       : { content: `Built it.\n\n${html}` };
@@ -167,7 +167,9 @@ try {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
     const body = JSON.parse(options.body);
-    if (body.tools?.some((t) => t.function?.name === 'ask_clarifying_questions')) {
+    // The initial-build questions request (its own system prompt), which must
+    // never run on an edit. The skill's tool may be offered to the edit agent.
+    if (/questions \(usually 2 or 3\) about what it leaves open/.test(body.messages?.[0]?.content || '')) {
       sawClarifyRequest = true;
     }
     // For surgical edit calls, apply a valid surgical edit so the edit loop completes.
@@ -205,6 +207,89 @@ try {
   assert.equal(sawClarifyRequest, false, 'clarifying questions must not run on edits');
   assert.notEqual(result.editMode, 'clarify');
   assert.match(result.code, /<h1>Updated<\/h1>/);
+
+  // 6. The skill after the first build: the edit agent is offered the tool only
+  // while the skill is on, and calling it returns the questions instead of editing.
+  const editTools = [];
+  const skillFetch = (askOnEdit) => async (url, options) => {
+    if (!String(url).includes('/api/')) return originalFetch(url, options);
+    const body = JSON.parse(options.body);
+    if (!body.tools?.some((t) => t.function?.name === 'apply_surgical_edits')) {
+      return Response.json({ choices: [{ message: { content: 'question' } }] });
+    }
+    editTools.push(body.tools.map((t) => t.function?.name));
+    const message = askOnEdit
+      ? { tool_calls: [{ id: 'ask_1', type: 'function', function: { name: 'ask_clarifying_questions', arguments: JSON.stringify({ questions: [{ question: 'Which sizes?', options: ['S (recommended)', 'L'] }] }) } }] }
+      : { content: 'Done.' };
+    if (!body.stream) return Response.json({ choices: [{ message }] });
+    const delta = message.tool_calls
+      ? { tool_calls: message.tool_calls.map((call, index) => ({ index, ...call })) }
+      : { content: message.content };
+    return new Response(`data: ${JSON.stringify({ choices: [{ delta }] })}\n\ndata: [DONE]\n\n`, { headers: { 'content-type': 'text/event-stream' } });
+  };
+  const callSkill = () => generateAppCode(
+    'Use the clarifying questions skill to understand what I need for this feature', html, [], null, 'both', null, false, true, null, false,
+    { build: 'none' }, 'app', { 'index.html': html }, '', false, false, '', false, null
+  );
+  globalThis.fetch = skillFetch(true);
+  result = await callSkill();
+  assert.equal(result.editMode, 'clarify');
+  assert.equal(result.clarifyingQuestions?.length, 1);
+  assert.ok(editTools.at(-1).includes('ask_clarifying_questions'), 'skill on offers the tool');
+
+  store.set(ASK_CLARIFYING_QUESTIONS_KEY, 'false');
+  editTools.length = 0;
+  globalThis.fetch = skillFetch(false);
+  await callSkill().catch(() => {});
+  globalThis.fetch = originalFetch;
+  assert.ok(editTools.length > 0 && editTools.every((names) => !names.includes('ask_clarifying_questions')), 'skill off never offers the tool');
+
+  // 7. /clarify: parsed only at the start, always asks (tool_choice required),
+  // never edits, and tells the user when the skill is off.
+  const { parseSkillCommand, stripSkillCommand, matchSkillCommands } = await server.ssrLoadModule('/src/lib/skills.js');
+  assert.equal(parseSkillCommand('/clarify Add a checkout').request, 'Add a checkout');
+  assert.equal(parseSkillCommand('  /CLARIFY').skill.id, 'clarify');
+  assert.equal(parseSkillCommand('/clarifyx'), null);
+  assert.equal(parseSkillCommand('/about page'), null);
+  assert.equal(parseSkillCommand('please /clarify'), null);
+  assert.equal(stripSkillCommand('/clarify Add a checkout'), 'Add a checkout');
+  assert.deepEqual(matchSkillCommands('/cl').map((x) => x.id), ['clarify']);
+  assert.deepEqual(matchSkillCommands('/clarify now'), []);
+
+  store.set(ASK_CLARIFYING_QUESTIONS_KEY, 'true');
+  const forced = [];
+  globalThis.fetch = async (url, options) => {
+    if (!String(url).includes('/api/')) return originalFetch(url, options);
+    const body = JSON.parse(options.body);
+    forced.push(body);
+    const message = { tool_calls: [{ id: 'ask_2', type: 'function', function: { name: 'ask_clarifying_questions', arguments: JSON.stringify({ questions: [{ question: 'Card or PayPal?', options: ['Card (recommended)', 'PayPal'] }] }) } }] };
+    if (!body.stream) return Response.json({ choices: [{ message }] });
+    return new Response(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, ...message.tool_calls[0] }] } }] })}\n\ndata: [DONE]\n\n`, { headers: { 'content-type': 'text/event-stream' } });
+  };
+  const runClarify = (text, mode = false) => generateAppCode(
+    text, html, [{ role: 'user', content: '/clarify Build a shop' }], null, 'both', null, mode, false, null, false,
+    { build: 'none' }, 'app', { 'index.html': html }, '', false, false, '', false, null
+  );
+  result = await runClarify('/clarify Add a checkout page');
+  assert.equal(result.editMode, 'clarify');
+  assert.equal(result.code, html);
+  assert.equal(forced.length, 1, 'one request, no intent check or edit loop');
+  assert.equal(forced[0].tool_choice, 'required');
+  assert.match(forced[0].messages[0].content, /called the Clarify skill/);
+  assert.match(forced[0].messages[0].content, /Never ask a question that the user's request, or an earlier message in the conversation, already clearly answers/);
+  assert.ok(forced[0].messages.every((m) => typeof m.content !== 'string' || !m.content.includes('/clarify')), 'the command never reaches the AI');
+
+  result = await runClarify('/clarify Add a checkout page', true);
+  assert.equal(result.editMode, 'ask');
+  assert.match(result.reply, /Build mode/);
+
+  store.set(ASK_CLARIFYING_QUESTIONS_KEY, 'false');
+  forced.length = 0;
+  result = await runClarify('/clarify Add a checkout page');
+  globalThis.fetch = originalFetch;
+  assert.equal(result.editMode, 'ask');
+  assert.match(result.reply, /Settings → Skills/);
+  assert.equal(forced.length, 0);
 
   console.log('testClarifyingQuestions: ok');
 } finally {

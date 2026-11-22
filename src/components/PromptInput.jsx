@@ -5,6 +5,7 @@ import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import ConfirmModal from './ConfirmModal';
 import { MODEL_SIZE_LABEL } from '../lib/whisperModel';
+import { matchSkillCommands } from '../lib/skills';
 
 // The mode control is one slot-machine reel with two stops; clicking it
 // advances Build -> Ask -> Build.
@@ -144,8 +145,40 @@ export default function PromptInput({
     }
   }, [isClarifying, hasClarifyingChoices, isGenerating]);
 
+  // Skill commands (lib/skills.js): typing "/" at the start of the prompt
+  // lists the skills; Tab or Enter fills one in, Escape hides the list until
+  // the prompt changes. Imported codebases have their own pipeline, without skills.
+  const [commandIndex, setCommandIndex] = useState(0);
+  const [commandsDismissedFor, setCommandsDismissedFor] = useState(null);
+  const commandMatches = studioMode === 'codebase' || isGenerating || commandsDismissedFor === prompt ? [] : matchSkillCommands(prompt);
+  const activeCommand = commandMatches[Math.min(commandIndex, commandMatches.length - 1)];
+  const chooseCommand = (skill) => {
+    handleChange(`/${skill.command} `);
+    setCommandIndex(0);
+    textareaRef.current?.focus();
+  };
+
   const handleKeyDown = (e) => {
     if (e.nativeEvent.isComposing) return;
+    if (commandMatches.length) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        setCommandIndex((index) => (Math.min(index, commandMatches.length - 1) + step + commandMatches.length) % commandMatches.length);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setCommandsDismissedFor(prompt);
+        return;
+      }
+      // Enter on a command already typed in full sends it as it is.
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey && prompt.slice(1).toLowerCase() !== activeCommand.command)) {
+        e.preventDefault();
+        chooseCommand(activeCommand);
+        return;
+      }
+    }
     if (e.key === 'Enter' && !window.matchMedia('(pointer: coarse)').matches && !(e.shiftKey || e.metaKey || e.ctrlKey || e.altKey)) {
       e.preventDefault();
       if (canSubmit) submit();
@@ -238,6 +271,32 @@ export default function PromptInput({
       {voiceError && (
         <p role="alert" className="px-3 sm:px-4 pt-2 text-xs font-semibold text-rose-600 dark:text-rose-400">{voiceError}</p>
       )}
+      {commandMatches.length > 0 && (
+        <ul
+          id="prompt-skill-commands"
+          role="listbox"
+          aria-label="Skills"
+          className="mx-3 sm:mx-3.5 mt-3 rounded-xl border border-slate-200 bg-slate-50 p-1"
+        >
+          {commandMatches.map((skill) => {
+            const active = skill === activeCommand;
+            return (
+              <li
+                key={skill.id}
+                id={`prompt-skill-${skill.id}`}
+                role="option"
+                aria-selected={active}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => chooseCommand(skill)}
+                className={`flex cursor-pointer items-baseline gap-2 rounded-lg px-2.5 py-1.5 text-sm ${active ? 'bg-indigo-500/10' : 'hover:bg-slate-100'}`}
+              >
+                <span className="font-semibold text-indigo-600">/{skill.command}</span>
+                <span className="min-w-0 truncate text-xs text-slate-600">{skill.hint}{skill.isEnabled() ? '' : ' (off in Settings → Skills)'}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <div className="relative">
         <textarea
           ref={textareaRef}
@@ -247,6 +306,8 @@ export default function PromptInput({
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
+          aria-controls={commandMatches.length ? 'prompt-skill-commands' : undefined}
+          aria-activedescendant={activeCommand ? `prompt-skill-${activeCommand.id}` : undefined}
           placeholder={
             isClarifying
               ? "Type your answer here..."
