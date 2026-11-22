@@ -977,14 +977,14 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setElementEditError(null);
   }, []);
 
-  // Try it (preview toolbar): editing is on by default in Website Studio, and
-  // this hands clicks back to the page so its buttons and links can be tested.
-  const [isTryMode, setIsTryMode] = useState(false);
-  const isPreviewEditing = studioMode === 'website' && !isGenerating && !isTryMode;
+  // Click-to-edit (preview toolbar key): on by default in Website Studio.
+  // Turned off, clicks go to the page so its buttons and links can be tested.
+  const [isEditMode, setIsEditMode] = useState(true);
+  const isPreviewEditing = studioMode === 'website' && !isGenerating && isEditMode;
   // The frame drops its selection when editing turns off without reporting
   // it, so the parent's editor state is cleared here to match.
-  const handleToggleTryMode = useCallback(() => {
-    setIsTryMode((on) => !on);
+  const handleToggleEditMode = useCallback(() => {
+    setIsEditMode((on) => !on);
     setSelectedElement(null);
     setTextSession(null);
     setElementEditError(null);
@@ -1012,7 +1012,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     editingEnabled: isPreviewEditing,
     dragEnabled: isPreviewEditing,
     containerLock: isPreviewEditing && containerLock,
-    imageContextMenu: studioMode === 'website' && !isTryMode,
+    imageContextMenu: studioMode === 'website' && isEditMode,
     muted: isGenerating && chatMode === 'build',
     onElementSelected: handleElementSelected,
     onElementDeselected: handleElementDeselected,
@@ -2819,7 +2819,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setTempProjectName('');
     setShouldGenerateAfterNaming(false);
     setIsNamingModalOpen(false);
-    setIsTryMode(false);
+    setIsEditMode(true);
     setSelectedElement(null);
     setElementEditError(null);
     setStudioMode(nextStudioMode);
@@ -3528,8 +3528,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 codeAutocomplete={codeAutocomplete}
                 autoFollowCode={autoFollowCode}
                 studioMode={studioMode}
-                isTryMode={isTryMode}
-                onToggleTryMode={handleToggleTryMode}
+                isEditMode={isEditMode}
+                onToggleEditMode={handleToggleEditMode}
                 selectedElement={selectedElement}
                 selectionKey={selectionKey}
                 textSession={textSession}

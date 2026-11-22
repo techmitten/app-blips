@@ -132,7 +132,8 @@
      check mark still names the current page. */
   .preview-page-picker-key { width: 36px; min-width: 36px; height: 36px; padding: 0; justify-content: center; }
   .preview-page-picker-label,
-  .preview-page-picker-chevron { display: none; }
+  .preview-page-picker-chevron,
+  .edit-mode-label { display: none; }
   .preview-tabs button,
   .preview-actions .nav-btn,
   .preview-actions > .nav-segmented-group > .nav-segmented-btn,

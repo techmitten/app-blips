@@ -90,8 +90,8 @@ export default function PreviewPane({
   codeAutocomplete = true,
   autoFollowCode,
   studioMode = 'app',
-  isTryMode = false,
-  onToggleTryMode,
+  isEditMode = true,
+  onToggleEditMode,
   selectedElement = null,
   selectionKey = 0,
   textSession = null,
@@ -355,19 +355,25 @@ export default function PreviewPane({
             </div>
           )}
 
-          {/* Website Studio edits on click by default. Try it hands clicks
-              back to the page so buttons, links and forms can be tested;
-              pressed again, editing returns. */}
-          {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && onToggleTryMode && (
+          {/* Website Studio: click-to-edit, pressed (on) by default. Turned
+              off, clicks go to the page so buttons, links and forms can be
+              tested; pressed again, editing returns. */}
+          {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && onToggleEditMode && (
             <button
-              data-tour="try"
-              onClick={onToggleTryMode}
-              aria-pressed={isTryMode}
-              aria-label="Try it"
-              data-tip={isTryMode ? 'Back to editing' : 'Try it: use buttons and links normally'}
-              className={`nav-btn nav-ghost nav-btn-icon ${isTryMode ? 'nav-ghost-active' : ''}`}
+              data-tour="edit"
+              onClick={onToggleEditMode}
+              aria-pressed={isEditMode}
+              aria-label="Click-to-edit"
+              data-tip={isEditMode ? 'Click-to-edit is on. Turn off to use buttons and links' : 'Turn on click-to-edit'}
+              className={`nav-btn nav-ghost ${isEditMode ? 'nav-ghost-active' : ''}`}
             >
               <MousePointerClick size={16} />
+              {/* Both words share one grid cell and only one is visible, so
+                  the key is as wide as the longer word in either state. */}
+              <span className="edit-mode-label" aria-hidden="true">
+                <span className={isEditMode ? '' : 'invisible'}>Editing</span>
+                <span className={isEditMode ? 'invisible' : ''}>Edit Mode</span>
+              </span>
             </button>
           )}
 

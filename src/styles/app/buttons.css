@@ -687,3 +687,14 @@ html:not(.dark) .preview-pane-header .preview-key:hover:not(:disabled) {
   font-size: 0.6875rem;
   font-weight: 700;
 }
+
+/* Preview toolbar click-to-edit key: "Editing" and "Edit Mode" are stacked in
+   one cell with only the current one visible, so toggling never changes the
+   key's width or shifts its neighbours. */
+.edit-mode-label {
+  display: inline-grid;
+}
+.edit-mode-label > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
