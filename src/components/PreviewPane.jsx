@@ -51,6 +51,7 @@ export default function PreviewPane({
   zoomLevel,
   fillSize,
   isBareFill = false,
+  isContainerResizing = false,
   isForcedMobile = false,
   isAutoZoom,
   onZoomIn,
@@ -479,6 +480,7 @@ export default function PreviewPane({
             zoomLevel={zoomLevel}
             fillSize={fillSize}
             isBareFill={isBareFill}
+            isContainerResizing={isContainerResizing}
             iframeRef={iframeRef}
             shutterCount={shutterCount}
             srcDoc={previewSrcDoc}

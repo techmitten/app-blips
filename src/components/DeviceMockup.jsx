@@ -484,6 +484,9 @@ export default function DeviceMockup({
   zoomLevel,
   fillSize = null,
   isBareFill = false,
+  // The preview container is changing size (usePreviewViewport): follow it
+  // without the size transition.
+  isContainerResizing = false,
   iframeRef,
   srcDoc,
   shutterCount = 0,
@@ -512,26 +515,36 @@ export default function DeviceMockup({
   // click away. The status block with its cancel control stays for repairs,
   // where the error matters.
   const showBuildStatus = isErrorAutoFix;
+  const sizeTransition = isContainerResizing ? 'transition-none' : 'transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]';
 
   return (
     <div
-      className="palette-stock device-stage relative shrink-0 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className={`palette-stock device-stage relative shrink-0 flex items-center justify-center ${sizeTransition}`}
       style={{
-        width: box.width * zoomLevel,
-        height: box.height * zoomLevel
+        // Full size fills the preview canvas. Sized in CSS rather than from
+        // the measured fillSize so it tracks the canvas in the same frame
+        // while the side menu or build pane animates; the measured size lags
+        // a frame and left a strip of stage beside the page. Same inset and
+        // minimums as usePreviewViewport's fill measurement.
+        ...(fillSize
+          ? {
+            width: `max(320px, calc(100% - ${isBareFill ? 0 : 16}px))`,
+            height: `max(240px, calc(100% - ${isBareFill ? 0 : 16}px))`,
+          }
+          : { width: box.width * zoomLevel, height: box.height * zoomLevel })
       }}
     >
       <div
-        className={`device-embedded-browser ${PREVIEW_MODES[mode].deviceClass}${isBareFill ? ' device-bare' : ''}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' device-landscape' : ''}${flipClass ? ` ${flipClass}` : ''} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}
+        className={`device-embedded-browser ${PREVIEW_MODES[mode].deviceClass}${isBareFill ? ' device-bare' : ''}${PREVIEW_MODES[mode].isTouchChrome && orientation === 'landscape' ? ' device-landscape' : ''}${flipClass ? ` ${flipClass}` : ''} ${sizeTransition}`}
         style={{
           '--preview-zoom': zoomLevel,
-          ...(fillSize ? { width: fillSize.width, height: fillSize.height } : null)
+          ...(fillSize ? { width: '100%', height: '100%' } : null)
         }}
         onAnimationEnd={onFlipAnimationEnd}
       >
         {/* Screen */}
-        <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-screen device-screen-mobile' : 'device-screen'} select-text transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}>
-          <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}>
+        <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-screen device-screen-mobile' : 'device-screen'} select-text ${sizeTransition}`}>
+          <div className={`${PREVIEW_MODES[mode].isTouchChrome ? 'device-preview-surface device-preview-surface-mobile' : 'device-preview-surface'} ${sizeTransition}`}>
             {/* Always mounted (even before the first generation) so the very
                 first real `srcDoc` assignment is an attribute update on an
                 already-connected iframe, not a fresh element creation -- the
@@ -569,7 +582,12 @@ export default function DeviceMockup({
                     srcDoc={frames.docs[slot]}
                     onLoad={isLive ? onLiveLoad : undefined}
                     inert={!isLive}
-                    style={{ zIndex: onTop ? 1 : 0 }}
+                    // White behind the page, as a browser tab has. Chromium
+                    // only paints an iframe's own backdrop when its colour
+                    // scheme differs from the app's, so in light theme a page
+                    // without a background showed the device's black screen
+                    // (and its black text vanished on it).
+                    style={{ zIndex: onTop ? 1 : 0, background: '#fff' }}
                     className={`absolute inset-0 w-full h-full border-none ${isTransitioning ? 'overflow-hidden pointer-events-none' : !isLive ? 'pointer-events-none' : ''}`}
                     // Same for both frames, never tied to isLive: a frame
                     // turns live in the same commit that hands it the new

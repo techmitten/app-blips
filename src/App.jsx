@@ -563,7 +563,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   const {
     containerRef: previewContainerRef,
     previewMode, setPreviewMode, isForcedMobile, previewOrientation, handleToggleOrientation,
-    orientationFlipClass, setOrientationFlipClass, zoomLevel, fillSize, isBareFill, isAutoZoom,
+    orientationFlipClass, setOrientationFlipClass, zoomLevel, fillSize, isBareFill, isContainerResizing, isAutoZoom,
     handleManualZoom, resetZoom,
   } = usePreviewViewport({ activeTab, isHistoryOpen, fillDesktop: studioMode === 'website' || studioMode === 'codebase' });
 
@@ -3466,6 +3466,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 zoomLevel={zoomLevel}
                 fillSize={fillSize}
                 isBareFill={isBareFill}
+                isContainerResizing={isContainerResizing}
                 isForcedMobile={isForcedMobile}
                 isAutoZoom={isAutoZoom}
                 onZoomIn={handleManualZoom}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react';
 import { PREVIEW_MODES } from '../lib/constants';
 import { getEffectivePreviewBox } from '../lib/helpers';
 
@@ -75,6 +75,14 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDeskt
   // When set, the desktop viewport is the container's own size at 100% zoom
   // instead of the fixed preset scaled to fit (see `fillDesktop`).
   const [fillSize, setFillSize] = useState(null);
+  // True for a moment while the preview container itself is changing size
+  // (the side menu or build pane opening or closing, the window resizing).
+  // DeviceMockup drops its size transition then, so the device follows the
+  // container frame by frame instead of easing in behind it, which left a
+  // strip of stage showing beside the page. Device and zoom changes keep
+  // the transition: the container doesn't change size for those.
+  const [isContainerResizing, setIsContainerResizing] = useState(false);
+  const resizeTimerRef = useRef(null);
 
   const handleToggleOrientation = () => {
     setOrientationFlipClass(previewOrientation === 'portrait' ? 'device-flip-to-landscape' : 'device-flip-to-portrait');
@@ -156,18 +164,31 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDeskt
 
     calculateZoom();
 
+    // Set in the same callback as the new size, so React renders both
+    // together and the size change itself is never animated.
+    let lastSize = null;
+    const onContainerResize = () => {
+      const size = `${containerNode.clientWidth}x${containerNode.clientHeight}`;
+      if (lastSize !== null && size !== lastSize) {
+        setIsContainerResizing(true);
+        clearTimeout(resizeTimerRef.current);
+        resizeTimerRef.current = setTimeout(() => setIsContainerResizing(false), 200);
+      }
+      lastSize = size;
+      calculateZoom();
+    };
+
     let resizeObserver = null;
     if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => {
-        calculateZoom();
-      });
+      resizeObserver = new ResizeObserver(onContainerResize);
       resizeObserver.observe(containerNode);
     }
 
-    window.addEventListener('resize', calculateZoom);
+    window.addEventListener('resize', onContainerResize);
     return () => {
       if (resizeObserver) resizeObserver.disconnect();
-      window.removeEventListener('resize', calculateZoom);
+      window.removeEventListener('resize', onContainerResize);
+      clearTimeout(resizeTimerRef.current);
     };
   }, [isAutoZoom, activeTab, previewMode, previewOrientation, isHistoryOpen, containerNode, fillDesktop, isBareFill, isFillMode]);
 
@@ -195,6 +216,7 @@ export default function usePreviewViewport({ activeTab, isHistoryOpen, fillDeskt
     zoomLevel,
     fillSize,
     isBareFill,
+    isContainerResizing,
     isAutoZoom,
     handleManualZoom,
     resetZoom,
