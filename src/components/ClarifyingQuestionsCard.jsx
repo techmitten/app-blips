@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
   OTHER_OPTION_LABEL,
   formatClarifyingAnswers,
+  hasRecommendedTag,
   stripRecommendedTag,
 } from '../lib/clarifyingQuestions';
 
@@ -120,7 +121,7 @@ export default function ClarifyingQuestionsCard({ questions, onSubmit }) {
           >
             {(item.options || []).map((option, optIdx) => {
               const isSelected = selected === optIdx;
-              const isRecommended = optIdx === 0;
+              const isRecommended = hasRecommendedTag(option);
               const label = isRecommended ? stripRecommendedTag(option) : option;
               const { title, description } = splitOptionLabel(label);
               return (

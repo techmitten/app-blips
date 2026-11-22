@@ -9,13 +9,20 @@ export function stripRecommendedTag(text) {
   return String(text || '').replace(RECOMMENDED_TAG_RE, ' ').replace(/\s{2,}/g, ' ').trim();
 }
 
+export function hasRecommendedTag(text) {
+  const tagged = RECOMMENDED_TAG_RE.test(String(text || ''));
+  RECOMMENDED_TAG_RE.lastIndex = 0;
+  return tagged;
+}
+
 /**
  * Clean and cap the structured clarifying questions returned by the model.
  * - Strips any "Other"-style choice because the UI always appends "Other" with
  *   a free-text input as the last option for every question.
- * - Guarantees the recommended option is always first and tagged with
- *   `(recommended)` (moving a later recommended choice to index 0, or tagging
- *   index 0 if the model omitted the tag).
+ * - Keeps at most one `(recommended)` tag and moves that choice first. A
+ *   question with no tagged choice stays untagged: some questions are facts
+ *   only the person knows (their opening hours, their city), and a
+ *   recommendation there would be a guess dressed up as advice.
  */
 export function normalizeClarifyingQuestions(rawQuestions) {
   if (!Array.isArray(rawQuestions)) return [];
@@ -39,8 +46,7 @@ export function normalizeClarifyingQuestions(rawQuestions) {
         : (rawOpt && typeof rawOpt === 'object' && typeof rawOpt.label === 'string' ? rawOpt.label.trim() : '');
       if (!rawText) continue;
 
-      const wasRecommended = RECOMMENDED_TAG_RE.test(rawText);
-      RECOMMENDED_TAG_RE.lastIndex = 0;
+      const wasRecommended = hasRecommendedTag(rawText);
 
       const opt = stripRecommendedTag(rawText);
       if (!opt) continue;
@@ -60,12 +66,9 @@ export function normalizeClarifyingQuestions(rawQuestions) {
       if (cleaned.length >= 5) break;
     }
 
-    if (cleaned.length > 0) {
-      if (recommendedIdx > 0) {
-        const [recommended] = cleaned.splice(recommendedIdx, 1);
-        cleaned.unshift(recommended);
-      }
-      cleaned[0] = `${cleaned[0]} ${RECOMMENDED_TAG}`;
+    if (recommendedIdx >= 0) {
+      const [recommended] = cleaned.splice(recommendedIdx, 1);
+      cleaned.unshift(`${recommended} ${RECOMMENDED_TAG}`);
     }
 
     normalized.push({ question, options: cleaned });

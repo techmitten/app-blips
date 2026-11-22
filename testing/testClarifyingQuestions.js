@@ -40,7 +40,8 @@ try {
   store.clear();
 
   // 1. Normalization: caps at max 3, strips "Other"-like options, deduplicates,
-  //    and guarantees the recommended choice is first and tagged with (recommended).
+  //    moves a tagged recommended choice first, and never invents a tag the
+  //    model left out (some questions have no right default, e.g. opening hours).
   const normalized = normalizeClarifyingQuestions([
     { question: '  What is the main goal?  ', options: ['Track habits', 'track habits', 'Journal daily', 'Other (specify)'] },
     { question: 'What style do you want?', options: ['Minimal', 'Bold (Recommended)', 'Something else'] },
@@ -48,9 +49,20 @@ try {
     { question: 'Fourth question should be dropped', options: ['A', 'B'] },
   ]);
   assert.equal(normalized.length, MAX_CLARIFYING_QUESTIONS);
-  assert.deepEqual(normalized[0], { question: 'What is the main goal?', options: ['Track habits (recommended)', 'Journal daily'] });
+  assert.deepEqual(normalized[0], { question: 'What is the main goal?', options: ['Track habits', 'Journal daily'] });
   assert.deepEqual(normalized[1], { question: 'What style do you want?', options: ['Bold (recommended)', 'Minimal'] });
   assert.deepEqual(normalized[2], { question: 'How should data be grouped?', options: ['By day (recommended)', 'By category'] });
+
+  assert.deepEqual(
+    normalizeClarifyingQuestions([{ question: 'Opening hours?', options: ['Mon-Fri 9-5', '24/7'] }])[0].options,
+    ['Mon-Fri 9-5', '24/7'],
+    'an untagged question stays untagged',
+  );
+  assert.deepEqual(
+    normalizeClarifyingQuestions([{ question: 'Layout?', options: ['A (recommended)', 'B (recommended)'] }])[0].options,
+    ['A (recommended)', 'B'],
+    'only the first tag is kept',
+  );
 
   // 2. Parser: handles structured questions, legacy single question, and invalid JSON.
   const structured = parseClarifyingQuestionsArgs(JSON.stringify({
@@ -129,7 +141,7 @@ try {
   assert.equal(result.editMode, 'clarify');
   assert.equal(result.code, '');
   assert.equal(result.clarifyingQuestions.length, 3);
-  assert.deepEqual(result.clarifyingQuestions[0].options, ['Personal tracking (recommended)', 'Team sharing']);
+  assert.deepEqual(result.clarifyingQuestions[0].options, ['Personal tracking', 'Team sharing']);
   assert.equal(requests.length, 1, 'stopped before building');
   assert.equal(requests[0].tools?.[0]?.function?.name, 'ask_clarifying_questions');
   assert.equal(requests[0].tools?.[0]?.function?.parameters?.properties?.questions?.type, 'array');
