@@ -337,7 +337,7 @@ export default function SettingsModal({
               <SettingRow
                 id="set-updates"
                 title="Check for updates"
-                description={`You're on AppBlips ${CURRENT_VERSION}. When on, AppBlips checks GitHub${isDesktop ? ' (the Snap Store for Snap installs) and downloads updates in the background where it can' : ''}. The update service sees your IP address. Takes effect on the next launch. Check now asks once, even with this off.`}
+                description={`You're on AppBlips ${CURRENT_VERSION}. Checks for new versions at launch and every hour. The update service sees your IP address.`}
                 details={updateCheck.result ? <UpdateCheckResult result={updateCheck.result} /> : null}
               >
                 <div className="flex items-center gap-3">

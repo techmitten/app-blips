@@ -108,16 +108,23 @@ snapcraft:
     # AppImage use the host's graphics stack and aren't affected.
     forceX11: true
     plugs: [default, browser-support, password-manager-service, audio-record, removable-media]
-    summary: Turn a text prompt into a working app, website or game.
+    # Title, summary and description match the live store listing. Their words
+    # are what Snap Store search matches (builder, maker, no-code, vibe coding,
+    # App Blips), so keep those words when rewording. The title defaults to
+    # productName ("AppBlips") if removed.
+    title: "AppBlips: AI App, Website & Game Builder"
+    summary: "AI builder: turn a text prompt into a working app, website or game."
     description: |
-      AppBlips turns a text prompt into a working app, website or game. Describe what you want, and AppBlips writes it as a single file and runs it in a live, sandboxed preview so you can try it straight away. Keep chatting to refine it.
+      AppBlips turns text or voice prompts into functional web apps, interactive websites, and games using artificial intelligence. Describe your idea in natural language, and the tool builds a complete, self-contained application for immediate testing in a secure local sandbox. Continue chatting with the assistant to iterate, debug, and refine your project dynamically. One-click publishing to your own custom domain for free. A no-code AI app maker, website builder and game generator for vibe coding. (Also known as App Blips.)
 
-      - Build from plain language: tools, websites, games and prototypes
-      - Preview safely: generated code runs in a sandbox, away from your files and keys
-      - Bring your own AI provider key, encrypted with your system keyring
-      - Projects are saved as ordinary files on your computer
-      - Publish a finished app to the web in one step
-      - Speak your prompts with voice input that runs on your computer
+      Key Features:
+
+      - Natural Language Generation: Create custom utilities, responsive web pages, and interactive prototypes from simple prompts.
+      - Isolated Local Sandbox: Run and test generated code safely away from your personal system files.
+      - Bring Your Own Key: Connect your preferred API keys from major AI providers, securely stored in your system keyring.
+      - Built-in Voice Input: Speak your ideas directly using local speech recognition.
+      - Single or Multi-File Output: Save projects cleanly as standalone files with zero complex dependencies.
+      - One-Click Publishing: Easily share your completed creations to the web.
     artifactName: AppBlips-${version}-${arch}.${ext}
 # Where electron-updater looks for new versions (Windows and AppImage builds
 # update themselves; see electron/updater.js). Builds never upload by
