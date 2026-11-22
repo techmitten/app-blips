@@ -115,11 +115,19 @@ export async function initProjectStore() {
   }
 }
 
-export const readDesktopRows = () => [...rowJson.values()].map((json) => JSON.parse(json));
-
 // rowJson holds what is on disk; inFlight what is on its way there. A write
 // that fails is in neither, so the next writeDesktopRows sends it again.
 const inFlight = new Map(); // project id -> JSON being saved
+
+// Reads see writes still on their way to disk. Reading rowJson alone made a
+// read straight after a write return the old row: a rename showed the old
+// name again (the list reloads right after saving), and a read-modify-write
+// in that window could save the old row back over the new one.
+export const readDesktopRows = () => {
+  const rows = new Map(rowJson);
+  for (const [id, json] of inFlight) rows.set(id, json);
+  return [...rows.values()].map((json) => JSON.parse(json));
+};
 
 export function writeDesktopRows(rows) {
   const next = new Map();
