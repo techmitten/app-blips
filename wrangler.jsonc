@@ -42,6 +42,8 @@
   "observability": { "enabled": true },
   "vars": {
     "APPBLIPS_ADMIN_USER_IDS": "user_3MIK0Pr8R9Tl9O8ToITvCtlkrad",
+    "APPBLIPS_FREE_AI": "off",
+    "APPBLIPS_FREE_SIGN_IN": "off",
     "APPBLIPS_FREE_TOKENS_PER_DAY": "50000000",
     "APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY": "10000000",
     "APPBLIPS_MAX_OUTPUT_TOKENS": "64000",
