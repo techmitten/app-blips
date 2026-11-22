@@ -38,7 +38,7 @@ Run it locally with your own API key (Anthropic, OpenAI, Gemini, xAI, DeepSeek, 
 
 ## Live Demo
 
-Try AppBlips in your browser at **[web.appblips.com](https://web.appblips.com/)**. There is nothing to install and no account to create.
+Try AppBlips in your browser at **[web.appblips.com](https://web.appblips.com/)**.
 
 For the full experience (projects saved as folders on disk, and an encrypted OS-keychain key store), download the desktop app above or run your own copy with `npm start` or Docker.
 
