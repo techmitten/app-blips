@@ -863,14 +863,38 @@
   display: none;
 }
 
+/* Seam between the chat and the preview: a machined joint, like two plates
+   of the toolbar's steel meeting. A 3px groove (dark edge, a fine bright
+   lip, dark edge) runs the full height, and a soft gleam brightens it
+   around the middle, echoing the keys' LED glow without the red, which is
+   kept for keys that are on. */
 .hero-stage-workspace .pane-divider {
-  width: 1px;
-  background: var(--hero-pane-line);
+  --seam-dark: rgb(15 23 42 / 0.16);
+  --seam-lip: rgb(255 255 255 / 0.9);
+  --seam-gleam: rgb(from var(--color-accent) r g b / 0.5);
+  width: 3px;
+  background: linear-gradient(to right, var(--seam-dark) 0 1px, var(--seam-lip) 1px 2px, var(--seam-dark) 2px 3px);
   border: 0;
+  box-shadow: none;
+}
+
+.hero-landing.dark .hero-stage-workspace .pane-divider {
+  --seam-dark: rgb(0 0 0 / 0.85);
+  --seam-lip: rgb(255 255 255 / 0.13);
+  --seam-gleam: rgb(255 255 255 / 0.7);
 }
 
 .hero-stage-workspace .pane-divider::before {
-  display: none;
+  content: '';
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom, transparent, var(--seam-gleam) 50%, transparent);
+  box-shadow: none;
+  filter: drop-shadow(0 0 3px var(--seam-gleam));
 }
 
 .hero-stage-workspace :is(.history-sidebar, .history-bg, .history-header-bg) {
