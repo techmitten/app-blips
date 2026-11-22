@@ -424,7 +424,7 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
           </div>}
 
           <footer className="studio-footer relative shrink-0">
-            <div className="studio-footer-inner flex flex-col-reverse items-center gap-1 px-4 py-3 sm:py-4 sm:px-6 md:flex-row md:justify-center md:gap-6 md:px-10">
+            <div className="studio-footer-inner flex flex-col items-center gap-1 px-4 py-3 sm:py-4 sm:px-6 md:flex-row md:justify-center md:gap-6 md:px-10">
               <button
                 ref={newsLinkRef}
                 type="button"
