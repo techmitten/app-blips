@@ -40,10 +40,6 @@ Run it locally with your own API key (Anthropic, OpenAI, Gemini, xAI, DeepSeek, 
 
 Try AppBlips in your browser at **[web.appblips.com](https://web.appblips.com/)**. There is nothing to install and no account to create.
 
-- **Free AI, no key needed** — Pick **Free** during setup to start building right away. It is shared by everyone using the demo, so usage is limited.
-- **Or bring your own key** — Choose any supported provider in **Settings → AI** for your own models, without the demo's limits.
-- **Private by design** — Your projects and any API keys you save stay in your own browser. The server stores neither, so nothing is shared with other visitors.
-
 For the full experience (projects saved as folders on disk, and an encrypted OS-keychain key store), download the desktop app above or run your own copy with `npm start` or Docker.
 
 ## Key Features
