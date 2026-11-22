@@ -283,15 +283,11 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setCodebaseRoute(route);
     setCodeFile(null);
   }, []);
-  // Website studio's click-to-edit picker state. `selectedElement` is the
+  // Website studio's visual editor state. `selectedElement` is the
   // bridge's element-selected payload, or `{ group: true, elements, truncated }`
   // when several elements are picked at once (box select or Shift+click);
   // `selectionKey` remounts the editor on every new selection so its local
   // form state resets.
-  const [isEditMode, setIsEditMode] = useState(false);
-  // Drag mode lives inside click-to-edit: on, dragging an element in the
-  // preview moves it; off, click-to-edit never drags.
-  const [isDragMode, setIsDragMode] = useState(false);
   // Container lock (right-click toggle on images): on, shrinking an image
   // smaller than its container also shrinks the container with it.
   const [containerLock, setContainerLock] = useState(false);
@@ -982,7 +978,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setElementEditError(null);
   }, []);
 
-  const isPreviewEditing = studioMode === 'website' && isEditMode;
+  const isPreviewEditing = studioMode === 'website' && !isGenerating;
 
   const pageNav = usePageNavigation({ files, activePage, setActivePage });
   pageNavRef.current = pageNav;
@@ -1002,7 +998,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     onReady: handlePreviewReady,
     onStorageChange: handleStorageChange,
     editingEnabled: isPreviewEditing,
-    dragEnabled: isPreviewEditing && isDragMode,
+    dragEnabled: isPreviewEditing,
     containerLock: isPreviewEditing && containerLock,
     imageContextMenu: studioMode === 'website',
     muted: isGenerating && chatMode === 'build',
@@ -1031,17 +1027,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   const goBack = frameNavState.canGoBack ? frameGoBack : pageNav.pageBack;
   const goForward = frameNavState.canGoForward ? frameGoForward : pageNav.pageForward;
 
-  const handleToggleEditMode = useCallback(() => {
-    setIsEditMode((on) => !on);
-    setIsDragMode(false);
-    setContainerLock(false);
-    setSelectedElement(null);
-    setTextSession(null);
-    setElementEditError(null);
-    setInsertMenu(null);
-    pendingScrollRef.current = null;
-  }, []);
-
   // The Code tab unmounts the preview iframe, so any selection or in-place
   // text session dies with it; drop the parent's copy so the toolbar does not
   // come back pointing at an element the new frame never selected.
@@ -1056,21 +1041,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       pendingScrollRef.current = null;
     }
   }, [clearPreviewSync]);
-
-  // Switching drag mode keeps the selection (so a container picked with
-  // select-parent can be dragged next) but ends any in-place text session,
-  // which the frame aborts on its side. The Drag key is always in the toolbar,
-  // so pressing it outside click-to-edit turns click-to-edit on as well.
-  const handleToggleDragMode = useCallback(() => {
-    if (!isEditMode) {
-      handleToggleEditMode();
-      setIsDragMode(true);
-      return;
-    }
-    setIsDragMode((on) => !on);
-    setTextSession(null);
-    setElementEditError(null);
-  }, [isEditMode, handleToggleEditMode]);
 
   const handleCancelElementSelection = useCallback(() => {
     deselectElement();
@@ -1262,11 +1232,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     }
     const element = menu?.element;
     if (!element) return { error: 'Right-click some text or an image to do that.' };
-    if (action === 'move') {
-      if (!isDragMode) handleToggleDragMode();
-      closeInsertMenu();
-      return { ok: true };
-    }
     if (action === 'container-lock') {
       if (element.role !== 'image') return { error: 'Container lock is only available for images.' };
       setContainerLock((on) => !on);
@@ -1294,7 +1259,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setSelectedElement(null);
     setElementEditError(null);
     return { ok: true };
-  }, [insertMenu, canPasteElement, elementClipboard, insertAtSpot, activeCode, applyElementChangesToSource, closeInsertMenu, currentProjectId, isDragMode, handleToggleDragMode]);
+  }, [insertMenu, canPasteElement, elementClipboard, insertAtSpot, activeCode, applyElementChangesToSource, closeInsertMenu, currentProjectId]);
   // Ask AI: the instruction plus where on the page it applies, quoted from
   // the source (buildSpotEditPrompt).
   // Runs straight away like the toolbar's "Apply with AI", or only prefills
@@ -2842,8 +2807,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setTempProjectName('');
     setShouldGenerateAfterNaming(false);
     setIsNamingModalOpen(false);
-    setIsEditMode(false);
-    setIsDragMode(false);
     setSelectedElement(null);
     setElementEditError(null);
     setStudioMode(nextStudioMode);
@@ -3559,10 +3522,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 codeAutocomplete={codeAutocomplete}
                 autoFollowCode={autoFollowCode}
                 studioMode={studioMode}
-                isEditMode={isEditMode}
-                isDragMode={isDragMode}
-                onToggleDragMode={handleToggleDragMode}
-                onToggleEditMode={handleToggleEditMode}
                 selectedElement={selectedElement}
                 selectionKey={selectionKey}
                 textSession={textSession}

@@ -54,7 +54,7 @@ export default `  // --- Image resize handles ----------------------------------
 
   function syncResizeOverlay() {
     var activeEl = resize ? resize.el : editSelectedEl;
-    if (!editingActive || dragModeActive || inlineEdit || editGroupEls.length || !activeEl ||
+    if (!editingActive || inlineEdit || editGroupEls.length || !activeEl ||
         detectRole(activeEl) !== 'image' || !document.body || !document.body.contains(activeEl)) {
       if (!resize) hideResizeOverlay();
       return;
@@ -478,7 +478,7 @@ export default `  // --- Image resize handles ----------------------------------
   }
 
   function resizeOnPointerDown(e) {
-    if (!editingActive || dragModeActive || inlineEdit || resize) return;
+    if (!editingActive || inlineEdit || resize) return;
     if (e.button !== 0 || !isResizeHandle(e.target) || !editSelectedEl) return;
     e.preventDefault();
     e.stopPropagation();

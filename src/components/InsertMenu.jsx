@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Type, ImagePlus, Upload, Loader2, AlertTriangle, Scissors, Copy, ClipboardPaste, CopyPlus, Trash2, Move, Sparkles, Lock, Check,
+  Type, ImagePlus, Upload, Loader2, AlertTriangle, Scissors, Copy, ClipboardPaste, CopyPlus, Trash2, Sparkles, Lock, Check,
 } from 'lucide-react';
 
 const EDGE = 8;
@@ -153,7 +153,6 @@ export default function InsertMenu({
           {subject && (
             <>
               {item('duplicate', CopyPlus, 'Duplicate')}
-              {item('move', Move, 'Move')}
               {subject.role === 'image' && (
                 <>
                   <button

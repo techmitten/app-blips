@@ -90,7 +90,6 @@ export default function ElementToolbar({
   onSelectParent,
   onSelectChild = null,
   onStartInlineEdit = null,
-  isDragMode = false,
   galleryImages = [],
   galleryBytesVersion = 0,
   onUploadGalleryImage = null,
@@ -812,7 +811,7 @@ export default function ElementToolbar({
               </>
             )}
 
-            {isTextRole && !isDragMode && onStartInlineEdit && element.text && (
+            {isTextRole && onStartInlineEdit && element.text && (
               <button
                 type="button"
                 onClick={onStartInlineEdit}
@@ -828,11 +827,7 @@ export default function ElementToolbar({
             {isTextRole && !hasEditableFields && !message && (
               <p className="element-bar-hint">
                 <Type size={14} className="shrink-0" aria-hidden="true" />
-                <span>
-                  {isDragMode
-                    ? 'Drag it on the page to move it, or turn off drag mode to edit its text'
-                    : 'Click the text on the page or Format text to edit it in place'}
-                </span>
+                <span>Click the text on the page or Format text to edit it in place</span>
               </p>
             )}
 

@@ -317,16 +317,18 @@ await fresh();
 await fresh();
 {
   const h2 = await rectOf('#pricing h2');
-  const { drops, selections } = await dragBetween({ x: h2.left + 5, y: h2.top + 5 }, { x: h2.left + 8, y: h2.top + 6 });
-  check('a jitter below the threshold is a click that only selects',
-    drops.length === 0 && selections[0]?.tag === 'h2' && !(await frame.evaluate(() => !!document.querySelector('[contenteditable]'))),
-    `${drops.length} drops, ${selections.length} selections`);
+  const { drops } = await dragBetween({ x: h2.left + 5, y: h2.top + 5 }, { x: h2.left + 8, y: h2.top + 6 });
+  check('a jitter below the threshold is a click that edits text without dropping',
+    drops.length === 0 && (await frame.evaluate(() => !!document.querySelector('#pricing h2[contenteditable]'))),
+    `${drops.length} drops`);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(50);
 
-  const strong = await rectOf('.lede strong');
-  const word = await dragBetween({ x: strong.left + 5, y: strong.top + 5 }, { x: strong.left + 5, y: strong.top + 5 });
-  check('clicking a word selects its paragraph in drag mode', word.selections[0]?.tag === 'p', word.selections[0]?.tag);
+  const card1 = await rectOf('.card:nth-child(1)');
+  const cardClick = await dragBetween({ x: card1.left + 3, y: card1.top + 3 }, { x: card1.left + 3, y: card1.top + 3 });
+  check('clicking a card below threshold selects it without dropping',
+    cardClick.drops.length === 0 && cardClick.selections[0]?.tag === 'div',
+    `${cardClick.drops.length} drops, ${cardClick.selections[0]?.tag}`);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(50);
 
@@ -380,21 +382,28 @@ await fresh({ drag: false });
   await page.keyboard.press('Escape');
   await page.waitForTimeout(50);
 
-  // Turning drag mode on keeps the selection, so a picked container drags.
+  // Turning drag on keeps the selection and picker cursor, so a picked container drags.
   await page.evaluate(() => { window.__selections = []; });
   await frame.locator('.card:nth-child(3)').click({ position: { x: 3, y: 3 } });
   await page.waitForTimeout(50);
   await setModes(true, true);
   const cursor = await frame.evaluate(() => getComputedStyle(document.querySelector('.card')).cursor);
-  check('drag mode shows a grab cursor', cursor === 'grab', cursor);
+  check('unified editing keeps picker cursor', cursor === 'crosshair', cursor);
   const freeH3 = await rectOf('.card:nth-child(3) h3');
   const { drops: kept } = await dragBetween({ x: freeH3.left + 5, y: freeH3.top + 5 }, { x: fast.left + 10, y: fast.top + fast.height / 2 });
-  check('selection survives turning drag mode on', kept[0]?.element?.tag === 'div' && /^Free/.test(kept[0]?.element?.text || '')
+  check('selection survives turning drag on', kept[0]?.element?.tag === 'div' && /^Free/.test(kept[0]?.element?.text || '')
     && kept[0]?.position === 'before', `${kept[0]?.element?.tag} ${kept[0]?.element?.text}`);
+
+  // Clicking text still edits in place even while drag is enabled.
+  await frame.locator('#pricing h2').click({ position: { x: 5, y: 5 } });
+  await page.waitForTimeout(50);
+  check('text edits in place while drag is enabled', await frame.evaluate(() => !!document.querySelector('#pricing h2[contenteditable]')));
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(50);
 
   await setModes(true, false);
   const back = await frame.evaluate(() => getComputedStyle(document.querySelector('.card')).cursor);
-  check('turning drag mode off restores the picker cursor', back === 'crosshair', back);
+  check('turning drag off keeps the picker cursor', back === 'crosshair', back);
 }
 
 // --- turning editing off disables dragging -----------------------------------

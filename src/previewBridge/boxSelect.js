@@ -201,7 +201,7 @@ export default `  // --- Box select --------------------------------------------
   }
 
   function marqueeOnPointerDown(e) {
-    if (!editingActive || dragModeActive || marquee || drag || resize || isResizeHandle(e.target)) return;
+    if (!editingActive || marquee || drag || resize || isResizeHandle(e.target)) return;
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey) return;
     // A finger drag scrolls the page, and so does a plain mouse drag while
     // the touch simulation is on.
@@ -227,7 +227,7 @@ export default `  // --- Box select --------------------------------------------
       if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
       // A commit waiting on the parent is about to reload the page, and so
       // is a text session with typing in it (pressing outside blurs it).
-      if (!editingActive || dragModeActive || pendingCommits.length) { marquee = null; return; }
+      if (!editingActive || pendingCommits.length) { marquee = null; return; }
       if (inlineEdit) {
         if (inlineHold || !inlineEditUntouched(inlineEdit)) { marquee = null; return; }
         finishInlineEdit(true, false);

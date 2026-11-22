@@ -7,7 +7,7 @@ import '../styles/app/empty-state.css';
 import '../styles/app/build-blueprint.css';
 import {
   Play, TerminalSquare, FolderTree, Smartphone, Tablet, Monitor, RotateCcwSquare, Undo2, Redo2,
-  ZoomIn, ZoomOut, Expand, ExternalLink, Globe, MousePointerClick, Move, RotateCw
+  ZoomIn, ZoomOut, Expand, ExternalLink, Globe, RotateCw
 } from 'lucide-react';
 import DeviceMockup from './DeviceMockup';
 import CodeView from './CodeView';
@@ -89,10 +89,6 @@ export default function PreviewPane({
   codeAutocomplete = true,
   autoFollowCode,
   studioMode = 'app',
-  isEditMode = false,
-  onToggleEditMode,
-  isDragMode = false,
-  onToggleDragMode,
   selectedElement = null,
   selectionKey = 0,
   textSession = null,
@@ -356,42 +352,6 @@ export default function PreviewPane({
             </div>
           )}
 
-          {/* Website Studio: click-to-edit picker toggle. While on, clicks in
-              the preview select elements for the inline editor instead of
-              interacting with the site. A lone toggle, so it is a key with an
-              active rim -- a one-button segmented track would promise a set of
-              choices that isn't there. */}
-          {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && (
-            <button
-              data-tour="edit"
-              onClick={onToggleEditMode}
-              aria-pressed={isEditMode}
-              aria-label="Click-to-edit mode"
-              data-tip={isEditMode ? 'Click elements in the preview to edit' : 'Turn on click-to-edit'}
-              className={`nav-btn nav-ghost nav-btn-icon ${isEditMode ? 'nav-ghost-active' : ''}`}
-            >
-              <MousePointerClick size={16} className={isEditMode ? 'text-red-500' : undefined} />
-            </button>
-          )}
-
-          {/* Drag mode: while it is on, dragging an element in the preview
-              moves it, and a click selects without starting text editing. It
-              is always shown beside click-to-edit (and turns click-to-edit on
-              when needed): a key that appeared only in edit mode shifted the
-              end-aligned rank under the pointer. */}
-          {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && (
-            <button
-              data-tour="drag"
-              onClick={onToggleDragMode}
-              aria-pressed={isDragMode}
-              aria-label="Drag mode"
-              data-tip={isDragMode ? 'Drag elements in the preview to move them' : 'Turn on drag mode to move elements'}
-              className={`nav-btn nav-ghost nav-btn-icon ${isDragMode ? 'nav-ghost-active' : ''}`}
-            >
-              <Move size={16} className={isDragMode ? 'text-red-500' : undefined} />
-            </button>
-          )}
-
           {hasSavedCode && onOpenNewTab && (
             <button
               onClick={onOpenNewTab}
@@ -483,7 +443,6 @@ export default function PreviewPane({
               onSelectParent={onSelectParentElement}
               onSelectChild={onSelectChildElement}
               onStartInlineEdit={onStartSelectedInlineEdit}
-              isDragMode={isDragMode}
               galleryImages={galleryImages}
               galleryBytesVersion={galleryBytesVersion}
               onUploadGalleryImage={onUploadGalleryImage}

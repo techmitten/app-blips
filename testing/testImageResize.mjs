@@ -125,8 +125,9 @@ try {
     }, true);
   });
 
-  // Enable click-to-edit and click the image
-  await page.getByRole('button', { name: 'Click-to-edit mode', exact: true }).click();
+  // Click the image directly (editing is active by default); move pointer off the collapsible sidebar first so its hover-collapse doesn't shift the canvas mid-drag
+  await page.mouse.move(600, 400);
+  await page.waitForTimeout(200);
   await frame.locator('#photo').click();
 
   const widthInput = page.getByRole('textbox', { name: 'Image width', exact: true });
@@ -306,8 +307,11 @@ try {
   await copyItem.waitFor();
   assert.equal(await page.getByRole('menuitemcheckbox', { name: 'Container lock', exact: true }).count(), 0, 'Container lock must not appear for non-image elements');
   await page.keyboard.press('Escape');
+  await copyItem.waitFor({ state: 'detached' });
 
   //    (b) Shrinking #multi-photo WITHOUT Container lock leaves #multi-img-wrap at 280x140
+  await page.getByRole('button', { name: 'Close editor', exact: true }).click();
+  await widthInput.waitFor({ state: 'detached' });
   await frame.locator('#multi-photo').click();
   await widthInput.waitFor();
   await widthInput.fill('160');
@@ -336,6 +340,7 @@ try {
   await lockItem.waitFor();
   assert.equal(await lockItem.getAttribute('aria-checked'), 'true');
   await page.keyboard.press('Escape');
+  await copyItem.waitFor({ state: 'detached' });
 
   //    (d) Shrinking #multi-photo via drag handle with Container lock ON shrinks #multi-img-wrap to match,
   //        while #multi-card (which also holds <p>Caption text</p>) does NOT shrink to image size
@@ -363,6 +368,8 @@ try {
 
   //    (e) Previously-grown container (#photo-card, 400x200 with min-width/min-height) shrinks cleanly
   //        via ElementToolbar W/H + Apply when Container lock is ON (preserving its 2px border)
+  await page.getByRole('button', { name: 'Close editor', exact: true }).click();
+  await widthInput.waitFor({ state: 'detached' });
   await frame.locator('#card-photo').click();
   await widthInput.waitFor();
   assert.equal(await widthInput.inputValue(), '400');

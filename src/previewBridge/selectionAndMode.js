@@ -67,7 +67,7 @@ export default `  function editSelectParent(steps) {
   }
 
   function editStartSelectedInline() {
-    if (!editingActive || dragModeActive || inlineEdit || !editSelectedEl) return;
+    if (!editingActive || inlineEdit || !editSelectedEl) return;
     tryStartInlineEdit(editSelectedEl, null);
   }
 

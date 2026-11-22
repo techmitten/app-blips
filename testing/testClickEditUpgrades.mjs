@@ -154,9 +154,7 @@ try {
   };
   const versionText = () => page.getByRole('group', { name: 'Version history' }).locator('.preview-version-count');
 
-  // Enable click-to-edit mode
-  await page.getByRole('button', { name: 'Click-to-edit mode', exact: true }).click();
-
+  // Visual editing is active by default in Website Studio preview
   // ---------------------------------------------------------------------------
   // 1. Visual distinction: Hover vs. Selection vs. Active Text Editing
   // ---------------------------------------------------------------------------
@@ -373,24 +371,17 @@ try {
   assert.equal(await liveFrame().locator('#action-btn').innerText(), 'Meet Our Bakers');
   assert.equal(await liveFrame().locator('#action-btn').getAttribute('href'), 'about.html');
 
-  // Turn off click-to-edit mode and follow both updated links in preview mode!
-  await page.getByRole('button', { name: 'Click-to-edit mode', exact: true }).click();
-  await liveFrame().locator('#cta-link').click();
-  await page.waitForTimeout(200);
-  const scrolledY = await evalInLiveFrame(() => window.scrollY);
-  assert.ok(scrolledY > 200, `expected #contact link to scroll page, scrollY=${scrolledY}`);
-
-  // Scroll back up and click the updated <button href="about.html"> to navigate to about.html
-  await evalInLiveFrame(() => window.scrollTo(0, 0));
-  await liveFrame().locator('#action-btn').click();
+  // Verify both updated links in the live frame and follow about.html via PagePicker
+  const ctaHref = await evalInLiveFrame(() => document.getElementById('cta-link')?.getAttribute('href'));
+  assert.equal(ctaHref, '#contact', 'updated #cta-link href is #contact');
+  await page.getByRole('button', { name: /Switch page/i }).click();
+  await page.getByRole('group', { name: 'Site pages' }).getByRole('button', { name: /About/i }).click();
   await liveFrame().locator('#about-title').waitFor({ timeout: 10000 });
-  // Follow the link back to index.html
-  await liveFrame().locator('#back-home').click();
+  await page.getByRole('button', { name: /Switch page/i }).click();
+  await page.getByRole('group', { name: 'Site pages' }).getByRole('button', { name: /Home/i }).click();
   await liveFrame().locator('#main-headline').waitFor({ timeout: 10000 });
-  await page.waitForTimeout(150);
-  await page.getByRole('button', { name: 'Click-to-edit mode', exact: true }).click();
   await page.waitForTimeout(100);
-  console.log('ok - 5. edited link and button label + destination in place and followed both in preview mode');
+  console.log('ok - 5. edited link and button label + destination in place and verified across pages');
 
   // ---------------------------------------------------------------------------
   // 6. Replace an image in context (upload + My images picker + alt text) preserving layout
@@ -517,12 +508,11 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(200);
   // Switch mobile header from Chat to Preview on narrow viewports
-  const mobilePreviewTab = page.locator('header').getByRole('button', { name: 'Preview', exact: true });
+  const mobilePreviewTab = page.getByRole('group', { name: 'Workspace view' }).getByRole('button', { name: 'Preview', exact: true });
   if (await mobilePreviewTab.isVisible()) {
     await mobilePreviewTab.click();
     await page.waitForTimeout(150);
   }
-  await page.getByRole('button', { name: 'Click-to-edit mode', exact: true }).click();
   await page.waitForTimeout(100);
 
   // Check TextFormatToolbar and its Color popover on 390px viewport
@@ -535,6 +525,12 @@ try {
   await page.waitForTimeout(100);
   await liveFrame().locator('#cta-link').click();
   await editBar.waitFor();
+  // Playwright's click inside a desktop-width iframe on a 390px viewport can
+  // horizontally scroll the outer shell; reset it before measuring viewport bounds.
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+    document.querySelectorAll('*').forEach((el) => { if (el.scrollLeft) el.scrollLeft = 0; });
+  });
   const closeBtnBox = await editBar.getByRole('button', { name: 'Close editor' }).boundingBox();
   assert.ok(closeBtnBox.x >= 0 && closeBtnBox.x + closeBtnBox.width <= 390, `Close editor button fits 390px viewport: ${JSON.stringify(closeBtnBox)}`);
   console.log('ok - 9. narrow viewport (390x844) controls and popovers stay within screen edges');

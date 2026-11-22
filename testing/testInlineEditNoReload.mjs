@@ -103,10 +103,7 @@ try {
     }, true);
   });
 
-  // Enable click-to-edit mode
-  await page.getByRole('button', { name: 'Click-to-edit mode', exact: true }).click();
-
-  // 1. Click #hero, type a new line and text, format color, and click Done
+  // 1. Click #hero directly (editing is active by default), type a new line and text, format color, and click Done
   await frame.locator('#hero').click();
   await page.getByRole('toolbar', { name: 'Format text', exact: true }).waitFor();
   await page.keyboard.press('End');

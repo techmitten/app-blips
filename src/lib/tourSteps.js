@@ -93,11 +93,11 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode, 
     steps.push({
       id: 'edit',
       icon: 'edit',
-      target: ['edit', 'preview'],
+      target: ['preview'],
       view: 'preview',
       placement: 'bottom',
       title: 'Edit text directly',
-      body: 'Turn on click-to-edit, then select any element in the preview to change its words, font, color, links or images, or to duplicate or delete it. Turn on drag mode (the move icon beside it) to drag elements anywhere on the page. No prompt needed. Every change is saved as a new version.',
+      body: 'Click any element in the preview to change its words, font, color, links or images, or to duplicate or delete it. Drag elements anywhere on the page to move them. No prompt needed. Every change is saved as a new version.',
     });
   }
 

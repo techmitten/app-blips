@@ -48,8 +48,8 @@ export default `  // -----------------------------------------------------------
   var EDIT_INLINE_OUTLINE = '2px solid rgba(14, 165, 233, 0.95)';
   var EDIT_CURSOR_CSS = '*:not([data-orion-resize-handle]):not([contenteditable]):not([contenteditable] *) { cursor: crosshair !important; } [contenteditable], [contenteditable] * { cursor: text !important; }';
   var DRAG_MODE_CURSOR_CSS = '* { cursor: grab !important; }';
-  // Drag mode (the parent's secondary toggle): pressing and dragging moves
-  // an element, and a click only selects -- no in-place text editing.
+  // Dragging is unified with visual editing: pressing and dragging moves an
+  // element, while a click without dragging selects or edits in place.
   var dragModeActive = false;
   // Container lock (right-click toggle on images): when active, shrinking an
   // image smaller than its single-image container also shrinks the container
@@ -57,7 +57,7 @@ export default `  // -----------------------------------------------------------
   var containerLockActive = false;
   var imageContextMenuActive = false;
 
-  function editCursorCss() { return dragModeActive ? DRAG_MODE_CURSOR_CSS : EDIT_CURSOR_CSS; }
+  function editCursorCss() { return EDIT_CURSOR_CSS; }
 
   function elementDisplayLabel(el) {
     if (!el || !el.tagName) return 'Element';
@@ -89,7 +89,7 @@ export default `  // -----------------------------------------------------------
   }
 
   function syncStateBadge() {
-    if (!editingActive || dragModeActive || (drag && drag.active) || (marquee && marquee.active) || resize || insertMenuOpen) {
+    if (!editingActive || (drag && drag.active) || (marquee && marquee.active) || resize || insertMenuOpen) {
       hideStateBadge();
       return;
     }

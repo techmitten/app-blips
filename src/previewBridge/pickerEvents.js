@@ -12,11 +12,6 @@ export default `  function editOnMouseOver(e) {
     var el = e.target;
     if (el && el.ownerSVGElement) el = el.ownerSVGElement;
     if (!isSelectable(el)) return;
-    // Drag mode outlines what a drag from here would move.
-    if (dragModeActive) {
-      el = editSelectedEl && editSelectedEl.contains(el) ? editSelectedEl : promoteToBlock(el);
-      if (!isSelectable(el)) return;
-    }
     if (el === editHoveredEl) return;
     clearHover();
     editHoveredEl = el;
@@ -25,12 +20,6 @@ export default `  function editOnMouseOver(e) {
 
   function editOnMouseOut(e) {
     if (!editingActive) return;
-    // In drag mode the outlined element can be an ancestor of the one the
-    // pointer leaves, so clear only when the pointer leaves the outline.
-    if (dragModeActive) {
-      if (editHoveredEl && !(e.relatedTarget && editHoveredEl.contains(e.relatedTarget))) clearHover();
-      return;
-    }
     if (e.target === editHoveredEl) clearHover();
   }
 
@@ -62,7 +51,7 @@ export default `  function editOnMouseOver(e) {
       // parent's text toolbar can send inline-hold). When clicking another
       // selectable element, fall through so the user immediately switches
       // targets; when clicking background/body, consume the click as the save.
-      if (!dragModeActive && !inlineHold) {
+      if (!inlineHold) {
         var prevInlineEl = inlineEdit.el;
         finishInlineEdit(true, false);
         if (!isSelectable(el) || el === document.body || el === document.documentElement || el === prevInlineEl) {
@@ -81,10 +70,6 @@ export default `  function editOnMouseOver(e) {
     // Shift+click adds the element to the selection (or takes it out) instead
     // of editing it, so several elements can be picked one by one.
     if (e.shiftKey && !inlineEdit) {
-      if (dragModeActive) {
-        var picked = promoteToBlock(el);
-        if (isSelectable(picked)) el = picked;
-      }
       toggleInSelection(el);
       return;
     }
@@ -96,11 +81,7 @@ export default `  function editOnMouseOver(e) {
     // panel. Links and buttons also edit in place -- via double-click.
     if (editSelectedEl && editSelectedEl !== el) restoreOutline(editSelectedEl);
     var role = detectRole(el);
-    if (dragModeActive) {
-      // Select what a drag would move (a paragraph, not a word in it).
-      var block = promoteToBlock(el);
-      if (isSelectable(block)) el = block;
-    } else if ((role === 'heading' || role === 'text') && tryStartInlineEdit(el, { x: e.clientX, y: e.clientY })) {
+    if ((role === 'heading' || role === 'text') && tryStartInlineEdit(el, { x: e.clientX, y: e.clientY })) {
       editSelectedEl = el;
       syncResizeOverlay();
       return;
@@ -114,7 +95,7 @@ export default `  function editOnMouseOver(e) {
   // Links and buttons select on the first click (the panel owns their URL)
   // and edit their text in place on the second.
   function editOnDblClick(e) {
-    if (!editingActive || dragModeActive || inlineEdit) return;
+    if (!editingActive || inlineEdit) return;
     var el = e.target;
     if (!isSelectable(el)) return;
     var role = detectRole(el);
