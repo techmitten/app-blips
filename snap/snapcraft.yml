@@ -1,0 +1,9 @@
+name: appblips
+adopt-info: appblips-meta
+
+parts:
+  appblips-meta:
+    plugin: dump
+    source: snap/gui
+    organize:
+      appblips.metainfo.xml: usr/share/metainfo/appblips.metainfo.xml
