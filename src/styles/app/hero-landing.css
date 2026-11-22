@@ -683,8 +683,7 @@
 /* `.hero-landing` in front lifts these above the app's own dark-theme pane
    rules (build-panel.css, same specificity otherwise), which would repaint
    the chat in the rail's near-black and merge the two. */
-.hero-landing .hero-stage-workspace .build-panel,
-.hero-landing .hero-stage-workspace .build-panel-rail {
+.hero-landing .hero-stage-workspace .build-panel {
   background: var(--hero-pane-tint);
   border-color: var(--hero-pane-line);
   box-shadow: none;
@@ -807,19 +806,20 @@
     linear-gradient(180deg, #7a8088 0%, #63686f 48%, #51555b 52%, #5c6167 100%);
   --key-border: rgb(0 0 0 / 0.55);
   --key-border-hover: rgb(0 0 0 / 0.6);
-  /* Backlit LED legends: white with a white glow (below), red only when on. */
-  --key-ink: #eef8ff;
+  /* Backlit legends, no colour: a key that is off is dimmed, a key that is
+     on sits down into a dark recess with its legend lit bright white and
+     glowing (below). State reads as light and depth, like real hardware,
+     so the steel stays the star. */
+  --key-ink: rgb(238 244 250 / 0.78);
   --key-ink-hover: #ffffff;
-  /* Pressed / selected: the key sits down into a dark recess, so its LED
-     reads brighter. */
   --key-pressed-bg: linear-gradient(180deg, #0c0d0f 0%, #17191c 100%);
-  --key-on-ink: #ff6a55;
-  --key-on-rim: rgb(236 100 82 / 0.6);
+  --key-on-ink: #ffffff;
+  --key-on-rim: rgb(255 255 255 / 0.16);
   --well-bg: rgb(0 0 0 / 0.55);
 }
 
-/* LED glow: icons at rest glow soft white (no red unless the key is on);
-   a selected key's legend lights red, glowing in its own ink colour. */
+/* LED glow: icons at rest glow faintly; a key that is on lights up, its
+   legend glowing bright white. */
 .hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
   :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_) {
   /* Labels stay crisp: a tight glow around letters blurs their edges. */
@@ -828,18 +828,24 @@
 
 .hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
   :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_) svg {
-  filter: drop-shadow(0 0 1.5px rgb(255 255 255 / 0.55)) drop-shadow(0 0 5px rgb(255 255 255 / 0.22));
+  filter: drop-shadow(0 0 1.5px rgb(255 255 255 / 0.3));
 }
 
 .hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
   :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_) {
   /* Only a wide, faint halo, so the letters keep sharp edges. */
-  text-shadow: 0 0 12px color-mix(in srgb, currentColor 45%, transparent);
+  text-shadow: 0 0 12px rgb(200 225 255 / 0.5);
 }
 
 .hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
   :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_) svg {
-  filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 7px currentColor);
+  filter: drop-shadow(0 0 2px rgb(255 255 255 / 0.85)) drop-shadow(0 0 7px rgb(190 220 255 / 0.55));
+}
+
+.hero-landing .hero-stage-workspace .preview-pane-header :is([aria-label="Device preset"], [aria-label="Preview device"]) .nav-segmented-btn-active:not(#_) {
+  /* toolbar-keys.css keeps the selected device in the logo's red; on this
+     toolbar it lights like every other key that is on. */
+  color: var(--key-on-ink) !important;
 }
 
 /* Unavailable keys: LED off. */
@@ -854,8 +860,8 @@
 /* Light toolbar: brushed aluminium, the light counterpart of the dark
    steel. A fine dark grain (thresholded noise, so only sparse hairlines
    show), a soft sheen from the upper left, and a silver body with the
-   metallic fall-off break. Keys are satin metal, and a key that is on shows
-   its legend in the logo's red, as in dark, with a red rim. */
+   metallic fall-off break. Keys are satin metal; a key that is on sits
+   pressed in with a darker, crisper legend, as in dark, with no colour. */
 .hero-landing:not(.dark) .hero-stage-workspace :is(.build-panel-header, .preview-pane-header) {
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='120'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 2.2' numOctaves='2' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.12  0 0 0 0 0.14  0 0 0 0 0.18  0.9 0 0 0 -0.5'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E"),
@@ -875,8 +881,9 @@
   --key-bg-hover: linear-gradient(180deg, #ffffff 0%, #f8f9fb 48%, #eff2f5 52%, #f5f7f9 100%);
   --key-border: rgb(15 23 42 / 0.16);
   --key-pressed-bg: linear-gradient(180deg, #d9dee4 0%, #e5e9ee 100%);
-  --key-on-ink: #d64533;
-  --key-on-rim: rgb(214 69 51 / 0.45);
+  --key-ink: var(--color-slate-600);
+  --key-on-ink: var(--color-slate-950);
+  --key-on-rim: rgb(15 23 42 / 0.2);
   --well-bg: rgb(15 23 42 / 0.07);
 }
 
