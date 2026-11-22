@@ -25,6 +25,9 @@
   /* The stage matches the near-black ground for high contrast against the
      composer and chips, while its border separates it from the rail. */
   --hero-stage-edge: rgb(255 255 255 / 0.16);
+  /* The stage's left edge is the divider against the rail, so it gets an
+     extra line over the edge: together about 0.24 instead of 0.16. */
+  --hero-stage-divider: rgb(255 255 255 / 0.1);
   --hero-drift: rgb(235 97 80 / 0.06);
   --hero-stage-bg:
     radial-gradient(46% 40% at 92% 104%, rgb(235 97 80 / 0.18), transparent 70%),
@@ -71,7 +74,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 1px var(--hero-stage-edge);
+  box-shadow: inset 1px 0 0 0 var(--hero-stage-divider), inset 0 0 0 1px var(--hero-stage-edge);
   pointer-events: none;
   z-index: 30;
 }
@@ -571,6 +574,7 @@
   --hero-title: #0b1220;
   --hero-subtitle: rgb(11 18 32 / 0.66);
   --hero-stage-edge: rgb(15 23 42 / 0.14);
+  --hero-stage-divider: rgb(15 23 42 / 0.07);
   --hero-drift: rgb(125 211 252 / 0.22);
   /* The picker's mesh (sky, cyan, peach, mint -- no purple, per the brand)
      pushed out to the corners and turned well down, so the middle of the
@@ -691,9 +695,14 @@
 .hero-landing.dark .hero-stage-workspace .build-panel {
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.032 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-    radial-gradient(110% 45% at 50% 0%, rgb(148 163 184 / 0.06), transparent 65%),
-    linear-gradient(180deg, rgb(24 26 33 / 0.88) 0%, rgb(16 17 22 / 0.94) 100%);
+    radial-gradient(120% 48% at 10% 104%, rgb(235 97 80 / 0.2), transparent 72%),
+    radial-gradient(100% 40% at 50% -8%, rgb(235 97 80 / 0.06), transparent 70%),
+    #080808;
 }
+
+/* Above: the same ground as the preview (the stage, --hero-stage-bg): near
+   black with the coral glow, here pooling under the composer at the bottom
+   left to answer the stage's bottom-right one, plus the faint top bloom. */
 
 /* The pane's recessed vignette is drawn for a free-standing panel; inside the
    stage the pane divider is the only line it needs. */
@@ -721,7 +730,8 @@
 }
 
 .hero-landing.dark .hero-stage-workspace .build-panel-composer {
-  background: linear-gradient(180deg, rgb(22 24 30 / 0.86) 0%, rgb(15 16 21 / 0.96) 100%);
+  /* Lets the pane's coral glow through instead of a gray band. */
+  background: linear-gradient(180deg, rgb(8 8 8 / 0.2) 0%, rgb(8 8 8 / 0.45) 100%);
   border-top-color: rgb(255 255 255 / 0.12);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.06),
@@ -740,12 +750,105 @@
   -webkit-backdrop-filter: blur(14px);
 }
 
-.hero-landing.dark .hero-stage-workspace .build-panel-header {
-  background: linear-gradient(180deg, rgb(42 45 55 / 0.92) 0%, rgb(29 31 39 / 0.9) 100%);
-  border-bottom-color: rgb(255 255 255 / 0.14);
+/* Dark toolbar: black brushed metal rather than flat gray. Layers, top first:
+   - --steel-streaks: light scratches. Noise stretched along the bar
+     (baseFrequency 0.012 x 1.4 y) turned into alpha from its red channel
+     and thresholded, so only the peaks show: fine, irregular-length bright
+     hairlines, crisp against the dark;
+   - --steel-scratches-dark: the same idea inverted, for darker grooves
+     between them;
+   - --steel-grain: a soft overall grain that fills in the rest;
+   - a faint lighter area toward the top right, a darker fall-off along the
+     bottom, and a near-black base. Kept almost flat, like the metal itself.
+   The frame is dark and the keys clearly lighter, so the keys stand off it;
+   they carry a soft grain too, so they read as machined steel
+   (toolbar-keys.css reads the vars). --pane-header-bg carries the base tone
+   to the click-to-edit bar, which wears the toolbar's surface. */
+.hero-landing.dark .hero-stage-workspace {
+  --pane-header-bg: #18191b;
+  --steel-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='120'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.24 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23b)'/%3E%3C/svg%3E");
+  --steel-grain-soft: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='120'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.14 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23b)'/%3E%3C/svg%3E");
+  --steel-streaks: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='120'%3E%3Cfilter id='l'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 2.2' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.86  0 0 0 0 0.87  0 0 0 0 0.9  2 0 0 0 -1.25'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
+  --steel-scratches-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='120'%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 1.8' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -2.6 0 0 0 0.95'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23d)'/%3E%3C/svg%3E");
+}
+
+.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header) {
+  background:
+    var(--steel-streaks),
+    var(--steel-scratches-dark),
+    var(--steel-grain),
+    radial-gradient(60% 140% at 78% -20%, rgb(255 255 255 / 0.07), transparent 70%),
+    linear-gradient(180deg, transparent 55%, rgb(0 0 0 / 0.35) 100%),
+    #19191b;
+  border-bottom-color: rgb(0 0 0 / 0.7);
+  /* Bevelled edges: a bright lip on top, a dark chamfer under it, and a
+     faint catch-light along the bottom. */
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.07),
-    0 6px 18px -6px rgb(0 0 0 / 0.65);
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    inset 0 2px 0 rgb(0 0 0 / 0.35),
+    inset 0 -1px 0 rgb(255 255 255 / 0.06),
+    0 6px 18px -6px rgb(0 0 0 / 0.7);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar) {
+  /* Stainless steel keys, clearly lighter than the black frame so they stand
+     off it: a soft brushed grain, a specular band across the top (the light
+     the bar's sheen comes from), and a satin silver body with the same
+     fall-off break the frame used to have. */
+  --key-bg:
+    var(--steel-grain-soft),
+    linear-gradient(180deg, rgb(255 255 255 / 0.2) 0%, rgb(255 255 255 / 0.04) 38%, transparent 50%),
+    linear-gradient(180deg, #6b7179 0%, #565b62 48%, #464a50 52%, #50555b 100%);
+  --key-bg-hover:
+    var(--steel-grain-soft),
+    linear-gradient(180deg, rgb(255 255 255 / 0.26) 0%, rgb(255 255 255 / 0.06) 38%, transparent 50%),
+    linear-gradient(180deg, #7a8088 0%, #63686f 48%, #51555b 52%, #5c6167 100%);
+  --key-border: rgb(0 0 0 / 0.55);
+  --key-border-hover: rgb(0 0 0 / 0.6);
+  /* Backlit LED legends: white with a white glow (below), red only when on. */
+  --key-ink: #eef8ff;
+  --key-ink-hover: #ffffff;
+  /* Pressed / selected: the key sits down into a dark recess, so its LED
+     reads brighter. */
+  --key-pressed-bg: linear-gradient(180deg, #0c0d0f 0%, #17191c 100%);
+  --key-on-ink: #ff6a55;
+  --key-on-rim: rgb(236 100 82 / 0.6);
+  --well-bg: rgb(0 0 0 / 0.55);
+}
+
+/* LED glow: icons at rest glow soft white (no red unless the key is on);
+   a selected key's legend lights red, glowing in its own ink colour. */
+.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
+  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_) {
+  /* Labels stay crisp: a tight glow around letters blurs their edges. */
+  text-shadow: none;
+}
+
+.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
+  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_) svg {
+  filter: drop-shadow(0 0 1.5px rgb(255 255 255 / 0.55)) drop-shadow(0 0 5px rgb(255 255 255 / 0.22));
+}
+
+.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
+  :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_) {
+  /* Only a wide, faint halo, so the letters keep sharp edges. */
+  text-shadow: 0 0 12px color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
+  :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_) svg {
+  filter: drop-shadow(0 0 2px currentColor) drop-shadow(0 0 7px currentColor);
+}
+
+/* Unavailable keys: LED off. */
+.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
+  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_):disabled,
+.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
+  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_):disabled svg {
+  text-shadow: none;
+  filter: none;
 }
 
 /* The preview canvas is the stage itself: the phone, tablet and desktop
