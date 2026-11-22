@@ -236,7 +236,7 @@ export default function SettingsModal({
   return (
     <Modal
       zIndex={60}
-      cardClass="w-full max-w-lg sm:max-w-2xl xl:max-w-3xl max-h-[90vh] bg-surface rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-scale-in flex flex-col"
+      cardClass="w-full max-w-lg sm:max-w-2xl xl:max-w-3xl h-[min(90dvh,44rem)] sm:h-auto max-h-[90vh] bg-surface rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-scale-in flex flex-col"
       cardProps={{ role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'settings-title' }}
     >
       <div className="shrink-0 px-6 py-4 border-b border-slate-200 flex items-center justify-between">

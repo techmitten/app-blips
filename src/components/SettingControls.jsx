@@ -62,17 +62,62 @@ export function Switch({ checked, onChange, labelledBy, describedBy, disabled = 
 // doesn't resize between tabs.
 export const TAB_PANEL_CLASS = 'flex-1 min-w-0 px-6 py-5 overflow-y-auto custom-scrollbar sm:h-[26rem] focus-visible:outline-none';
 
-// Vertical tab sidebar (a grid above the panel under 640px). WAI-ARIA tabs
-// pattern: roving tabindex, arrows/Home/End move + activate. Each tab is
-// { id, label, Icon, attention? }; `attention` marks a tab whose contents
-// currently block the modal's main action, since they may be out of view.
-// Ids are `${idPrefix}-tab-${id}` / `${idPrefix}-panel-${id}`.
+// Vertical tab sidebar; under 640px a single row of pills above the panel
+// that scrolls sideways, with edge fades where more tabs are out of view and
+// the active tab kept in view. WAI-ARIA tabs pattern: roving tabindex,
+// arrows/Home/End move + activate. Each tab is { id, label, Icon, attention? };
+// `attention` marks a tab whose contents currently block the modal's main
+// action, since they may be out of view. Ids are `${idPrefix}-tab-${id}` /
+// `${idPrefix}-panel-${id}`.
+const WIDE_QUERY = '(min-width: 640px)';
+const FADE = '1.5rem';
+
 export function TabList({ tabs, active, onSelect, idPrefix, label }) {
+  const listRef = useRef(null);
   const tabRefs = useRef({});
+  const [vertical, setVertical] = useState(() => window.matchMedia(WIDE_QUERY).matches);
+  // Which ends of the strip have tabs scrolled out of view.
+  const [overflow, setOverflow] = useState({ start: false, end: false });
+
+  useEffect(() => {
+    const query = window.matchMedia(WIDE_QUERY);
+    const onChange = () => setVertical(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+
+  const measure = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const max = list.scrollWidth - list.clientWidth;
+    const start = list.scrollLeft > 1;
+    const end = list.scrollLeft < max - 1;
+    setOverflow((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+  }, []);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || vertical) return undefined;
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [vertical, measure]);
+
+  // Centre the active tab in the strip, without scrolling the page or modal.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const el = tabRefs.current[active];
+    if (vertical || !list || !el) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    list.scrollTo({
+      left: el.offsetLeft - (list.clientWidth - el.offsetWidth) / 2,
+      behavior: reduce ? 'auto' : 'smooth',
+    });
+  }, [active, vertical]);
 
   const onKeyDown = (event) => {
     const index = tabs.findIndex((t) => t.id === active);
-    const vertical = window.matchMedia('(min-width: 640px)').matches;
     const prevKey = vertical ? 'ArrowUp' : 'ArrowLeft';
     const nextKey = vertical ? 'ArrowDown' : 'ArrowRight';
     let next = null;
@@ -84,47 +129,59 @@ export function TabList({ tabs, active, onSelect, idPrefix, label }) {
     event.preventDefault();
     const id = tabs[next].id;
     onSelect(id);
-    tabRefs.current[id]?.focus();
+    tabRefs.current[id]?.focus({ preventScroll: true });
   };
 
+  const mask = vertical ? undefined : `linear-gradient(to right, ${overflow.start ? 'transparent' : '#000'}, #000 ${FADE}, #000 calc(100% - ${FADE}), ${overflow.end ? 'transparent' : '#000'})`;
+
   return (
-    <div
-      role="tablist"
-      aria-label={label}
-      aria-orientation="vertical"
-      onKeyDown={onKeyDown}
-      className={`shrink-0 grid ${tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} sm:flex sm:flex-col gap-1 p-2 sm:p-3 sm:w-56 border-b sm:border-b-0 sm:border-r border-slate-200 bg-slate-50/60`}
-    >
-      {tabs.map(({ id, label: tabLabel, Icon, attention }) => {
-        const selected = active === id;
-        return (
-          <button
-            key={id}
-            ref={(el) => { tabRefs.current[id] = el; }}
-            type="button"
-            role="tab"
-            id={`${idPrefix}-tab-${id}`}
-            aria-selected={selected}
-            aria-controls={`${idPrefix}-panel-${id}`}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onSelect(id)}
-            className={`flex min-w-0 items-center justify-center sm:justify-start gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-indigo-500 ${
-              selected
-                ? 'bg-indigo-500/10 text-indigo-600 font-semibold'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <Icon size={16} aria-hidden="true" className="shrink-0" />
-            <span className="truncate">{tabLabel}</span>
-            {attention && (
-              <>
-                <span aria-hidden="true" className="sm:ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-                <span className="sr-only">(needs attention)</span>
-              </>
-            )}
-          </button>
-        );
-      })}
+    <div className="shrink-0 border-b sm:border-b-0 sm:border-r border-slate-200 bg-slate-50/60">
+      <div
+        ref={listRef}
+        role="tablist"
+        aria-label={label}
+        aria-orientation={vertical ? 'vertical' : 'horizontal'}
+        onKeyDown={onKeyDown}
+        onScroll={vertical ? undefined : measure}
+        style={{ maskImage: mask, WebkitMaskImage: mask }}
+        className="relative flex gap-1.5 overflow-x-auto px-4 py-0.5 snap-x snap-proximity scroll-px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-col sm:gap-1 sm:overflow-visible sm:p-3 sm:w-56"
+      >
+        {tabs.map(({ id, label: tabLabel, Icon, attention }) => {
+          const selected = active === id;
+          return (
+            <button
+              key={id}
+              ref={(el) => { tabRefs.current[id] = el; }}
+              type="button"
+              role="tab"
+              id={`${idPrefix}-tab-${id}`}
+              aria-selected={selected}
+              aria-controls={`${idPrefix}-panel-${id}`}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => onSelect(id)}
+              className="group flex shrink-0 snap-start items-center h-11 focus-visible:outline-none sm:h-auto sm:shrink sm:min-w-0"
+            >
+              {/* The 44px button is the touch target; this pill is what shows. */}
+              <span
+                className={`flex min-w-0 items-center gap-1.5 rounded-full h-8 px-3 text-[13px] font-medium whitespace-nowrap transition-colors group-focus-visible:outline-2 group-focus-visible:outline-offset-1 group-focus-visible:outline-indigo-500 sm:w-full sm:h-auto sm:gap-2.5 sm:rounded-lg sm:py-2 sm:text-sm ${
+                  selected
+                    ? 'bg-indigo-500/10 text-indigo-600 font-semibold ring-1 ring-inset ring-indigo-500/30 sm:ring-0'
+                    : 'text-slate-600 ring-1 ring-inset ring-slate-200 group-hover:bg-slate-100 group-hover:text-slate-900 sm:ring-0'
+                }`}
+              >
+                <Icon size={15} aria-hidden="true" className="shrink-0 sm:size-4" />
+                <span className="sm:truncate">{tabLabel}</span>
+                {attention && (
+                  <>
+                    <span aria-hidden="true" className="sm:ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    <span className="sr-only">(needs attention)</span>
+                  </>
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -141,16 +141,19 @@ try {
     await openNavigation(page, width, 'Settings');
     await assertFits(page.locator('.modal-card'), viewport, 'Settings');
     await assertNoOverflow(page, 'Settings ' + width);
-    // All four category tabs have to be reachable without a hidden
-    // horizontal scroll: below sm the rail is a 2x2 grid for that reason.
-    const strayTabs = await page.evaluate(() => {
-      const card = document.querySelector('.modal-card');
-      const box = card.getBoundingClientRect();
-      return [...card.querySelectorAll('[role="tab"]')]
-        .filter(tab => { const r = tab.getBoundingClientRect(); return r.left < box.left - 1 || r.right > box.right + 1; })
-        .map(tab => tab.textContent.trim());
+    // Below sm the tabs are one row that scrolls sideways inside the card:
+    // the strip itself must fit the card, and the last tab must scroll into it.
+    const strip = await page.evaluate(() => {
+      const card = document.querySelector('.modal-card').getBoundingClientRect();
+      const list = document.querySelector('.modal-card [role="tablist"]');
+      const box = list.getBoundingClientRect();
+      list.scrollLeft = list.scrollWidth;
+      const tabs = list.querySelectorAll('[role="tab"]');
+      const last = tabs[tabs.length - 1].getBoundingClientRect();
+      list.scrollLeft = 0;
+      return { fits: box.left >= card.left - 1 && box.right <= card.right + 1, lastReachable: last.right <= box.right + 1 };
     });
-    assert.deepEqual(strayTabs, [], 'Settings tabs all fit the card at ' + width);
+    assert.deepEqual(strip, { fits: true, lastReachable: true }, 'Settings tabs fit and scroll within the card at ' + width);
     await assertTapTargets(page, width, 'Settings ' + width);
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await openNavigation(page, width, 'Apps');
