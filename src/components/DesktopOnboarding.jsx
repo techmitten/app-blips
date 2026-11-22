@@ -8,7 +8,6 @@ import {
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
 import { AVATAR_IDS, AVATAR_LABELS, MAX_NAME_LENGTH, cleanName, loadProfile, saveProfile } from '../lib/profile';
-import { SURVEY_QUESTIONS, SURVEY_STEP_IDS, loadSurvey, saveSurvey, submitOnboardingSurvey } from '../lib/onboardingSurvey';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 import Modal from './Modal';
 import ProfileAvatar from './ProfileAvatar';
@@ -505,49 +504,6 @@ function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFold
   );
 }
 
-// Reusable single-question survey slide (goal, role, coding experience).
-function SurveyQuestionForm({ formRef, onSubmit, question, value, onChange, error }) {
-  const pickOption = (event, index) => {
-    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
-    if (!step) return;
-    event.preventDefault();
-    const next = question.options[(index + step + question.options.length) % question.options.length];
-    onChange(next.id);
-    formRef.current?.querySelector(`[data-survey-option="${next.id}"]`)?.focus();
-  };
-
-  return (
-    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
-      <SetupField title={question.fieldLabel} error={error}>
-        <div className="onboarding-survey-list" role="radiogroup" aria-label={question.fieldLabel}>
-          {question.options.map((option, index) => {
-            const selected = value === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                tabIndex={selected || (!value && index === 0) ? 0 : -1}
-                data-survey-option={option.id}
-                className={`onboarding-model-option onboarding-survey-option${selected ? ' is-selected' : ''}`}
-                onClick={() => onChange(option.id)}
-                onKeyDown={(event) => pickOption(event, index)}
-              >
-                <span className="onboarding-model-radio">{selected && <Check size={12} strokeWidth={3} />}</span>
-                <span className="onboarding-model-copy">
-                  <strong>{option.label}</strong>
-                  <small>{option.hint}</small>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </SetupField>
-    </form>
-  );
-}
-
 // `onExit` is only passed when onboarding is replayed from Settings: the user
 // already has a setup, so they may leave without re-entering a key.
 // `termsOnly` shows just the terms slide, to a returning user after the terms
@@ -558,15 +514,13 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   // changes so unrelated re-renders don't restart the animation.
   const [slide, setSlide] = useState({ step, rank: termsOnly ? 1 : 0, dir: 'forward' });
   if (slide.step !== step) {
-    const rank = { welcome: 0, terms: 1, name: 2, avatar: 3, goal: 4, role: 5, experience: 6, storage: 7, free: 8, ai: 9 }[step];
+    const rank = { welcome: 0, terms: 1, name: 2, avatar: 3, storage: 4, free: 5, ai: 6 }[step];
     setSlide({ step, rank, dir: rank < slide.rank ? 'back' : 'forward' });
   }
   const [profile] = useState(loadProfile);
   const [name, setName] = useState(profile.name);
   const [avatar, setAvatar] = useState(profile.avatar || AVATAR_IDS[0]);
   const [profileAttempted, setProfileAttempted] = useState(false);
-  const [survey, setSurvey] = useState(loadSurvey);
-  const [surveyAttempted, setSurveyAttempted] = useState({});
   const [folder, setFolder] = useState(null);
   const [folderStatus, setFolderStatus] = useState(null);
   // The renderer's copy of the projects was read from the old folder, so a
@@ -640,37 +594,12 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     keepProfile();
     setStep('avatar');
   };
-  // After the avatar: optional user-research slides (goal, role, experience),
-  // then browser storage (web only), Free explainer, and the AI form.
+  // After the avatar: browser storage (web only), Free explainer, and the AI form.
   const hasStorage = !isDesktop;
   const afterStorage = hasFree ? 'free' : 'ai';
-  const afterSurvey = hasStorage ? 'storage' : afterStorage;
   const continueAfterAvatar = () => {
     keepProfile();
-    setStep(SURVEY_STEP_IDS[0]);
-  };
-  const advanceSurvey = (nextAnswers, fromStep) => {
-    saveSurvey(nextAnswers);
-    const idx = SURVEY_STEP_IDS.indexOf(fromStep);
-    if (idx >= 0 && idx < SURVEY_STEP_IDS.length - 1) {
-      setStep(SURVEY_STEP_IDS[idx + 1]);
-      return;
-    }
-    submitOnboardingSurvey(nextAnswers);
-    setStep(afterSurvey);
-  };
-  const continueSurvey = () => {
-    if (!survey[step]) {
-      setSurveyAttempted((prev) => ({ ...prev, [step]: true }));
-      return;
-    }
-    advanceSurvey(survey, step);
-  };
-  const skipSurvey = () => {
-    const updated = { ...survey, [step]: '' };
-    setSurvey(updated);
-    setSurveyAttempted((prev) => ({ ...prev, [step]: false }));
-    advanceSurvey(updated, step);
+    setStep(hasStorage ? 'storage' : afterStorage);
   };
 
   const needsProvider = !provider;
@@ -707,15 +636,13 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const isTerms = step === 'terms';
   const isName = step === 'name';
   const isAvatar = step === 'avatar';
-  const surveyQuestion = SURVEY_QUESTIONS.find((q) => q.id === step) || null;
-  const isSurveyStep = Boolean(surveyQuestion);
   const isStorage = step === 'storage';
   const isFreeStep = step === 'free';
   const isLast = step === 'ai';
   // The slides in order; storage and Free only appear where they apply.
   const steps = termsOnly
     ? ['terms']
-    : ['welcome', 'terms', 'name', 'avatar', ...SURVEY_STEP_IDS, ...(hasStorage ? ['storage'] : []), ...(hasFree ? ['free'] : []), 'ai'];
+    : ['welcome', 'terms', 'name', 'avatar', ...(hasStorage ? ['storage'] : []), ...(hasFree ? ['free'] : []), 'ai'];
   const stepIndex = steps.indexOf(step);
   const back = stepIndex > 0 ? steps[stepIndex - 1] : null;
   const stepCount = steps.length;
@@ -737,11 +664,9 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
         ? continueToAvatar
         : isAvatar
           ? continueAfterAvatar
-          : isSurveyStep
-            ? continueSurvey
-            : isStorage
-              ? () => setStep(afterStorage)
-              : () => setStep('ai');
+          : isStorage
+            ? () => setStep(afterStorage)
+            : () => setStep('ai');
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
@@ -789,10 +714,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Now pick <span className="onboarding-title-accent">your avatar.</span>
               </h1>
-            ) : surveyQuestion ? (
-              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
-                {surveyQuestion.titlePlain}<span className="onboarding-title-accent">{surveyQuestion.titleAccent}</span>
-              </h1>
             ) : isStorage ? (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Your projects live <span className="onboarding-title-accent">in the app.</span>
@@ -818,8 +739,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <p>{isDesktop
                 ? 'Pick a fun avatar for your chat messages, and choose where your projects are saved. You can change these later by replaying onboarding in Settings.'
                 : 'Pick a fun avatar for your chat messages.'}</p>
-            ) : surveyQuestion ? (
-              <p>{surveyQuestion.description}</p>
             ) : isStorage ? (
               <p>Before you start, here is how saving works in the web version of AppBlips.</p>
             ) : isFreeStep ? (
@@ -854,18 +773,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 {...{ avatar, setAvatar, folder, folderStatus }}
                 onChooseFolder={chooseFolder}
               />
-            ) : surveyQuestion ? (
-              <SurveyQuestionForm
-                formRef={formRef}
-                onSubmit={continueSurvey}
-                question={surveyQuestion}
-                value={survey[surveyQuestion.id]}
-                onChange={(val) => {
-                  setSurvey((prev) => ({ ...prev, [surveyQuestion.id]: val }));
-                  setSurveyAttempted((prev) => ({ ...prev, [surveyQuestion.id]: false }));
-                }}
-                error={surveyAttempted[surveyQuestion.id] && !survey[surveyQuestion.id] ? 'Pick an option, or click Skip.' : ''}
-              />
             ) : isStorage ? (
               <StoragePanel formRef={formRef} onSubmit={() => setStep(afterStorage)} />
             ) : isFreeStep ? (
@@ -894,11 +801,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
           </div>
           <div className="onboarding-actions">
             {isLast && status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
-            {isSurveyStep && (
-              <button type="button" className="onboarding-skip" onClick={skipSurvey}>
-                Skip
-              </button>
-            )}
             {!isLast ? (
               <button type="button" className="onboarding-next" onClick={next}>
                 {isWelcome ? 'Get started' : isTerms ? 'I agree' : isStorage ? 'I understand' : 'Continue'} <ArrowRight size={18} />

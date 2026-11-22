@@ -28,7 +28,6 @@ import { MAX_CHAT_BODY_BYTES, MAX_BODY_BYTES } from '../electron/server/nodeHttp
 import { UNAVAILABLE } from './freeLimitsStore.js';
 import { checkFreeSignIn } from '../electron/server/freeAuth.js';
 import { handleClerkWebhook } from '../electron/server/clerkWebhook.js';
-import { handleOnboardingApi } from './onboardingApi.js';
 import { handleFreeUsageAdminApi } from './freeUsageAdminApi.js';
 
 export { FreeLimits } from './freeLimitsObject.js';
@@ -137,7 +136,6 @@ async function handleApi(request, env, ctx, path) {
   if (path.startsWith('/api/unsplash/')) return unsplashApiFor(env)(request, env, { visitor });
   if (path === '/api/seo/scan') return handleSeoScanApi(request, env);
   if (path === '/api/webhooks/clerk') return handleClerkWebhook(request, env);
-  if (path === '/api/onboarding') return handleOnboardingApi(request, env, ctx);
   if (startsWithPath(path, '/api/admin/free-usage')) {
     return handleFreeUsageAdminApi(request, env, limiterStub(env));
   }
