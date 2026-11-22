@@ -17,6 +17,7 @@
 
 <p align="center">
   <a href="https://snapcraft.io/appblips"><img alt="Get it from the Snap Store" src=".github/readme/snap-store.svg" height="61"></a>
+  <a href="https://pinokio.co/apps/github-com-techmitten-app-blips-pinokio"><img alt="Download on Pinokio" src=".github/readme/pinokio.png" height="61"></a>
 </p>
 
 <p align="center">
