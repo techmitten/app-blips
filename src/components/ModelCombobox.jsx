@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import useAnchoredList from '../hooks/useAnchoredList';
+import '../styles/app/model-combobox.css';
 
 // Every whitespace-separated term must appear in the model's name or id,
 // so "claude sonnet" or "gpt mini" narrow things down naturally.

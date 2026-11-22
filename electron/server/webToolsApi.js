@@ -37,7 +37,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { isForeignOrigin } from './chatProxy.js';
 import { usageTokens } from './freeLimits.js';
-import { resolveProvider, resolveUserProvider, providerLabel } from './providers.js';
+import { freeAiOff, resolveProvider, resolveUserProvider, providerLabel } from './providers.js';
 import { defaultModel } from './defaultModel.js';
 
 const DEEPSEEK_TOOLS = 'https://api.deepseek.com/v1/tools';
@@ -102,6 +102,7 @@ export const webSearchProvider = async (env, payload, { fetchImpl = globalThis.f
     const provider = resolveUserProvider(payload.user_provider);
     return { provider: !provider.error && onPresetHost(provider) ? provider : null, own: true };
   }
+  if (freeAiOff(env)) return { provider: null, own: false };
   const provider = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
   if (provider.error || provider.missing.length || !onPresetHost(provider)) return { provider: null, own: false };
   if (lookupModel && provider.autoModel && provider.id !== 'deepseek') {

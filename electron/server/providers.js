@@ -268,7 +268,14 @@ export const providerForKey = (key) => {
 // What the page may learn about the environment provider: whether it can
 // answer /api/chat without Settings → AI, and which provider and model it
 // uses. Never the key.
+// APPBLIPS_FREE_AI=off turns Free AI off: the page hides it (below) and the
+// server refuses requests that rely on the server's own provider
+// (chatProxy.js, webToolsApi.js). Visitors with their own key are unaffected.
+export const freeAiOff = (env) => /^off$/i.test(String(env?.APPBLIPS_FREE_AI ?? '').trim());
+export const FREE_AI_OFF_ERROR = 'Free AI is turned off on this server. Add your own API key in Settings → AI.';
+
 export const envProviderStatus = (env) => {
+  if (freeAiOff(env)) return { envConfigured: false };
   const provider = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
   if (provider.error || provider.missing.length) return { envConfigured: false };
   return { envConfigured: true, envProvider: { id: provider.id, label: provider.label, model: provider.model } };

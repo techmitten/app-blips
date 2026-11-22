@@ -15,7 +15,7 @@
 // may also send its own `user_provider`. Anything else uses the env provider.
 
 import { lookupGenerationUsage } from './generationUsage.js';
-import { resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS, fixedMaxOutputTokens, freeReasoningEffort } from './providers.js';
+import { freeAiOff, FREE_AI_OFF_ERROR, resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS, fixedMaxOutputTokens, freeReasoningEffort } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
 import { defaultModel } from './defaultModel.js';
@@ -49,6 +49,9 @@ const pickProvider = async (env, payload) => {
     const provider = resolveUserProvider(payload.user_provider);
     if (provider.error) return { response: badRequest(`Your AI provider settings are incomplete: ${provider.error}`) };
     return { provider };
+  }
+  if (freeAiOff(env)) {
+    return { response: new Response(JSON.stringify({ error: FREE_AI_OFF_ERROR }), { status: 403, headers: { 'content-type': 'application/json' } }) };
   }
   const provider = resolveProvider(env, 'APPBLIPS_LLM');
   if (provider.error) return { response: configError(env, provider.error) };

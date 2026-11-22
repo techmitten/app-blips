@@ -130,9 +130,10 @@ function ProviderDropdown({ value, onChange, options }) {
 }
 
 const providerLabel = (id) => (id === FREE_PROVIDER_ID ? FREE_PROVIDER_LABEL : USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id);
-// Free AI is hidden as an API option until further notice (previously:
-// Boolean(info?.envConfigured && !info.enabled)).
-const usesFree = () => false;
+// Free is the choice in effect when the environment supplies AI and no
+// provider of the user's own is switched on. The server reports
+// envConfigured: false when APPBLIPS_FREE_AI=off hides Free AI.
+const usesFree = (info) => Boolean(info?.envConfigured && !info.enabled);
 // No provider until one is chosen (as in onboarding), so an unset Settings → AI
 // shows "Select a provider" rather than quietly defaulting to the first.
 const EMPTY_DRAFT = { id: '', model: '', apiKey: '' };
@@ -163,7 +164,7 @@ export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
   useEffect(() => {
     providerApi.get().then((info) => {
       setSaved(info);
-      if (usesFree()) setDraft({ id: FREE_PROVIDER_ID, model: '', apiKey: '' });
+      if (usesFree(info)) setDraft({ id: FREE_PROVIDER_ID, model: '', apiKey: '' });
       else if (info.id) setDraft({ id: info.id, model: info.model, apiKey: '' });
     }).catch((err) => {
       logError('Could not read the AI settings', err);
@@ -195,16 +196,16 @@ export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
     : !saved?.enabled || saved.id !== draft.id || saved.model !== draft.model.trim() || Boolean(draft.apiKey.trim());
   const active = saved?.enabled && saved.id && saved.model && saved.hasKey;
   // Anything typed that Save hasn't stored yet.
-  const base = usesFree() ? { id: FREE_PROVIDER_ID, model: '' } : saved?.id ? { id: saved.id, model: saved.model } : { id: '', model: '' };
+  const base = usesFree(saved) ? { id: FREE_PROVIDER_ID, model: '' } : saved?.id ? { id: saved.id, model: saved.model } : { id: '', model: '' };
   const unsaved = Boolean(saved) && (draft.id !== base.id || draft.model.trim() !== base.model || Boolean(draft.apiKey.trim()));
 
-  // Note: saved.envConfigured copy ("Choose a provider with your own key to use it instead.")
-  // is omitted while the Free AI option is hidden.
   const summary = !saved
     ? 'Loading…'
     : active
       ? `Using ${providerLabel(saved.id)} · ${saved.model}.`
-      : 'Not set up yet. Choose a provider and coding model to start building.';
+      : saved.envConfigured
+        ? 'Choose a provider with your own key to use it instead.'
+        : 'Not set up yet. Choose a provider and coding model to start building.';
 
   // Returns whether it saved, for the leave-with-unsaved-changes dialog.
   const onSave = async () => {
@@ -305,9 +306,7 @@ export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
             <ProviderDropdown
               value={draft.id}
               onChange={(id) => update({ id, model: '', apiKey: '' })}
-              // Free AI option hidden until further notice (previously prepended
-              // FREE_PROVIDER_ID when saved?.envConfigured).
-              options={USER_PROVIDER_OPTIONS}
+              options={[...(saved?.envConfigured ? [{ id: FREE_PROVIDER_ID, label: FREE_PROVIDER_LABEL }] : []), ...USER_PROVIDER_OPTIONS]}
             />
           </div>
           {isFree ? (<div className="px-4 py-3.5 space-y-3">
