@@ -49,6 +49,8 @@ const stubClerk = ({
     deleteUser: 0,
     createEmailAddress: 0,
     updatePassword: 0,
+    createExternalAccount: 0,
+    destroyExternalAccount: 0,
     updateUser: [],
     destroyEmail: 0,
   };
@@ -65,6 +67,11 @@ const stubClerk = ({
     emailAddress,
     async destroy() { calls.destroyEmail += 1; },
   });
+  const makeExternalAccount = (id, provider) => ({
+    id,
+    provider,
+    async destroy() { calls.destroyExternalAccount += 1; },
+  });
   const makeUser = () => {
     const primary = makeEmail('email_1', 'u@example.com');
     const secondary = makeEmail('email_2', 'alt@example.com');
@@ -74,8 +81,10 @@ const stubClerk = ({
       primaryEmailAddressId: 'email_1',
       primaryEmailAddress: primary,
       emailAddresses: [primary, secondary],
+      externalAccounts: [makeExternalAccount('ext_1', 'google')],
       async createEmailAddress() { calls.createEmailAddress += 1; },
       async updatePassword() { calls.updatePassword += 1; },
+      async createExternalAccount() { calls.createExternalAccount += 1; },
       async update(params) { calls.updateUser.push(params); },
       async delete() { calls.deleteUser += 1; },
     };
@@ -341,9 +350,19 @@ test('OAuth account lock prevents adding, removing, or changing email and settin
     () => stub.instance.user.updatePassword({ newPassword: 'secret-password' }),
     { message: mod.OAUTH_PASSWORD_LOCKED_MESSAGE },
   );
+  await assert.rejects(
+    () => stub.instance.user.createExternalAccount({ strategy: 'oauth_github' }),
+    { message: mod.OAUTH_CONNECTED_ACCOUNTS_LOCKED_MESSAGE },
+  );
+  await assert.rejects(
+    () => stub.instance.user.externalAccounts[0].destroy(),
+    { message: mod.OAUTH_CONNECTED_ACCOUNTS_LOCKED_MESSAGE },
+  );
   assert.equal(stub.calls.createEmailAddress, 0);
   assert.equal(stub.calls.destroyEmail, 0);
   assert.equal(stub.calls.updatePassword, 0);
+  assert.equal(stub.calls.createExternalAccount, 0);
+  assert.equal(stub.calls.destroyExternalAccount, 0);
 
   // Updating profile name fields still passes through normally.
   await stub.instance.user.update({ firstName: 'Grace', lastName: 'Hopper' });

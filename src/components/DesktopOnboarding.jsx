@@ -579,9 +579,9 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   };
   const onComplete = leave(finishSetup);
   const onExit = exitSetup ? leave(exitSetup) : null;
-  // The host's environment variables supply AI: Free leads the list, and is
-  // the starting choice unless the user already saved a provider of their own.
-  const hasFree = providerInfo?.envConfigured === true;
+  // Free AI is hidden as an API option until further notice (previously:
+  // providerInfo?.envConfigured === true).
+  const hasFree = false;
   const providerOptions = hasFree ? [{ id: FREE_PROVIDER_ID, label: FREE_PROVIDER_LABEL, models: [] }, ...USER_PROVIDER_OPTIONS] : USER_PROVIDER_OPTIONS;
   const [providerId, setProviderId] = useState(
     hasFree && !(providerInfo?.enabled && providerInfo?.id) ? FREE_PROVIDER_ID : providerInfo?.id || '',

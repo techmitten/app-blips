@@ -79,13 +79,17 @@ const signInOptions = () => {
 // Clerk's modal sits near the top by default, and its 100vw backdrop counts
 // the scrollbar, so it can sit off centre. Centre it like the app's dialogs.
 // Also keep users on their OAuth account by hiding email edits in Profile
-// details and the password section in Security.
+// details, connected account add/remove controls, and the password section in Security.
 const APPEARANCE = {
   elements: {
     modalBackdrop: { width: '100%', alignItems: 'center' },
     modalContent: { margin: 'auto' },
     profileSectionPrimaryButton__emailAddresses: { display: 'none' },
     profileSectionItem__emailAddresses: {
+      '& .cl-menuButton': { display: 'none' },
+    },
+    profileSectionPrimaryButton__connectedAccounts: { display: 'none' },
+    profileSectionItem__connectedAccounts: {
       '& .cl-menuButton': { display: 'none' },
     },
     profileSection__password: { display: 'none' },
@@ -95,10 +99,12 @@ const APPEARANCE = {
 
 export const OAUTH_EMAIL_LOCKED_MESSAGE = 'Your email address is tied to your OAuth account and cannot be added or changed.';
 export const OAUTH_PASSWORD_LOCKED_MESSAGE = 'Passwords are disabled; sign in with your OAuth account.';
+export const OAUTH_CONNECTED_ACCOUNTS_LOCKED_MESSAGE = 'Connected accounts are tied to your sign-in and cannot be added or removed.';
 
 const lockedEnvironments = new WeakSet();
 const lockedUsers = new WeakSet();
 const lockedEmails = new WeakSet();
+const lockedExternalAccounts = new WeakSet();
 const wrappedClerks = new WeakSet();
 
 const lockedError = (message, code) => {
@@ -138,6 +144,11 @@ const lockUserMethods = (user) => {
         throw lockedError(OAUTH_PASSWORD_LOCKED_MESSAGE, 'oauth_password_locked');
       };
     }
+    if (typeof user.createExternalAccount === 'function') {
+      user.createExternalAccount = async () => {
+        throw lockedError(OAUTH_CONNECTED_ACCOUNTS_LOCKED_MESSAGE, 'oauth_connected_accounts_locked');
+      };
+    }
     if (typeof user.update === 'function') {
       const originalUpdate = user.update.bind(user);
       user.update = async (params, ...rest) => {
@@ -160,6 +171,18 @@ const lockUserMethods = (user) => {
         if (typeof email.destroy === 'function') {
           email.destroy = async () => {
             throw lockedError(OAUTH_EMAIL_LOCKED_MESSAGE, 'oauth_email_locked');
+          };
+        }
+      }
+    }
+  }
+  if (Array.isArray(user.externalAccounts)) {
+    for (const account of user.externalAccounts) {
+      if (account && typeof account === 'object' && !lockedExternalAccounts.has(account)) {
+        lockedExternalAccounts.add(account);
+        if (typeof account.destroy === 'function') {
+          account.destroy = async () => {
+            throw lockedError(OAUTH_CONNECTED_ACCOUNTS_LOCKED_MESSAGE, 'oauth_connected_accounts_locked');
           };
         }
       }

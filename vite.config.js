@@ -271,9 +271,23 @@ export default defineConfig(({ mode }) => ({
     format: 'es',
     plugins: () => [licensePlugin('app', { collected: appLicenseModules, finish: false })],
   },
-  // Pre-bundling moves onnxruntime-web into .vite/deps, away from the .wasm
-  // file it loads relative to itself.
+  // Pre-bundle dynamically imported dependencies upfront so Vite does not
+  // re-optimize mid-session and invalidate browserHash for already-loaded
+  // split chunks (e.g. @clerk/ui's lazy UserProfile / Modal chunks, which
+  // otherwise 504 with "Outdated Optimize Dep").
+  // Pre-bundling onnxruntime-web moves it into .vite/deps, away from the .wasm
+  // file it loads relative to itself, so keep @huggingface/transformers excluded.
   optimizeDeps: {
+    include: [
+      '@clerk/clerk-js',
+      '@clerk/ui',
+      'motion/react',
+      'acorn',
+      'acorn-jsx',
+      'sucrase',
+      'fflate',
+      'esbuild-wasm',
+    ],
     exclude: ['@huggingface/transformers'],
   },
   server: {
