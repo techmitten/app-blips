@@ -362,9 +362,9 @@ export default function PreviewPane({
             </div>
           )}
 
-          {/* Website Studio: click-to-edit, pressed (on) by default. Turned
-              off, clicks go to the page so buttons, links and forms can be
-              tested; pressed again, editing returns. */}
+          {/* Website Studio: click-to-edit, off by default so clicks go to
+              the page and buttons, links and forms can be tested; pressed,
+              clicking selects elements to edit. */}
           {studioMode === 'website' && activeTab === 'preview' && hasCode && !isGenerating && onToggleEditMode && (
             <button
               data-tour="edit"

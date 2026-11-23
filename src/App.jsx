@@ -981,9 +981,10 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setElementEditError(null);
   }, []);
 
-  // Click-to-edit (preview toolbar key): on by default in Website Studio.
-  // Turned off, clicks go to the page so its buttons and links can be tested.
-  const [isEditMode, setIsEditMode] = useState(true);
+  // Click-to-edit (preview toolbar key): off by default, so clicks go to the
+  // page and its buttons and links can be tested. Turned on (Website Studio
+  // only), clicking selects an element to edit.
+  const [isEditMode, setIsEditMode] = useState(false);
   const isPreviewEditing = studioMode === 'website' && !isGenerating && isEditMode;
   // The frame drops its selection when editing turns off without reporting
   // it, so the parent's editor state is cleared here to match.
@@ -2826,7 +2827,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setTempProjectName('');
     setShouldGenerateAfterNaming(false);
     setIsNamingModalOpen(false);
-    setIsEditMode(true);
+    setIsEditMode(false);
     setSelectedElement(null);
     setElementEditError(null);
     setStudioMode(nextStudioMode);

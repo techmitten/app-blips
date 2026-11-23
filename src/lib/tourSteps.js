@@ -97,7 +97,7 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode, 
       view: 'preview',
       placement: 'bottom',
       title: 'Edit text directly',
-      body: 'Click any element in the preview to change its words, font, color, links or images, or to duplicate or delete it. Drag elements anywhere on the page to move them. No prompt needed. Every change is saved as a new version.',
+      body: 'Turn on Edit Mode in the preview toolbar, then click any element to change its words, font, color, links or images, or to duplicate or delete it. Drag elements anywhere on the page to move them. No prompt needed. Every change is saved as a new version.',
     });
   }
 
