@@ -963,11 +963,28 @@
   color: rgb(255 255 255 / 0.62);
 }
 
+/* Light: a white card on a near-white pane had no edge to find. The band
+   behind it steps down to a cool gray (the toolbar's silver family) and the
+   card gets a solid fill with a firm rim, so the field reads at a glance. */
+.hero-landing-workspace:not(.dark) .hero-stage-workspace .build-panel-composer {
+  background: linear-gradient(180deg, #dfe4eb 0%, #d3d9e2 100%);
+  border-top-color: rgb(15 23 42 / 0.18);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7);
+}
+
 .hero-landing-workspace:not(.dark) .hero-stage-workspace .build-panel .prompt-input-dock {
-  border: 1px solid rgb(15 23 42 / 0.14);
-  background: rgb(255 255 255 / 0.94);
+  border: 1px solid rgb(15 23 42 / 0.28);
+  background: #ffffff;
   box-shadow:
     inset 0 1px 0 #fff,
-    0 1px 2px rgb(15 23 42 / 0.08),
-    0 14px 30px -16px rgb(15 23 42 / 0.32);
+    0 1px 2px rgb(15 23 42 / 0.12),
+    0 12px 28px -14px rgb(15 23 42 / 0.38);
+}
+
+.hero-landing-workspace:not(.dark) .hero-stage-workspace .build-panel .prompt-input-dock:focus-within {
+  border-color: rgb(15 23 42 / 0.5);
+  box-shadow:
+    0 0 0 3px rgb(30 89 143 / 0.16),
+    0 1px 2px rgb(15 23 42 / 0.12),
+    0 12px 28px -14px rgb(15 23 42 / 0.42);
 }
