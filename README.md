@@ -10,6 +10,16 @@
 </p>
 
 <p align="center">
+  <strong>English</strong> |
+  <a href="README_CN.md">简体中文</a> |
+  <a href="README_DE.md">Deutsch</a> |
+  <a href="README_ES.md">Español</a> |
+  <a href="README_IN.md">हिन्दी</a> |
+  <a href="README_JP.md">日本語</a> |
+  <a href="README_ML.md">Malti</a>
+</p>
+
+<p align="center">
   <a href="https://apps.microsoft.com/detail/9nk9ss4v2n1k?hl=en-US&amp;gl=US"><img alt="Download for Windows" src=".github/readme/download-windows.svg" width="200" height="61"></a>
   <a href="https://github.com/TechMitten/app-blips/releases/latest"><img alt="Download for Ubuntu" src=".github/readme/download-ubuntu.svg" width="200" height="61"></a>
   <a href="https://web.appblips.com/"><img alt="Try it in your browser" src=".github/readme/browser-demo.svg" width="200" height="61"></a>
@@ -85,23 +95,27 @@ With [Docker Compose v2](https://docs.docker.com/get-docker/) installed, run:
 
 ```bash
 docker compose up -d
+
 ```
 
 Open [http://localhost:3000](http://localhost:3000). Stop with `docker compose down`, or update with `git pull && docker compose up -d --build`.
 
 ### 3. Run from Source
+
 Requires [Node.js](https://nodejs.org/) 22.12 LTS or newer.
 
 ```bash
-git clone https://github.com/techmitten/app-blips.git
+git clone [https://github.com/techmitten/app-blips.git](https://github.com/techmitten/app-blips.git)
 cd app-blips
 npm install
 npm start
+
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
-- **Desktop development:** Run `npm run desktop` for development, or `npm run desktop:dist` to build installers in `dist-desktop/`.
-- **Configuration:** Copy `.env.example` to `.env` to customize server or provider settings.
+
+* **Desktop development:** Run `npm run desktop` for development, or `npm run desktop:dist` to build installers in `dist-desktop/`.
+* **Configuration:** Copy `.env.example` to `.env` to customize server or provider settings.
 
 ---
 
@@ -118,18 +132,13 @@ electron/            # Desktop app: main process, preload, disk storage, and in-
 server.js            # Web server (npm start / Docker): serves dist/ and /api/* endpoints
 testing/             # Standalone Node test scripts for backend routes and preview logic
 scripts/             # Build scripts, including Whisper model fetching
+
 ```
 
 ## Support AppBlips
 
 If AppBlips is useful to you, an upvote on Product Hunt or a star on GitHub helps other people find it, and a tip on Ko-fi helps keep development going.
 
-<p align="center">
-  <a href="https://www.producthunt.com/products/appblips?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-appblips" target="_blank" rel="noopener noreferrer"><img alt="AppBlips - AI websites that don't look AI-made. Publish in one click | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1315175&amp;theme=light&amp;t=1794567580902"></a>
-  <a href="https://github.com/techmitten/app-blips"><img alt="Star AppBlips on GitHub" src=".github/readme/star-github.svg" width="250" height="54"></a>
-  <a href="https://ko-fi.com/techray"><img alt="Support AppBlips on Ko-fi" src=".github/readme/support-kofi.svg" width="250" height="54"></a>
-</p>
-
 ## License
 
-Licensed under the [MIT License](LICENSE). Third-party open-source licenses are available in the app under **Settings → About → Licenses**.
+Licensed under the [MIT License](https://www.google.com/search?q=LICENSE). Third-party open-source licenses are available in the app under **Settings → About → Licenses**.
