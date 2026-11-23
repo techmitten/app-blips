@@ -19,7 +19,7 @@ const {
 const { buildHtmlSystemPrompt, buildConnectorDirective, buildAskConnectorNote, WEBSITE_HTML_SYSTEM_PROMPT } = await import('../src/lib/prompts.js');
 
 const KEY = '3f2b8c1e-9a4d-4e6b-8c7a-1d2e3f4a5b6c';
-const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, sheets: { enabled: false, key: '' }, pixabay: { enabled: false, key: '', keyHint: '' }, tavily: { enabled: false, key: '', keyHint: '' }, deepseekSearch: { enabled: true, key: '' }, claudeSearch: { enabled: true, key: '' }, openaiSearch: { enabled: true, key: '' }, geminiSearch: { enabled: true, key: '' }, grokSearch: { enabled: true, key: '' }, openrouterSearch: { enabled: true, key: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
+const NOTHING = { web3forms: { enabled: false, key: '' }, umami: { enabled: false, key: '' }, plausible: { enabled: false, key: '' }, tawkto: { enabled: false, key: '' }, square: { enabled: false, key: '' }, pollinations: { enabled: false, key: '', account: '', aiPayer: 'visitors', siteKey: '', siteKeyAccepted: false }, sheets: { enabled: false, key: '' }, puter: { enabled: false, key: '' }, pixabay: { enabled: false, key: '', keyHint: '' }, tavily: { enabled: false, key: '', keyHint: '' }, deepseekSearch: { enabled: true, key: '' }, claudeSearch: { enabled: true, key: '' }, openaiSearch: { enabled: true, key: '' }, geminiSearch: { enabled: true, key: '' }, grokSearch: { enabled: true, key: '' }, openrouterSearch: { enabled: true, key: '' }, seo: { enabled: false, key: '' }, images: { enabled: false, key: '' } };
 
 // Nothing saved: everything off, nothing active.
 assert.deepEqual(loadConnectors(), NOTHING);
@@ -216,6 +216,8 @@ for (const id of CONNECTOR_IDS) {
   // (Pixabay) have their key checked by the service, not a local pattern.
   const fields = CONNECTOR_DEFINITIONS[id].native || CONNECTOR_DEFINITIONS[id].providerSearch
     ? ['enableDescription']
+    : CONNECTOR_DEFINITIONS[id].keyless
+      ? ['enableDescription', 'previewNote', 'connected']
     : CONNECTOR_DEFINITIONS[id].signIn
       ? ['enableDescription', 'signInHelp', 'connected', 'needsSignIn']
       : CONNECTOR_DEFINITIONS[id].serverKey
@@ -230,6 +232,23 @@ for (const id of CONNECTOR_IDS) {
   else assert.ok(Array.isArray(about.steps) && about.steps.length > 0, `${id}: about.steps`);
   assert.ok(!about.notes || Array.isArray(about.notes), `${id}: about.notes`);
 }
+
+// Puter has no key: on is connected, and the AI gets it with an empty key.
+assert.equal(connectorStatus('puter'), 'off');
+saveConnectors({ puter: { enabled: true, key: '' } });
+assert.equal(connectorStatus('puter'), 'connected');
+assert.deepEqual(getActiveConnectors(), [{ id: 'puter', key: '' }]);
+{
+  const puter = buildConnectorDirective([{ id: 'puter', key: '' }], 'app');
+  assert.match(puter, /puter\.ai\.chat/);
+  assert.match(puter, /puter\.kv\.set/);
+  assert.match(puter, /Never add a Puter <script> tag/);
+  assert.match(puter, /Powered by Puter/);
+  assert.match(buildConnectorDirective([{ id: 'puter', key: '' }], 'game'), /no network requests/);
+  assert.match(buildConnectorDirective([{ id: 'puter', key: '' }], 'website'), /static HTML/);
+  assert.match(buildAskConnectorNote([{ id: 'puter', key: '' }], 'app'), /Puter connected/);
+}
+saveConnectors({});
 
 // My images starts off like every connector, can be switched on, and never
 // reaches the AI as a service.

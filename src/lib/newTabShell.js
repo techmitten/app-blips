@@ -148,11 +148,12 @@ if (SHELL_SOURCE.indexOf('</') !== -1 || SHELL_SOURCE.indexOf('${') !== -1) {
  *   initialStorage?: Record<string, string>,
  *   pollinations?: { siteKey: string, visitors: boolean },  // see injectPreviewBridge
  *   sheets?: string,  // see injectPreviewBridge
+ *   puter?: boolean,  // Puter is on: the tab has no Puter host, so its calls fail with a message
  *   gallery?: { images: object[], toUrl: (image: object) => string },  // see injectPreviewBridge
  * }} options
  * @returns {string}
  */
-export function buildNewTabShell({ files, title = 'Preview', initialStorage = {}, pollinations, sheets, gallery }) {
+export function buildNewTabShell({ files, title = 'Preview', initialStorage = {}, pollinations, sheets, puter = false, gallery }) {
   // The storage seed is substituted when each page loads, so a page opened
   // later sees what earlier pages saved. A random marker stands in for it;
   // generated code cannot know it in advance, so it cannot collide.
@@ -164,6 +165,7 @@ export function buildNewTabShell({ files, title = 'Preview', initialStorage = {}
       initialStorage: { [marker]: '' },
       pollinations,
       sheets,
+      puter: puter ? { offline: true } : undefined,
       gallery,
     });
     // injectPreviewBridge serialized the seed as {"<marker>":""}; turn that

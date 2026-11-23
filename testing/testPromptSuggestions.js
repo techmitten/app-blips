@@ -122,6 +122,12 @@ const imagesOnly = describeBuildLimits('app', [{ id: 'pollinations', key: 'none'
 assert.ok(imagesOnly.includes('AI-generated images (Pollinations)'));
 assert.ok(imagesOnly.includes(', AI features such as a chatbot'));
 
+// Puter unlocks AI features and each visitor's own saved data.
+const withPuter = describeBuildLimits('app', [{ id: 'puter', key: '' }]);
+assert.ok(withPuter.includes('(Puter)'));
+assert.ok(!withPuter.includes(', AI features such as a chatbot'));
+assert.ok(describeBuildLimits('game', [{ id: 'puter', key: '' }]).includes('AI opponent'));
+
 // Games leave out Web3Forms, tawk.to and Square (as buildConnectorDirective does); Sheets is a leaderboard.
 const gameConnected = describeBuildLimits('game', [{ id: 'web3forms', key: 'k' }, { id: 'tawkto', key: 't' }, { id: 'square', key: 's' }, { id: 'sheets', key: 'x' }]);
 assert.ok(!gameConnected.includes('Web3Forms'));

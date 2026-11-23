@@ -23,6 +23,8 @@
 // the build agent gets a web_search tool (lib/webSearch.js) that searches
 // through the server with the saved key. The tool carries its own
 // instructions, so it isn't in CONNECTOR_DIRECTIVES either.
+// Puter (`keyless: true`) has no key and no account here: it is connected as
+// soon as it is on.
 import { safeStorage } from './config.js';
 import { POLLINATIONS_EARNINGS, POLLINATIONS_FEE_NOTE } from './pollinationsApp.js';
 import { isSheetsScriptUrl } from './sheetsHelper.js';
@@ -547,6 +549,53 @@ export const CONNECTOR_DEFINITIONS = {
       ],
     },
   },
+  // Puter (lib/puterHelper.js, lib/puterHost.js): AI, a key-value database
+  // and file storage with no key. Each visitor signs in to their own Puter
+  // account and their free allowance pays, so nothing secret is ever in a
+  // page; `keyless` connectors are connected as soon as they are on. The AI
+  // writes plain Puter.js calls; AppBlips adds the script to exports. Puter
+  // can't run in the sandboxed preview, so there a stand-in asks the user to
+  // test on the published site.
+  puter: {
+    id: 'puter',
+    name: 'Puter',
+    tagline: 'AI, a database and file storage, with no key',
+    description: 'Add AI features, saved data and file uploads to your projects. Each visitor signs in to their own free Puter account, so there is no key to keep secret and nothing for you to pay.',
+    beta: true,
+    keyless: true,
+    homeUrl: 'https://developer.puter.com',
+    homeLinkLabel: 'Puter for developers',
+    isValidKey: () => true,
+    page: {
+      enableDescription: 'When you ask for them, the AI adds AI features, saved data and file storage that run on Puter to the websites, apps and games it builds.',
+      previewNote: 'Puter features don’t run in the preview. When you try one there, a message asks you to test it on your published site.',
+      connected: 'Connected. Ask for AI features, saved data or file uploads in the builder chat.',
+    },
+    prompts: [
+      'Add an AI chat assistant that answers visitors’ questions, using Puter.',
+      'Let each visitor save their notes with Puter, so they are still there on any device.',
+      'Add an AI image generator where visitors type a description and get a picture, using Puter.',
+      'Let visitors upload photos to their own Puter storage and show them in a gallery.',
+    ],
+    about: {
+      what: 'Puter gives your websites, apps and games AI features (chat, image generation, reading text from images, text to speech), a database for saving data, and file storage, with no API key. Each visitor signs in to their own free Puter account, and their account pays for what they use, so there is no key in your site for anyone to find and no bill for you.',
+      steps: [
+        'Turn on the Enable Puter switch.',
+        'Ask for an AI feature, saved data or file uploads in the builder chat. The AI builds them with Puter.',
+        'Publish your site to try them. Puter features don’t run in the preview: there, a message asks you to test on your published site.',
+        'In your published or exported site, each visitor signs in to their own Puter account in Puter’s pop-up the first time they use a Puter feature.',
+      ],
+      notes: [
+        'No key or secret of yours is ever written into your projects. That makes Puter safer than a site key.',
+        'Each visitor’s data is their own: it is saved in their Puter account and other visitors can’t see it. For things everyone should share, like a poll or a leaderboard, use Google Sheets Backend instead.',
+        'Each Puter account has a free monthly allowance. When a visitor’s runs out, Puter features stop working for them until it renews or they add credit on Puter.',
+        'Puter needs a real web address to run, which the preview and Open in new tab don’t have, so test Puter features on your published site.',
+        'Projects built before you turned it on don’t change on their own. Copy a prompt from this page into the builder chat to use Puter in one.',
+        'Imported codebases don’t use it.',
+        'Puter is a separate service with its own terms. Sites that use it show a small “Powered by Puter” link, as Puter asks.',
+      ],
+    },
+  },
   pixabay: {
     id: 'pixabay',
     name: 'Pixabay',
@@ -775,7 +824,7 @@ export const providerSearchEnabled = (provider, connectors = loadConnectors()) =
 export const connectorStatus = (id, connectors = loadConnectors()) => {
   const { enabled, key = '', account, keyHint } = connectors[id] || {};
   if (!enabled) return 'off';
-  if (CONNECTOR_DEFINITIONS[id].native || CONNECTOR_DEFINITIONS[id].providerSearch) return 'connected';
+  if (CONNECTOR_DEFINITIONS[id].native || CONNECTOR_DEFINITIONS[id].providerSearch || CONNECTOR_DEFINITIONS[id].keyless) return 'connected';
   if (CONNECTOR_DEFINITIONS[id].serverKey) return keyHint ? 'connected' : 'needs-key';
   if (CONNECTOR_DEFINITIONS[id].signIn) return account ? 'connected' : 'needs-sign-in';
   return CONNECTOR_DEFINITIONS[id].isValidKey(key.trim()) ? 'connected' : 'needs-key';
@@ -789,7 +838,7 @@ export const connectorStatus = (id, connectors = loadConnectors()) => {
 export const getActiveConnectors = (connectors = loadConnectors()) => CONNECTOR_IDS
   .filter((id) => !CONNECTOR_DEFINITIONS[id].native && !CONNECTOR_DEFINITIONS[id].serverKey && !CONNECTOR_DEFINITIONS[id].providerSearch
     && connectorStatus(id, connectors) === 'connected')
-  .map((id) => ({ id, key: id === 'pollinations' ? pollinationsAiMode(connectors) : connectors[id].key.trim() }));
+  .map((id) => ({ id, key: id === 'pollinations' ? pollinationsAiMode(connectors) : CONNECTOR_DEFINITIONS[id].keyless ? '' : connectors[id].key.trim() }));
 
 const pollinationsAiMode = (connectors) => {
   if (connectors.pollinations?.aiPayer !== 'site') return 'visitors';
@@ -807,6 +856,10 @@ export const SITE_KEY_RE = /^sk_[A-Za-z0-9_-]{8,200}$/;
 export const getSheetsScriptUrl = (connectors = loadConnectors()) => (
   connectorStatus('sheets', connectors) === 'connected' ? connectors.sheets.key.trim() : ''
 );
+
+// Whether pages may use Puter (puterHelper.js): adds its script to exports
+// and its stand-in to the preview.
+export const isPuterEnabled = (connectors = loadConnectors()) => connectorStatus('puter', connectors) === 'connected';
 
 export const getPollinationsSiteKey = (connectors = loadConnectors()) => {
   const { enabled, aiPayer, siteKey = '', siteKeyAccepted } = connectors.pollinations || {};

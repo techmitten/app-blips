@@ -806,7 +806,32 @@ const sheetsDirective = (_url, studioMode) => `- Google Sheets Backend (shared d
   Visitors can only add entries and read them: there is no update or delete, so never build admin screens, logins or edit/delete buttons for this data. If the user asks for them, explain in your reply that entries can't be changed or removed from the site. To stop casual double votes or sign-ups, remember in localStorage that this visitor already sent one.
   Every call can throw an Error with a friendly .message: catch it and show it inline (never alert()). Show a loading state while reading, disable the button and show "Saving..." while adding, show an empty state when there are no rows, and reload the rows after a successful add. Calls write real rows to the owner's Sheet, so never submit test entries when testing.${studioMode === 'game' ? SHEETS_GAME_EXCEPTION : studioMode === 'website' ? SHEETS_WEBSITE_EXCEPTION : ''}`;
 
+// Puter (puterHelper.js): keyless AI, key-value data and file storage paid
+// by each visitor's own Puter account. The AI writes plain Puter.js calls and
+// never the script tag: AppBlips adds the script to exports and a stand-in to
+// the preview. Data is per visitor, so shared data stays with Google Sheets.
+const PUTER_GAME_EXCEPTION = `
+  In this game, Puter is the one exception to the "no network requests" rule, and only for what the user asked for (for example an AI opponent or narrator, or saving progress to the player's Puter account). Keep the game fully playable when Puter is unavailable or the player doesn't sign in.`;
+
+const PUTER_WEBSITE_EXCEPTION = `
+  On this website, what Puter returns (AI replies, generated images, saved items) is the exception to the "all visible content must be static HTML" rule: JavaScript fills it in. Keep everything around it in the static markup: the section's heading and text, the form, the container, and the loading, empty and error messages (hidden until needed).`;
+
+const puterDirective = (_key, studioMode) => `- Puter (AI, a key-value database and file storage, with no API key). Use it ONLY when the user asks for an AI feature (chatbot, AI writing or answers, AI image generator, reading text from an image, text to speech), for saving each visitor's data to their account so it follows them across devices, for file uploads or storage, or mentions Puter. Otherwise follow the rules above as if it weren't connected. If Pollinations is also connected, its generated-image URLs still apply, but build AI features (chat, image generators and the like) with Puter unless the user names Pollinations; this overrides the Pollinations rule against other AI services.
+  AppBlips adds Puter.js to the page: a global \`puter\` object is ready before your scripts run. Never add a Puter <script> tag, never write your own AI, storage or Puter API code, and never put a key or token in the code. Use only:
+    await puter.ai.chat(messages) -> a response whose .message.content is the reply text, where messages is [{ role: 'system' | 'user' | 'assistant', content: '...' }] (keep earlier turns for a conversation; start with a system message describing the assistant's job). A single string prompt works too.
+    for await (const part of await puter.ai.chat(messages, { stream: true })) { if (part.type === 'text') append(part.text) } -> streams the reply as it is written
+    await puter.ai.txt2img(prompt) -> an <img> element (use it directly, or its .src)
+    await puter.ai.img2txt(fileOrImageUrl) -> the text in the image
+    await puter.ai.txt2speech(text) -> an <audio> element; call .play() from a click (at most 3000 characters)
+    await puter.kv.set(key, value) / await puter.kv.get(key) -> the value or null / await puter.kv.del(key) / await puter.kv.incr(key, n) / await puter.kv.list('prefix*', true) -> [{ key, value }]  (values can be text, numbers, objects or arrays; keys at most 1 KB)
+    await puter.fs.write('folder/name.txt', textOrFileOrBlob) / (await puter.fs.read(path)).text() / await puter.fs.readdir('folder') -> [{ name, path, is_dir, size }] / await puter.fs.delete(path) / await puter.fs.getReadURL(path) -> a temporary URL for an <img src> or a download. Paths are relative (no leading /, no ..).
+    puter.auth.isSignedIn() -> true or false; await puter.auth.signIn() opens Puter's sign-in pop-up; (await puter.auth.getUser()).username
+  SIGN-IN: each visitor signs in to their own free Puter account, which pays for their use. Puter asks them to sign in on the first call, but a browser blocks that pop-up unless it follows a click, so only call Puter from a click or a form submit. If puter.auth.isSignedIn() is false when the page loads, don't load saved data yet: show a short note and a "Sign in with Puter" button that calls puter.auth.signIn(), then load the data. Never build your own login, password or account screens.
+  DATA IS PER VISITOR: what puter.kv and puter.fs save belongs to the visitor's own account; no other visitor can see it. Never use Puter for things everyone shares, like polls, guestbooks, comments or leaderboards. Give every key a short prefix for this app (e.g. 'notes:'), and keep the same keys in later edits, or saved data seems to disappear.
+  Every call can throw: catch it and show a friendly message inline next to the feature (never alert()). While waiting, show a loading state and disable the button. Add a small "Powered by Puter" link to https://developer.puter.com in the footer, as Puter asks. Calls use the visitor's real Puter account, so never send a chat message, generate media, save data or press sign-in when testing. In AppBlips' preview every Puter call shows a notice asking the user to test on their published site and then fails: that is expected, so don't change the code to work around it.${studioMode === 'game' ? PUTER_GAME_EXCEPTION : studioMode === 'website' ? PUTER_WEBSITE_EXCEPTION : ''}`;
+
 const CONNECTOR_DIRECTIVES = {
+  puter: puterDirective,
   pollinations: pollinationsDirective,
   sheets: sheetsDirective,
   umami: (key) => analyticsDirective('Umami', embedSnippet('umami', key)),
@@ -836,7 +861,7 @@ export const buildConnectorDirective = (connectors, studioMode = 'app') => {
 // Questions (Ask mode, or a question routed out of Build mode) are answered
 // without the build prompt, so without this the model doesn't know about the
 // user's connectors and tells them, wrongly, that it can't use Pollinations.
-const CONNECTOR_NAMES = { pollinations: 'Pollinations', umami: 'Umami', plausible: 'Plausible', tawkto: 'tawk.to', square: 'Square', web3forms: 'Web3Forms', sheets: 'Google Sheets Backend' };
+const CONNECTOR_NAMES = { puter: 'Puter', pollinations: 'Pollinations', umami: 'Umami', plausible: 'Plausible', tawkto: 'tawk.to', square: 'Square', web3forms: 'Web3Forms', sheets: 'Google Sheets Backend' };
 
 export const buildAskConnectorNote = (connectors, studioMode = 'app', canOfferBuild = false) => {
   const ids = (connectors || []).map(({ id }) => id)
@@ -852,7 +877,10 @@ export const buildAskConnectorNote = (connectors, studioMode = 'app', canOfferBu
   const sheets = ids.includes('sheets')
     ? ` With Google Sheets Backend connected, a build can save what visitors send (RSVPs, sign-ups, votes, scores, private messages) in the user's own Google Sheet and show counts, results and leaderboards in the ${noun}. Public posts that visitors write, like guestbooks, comments or reviews, aren't supported yet because spam can't be removed; a supported extension is planned. Visitors can only add entries and read them; nothing can be changed or removed from the site.`
     : '';
-  return `\n\nThe user has connected these services in Settings → Extensions, and AppBlips uses them when it builds or changes the ${noun}: ${ids.map((id) => CONNECTOR_NAMES[id]).join(', ')}.${pollinations}${sheets} You can't change the project while answering a question, so if they want something that uses one of these services, ${next}.`;
+  const puter = ids.includes('puter')
+    ? ` With Puter connected, a build can add AI features (chat, image generation, reading text from images, text to speech), save each visitor's own data and files in their Puter account, and let visitors upload files, with no API key: each visitor signs in to their own free Puter account, which pays for their use. What one visitor saves isn't visible to others. Never say Puter can't be used or ask the user for a key.`
+    : '';
+  return `\n\nThe user has connected these services in Settings → Extensions, and AppBlips uses them when it builds or changes the ${noun}: ${ids.map((id) => CONNECTOR_NAMES[id]).join(', ')}.${puter}${pollinations}${sheets} You can't change the project while answering a question, so if they want something that uses one of these services, ${next}.`;
 };
 
 // The user's own uploaded images ("My images", lib/galleryImages.js). The AI

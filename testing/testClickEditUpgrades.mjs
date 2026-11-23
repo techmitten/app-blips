@@ -515,12 +515,24 @@ try {
   }
   await page.waitForTimeout(100);
 
-  // Check TextFormatToolbar and its Color popover on 390px viewport
+  // Phone layout: the text bar's top is one row, and the formatting tools are
+  // a labelled bar at the bottom whose options open above it.
   await liveFrame().locator('#main-headline').click();
   await formatBar.waitFor();
+  const topRow = page.getByRole('toolbar', { name: 'Text editing', exact: true });
+  const topRowBox = await topRow.boundingBox();
+  assert.ok(topRowBox.height <= 56, `text bar top is one row on a phone: ${JSON.stringify(topRowBox)}`);
   await formatBar.getByRole('button', { name: /Text color/i }).click();
-  const colorPopBox = await formatBar.getByRole('dialog', { name: 'Text color' }).boundingBox();
-  assert.ok(colorPopBox.x >= 0 && colorPopBox.x + colorPopBox.width <= 390, `color popover fits 390px viewport: ${JSON.stringify(colorPopBox)}`);
+  // Same reset as below: a click inside the desktop-width frame can scroll the shell sideways.
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+    document.querySelectorAll('*').forEach((el) => { if (el.scrollLeft) el.scrollLeft = 0; });
+  });
+  const colorSheetBox = await formatBar.getByRole('group', { name: 'Text color' }).boundingBox();
+  assert.ok(colorSheetBox.x >= 0 && colorSheetBox.x + colorSheetBox.width <= 390, `color options fit 390px viewport: ${JSON.stringify(colorSheetBox)}`);
+  assert.ok(colorSheetBox.y > topRowBox.y + topRowBox.height, 'color options open at the bottom, not under the top bar');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(100);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(100);
   await liveFrame().locator('#cta-link').click();
@@ -531,6 +543,8 @@ try {
     window.scrollTo(0, 0);
     document.querySelectorAll('*').forEach((el) => { if (el.scrollLeft) el.scrollLeft = 0; });
   });
+  const editBarBox = await page.locator('.element-bar-compact').boundingBox();
+  assert.ok(editBarBox.height <= 56, `element bar is one row on a phone: ${JSON.stringify(editBarBox)}`);
   const closeBtnBox = await editBar.getByRole('button', { name: 'Close editor' }).boundingBox();
   assert.ok(closeBtnBox.x >= 0 && closeBtnBox.x + closeBtnBox.width <= 390, `Close editor button fits 390px viewport: ${JSON.stringify(closeBtnBox)}`);
   console.log('ok - 9. narrow viewport (390x844) controls and popovers stay within screen edges');

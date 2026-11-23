@@ -3,11 +3,14 @@ import { createPortal } from 'react-dom';
 import {
   X, ArrowUpToLine, ArrowDownToLine, ArrowLeft, Sparkles, Upload, Loader2, Wand2, Link2, Type, Check, AlertTriangle,
   ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus, Captions, Lock, Unlock, Images, ChevronRight,
+  ArrowUpDown, Scaling, Image as ImageIcon,
 } from 'lucide-react';
 import { compressImageDataUrl } from '../lib/attachments';
 import { galleryPath } from '../lib/galleryImages';
 import useGalleryThumbnails from '../hooks/useGalleryThumbnails';
 import Modal, { ModalCloseButton } from './Modal';
+import PhoneTools from './PhoneTools';
+import { useCompactLayout, usePreviewPaneRef } from '../hooks/usePhoneTools';
 import { logError } from '../lib/errorLog';
 import { ELEMENT_SHORTCUT_HINTS, elementShortcutAction } from '../lib/shortcuts';
 
@@ -173,6 +176,12 @@ export default function ElementToolbar({
   const imageFileRef = useRef(null);
   const bgFileRef = useRef(null);
   const galleryPopRef = useRef(null);
+  // Phone layout: one top row plus labelled tools at the bottom of the pane
+  // (PhoneTools). `sheet` is the open tool; Ask AI is showAiInput, as on the
+  // wide bar, so a failed apply still lands on it.
+  const compact = useCompactLayout();
+  const [sheet, setSheet] = useState(null);
+  const [setPhoneRoot, pane] = usePreviewPaneRef(null);
   const thumbs = useGalleryThumbnails(isImage ? galleryImages : [], galleryBytesVersion);
 
   useLayoutEffect(() => {
@@ -415,6 +424,54 @@ export default function ElementToolbar({
     </button>
   );
 
+  const galleryBody = (
+    <>
+      <div className="element-bar-pop-heading">
+        My images {galleryImages.length ? `(${galleryImages.length})` : ''}
+      </div>
+      {galleryImages.length === 0 ? (
+        <div className="element-bar-gallery-empty">
+          <p>No images in this project yet.</p>
+          <button
+            type="button"
+            onClick={() => imageFileRef.current?.click()}
+            className="nav-btn nav-btn-secondary element-bar-btn w-full justify-center"
+          >
+            <Upload size={14} />
+            <span>Upload image</span>
+          </button>
+        </div>
+      ) : (
+        <div className="element-bar-gallery-grid" role="listbox" aria-label="Project images">
+          {galleryImages.map((img) => {
+            const path = galleryPath(img);
+            const isSelected = src.trim() === path;
+            const thumb = thumbs[img.hash];
+            return (
+              <button
+                key={img.hash || path}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => handleSelectGalleryImage(img)}
+                className={`element-bar-gallery-item ${isSelected ? 'element-bar-gallery-item-active' : ''}`}
+                title={`${img.name} (${path})`}
+              >
+                {thumb ? (
+                  <img src={thumb} alt={img.name} className="element-bar-gallery-thumb" />
+                ) : (
+                  <span className="element-bar-gallery-thumb element-bar-gallery-placeholder" />
+                )}
+                <span className="element-bar-gallery-name">{img.name}</span>
+                {isSelected && <Check size={13} className="shrink-0 text-blue-600" aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+
   const structureKey = (action, Icon, label, disabled, extraClass = '', tipSuffix = '') => (
     <button
       type="button"
@@ -429,6 +486,309 @@ export default function ElementToolbar({
       <Icon size={16} />
     </button>
   );
+
+  const openAi = () => {
+    if (!aiInstruction.trim() && currentDraftSummary) setAiInstruction(currentDraftSummary);
+    setShowAiInput(true);
+  };
+
+  if (compact) {
+    const canEditText = isTextRole && onStartInlineEdit && element.text;
+    const phoneActive = showAiInput ? 'ai' : sheet;
+    const togglePhone = (id) => {
+      if (id === 'ai') {
+        if (showAiInput) setShowAiInput(false);
+        else { setSheet(null); openAi(); }
+        return;
+      }
+      setShowAiInput(false);
+      setSheet(phoneActive === id ? null : id);
+    };
+    const phoneTabs = [
+      ...(canEditText ? [{ id: 'text', label: 'Text', title: 'Edit text', icon: <Type size={19} />, onSelect: onStartInlineEdit }] : []),
+      ...(isImage ? [
+        { id: 'image', label: 'Image', title: 'Image', icon: <ImageIcon size={19} /> },
+        { id: 'size', label: 'Size', title: 'Image size', detail: imgWidth && imgHeight ? `${imgWidth} × ${imgHeight}` : undefined, icon: <Scaling size={19} /> },
+        { id: 'alt', label: 'Alt text', title: 'Alt text', icon: <Captions size={19} /> },
+      ] : []),
+      ...(showLink ? [{ id: 'link', label: 'Link', title: 'Link', icon: <Link2 size={19} /> }] : []),
+      ...(showBackground ? [{ id: 'fill', label: 'Fill', title: 'Fill color', detail: bgColor, icon: <span className="phone-tools-icon-color" style={{ background: bgColor }} /> }] : []),
+      ...(showWallpaper ? [{ id: 'wallpaper', label: 'Wallpaper', title: 'Wallpaper', icon: <Images size={19} /> }] : []),
+      ...(canRestructure ? [{ id: 'arrange', label: 'Arrange', title: 'Arrange', icon: <ArrowUpDown size={19} /> }] : []),
+      { id: 'ai', label: 'Ask AI', title: 'Ask AI', icon: <Wand2 size={19} /> },
+    ];
+
+    const phoneSheet = () => {
+      if (phoneActive === 'ai') {
+        return (
+          <div className="phone-form">
+            {message && <p className="phone-tools-message phone-tools-message-inline" role="alert">{message}</p>}
+            <label className="phone-field">
+              <span>What should change?</span>
+              <textarea
+                rows={2}
+                value={aiInstruction}
+                onChange={(e) => setAiInstruction(e.target.value)}
+                placeholder={`e.g. "make this ${(ROLE_LABELS[role] || 'element').toLowerCase()} stand out more"`}
+                className="element-bar-input phone-input phone-textarea"
+              />
+            </label>
+            <div className="phone-row">
+              <button type="button" onClick={() => handleAiSend(false)} className="nav-btn nav-ghost element-bar-btn phone-row-btn">
+                <MessageSquarePlus size={15} />
+                <span>Add to chat</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAiSend(true)}
+                disabled={!aiInstruction.trim()}
+                className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs disabled:opacity-50 phone-row-btn"
+              >
+                <Sparkles size={15} />
+                <span>Apply with AI</span>
+              </button>
+            </div>
+          </div>
+        );
+      }
+      if (phoneActive === 'image') {
+        return (
+          <div className="phone-form">
+            <div className="phone-row">
+              {thumbUrl && <img src={thumbUrl} alt="" className="element-bar-thumb phone-thumb" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+              {fileInput(imageFileRef)}
+              <button type="button" onClick={() => imageFileRef.current?.click()} disabled={busy} className="nav-btn nav-btn-secondary element-bar-btn phone-row-btn">
+                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                <span>Upload from device</span>
+              </button>
+            </div>
+            {galleryImages.length > 0 && <div className="phone-gallery">{galleryBody}</div>}
+            <label className="phone-field">
+              <span>Or paste an image address</span>
+              <input
+                type="url"
+                value={src.startsWith('data:') ? '' : src}
+                placeholder={src.startsWith('data:') ? 'Uploaded image' : 'https://…'}
+                onChange={(e) => setSrc(e.target.value)}
+                onKeyDown={submitOnEnter(handleApply)}
+                className="element-bar-input phone-input"
+                disabled={busy}
+              />
+            </label>
+            {uploadedSize && (
+              <label className="phone-switch">
+                <span>Fit size to the new image</span>
+                <input type="checkbox" checked={fitToImage} onChange={(e) => setFitToImage(e.target.checked)} disabled={busy} />
+              </label>
+            )}
+          </div>
+        );
+      }
+      if (phoneActive === 'size') {
+        return (
+          <div className="phone-form">
+            <div className="phone-row phone-dims">
+              <label className="phone-field">
+                <span>Width (px)</span>
+                <input type="text" inputMode="numeric" value={imgWidth} onChange={(e) => handleWidthChange(e.target.value)} onKeyDown={submitOnEnter(handleApply)} className="element-bar-input phone-input" disabled={busy || fitToImage} />
+              </label>
+              <button
+                type="button"
+                onClick={toggleLockAspect}
+                aria-pressed={lockAspect}
+                aria-label={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
+                className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon element-bar-toggle phone-lock"
+                disabled={busy || fitToImage}
+              >
+                {lockAspect ? <Lock size={16} /> : <Unlock size={16} />}
+              </button>
+              <label className="phone-field">
+                <span>Height (px)</span>
+                <input type="text" inputMode="numeric" value={imgHeight} onChange={(e) => handleHeightChange(e.target.value)} onKeyDown={submitOnEnter(handleApply)} className="element-bar-input phone-input" disabled={busy || fitToImage} />
+              </label>
+            </div>
+            <p className="phone-hint">{lockAspect ? 'Locked: changing one side keeps the proportions.' : 'Unlocked: each side changes on its own.'}</p>
+          </div>
+        );
+      }
+      if (phoneActive === 'alt') {
+        return (
+          <div className="phone-form">
+            <label className="phone-field">
+              <span>Describe the image</span>
+              <textarea
+                rows={2}
+                value={alt}
+                onChange={(e) => setAlt(e.target.value)}
+                placeholder="e.g. Fresh loaves cooling on a rack"
+                className="element-bar-input phone-input phone-textarea"
+                disabled={busy}
+              />
+            </label>
+            <p className="phone-hint">Read out by screen readers, and shown if the image can&apos;t load.</p>
+          </div>
+        );
+      }
+      if (phoneActive === 'link') {
+        return (
+          <div className="phone-form">
+            <label className="phone-field">
+              <span>Goes to</span>
+              <input
+                type="text"
+                inputMode="url"
+                value={href}
+                onChange={(e) => setHref(e.target.value)}
+                onKeyDown={submitOnEnter(handleApply)}
+                placeholder={linkTargets.length ? 'A page, #section or https://…' : 'https://…'}
+                list={linkTargets.length ? linkListId : undefined}
+                className="element-bar-input phone-input"
+                disabled={isApplying}
+              />
+              {linkTargets.length > 0 && (
+                <datalist id={linkListId}>
+                  {linkTargets.map((t) => <option key={t.value} value={t.value} label={t.label} />)}
+                </datalist>
+              )}
+            </label>
+            <label className="phone-switch">
+              <span>Open in a new tab</span>
+              <input type="checkbox" checked={newTab} onChange={(e) => setNewTab(e.target.checked)} disabled={isApplying} />
+            </label>
+          </div>
+        );
+      }
+      if (phoneActive === 'fill') {
+        return (
+          <div className="phone-form">
+            <div className="phone-row">
+              <input
+                type="color"
+                value={/^#[0-9a-f]{6}$/i.test(bgColor) ? bgColor : '#ffffff'}
+                onChange={(e) => setBgColor(e.target.value)}
+                disabled={isApplying}
+                className="element-bar-swatch phone-swatch"
+                aria-label="Pick a fill color"
+              />
+              <label className="phone-field phone-grow">
+                <span>Color code</span>
+                <input
+                  type="text"
+                  value={bgColor}
+                  onChange={(e) => setBgColor(e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`)}
+                  onKeyDown={submitOnEnter(handleApply)}
+                  spellCheck={false}
+                  className="element-bar-input phone-input element-bar-hex"
+                  disabled={isApplying}
+                />
+              </label>
+            </div>
+          </div>
+        );
+      }
+      if (phoneActive === 'wallpaper') {
+        return (
+          <div className="phone-form">
+            <div className="phone-row">
+              {fileInput(bgFileRef)}
+              <button type="button" onClick={() => bgFileRef.current?.click()} disabled={busy} className="nav-btn nav-btn-secondary element-bar-btn phone-row-btn">
+                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                <span>{bgImage || element.backgroundImage ? 'Replace background image' : 'Upload background image'}</span>
+              </button>
+            </div>
+            {bgImage && (
+              <span className="element-bar-ready">
+                <img src={bgImage} alt="" className="element-bar-thumb element-bar-thumb-sm" />
+                <Check size={13} aria-hidden="true" />
+                Ready, tap Apply
+                <button type="button" onClick={() => setBgImage('')} className="element-bar-ready-clear" aria-label="Discard uploaded wallpaper">
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+          </div>
+        );
+      }
+      if (phoneActive === 'arrange') {
+        const tile = (action, Icon, label, disabled, danger = false) => (
+          <button
+            type="button"
+            className={`phone-tools-tile ${danger ? 'phone-tools-tile-danger' : ''}`}
+            onClick={() => onAction(action)}
+            disabled={busy || disabled}
+          >
+            <Icon size={20} aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        );
+        return (
+          <div className="phone-tools-tiles">
+            {tile('move-up', ArrowUp, 'Move up', !element.prevSibling)}
+            {tile('move-down', ArrowDown, 'Move down', !element.nextSibling)}
+            {tile('duplicate', CopyPlus, 'Duplicate', false)}
+            {tile('delete', Trash2, 'Delete', false, true)}
+          </div>
+        );
+      }
+      return null;
+    };
+
+    return (
+      <div
+        ref={setPhoneRoot}
+        className="element-bar element-bar-compact"
+        role="toolbar"
+        aria-label={`Edit selected ${ROLE_LABELS[role] || 'element'}`}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            if (phoneActive) togglePhone(phoneActive);
+            else onCancel();
+          }
+        }}
+      >
+        <div className="element-bar-id">
+          <span className="element-bar-chip" title={`Selected <${element.tag}>`}>{displayChip}</span>
+          {element.parentSelectable && onSelectParent && (
+            <button type="button" onClick={() => onSelectParent(1)} className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon" aria-label="Select parent element">
+              <ArrowUpToLine size={16} />
+            </button>
+          )}
+          {element.childSelectable && onSelectChild && (
+            <button type="button" onClick={() => onSelectChild(1)} className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon" aria-label="Select child element">
+              <ArrowDownToLine size={16} />
+            </button>
+          )}
+        </div>
+        <div className="element-bar-actions">
+          {hasEditableFields && (
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={busy}
+              className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isApplying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+              <span>{isApplying ? 'Applying…' : 'Apply'}</span>
+            </button>
+          )}
+          <button type="button" onClick={onCancel} className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon" aria-label="Close editor">
+            <X size={16} />
+          </button>
+        </div>
+        <PhoneTools
+          pane={pane}
+          tabs={phoneTabs}
+          active={phoneActive}
+          onToggle={togglePhone}
+          ariaLabel={`${ROLE_LABELS[role] || 'Element'} tools`}
+          message={message}
+        >
+          {phoneSheet()}
+        </PhoneTools>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -584,49 +944,7 @@ export default function ElementToolbar({
                       role="dialog"
                       aria-label="My images"
                     >
-                      <div className="element-bar-pop-heading">
-                        My images {galleryImages.length ? `(${galleryImages.length})` : ''}
-                      </div>
-                      {galleryImages.length === 0 ? (
-                        <div className="element-bar-gallery-empty">
-                          <p>No images in this project yet.</p>
-                          <button
-                            type="button"
-                            onClick={() => imageFileRef.current?.click()}
-                            className="nav-btn nav-btn-secondary element-bar-btn w-full justify-center"
-                          >
-                            <Upload size={14} />
-                            <span>Upload image</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="element-bar-gallery-grid" role="listbox" aria-label="Project images">
-                          {galleryImages.map((img) => {
-                            const path = galleryPath(img);
-                            const isSelected = src.trim() === path;
-                            const thumb = thumbs[img.hash];
-                            return (
-                              <button
-                                key={img.hash || path}
-                                type="button"
-                                role="option"
-                                aria-selected={isSelected}
-                                onClick={() => handleSelectGalleryImage(img)}
-                                className={`element-bar-gallery-item ${isSelected ? 'element-bar-gallery-item-active' : ''}`}
-                                title={`${img.name} (${path})`}
-                              >
-                                {thumb ? (
-                                  <img src={thumb} alt={img.name} className="element-bar-gallery-thumb" />
-                                ) : (
-                                  <span className="element-bar-gallery-thumb element-bar-gallery-placeholder" />
-                                )}
-                                <span className="element-bar-gallery-name">{img.name}</span>
-                                {isSelected && <Check size={13} className="shrink-0 text-blue-600" aria-hidden="true" />}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                      {galleryBody}
                     </div>
                   )}
                 </div>
@@ -881,12 +1199,7 @@ export default function ElementToolbar({
           <>
             <button
               type="button"
-              onClick={() => {
-                if (!aiInstruction.trim() && currentDraftSummary) {
-                  setAiInstruction(currentDraftSummary);
-                }
-                setShowAiInput(true);
-              }}
+              onClick={openAi}
               className="nav-btn nav-ghost element-bar-btn"
               data-tip="Describe the change and let AI make it"
             >

@@ -4,10 +4,14 @@ import {
 } from 'lucide-react';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { FONT_OPTIONS, findFontByStack, fontPreviewStylesheetUrl } from '../lib/fonts';
+import PhoneTools from './PhoneTools';
+import { useCompactLayout, usePreviewPaneRef } from '../hooks/usePhoneTools';
 
 // Contextual toolbar for an in-place text edit (the Website Studio's
 // click-to-edit). It docks in the same place as ElementToolbar and is built
-// from the same parts. The text itself is typed on the page; this bar owns
+// from the same parts. In the phone layout it splits: one row at the top
+// (what is being edited, undo/redo, Cancel, Done) and labelled tools at the
+// bottom of the pane, above the keyboard. The text itself is typed on the page; this bar owns
 // how it looks: font, size, weight, style, alignment, color and case.
 //
 // Every control previews live in the frame (the bridge's inline-format) and
@@ -80,6 +84,9 @@ const ensurePreviewFonts = () => {
   } catch { /* previews fall back to the UI font */ }
 };
 
+const ALIGN_ICONS = { left: AlignLeft, center: AlignCenter, right: AlignRight };
+const alignOf = (value) => (value === 'center' ? 'center' : value === 'right' || value === 'end' ? 'right' : 'left');
+
 export default function TextFormatToolbar({
   element = null,
   typography,
@@ -93,10 +100,14 @@ export default function TextFormatToolbar({
   onSelectParent = null,
 }) {
   const t = typography || {};
-  const [open, setOpen] = useState(null); // 'font' | 'color' | null
+  const compact = useCompactLayout();
+  const [open, setOpen] = useState(null); // wide bar popover: 'font' | 'color' | null
+  const [sheet, setSheet] = useState(null); // phone tool: 'font' | 'size' | 'style' | 'align' | 'color' | null
   const [sizeDraft, setSizeDraft] = useState(null);
   const rootRef = useRef(null);
   const popRef = useRef(null);
+  const sheetRef = useRef(null);
+  const [setRoot, pane] = usePreviewPaneRef(rootRef);
 
   const currentFont = findFontByStack(t.fontFamily);
   const fontLabel = currentFont?.label || firstFamily(t.fontFamily);
@@ -108,9 +119,18 @@ export default function TextFormatToolbar({
   const colorHex = rgbToHex(t.color);
   const colorName = PRESET_NAMES.get(colorHex.toLowerCase()) || 'Custom';
   const isPreset = PRESET_NAMES.has(colorHex.toLowerCase());
-  // text-align does nothing on a purely inline host, so say so instead of
-  // offering keys that appear broken.
-  const alignEnabled = !String(t.display || '').startsWith('inline') || /inline-(block|flex|grid)/.test(t.display);
+  const align = alignOf(t.textAlign);
+
+  // Offer only the keys that make sense for what is being edited:
+  // - headings: no underline (an underlined heading reads as a link)
+  // - buttons and links: no alignment (their label sits in a pill or a run
+  //   of text); buttons also drop underline
+  // - purely inline text: no alignment, since text-align does nothing there
+  // A key whose style is already applied stays, so it can be turned off.
+  const role = element?.role || 'text';
+  const isInline = String(t.display || '').startsWith('inline') && !/inline-(block|flex|grid)/.test(t.display);
+  const showUnderline = isUnderline || (role !== 'heading' && role !== 'button');
+  const showAlign = role !== 'button' && role !== 'link' && !isInline;
 
   useLayoutEffect(() => {
     if (!open) return undefined;
@@ -136,7 +156,10 @@ export default function TextFormatToolbar({
   }, [open]);
 
   useEffect(() => {
-    if (open === 'font') ensurePreviewFonts();
+    if (open === 'font' || sheet === 'font') ensurePreviewFonts();
+  }, [open, sheet]);
+
+  useEffect(() => {
     if (!open) return undefined;
     const dismiss = (e) => {
       if (e.type === 'keydown') {
@@ -153,6 +176,22 @@ export default function TextFormatToolbar({
     };
   }, [open]);
 
+  // Opening a phone tool moves focus to its options, which puts the keyboard
+  // away so the options get the room (the press already sent the hold, so
+  // the session survives the blur). Tapping back into the text brings the
+  // keyboard back and puts the options away.
+  useEffect(() => {
+    if (!sheet) return undefined;
+    sheetRef.current?.focus({ preventScroll: true });
+    const onWindowBlur = () => {
+      setTimeout(() => {
+        if (document.activeElement?.tagName === 'IFRAME') setSheet(null);
+      }, 0);
+    };
+    window.addEventListener('blur', onWindowBlur);
+    return () => window.removeEventListener('blur', onWindowBlur);
+  }, [sheet]);
+
   const format = (styles) => onFormat?.(styles);
 
   const commitSize = (raw) => {
@@ -166,253 +205,342 @@ export default function TextFormatToolbar({
     format({ fontSize: `${Math.min(200, Math.max(8, next))}px` });
   };
 
-  const toggleKey = (label, pressed, onClick, Icon, tip) => (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={pressed}
-      aria-label={label}
-      data-tip={tip || label}
-      className={`nav-segmented-btn nav-segmented-btn-icon ${pressed ? 'nav-segmented-btn-active' : ''}`}
-    >
-      <Icon size={16} className={pressed ? 'text-red-500' : undefined} />
-    </button>
+  const styleToggles = [
+    { id: 'bold', label: 'Bold', Icon: Bold, pressed: isBold, apply: () => format({ fontWeight: isBold ? '400' : '700' }) },
+    { id: 'italic', label: 'Italic', Icon: Italic, pressed: isItalic, apply: () => format({ fontStyle: isItalic ? 'normal' : 'italic' }) },
+    ...(showUnderline ? [{ id: 'underline', label: 'Underline', Icon: Underline, pressed: isUnderline, apply: () => format({ textDecorationLine: isUnderline ? 'none' : 'underline' }) }] : []),
+    { id: 'upper', label: 'Uppercase', Icon: CaseUpper, pressed: isUpper, apply: () => format({ textTransform: isUpper ? 'none' : 'uppercase' }) },
+  ];
+
+  const alignOptions = [
+    { value: 'left', label: 'Left', tip: 'Align left' },
+    { value: 'center', label: 'Center', tip: 'Align center' },
+    { value: 'right', label: 'Right', tip: 'Align right' },
+  ];
+
+  const fontList = () => FONT_CATEGORIES.map((category) => (
+    <div key={category}>
+      <div className="element-bar-pop-heading">{category}</div>
+      {FONT_OPTIONS.filter((f) => f.category === category).map((font) => (
+        <button
+          key={font.id}
+          type="button"
+          role="option"
+          aria-selected={currentFont?.id === font.id}
+          className={`element-bar-font ${currentFont?.id === font.id ? 'element-bar-font-active' : ''}`}
+          style={{ fontFamily: font.stack }}
+          onClick={() => { format({ fontFamily: font.stack }); setOpen(null); }}
+        >
+          <span>{font.label}</span>
+          {currentFont?.id === font.id && <Check size={14} aria-hidden="true" />}
+        </button>
+      ))}
+    </div>
+  ));
+
+  const swatches = () => (
+    <>
+      <div className="element-bar-swatches">
+        {NEUTRALS.map(({ name, hex }) => (
+          <button
+            key={hex}
+            type="button"
+            className={`element-bar-chipcolor ${colorHex.toLowerCase() === hex ? 'element-bar-chipcolor-active' : ''}`}
+            style={{ background: hex }}
+            aria-label={name}
+            aria-pressed={colorHex.toLowerCase() === hex}
+            title={name}
+            onClick={() => format({ color: hex })}
+          >
+            {colorHex.toLowerCase() === hex && <Check size={14} className="element-bar-chipcheck" style={{ color: hex === '#ffffff' || hex === '#e5e7eb' ? '#111827' : '#ffffff' }} aria-hidden="true" />}
+          </button>
+        ))}
+        {/* Anything not in the presets: the browser's own picker, behind a swatch. */}
+        <label
+          className={`element-bar-chipcolor element-bar-chipcustom ${!isPreset ? 'element-bar-chipcolor-active' : ''}`}
+          title="Custom color"
+        >
+          {!isPreset && <span className="element-bar-chipcustom-dot" style={{ background: colorHex }} />}
+          <input
+            type="color"
+            value={colorHex}
+            onChange={(e) => format({ color: e.target.value })}
+            aria-label="Pick a custom text color"
+          />
+        </label>
+      </div>
+      <div className="element-bar-swatches element-bar-swatches-hues">
+        {[0, 1, 2].flatMap((tone) => HUES.map((hue) => {
+          const hex = hue.tones[tone];
+          const label = `${TONE_NAMES[tone] ? `${TONE_NAMES[tone]} ` : ''}${hue.name}`;
+          const active = colorHex.toLowerCase() === hex;
+          return (
+            <button
+              key={hex}
+              type="button"
+              className={`element-bar-chipcolor ${active ? 'element-bar-chipcolor-active' : ''}`}
+              style={{ background: hex }}
+              aria-label={label}
+              aria-pressed={active}
+              title={label}
+              onClick={() => format({ color: hex })}
+            >
+              {active && <Check size={14} className="element-bar-chipcheck" style={{ color: tone === 0 ? '#111827' : '#ffffff' }} aria-hidden="true" />}
+            </button>
+          );
+        }))}
+      </div>
+    </>
   );
 
-  const alignKey = (value, Icon, label) => (
-    <button
-      key={value}
-      type="button"
-      onClick={() => format({ textAlign: value })}
-      disabled={!alignEnabled}
-      aria-pressed={alignEnabled && t.textAlign === value}
-      aria-label={label}
-      data-tip={alignEnabled ? label : 'Alignment applies to block text'}
-      className={`nav-segmented-btn nav-segmented-btn-icon ${alignEnabled && t.textAlign === value ? 'nav-segmented-btn-active' : ''}`}
-    >
-      <Icon size={16} className={alignEnabled && t.textAlign === value ? 'text-red-500' : undefined} />
-    </button>
+  const idBlock = element && (
+    <div className="element-bar-id">
+      <span className="element-bar-chip" title={`Editing <${element.tag}>`}>
+        {element.displayLabel || 'Text'}
+      </span>
+      {element.parentSelectable && onSelectParent && (
+        <button
+          type="button"
+          onClick={() => onSelectParent(1)}
+          className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
+          aria-label="Select parent element"
+          data-tip={`Select parent (${element.parentTag ? `<${element.parentTag}>` : 'container'})`}
+        >
+          <ArrowUpToLine size={16} />
+        </button>
+      )}
+    </div>
   );
+
+  // Session history: typing and formatting steps, not page versions
+  const history = (
+    <div className="nav-segmented-group" role="group" aria-label="Undo and redo">
+      <button
+        type="button"
+        className="nav-segmented-btn nav-segmented-btn-icon"
+        onClick={() => onUndo?.()}
+        disabled={!canUndo}
+        aria-label="Undo"
+        data-tip="Undo"
+        data-tip-key={SHORTCUT_HINTS.undo}
+      >
+        <Undo2 size={16} />
+      </button>
+      <button
+        type="button"
+        className="nav-segmented-btn nav-segmented-btn-icon"
+        onClick={() => onRedo?.()}
+        disabled={!canRedo}
+        aria-label="Redo"
+        data-tip="Redo"
+        data-tip-key={SHORTCUT_HINTS.redo}
+      >
+        <Redo2 size={16} />
+      </button>
+    </div>
+  );
+
+  const wideBody = (
+    <div className="element-bar-body element-bar-format">
+      {history}
+
+      {/* Font */}
+      <div className="element-bar-anchor">
+        <button
+          type="button"
+          className="element-bar-select"
+          aria-haspopup="listbox"
+          aria-expanded={open === 'font'}
+          aria-label={`Font: ${fontLabel}`}
+          data-tip={open === 'font' ? undefined : 'Font'}
+          onClick={() => setOpen(open === 'font' ? null : 'font')}
+          style={currentFont ? { fontFamily: currentFont.stack } : undefined}
+        >
+          <span className="element-bar-select-label">{fontLabel}</span>
+          <ChevronDown size={14} aria-hidden="true" />
+        </button>
+        {open === 'font' && (
+          <div ref={popRef} className="element-bar-pop element-bar-pop-fonts" role="listbox" aria-label="Fonts">
+            {fontList()}
+          </div>
+        )}
+      </div>
+
+      {/* Size */}
+      <div className="nav-segmented-group" role="group" aria-label="Font size">
+        <button type="button" className="nav-segmented-btn nav-segmented-btn-icon" onClick={() => bumpSize(-1)} disabled={size <= 8} aria-label="Smaller" data-tip="Smaller">
+          <Minus size={15} />
+        </button>
+        <input
+          type="text"
+          inputMode="numeric"
+          className="element-bar-size"
+          aria-label="Font size in pixels"
+          value={sizeDraft ?? String(size)}
+          onChange={(e) => setSizeDraft(e.target.value.replace(/[^\d.]/g, '').slice(0, 3))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitSize(e.currentTarget.value); }
+            else if (e.key === 'Escape') { e.stopPropagation(); setSizeDraft(null); }
+          }}
+          onBlur={(e) => { if (sizeDraft !== null) commitSize(e.currentTarget.value); }}
+        />
+        <button type="button" className="nav-segmented-btn nav-segmented-btn-icon" onClick={() => bumpSize(1)} disabled={size >= 200} aria-label="Larger" data-tip="Larger">
+          <Plus size={15} />
+        </button>
+      </div>
+
+      {/* Style */}
+      <div className="nav-segmented-group" role="group" aria-label="Text style">
+        {styleToggles.map(({ id, label, Icon, pressed, apply }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={apply}
+            aria-pressed={pressed}
+            aria-label={label}
+            data-tip={label}
+            className={`nav-segmented-btn nav-segmented-btn-icon ${pressed ? 'nav-segmented-btn-active' : ''}`}
+          >
+            <Icon size={16} className={pressed ? 'text-red-500' : undefined} />
+          </button>
+        ))}
+      </div>
+
+      {/* Alignment */}
+      {showAlign && (
+        <div className="nav-segmented-group" role="group" aria-label="Alignment">
+          {alignOptions.map(({ value, tip }) => {
+            const Icon = ALIGN_ICONS[value];
+            const pressed = t.textAlign === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => format({ textAlign: value })}
+                aria-pressed={pressed}
+                aria-label={tip}
+                data-tip={tip}
+                className={`nav-segmented-btn nav-segmented-btn-icon ${pressed ? 'nav-segmented-btn-active' : ''}`}
+              >
+                <Icon size={16} className={pressed ? 'text-red-500' : undefined} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Color */}
+      <div className="element-bar-anchor">
+        <button
+          type="button"
+          className="element-bar-select element-bar-select-color"
+          aria-haspopup="dialog"
+          aria-expanded={open === 'color'}
+          aria-label={`Text color: ${colorName}`}
+          data-tip={open === 'color' ? undefined : 'Text color'}
+          onClick={() => setOpen(open === 'color' ? null : 'color')}
+        >
+          <span className="element-bar-color-dot" style={{ background: t.color || colorHex }} />
+          <ChevronDown size={14} aria-hidden="true" />
+        </button>
+        {open === 'color' && (
+          <div ref={popRef} className="element-bar-pop element-bar-pop-colors" role="dialog" aria-label="Text color">
+            {swatches()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // --- Phone tools: a labelled bar plus the open tool's options ----------
+  const AlignIcon = ALIGN_ICONS[align];
+  const tabs = [
+    { id: 'font', label: 'Font', title: 'Font', detail: fontLabel, icon: <span style={currentFont ? { fontFamily: currentFont.stack } : undefined}>Aa</span> },
+    { id: 'size', label: 'Size', title: 'Size', icon: <span className="phone-tools-icon-num">{size}</span> },
+    { id: 'style', label: 'Style', title: 'Style', icon: <Bold size={19} /> },
+    ...(showAlign ? [{ id: 'align', label: 'Align', title: 'Alignment', icon: <AlignIcon size={19} /> }] : []),
+    { id: 'color', label: 'Color', title: 'Text color', detail: colorName, icon: <span className="phone-tools-icon-color" style={{ background: t.color || colorHex }} /> },
+  ];
+
+  const sheetBody = () => {
+    if (sheet === 'font') return <div role="listbox" aria-label="Fonts">{fontList()}</div>;
+    if (sheet === 'size') {
+      return (
+        <div className="phone-tools-stepper">
+          <button type="button" className="phone-tools-step" onClick={() => bumpSize(-1)} disabled={size <= 8} aria-label="Smaller">
+            <Minus size={22} />
+          </button>
+          <span className="phone-tools-size" aria-live="polite">{size}<small>px</small></span>
+          <button type="button" className="phone-tools-step" onClick={() => bumpSize(1)} disabled={size >= 200} aria-label="Larger">
+            <Plus size={22} />
+          </button>
+        </div>
+      );
+    }
+    if (sheet === 'style') {
+      return (
+        <div className="phone-tools-tiles">
+          {styleToggles.map(({ id, label, Icon, pressed, apply }) => (
+            <button key={id} type="button" className="phone-tools-tile" aria-pressed={pressed} onClick={apply}>
+              <Icon size={20} aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      );
+    }
+    if (sheet === 'align') {
+      return (
+        <div className="phone-tools-tiles">
+          {alignOptions.map(({ value, label }) => {
+            const Icon = ALIGN_ICONS[value];
+            return (
+              <button key={value} type="button" className="phone-tools-tile" aria-pressed={align === value} onClick={() => format({ textAlign: value })}>
+                <Icon size={20} aria-hidden="true" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+    if (sheet === 'color') return swatches();
+    return null;
+  };
 
   return (
     <div
-      ref={rootRef}
-      className="element-bar element-bar-text"
+      ref={setRoot}
+      className={`element-bar element-bar-text ${compact ? 'element-bar-compact' : ''}`}
       role="toolbar"
-      aria-label="Format text"
+      aria-label={compact ? 'Text editing' : 'Format text'}
       // Keep focus (and so the caret) in the page while pressing keys here;
-      // real inputs still need theirs, which the hold message covers.
+      // real inputs still need theirs, which the hold message covers. The
+      // phone tools are portaled into the pane but still bubble through here.
       onMouseDown={(e) => { if (!e.target.closest('input')) e.preventDefault(); }}
       onPointerDownCapture={() => onHold?.(true)}
-      onKeyDown={(e) => { if (e.key === 'Escape' && !open) onFinish?.(false); }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape') return;
+        if (sheet) { e.stopPropagation(); setSheet(null); }
+        else if (!open) onFinish?.(false);
+      }}
     >
-      <div className="element-bar-body element-bar-format">
-        {element && (
-          <>
-            <div className="element-bar-id">
-              <span className="element-bar-chip" title={`Editing <${element.tag}>`}>
-                {element.displayLabel || 'Text'}
-              </span>
-              {element.parentSelectable && onSelectParent && (
-                <button
-                  type="button"
-                  onClick={() => onSelectParent(1)}
-                  className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
-                  aria-label="Select parent element"
-                  data-tip={`Select parent (${element.parentTag ? `<${element.parentTag}>` : 'container'})`}
-                >
-                  <ArrowUpToLine size={16} />
-                </button>
-              )}
-            </div>
-            <span className="chrome-divider element-bar-divider" aria-hidden="true" />
-          </>
-        )}
-
-        {/* Session history: typing and formatting steps, not page versions */}
-        <div className="nav-segmented-group" role="group" aria-label="Undo and redo">
-          <button
-            type="button"
-            className="nav-segmented-btn nav-segmented-btn-icon"
-            onClick={() => onUndo?.()}
-            disabled={!canUndo}
-            aria-label="Undo"
-            data-tip="Undo"
-            data-tip-key={SHORTCUT_HINTS.undo}
-          >
-            <Undo2 size={16} />
-          </button>
-          <button
-            type="button"
-            className="nav-segmented-btn nav-segmented-btn-icon"
-            onClick={() => onRedo?.()}
-            disabled={!canRedo}
-            aria-label="Redo"
-            data-tip="Redo"
-            data-tip-key={SHORTCUT_HINTS.redo}
-          >
-            <Redo2 size={16} />
-          </button>
-        </div>
-
-        {/* Font */}
-        <div className="element-bar-anchor">
-          <button
-            type="button"
-            className="element-bar-select"
-            aria-haspopup="listbox"
-            aria-expanded={open === 'font'}
-            aria-label={`Font: ${fontLabel}`}
-            data-tip={open === 'font' ? undefined : 'Font'}
-            onClick={() => setOpen(open === 'font' ? null : 'font')}
-            style={currentFont ? { fontFamily: currentFont.stack } : undefined}
-          >
-            <span className="element-bar-select-label">{fontLabel}</span>
-            <ChevronDown size={14} aria-hidden="true" />
-          </button>
-          {open === 'font' && (
-            <div
-              ref={popRef}
-              className="element-bar-pop element-bar-pop-fonts"
-              role="listbox"
-              aria-label="Fonts"
-            >
-              {FONT_CATEGORIES.map((category) => (
-                <div key={category}>
-                  <div className="element-bar-pop-heading">{category}</div>
-                  {FONT_OPTIONS.filter((f) => f.category === category).map((font) => (
-                    <button
-                      key={font.id}
-                      type="button"
-                      role="option"
-                      aria-selected={currentFont?.id === font.id}
-                      className={`element-bar-font ${currentFont?.id === font.id ? 'element-bar-font-active' : ''}`}
-                      style={{ fontFamily: font.stack }}
-                      onClick={() => { format({ fontFamily: font.stack }); setOpen(null); }}
-                    >
-                      <span>{font.label}</span>
-                      {currentFont?.id === font.id && <Check size={14} aria-hidden="true" />}
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
+      {compact ? (
+        <>
+          {idBlock}
+          {history}
+        </>
+      ) : (
+        <>
+          {idBlock && (
+            <>
+              {idBlock}
+              <span className="chrome-divider element-bar-divider" aria-hidden="true" />
+            </>
           )}
-        </div>
-
-        {/* Size */}
-        <div className="nav-segmented-group" role="group" aria-label="Font size">
-          <button type="button" className="nav-segmented-btn nav-segmented-btn-icon" onClick={() => bumpSize(-1)} disabled={size <= 8} aria-label="Smaller" data-tip="Smaller">
-            <Minus size={15} />
-          </button>
-          <input
-            type="text"
-            inputMode="numeric"
-            className="element-bar-size"
-            aria-label="Font size in pixels"
-            value={sizeDraft ?? String(size)}
-            onChange={(e) => setSizeDraft(e.target.value.replace(/[^\d.]/g, '').slice(0, 3))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitSize(e.currentTarget.value); }
-              else if (e.key === 'Escape') { e.stopPropagation(); setSizeDraft(null); }
-            }}
-            onBlur={(e) => { if (sizeDraft !== null) commitSize(e.currentTarget.value); }}
-          />
-          <button type="button" className="nav-segmented-btn nav-segmented-btn-icon" onClick={() => bumpSize(1)} disabled={size >= 200} aria-label="Larger" data-tip="Larger">
-            <Plus size={15} />
-          </button>
-        </div>
-
-        {/* Style */}
-        <div className="nav-segmented-group" role="group" aria-label="Text style">
-          {toggleKey('Bold', isBold, () => format({ fontWeight: isBold ? '400' : '700' }), Bold)}
-          {toggleKey('Italic', isItalic, () => format({ fontStyle: isItalic ? 'normal' : 'italic' }), Italic)}
-          {toggleKey('Underline', isUnderline, () => format({ textDecorationLine: isUnderline ? 'none' : 'underline' }), Underline)}
-          {toggleKey('Uppercase', isUpper, () => format({ textTransform: isUpper ? 'none' : 'uppercase' }), CaseUpper)}
-        </div>
-
-        {/* Alignment */}
-        <div className="nav-segmented-group" role="group" aria-label="Alignment">
-          {alignKey('left', AlignLeft, 'Align left')}
-          {alignKey('center', AlignCenter, 'Align center')}
-          {alignKey('right', AlignRight, 'Align right')}
-        </div>
-
-        {/* Color */}
-        <div className="element-bar-anchor">
-          <button
-            type="button"
-            className="element-bar-select element-bar-select-color"
-            aria-haspopup="dialog"
-            aria-expanded={open === 'color'}
-            aria-label={`Text color: ${colorName}`}
-            data-tip={open === 'color' ? undefined : 'Text color'}
-            onClick={() => setOpen(open === 'color' ? null : 'color')}
-          >
-            <span className="element-bar-color-dot" style={{ background: t.color || colorHex }} />
-            <ChevronDown size={14} aria-hidden="true" />
-          </button>
-          {open === 'color' && (
-            <div
-              ref={popRef}
-              className="element-bar-pop element-bar-pop-colors"
-              role="dialog"
-              aria-label="Text color"
-            >
-              <div className="element-bar-swatches">
-                {NEUTRALS.map(({ name, hex }) => (
-                  <button
-                    key={hex}
-                    type="button"
-                    className={`element-bar-chipcolor ${colorHex.toLowerCase() === hex ? 'element-bar-chipcolor-active' : ''}`}
-                    style={{ background: hex }}
-                    aria-label={name}
-                    aria-pressed={colorHex.toLowerCase() === hex}
-                    title={name}
-                    onClick={() => format({ color: hex })}
-                  >
-                    {colorHex.toLowerCase() === hex && <Check size={14} className="element-bar-chipcheck" style={{ color: hex === '#ffffff' || hex === '#e5e7eb' ? '#111827' : '#ffffff' }} aria-hidden="true" />}
-                  </button>
-                ))}
-                {/* Anything not in the presets: the browser's own picker, behind a swatch. */}
-                <label
-                  className={`element-bar-chipcolor element-bar-chipcustom ${!isPreset ? 'element-bar-chipcolor-active' : ''}`}
-                  title="Custom color"
-                >
-                  {!isPreset && <span className="element-bar-chipcustom-dot" style={{ background: colorHex }} />}
-                  <input
-                    type="color"
-                    value={colorHex}
-                    onChange={(e) => format({ color: e.target.value })}
-                    aria-label="Pick a custom text color"
-                  />
-                </label>
-              </div>
-              <div className="element-bar-swatches element-bar-swatches-hues">
-                {[0, 1, 2].flatMap((tone) => HUES.map((hue) => {
-                  const hex = hue.tones[tone];
-                  const label = `${TONE_NAMES[tone] ? `${TONE_NAMES[tone]} ` : ''}${hue.name}`;
-                  const active = colorHex.toLowerCase() === hex;
-                  return (
-                    <button
-                      key={hex}
-                      type="button"
-                      className={`element-bar-chipcolor ${active ? 'element-bar-chipcolor-active' : ''}`}
-                      style={{ background: hex }}
-                      aria-label={label}
-                      aria-pressed={active}
-                      title={label}
-                      onClick={() => format({ color: hex })}
-                    >
-                      {active && <Check size={14} className="element-bar-chipcheck" style={{ color: tone === 0 ? '#111827' : '#ffffff' }} aria-hidden="true" />}
-                    </button>
-                  );
-                }))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+          {wideBody}
+        </>
+      )}
 
       <div className="element-bar-actions">
         <span className="element-bar-keys" aria-hidden="true">
@@ -421,7 +549,8 @@ export default function TextFormatToolbar({
         <button
           type="button"
           onClick={() => onFinish?.(false)}
-          className="nav-btn nav-ghost element-bar-btn"
+          className="nav-btn nav-ghost element-bar-btn element-bar-cancel"
+          aria-label="Cancel"
           data-tip="Discard your typing and formatting"
         >
           <X size={15} />
@@ -438,6 +567,19 @@ export default function TextFormatToolbar({
           <span>Done</span>
         </button>
       </div>
+
+      {compact && (
+        <PhoneTools
+          pane={pane}
+          tabs={tabs}
+          active={sheet}
+          onToggle={(id) => setSheet(sheet === id ? null : id)}
+          sheetRef={sheetRef}
+          ariaLabel="Format text"
+        >
+          {sheetBody()}
+        </PhoneTools>
+      )}
     </div>
   );
 }

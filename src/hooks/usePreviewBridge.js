@@ -58,6 +58,9 @@ export default function usePreviewBridge({
   onInsertMenu,
   onNavigatePage,
   onRouteChange,
+  // Puter calls from the page's stand-in `puter` (lib/puterHelper.js):
+  // ({ method, args, onChunk }) => Promise of the result (lib/puterHost.js).
+  onPuterCall,
 }) {
   const onRuntimeErrorRef = useRef(onRuntimeError);
   const onReadyRef = useRef(onReady);
@@ -75,6 +78,7 @@ export default function usePreviewBridge({
   const onInsertMenuRef = useRef(onInsertMenu);
   const onNavigatePageRef = useRef(onNavigatePage);
   const onRouteChangeRef = useRef(onRouteChange);
+  const onPuterCallRef = useRef(onPuterCall);
   const recentTokensRef = useRef(new Set(previewToken ? [previewToken] : []));
   // The token of the document the iframe is navigating TO. `send` reads this
   // ref instead of closing over the prop so a `load` handler attached by a
@@ -119,6 +123,7 @@ export default function usePreviewBridge({
     onInsertMenuRef.current = onInsertMenu;
     onNavigatePageRef.current = onNavigatePage;
     onRouteChangeRef.current = onRouteChange;
+    onPuterCallRef.current = onPuterCall;
     currentTokenRef.current = previewToken;
     editingEnabledRef.current = editingEnabled;
     dragEnabledRef.current = dragEnabled;
@@ -266,6 +271,26 @@ export default function usePreviewBridge({
         // and Google Maps and the like refuse to load in it.
         const url = externalLinkUrl(data.payload);
         if (url) confirmExternal({ url });
+      }
+      else if (data.type === 'puter-call') {
+        // A Puter call from the page. Untrusted: the host only runs its own
+        // allow-listed methods, inside this project's data (puterHost.js).
+        // The answer goes to the document that asked, by its token; it holds
+        // only what the page asked for, never Puter's session.
+        const id = data.payload?.id;
+        if (!onPuterCallRef.current || !Number.isSafeInteger(id)) return;
+        const token = data.token;
+        const reply = (type, payload) => send(type, { id, ...payload }, token);
+        Promise.resolve()
+          .then(() => onPuterCallRef.current({
+            method: String(data.payload.method || ''),
+            args: data.payload.args,
+            onChunk: (chunk) => reply('puter-chunk', { chunk }),
+          }))
+          .then(
+            (value) => reply('puter-result', { value, signedIn: true }),
+            (err) => reply('puter-result', { error: { code: String(err?.code || 'failed'), message: String(err?.message || 'Puter couldn’t do that. Try again.') } }),
+          );
       }
       else if (data.type === "error") logWarn('Preview bridge reported an error', data.payload?.message);
       else if (data.type === 'runtime_error' && onRuntimeErrorRef.current) onRuntimeErrorRef.current(data.payload);

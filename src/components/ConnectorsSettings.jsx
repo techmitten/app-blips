@@ -2,7 +2,7 @@ import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, Camera, Check, CircleCheck, CircleAlert, Copy, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, PackagePlus,
+  ArrowLeft, Camera, Check, Cloud, CircleCheck, CircleAlert, Copy, ExternalLink, Globe, Images, Info, MessagesSquare, Plus, Search, PackagePlus,
 } from 'lucide-react';
 import { SettingRow, Switch, FIELD_CLASS } from './SettingControls';
 import ConnectorInfoModal from './ConnectorInfoModal';
@@ -14,6 +14,7 @@ import ProviderSearchConnector from './ProviderSearchConnector';
 import { useProviderInUse } from '../hooks/useProviderWeb';
 import SeoConnector from './SeoConnector';
 import SheetsConnector from './SheetsConnector';
+import PuterConnector from './PuterConnector';
 import ImagesConnector from './ImagesConnector';
 import PublishDialog from './PublishDialog';
 import {
@@ -47,6 +48,8 @@ import { SheetsLogo, SquareLogo } from './serviceLogos';
 // same way and uses the plain server-key page (ServerKeyConnector.jsx); the AI
 // searches with it (lib/webSearch.js). Google Sheets Backend has its own page
 // too (SheetsConnector.jsx): its setup steps come before the URL box.
+// Puter has no key (`keyless`): its page (PuterConnector.jsx) is a switch and
+// a note that Puter features are tested on the published site.
 // Web3Forms' cube relies on its shaded faces, which a mask would flatten, so it
 // keeps its own colours (a blue close to the indigo of the others). Surge's
 // multi-coloured mascot is the same.
@@ -71,6 +74,8 @@ const ICONS = {
   tawkto: tinted(MessagesSquare, 'text-[#03a84e]'),
   pixabay: tinted(Camera, 'text-[#2ec66d]'),
   tavily: tinted(Globe, 'text-[#468bff]'),
+  // Puter: no bundled logo either.
+  puter: tinted(Cloud, 'text-[#2563eb]'),
   square: SquareLogo,
   sheets: SheetsLogo,
   seo: Search, images: Images,
@@ -414,6 +419,8 @@ export default function ConnectorsSettings({ kind = 'services', seoProject = nul
                 )
                 : CONNECTOR_DEFINITIONS[openId].sheetsSetup
                   ? <SheetsConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
+                  : CONNECTOR_DEFINITIONS[openId].keyless
+                    ? <PuterConnector key={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />
                   : <ConnectorPage key={openId} id={openId} state={connectors[openId]} onChange={(fields) => update(openId, fields)} />}
           {CONNECTOR_DEFINITIONS[openId].prompts?.length > 0 && (
             <ConnectorPrompts

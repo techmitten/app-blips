@@ -359,6 +359,11 @@ const STORE_APP_URL = 'ms-windows-store://pdp/?productid=9NK9SS4V2N1K';
 // The same for a snap install, opening AppBlips in Ubuntu's App Center.
 // Matches SNAP_STORE_URL in src/lib/updates.js.
 const SNAP_APP_URL = 'snap://appblips';
+// Puter's sign-in (src/lib/puterHost.js) is a pop-up that reports back to
+// AppBlips through window.opener, so it opens as a child window here rather
+// than in the system browser. Sandboxed, without Node, and it may move on to
+// other https pages (a "Sign in with Google" step) but never to the app.
+const isPuterSignIn = (url) => /^https:\/\/puter\.com\//i.test(url);
 let lastExternalOpen = 0;
 const openExternalPaced = (url) => {
   const now = Date.now();
@@ -382,6 +387,17 @@ function lockDown(contents) {
         },
       };
     }
+    if (isPuterSignIn(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 520,
+          height: 720,
+          autoHideMenuBar: true,
+          webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+        },
+      };
+    }
     // mailto: for Publish's "Share by email": it only opens a draft in the
     // user's mail app, which they still have to send.
     if (/^(https?:\/\/|mailto:)/i.test(url) || url === STORE_APP_URL || url === SNAP_APP_URL) openExternalPaced(url);
@@ -389,6 +405,8 @@ function lockDown(contents) {
   });
   contents.on('will-navigate', (event, url) => {
     if (isAppUrl(url) && isAppUrl(contents.getURL())) return;
+    // Within the Puter sign-in window (the only https window AppBlips opens).
+    if (/^https:\/\//i.test(url) && /^https:\/\//i.test(contents.getURL())) return;
     event.preventDefault();
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
   });

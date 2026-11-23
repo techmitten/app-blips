@@ -2,6 +2,7 @@ import { injectLoopProtection } from './lib/loopProtection.js';
 import { compileJsxScripts } from './lib/jsxCompile.js';
 import { injectPollinationsHelper } from './lib/pollinationsHelper.js';
 import { injectSheetsHelper } from './lib/sheetsHelper.js';
+import { injectPuterShim } from './lib/puterHelper.js';
 import { sourceFingerprint, stampSourcePositions } from './lib/sourcePositions.js';
 import { rewriteGalleryRefs } from './lib/galleryImages.js';
 import { BRIDGE_SOURCE } from './previewBridge/index.js';
@@ -123,6 +124,7 @@ const buildTag = (token, initialStorage, touchEnabled, projectMode, sourceFp) =>
  * @param {string} code
  * @param {{ initialStorage?: Record<string, string>, touchEnabled?: boolean, projectMode?: boolean,
  *   sourcePositions?: boolean, pollinations?: { siteKey: string, visitors: boolean },
+ *   puter?: { signedIn?: boolean, offline?: boolean },
  *   gallery?: { images: Array<{ name: string, hash: string }>, toUrl: (image: object) => string } }} [options]
  *   `touchEnabled` bakes the parent's current device mode (mobile/tablet vs
  *   desktop -- PREVIEW_MODES[previewMode].isTouchChrome) in as the bridge's
@@ -137,6 +139,9 @@ const buildTag = (token, initialStorage, touchEnabled, projectMode, sourceFp) =>
  *   (lib/pollinationsHelper.js, getPollinationsHelperOptions in connectors.js).
  *   `sheets` is the Google Sheets web app URL the SheetDB helper calls
  *   (lib/sheetsHelper.js, getSheetsScriptUrl in connectors.js).
+ *   `puter` adds the stand-in `puter` object to pages that call Puter
+ *   (lib/puterHelper.js): it forwards calls to the parent (lib/puterHost.js),
+ *   or with `offline` (no parent to answer) fails them with a message.
  *   `gallery` turns images/<name> paths of the user's uploaded images into
  *   URLs the opaque-origin frame can load (lib/galleryImages.js).
  * @returns {{ srcDoc: string, token: string }}
@@ -158,6 +163,7 @@ export const injectPreviewBridge = (code, options = {}) => {
   // protection, which only guards the app's loops. The bridge tag below lands
   // ahead of it, so the storage shim is ready when it reads sessionStorage.
   code = injectSheetsHelper(injectPollinationsHelper(injectLoopProtection(compileJsxScripts(code)), options?.pollinations), options?.sheets);
+  if (options?.puter) code = injectPuterShim(code, { token, signedIn: options.puter.signedIn === true, offline: options.puter.offline === true });
 
   const initialStorage = options?.initialStorage;
   const tag = buildTag(token, initialStorage, options?.touchEnabled === true, options?.projectMode === true, sourceFp);

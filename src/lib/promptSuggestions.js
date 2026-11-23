@@ -112,6 +112,8 @@ export function describeBuildLimits(studioMode = 'app', connectors = []) {
   const game = studioMode === 'game';
   const sheets = ids.has('sheets');
   const pollinations = connectors?.find(({ id }) => id === 'pollinations');
+  const puter = ids.has('puter');
+  const aiFeatures = puter || (pollinations && pollinations.key !== 'none');
   const unlocked = [];
   if (sheets) {
     unlocked.push(game
@@ -126,12 +128,17 @@ export function describeBuildLimits(studioMode = 'app', connectors = []) {
       ? 'AI-generated images (Pollinations)'
       : 'AI-generated images and AI features such as a chatbot or AI writing help (Pollinations)');
   }
+  if (puter) {
+    unlocked.push(game
+      ? 'an AI opponent, narrator or helper, and saving progress to the player\'s own account (Puter)'
+      : 'AI features such as a chatbot, AI writing help, an image generator or text to speech, and saving each visitor\'s own data and files to their account (Puter). Each visitor only sees their own saved data');
+  }
   const formsLine = game
     ? ''
     : ids.has('web3forms') || sheets ? '' : ' Forms can check what is typed and show a thank-you message, but nothing is sent anywhere.';
   return [
     `WHAT APPBLIPS CAN BUILD: ${STUDIO_LIMITS[studioMode] || STUDIO_LIMITS.app}${formsLine}${game && pollinations ? ' Pollinations (below) can also make images for it.' : ''}`,
-    `It runs entirely in the browser with no server of its own, so never suggest: user accounts or logins, data shared between visitors${sheets ? ' beyond what is listed below' : ''}, emails, texts or push notifications${ids.has('web3forms') && !game ? ' (other than the contact forms below)' : ''}, real payments or a checkout${ids.has('square') && !game ? ' (other than the Square links below)' : ''}, online multiplayer or chat between visitors, uploading files for others to see, connecting to outside services or APIs that need a key${pollinations && pollinations.key !== 'none' ? '' : ', AI features such as a chatbot'}, a native phone or desktop app, or anything the user would have to do outside AppBlips (buying a domain, setting up hosting or accounts).`,
+    `It runs entirely in the browser with no server of its own, so never suggest: user accounts or logins, data shared between visitors${sheets ? ' beyond what is listed below' : ''}, emails, texts or push notifications${ids.has('web3forms') && !game ? ' (other than the contact forms below)' : ''}, real payments or a checkout${ids.has('square') && !game ? ' (other than the Square links below)' : ''}, online multiplayer or chat between visitors, uploading files for others to see, connecting to outside services or APIs that need a key${aiFeatures ? '' : ', AI features such as a chatbot'}, a native phone or desktop app, or anything the user would have to do outside AppBlips (buying a domain, setting up hosting or accounts).`,
     unlocked.length ? `The user has also connected services that make these possible: ${unlocked.join('; ')}.` : '',
     `AppBlips has other optional extensions, but ${unlocked.length ? 'only the ones listed here are' : 'none are'} switched on. Never suggest anything that would need an extension or outside service that is not listed here as connected, and never suggest connecting, setting up or switching on one.`,
     'Only suggest what fits within this. When unsure whether something can be built, leave it out.',

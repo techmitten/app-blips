@@ -403,6 +403,245 @@
 
 .element-bar-format { gap: 0.5rem; flex-wrap: wrap; }
 
+/* Phone layout (TextFormatToolbar's `compact`): the top bar is one row --
+   what is being edited, undo/redo, Cancel, Done. The formatting tools live
+   in .phone-tools at the bottom of the pane instead. */
+.element-bar-compact { flex-wrap: nowrap; min-height: 0; padding-block: 0.375rem; column-gap: 0.375rem; }
+/* The id takes the leftover width (basis 0, so it never pushes the keys
+   off the row) and its chip truncates on the smallest phones. */
+.element-bar-compact .element-bar-id { flex: 1 1 0; flex-wrap: nowrap; margin-right: 0; }
+.element-bar-compact .element-bar-chip { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 1.375rem; }
+.element-bar-compact .element-bar-actions { flex-wrap: nowrap; margin-left: 0; }
+@container (max-width: 520px) {
+  /* Done stays labelled as the one primary key; Cancel is a plain X. */
+  .element-bar-compact .element-bar-cancel > span { display: none; }
+  .element-bar-compact .element-bar-cancel { padding-inline: 0.45rem; }
+}
+
+/* --- Phone tools (PhoneTools.jsx: TextFormatToolbar, ElementToolbar) ------------------- */
+
+/* Docked to the bottom of the preview pane. The app shell follows the
+   visual viewport (useVisualViewport), so while the keyboard is up this sits
+   right on top of it. Every tool has a word under its icon: touch screens
+   never show tooltips. */
+.phone-tools {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-control);
+  background: color-mix(in oklab, var(--color-surface) 96%, transparent);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border-top: 1px solid var(--color-slate-200);
+  box-shadow: 0 -10px 24px -14px rgb(15 23 42 / 0.35);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: phoneToolsIn 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+:is(html.dark, .force-dark) .phone-tools {
+  background: var(--pane-header-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top-color: rgb(255 255 255 / 0.10);
+  box-shadow: 0 -10px 24px -10px rgb(0 0 0 / 0.7);
+}
+@keyframes phoneToolsIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .phone-tools { animation-duration: 0.01ms; }
+}
+
+.phone-tools-bar {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.5rem;
+}
+
+.phone-tools-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 5.5rem;
+  min-height: 3.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.3rem 0.25rem;
+  border-radius: 0.75rem;
+  color: var(--color-slate-700);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s, color 0.15s;
+}
+/* Same lit state as the toolbar's active segment: brand tint (the brand is
+   white in dark). Slate tokens flip in dark, so the base colors serve both. */
+.phone-tools-tab[aria-expanded="true"] {
+  color: var(--color-brand);
+  background: rgb(from var(--color-brand) r g b / 0.1);
+}
+.phone-tools-tab:focus-visible { outline: 2px solid rgb(from var(--color-accent) r g b / 0.65); outline-offset: -2px; }
+
+/* The icon row previews the current value: the font in itself, the size as
+   a number, the alignment, the color. */
+.phone-tools-icon {
+  height: 1.375rem;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--color-slate-900);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.phone-tools-tab[aria-expanded="true"] .phone-tools-icon { color: inherit; }
+.phone-tools-icon-num { font-family: var(--font-mono); font-size: 0.9375rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.phone-tools-icon-color {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(127 127 127 / 0.55);
+}
+
+/* The open tool's options, above the bar. */
+.phone-tools-sheet {
+  max-height: min(20rem, calc(var(--app-viewport-height, 100dvh) * 0.45));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-bottom: 1px solid var(--color-slate-200);
+  outline: none;
+  animation: elementBarIn 0.14s ease-out both;
+}
+:is(html.dark, .force-dark) .phone-tools-sheet { border-bottom-color: rgb(255 255 255 / 0.10); }
+
+.phone-tools-sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.25rem 1rem;
+  background: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-slate-900);
+}
+.phone-tools-sheet-head small { font-weight: 500; color: var(--color-slate-500); margin-left: 0.4rem; }
+.phone-tools-sheet { background: inherit; }
+
+.phone-tools-sheet-body { padding: 0.25rem 0.75rem 0.75rem; }
+
+/* Big labelled tiles for the on/off and pick-one tools. */
+.phone-tools-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr)); gap: 0.5rem; }
+.phone-tools-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 3.75rem;
+  border-radius: 0.75rem;
+  background: var(--seg-track-bg);
+  border: 1px solid var(--seg-track-border);
+  color: var(--color-slate-800);
+  font-size: 0.75rem;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+.phone-tools-tile[aria-pressed="true"] {
+  color: var(--color-brand);
+  border-color: rgb(from var(--color-brand) r g b / 0.6);
+  background: rgb(from var(--color-brand) r g b / 0.12);
+}
+
+/* Size: a big stepper, no typing (a number field would open the keyboard
+   over everything). */
+.phone-tools-stepper { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 0.25rem 0 0.5rem; }
+.phone-tools-step {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--seg-track-bg);
+  border: 1px solid var(--seg-track-border);
+  color: var(--color-slate-900);
+  -webkit-tap-highlight-color: transparent;
+}
+.phone-tools-step:disabled { opacity: 0.4; }
+.phone-tools-size { min-width: 5rem; text-align: center; font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; color: var(--color-slate-900); font-variant-numeric: tabular-nums; }
+.phone-tools-size small { font-size: 0.75rem; font-weight: 500; color: var(--color-slate-500); margin-left: 0.15rem; }
+
+.phone-tools-sheet .element-bar-font { min-height: 2.75rem; font-size: 1rem; }
+.phone-tools-tile:disabled { opacity: 0.4; }
+.phone-tools-tile-danger { color: #dc2626; }
+:is(html.dark, .force-dark) .phone-tools-tile-danger { color: #f87171; }
+
+.phone-tools-message {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #b91c1c;
+  background: rgb(220 38 38 / 0.08);
+  border-bottom: 1px solid rgb(220 38 38 / 0.2);
+}
+:is(html.dark, .force-dark) .phone-tools-message { color: #fca5a5; }
+.phone-tools-message-inline { border: 1px solid rgb(220 38 38 / 0.25); border-radius: 0.5rem; }
+
+/* Element tools' option forms: labelled fields stacked full width. Inputs
+   are 16px so iOS doesn't zoom the page when one takes focus. */
+.phone-form { display: flex; flex-direction: column; gap: 0.75rem; }
+.phone-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-slate-600);
+}
+.phone-input { width: 100%; height: 2.75rem; font-size: 16px; }
+.phone-input.element-bar-hex { width: 100%; font-size: 16px; }
+.phone-textarea { height: auto; min-height: 4.5rem; padding-block: 0.6rem; resize: none; line-height: 1.4; }
+.phone-row { display: flex; align-items: center; gap: 0.5rem; }
+.phone-row-btn { flex: 1 1 0; justify-content: center; min-height: 2.75rem; }
+.phone-grow { flex: 1 1 auto; }
+.phone-dims { align-items: flex-end; }
+.phone-dims .phone-field { flex: 1 1 0; }
+.phone-lock { flex: none; width: 2.75rem; height: 2.75rem; justify-content: center; }
+.phone-thumb { width: 2.75rem; height: 2.75rem; }
+.phone-swatch { width: 2.75rem; height: 2.75rem; align-self: flex-end; }
+.phone-hint { margin: 0; font-size: 0.75rem; color: var(--color-slate-500); }
+.phone-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-slate-800);
+}
+.phone-switch input { width: 1.25rem; height: 1.25rem; accent-color: var(--color-brand); }
+.phone-gallery { max-height: 11rem; overflow-y: auto; margin-inline: -0.5rem; }
+.phone-gallery .element-bar-gallery-item { min-height: 2.75rem; }
+
+.phone-tools-sheet .element-bar-swatches { gap: 0.5rem; }
+
 .element-bar-anchor { position: relative; flex: none; }
 
 /* Dropdown trigger: same well as the fields, so pickers and inputs match. */

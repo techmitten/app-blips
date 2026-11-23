@@ -79,6 +79,7 @@ import usePageNavigation from './hooks/usePageNavigation';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import { injectPollinationsHelper } from './lib/pollinationsHelper';
 import { injectSheetsHelper } from './lib/sheetsHelper';
+import { injectPuterScript } from './lib/puterHelper';
 import { collectSiteImages, inlineImages, pointAtCopies } from './lib/siteImages';
 import { getPollinationsHelperOptions, getSheetsScriptUrl } from './lib/connectors';
 import {
@@ -899,6 +900,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
             // Pollinations site key into whatever the repo's pages do.
             pollinations: isCodebase ? undefined : getPollinationsHelperOptions(),
             sheets: isCodebase ? undefined : getSheetsScriptUrl(),
+            // Puter can't run in the sandboxed preview: pages that call it get
+            // a stand-in that asks the user to test on the published site.
+            puter: isCodebase ? undefined : { offline: true },
             gallery: isCodebase ? undefined : previewGallery,
           })
         : { srcDoc: '', token: '' },
@@ -2314,7 +2318,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     ]);
     const pollinations = getPollinationsHelperOptions();
     const sheets = getSheetsScriptUrl();
-    return mapPages(files, (html) => injectSheetsHelper(injectPollinationsHelper(injectLoopProtection(compileJsxScripts(html)), pollinations), sheets));
+    // Puter.js goes into every page that calls it, on or off: it holds no
+    // key, and the page would break without it.
+    return mapPages(files, (html) => injectPuterScript(injectSheetsHelper(injectPollinationsHelper(injectLoopProtection(compileJsxScripts(html)), pollinations), sheets)));
   };
 
   // sitemap.xml and robots.txt from the SEO connector (lib/seo.js), made from
@@ -2337,6 +2343,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       initialStorage: { ...previewStorageRef.current },
       pollinations: getPollinationsHelperOptions(),
       sheets: getSheetsScriptUrl(),
+      puter: true,
       gallery: previewGallery,
     });
     const url = URL.createObjectURL(new Blob([shellHtml], { type: 'text/html' }));
@@ -2389,7 +2396,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     ]);
     const baseName = slugifyName(projectName) || 'app';
     // The Pollinations helper stays in index.html like the rest of the page.
-    const entries = buildViteProject(injectSheetsHelper(injectPollinationsHelper(generatedCode, getPollinationsHelperOptions()), getSheetsScriptUrl()), { name: baseName, title: projectName || 'My App' });
+    const entries = buildViteProject(injectPuterScript(injectSheetsHelper(injectPollinationsHelper(generatedCode, getPollinationsHelperOptions()), getSheetsScriptUrl())), { name: baseName, title: projectName || 'My App' });
     if (!entries) return;
     // Vite serves public/ at the site root, so images/<name> keeps working.
     for (const { path, bytes } of galleryExportFiles(files, galleryImages, blobBytes)) {
