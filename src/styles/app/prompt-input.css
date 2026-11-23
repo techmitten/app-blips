@@ -50,6 +50,98 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
+/* Electric border while a build runs (not for Ask answers): two sparks chase
+   each other round the composer's edge. Same technique as the live code
+   peek (empty-state.css): a conic gradient swept by an animated angle and
+   masked to a thin ring just inside the border, since the dock clips
+   overflow. ::after is a wider blurred copy that flickers, the arc's glow. */
+@property --dock-spark {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.prompt-input-dock {
+  --spark-tail: rgb(37 99 235 / 0);
+  --spark-mid: rgb(37 99 235 / 0.75);
+  --spark-hot: rgb(14 165 233);
+  --spark-core: rgb(29 78 216);
+}
+
+:is(html.dark, .force-dark) .prompt-input-dock {
+  --spark-mid: rgb(56 189 248 / 0.7);
+  --spark-hot: rgb(125 211 252);
+  --spark-core: rgb(240 249 255);
+}
+
+.prompt-input-dock.is-building::before,
+.prompt-input-dock.is-building::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--dock-spark),
+    transparent 0deg 95deg,
+    var(--spark-tail) 95deg,
+    var(--spark-mid) 150deg,
+    var(--spark-hot) 172deg,
+    var(--spark-core) 178deg,
+    transparent 180deg 275deg,
+    var(--spark-tail) 275deg,
+    var(--spark-mid) 330deg,
+    var(--spark-hot) 352deg,
+    var(--spark-core) 358deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: dock-spark 2.6s linear infinite;
+}
+
+.prompt-input-dock.is-building::before {
+  padding: 2px;
+}
+
+.prompt-input-dock.is-building::after {
+  padding: 8px;
+  filter: blur(6px);
+  animation:
+    dock-spark 2.6s linear infinite,
+    dock-crackle 1.3s steps(1, end) infinite;
+}
+
+@keyframes dock-spark {
+  to { --dock-spark: 360deg; }
+}
+
+/* Uneven steps so the glow stutters like an arc rather than pulsing. */
+@keyframes dock-crackle {
+  0% { opacity: 0.45; }
+  9% { opacity: 0.2; }
+  14% { opacity: 0.55; }
+  37% { opacity: 0.3; }
+  42% { opacity: 0.6; }
+  68% { opacity: 0.25; }
+  74% { opacity: 0.5; }
+  91% { opacity: 0.35; }
+}
+
+/* Reduced motion: a still, even charge round the whole edge instead. */
+@media (prefers-reduced-motion: reduce) {
+  .prompt-input-dock.is-building::before,
+  .prompt-input-dock.is-building::after {
+    animation: none;
+    background: var(--spark-mid);
+  }
+  .prompt-input-dock.is-building::after {
+    opacity: 0.3;
+  }
+}
+
 /* "Blips" — the three shard colours from the AppBlips mark. They are the
    empty state's only mark: one orchestrated entrance that settles and stays
    put, rather than an ambient loop competing with the composer for motion. */
