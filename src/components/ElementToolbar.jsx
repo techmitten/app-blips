@@ -96,6 +96,8 @@ export default function ElementToolbar({
   galleryImages = [],
   galleryBytesVersion = 0,
   onUploadGalleryImage = null,
+  // The preview pane is too narrow for the floating dock: use the phone layout.
+  forceCompact = false,
 }) {
   const role = element.role || 'container';
   const isImage = role === 'image';
@@ -112,6 +114,8 @@ export default function ElementToolbar({
   const [src, setSrc] = useState(element.attributes?.src || '');
   const [alt, setAlt] = useState(element.attributes?.alt || '');
   const [altOpen, setAltOpen] = useState(false);
+  const [urlOpen, setUrlOpen] = useState(false);
+  const [urlDraft, setUrlDraft] = useState('');
   const [altDraft, setAltDraft] = useState('');
   const [labelText, setLabelText] = useState(element.draftText ?? element.text ?? '');
   const [href, setHref] = useState(element.attributes?.href || '');
@@ -179,7 +183,7 @@ export default function ElementToolbar({
   // Phone layout: one top row plus labelled tools at the bottom of the pane
   // (PhoneTools). `sheet` is the open tool; Ask AI is showAiInput, as on the
   // wide bar, so a failed apply still lands on it.
-  const compact = useCompactLayout();
+  const compact = useCompactLayout() || forceCompact;
   const [sheet, setSheet] = useState(null);
   const [setPhoneRoot, pane] = usePreviewPaneRef(null);
   const thumbs = useGalleryThumbnails(isImage ? galleryImages : [], galleryBytesVersion);
@@ -416,7 +420,8 @@ export default function ElementToolbar({
       type="button"
       onClick={() => ref.current?.click()}
       disabled={busy}
-      className="nav-btn nav-btn-secondary element-bar-btn"
+      className="nav-btn nav-btn-secondary element-bar-btn element-bar-btn-collapsible"
+      aria-label={label}
       data-tip={tip}
     >
       {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
@@ -913,16 +918,19 @@ export default function ElementToolbar({
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
                 )}
-                <input
-                  type="text"
-                  value={src.startsWith('data:') ? '' : src}
-                  placeholder={src.startsWith('data:') ? 'Uploaded image (paste a URL to replace)' : 'Image URL  https://…'}
-                  onChange={(e) => setSrc(e.target.value)}
-                  onKeyDown={submitOnEnter(handleApply)}
-                  aria-label="Image URL"
-                  className="element-bar-input element-bar-grow"
+                {/* The web address lives in a modal (below) so the bar stays one
+                    compact row; the thumbnail shows which image is set. */}
+                <button
+                  type="button"
+                  onClick={() => { setUrlDraft(src.startsWith('data:') ? '' : src); setUrlOpen(true); }}
                   disabled={busy}
-                />
+                  aria-label="Image URL"
+                  data-tip="Use an image from a web address"
+                  className="nav-btn nav-btn-secondary element-bar-btn element-bar-btn-collapsible"
+                >
+                  <Link2 size={14} />
+                  <span>Image URL</span>
+                </button>
                 <div className="element-bar-anchor">
                   <button
                     type="button"
@@ -932,7 +940,7 @@ export default function ElementToolbar({
                     aria-expanded={galleryOpen}
                     aria-label="Choose from My images"
                     data-tip={galleryOpen ? undefined : 'Pick from your project images (My images)'}
-                    className="nav-btn nav-btn-secondary element-bar-btn"
+                    className="nav-btn nav-btn-secondary element-bar-btn element-bar-btn-collapsible"
                   >
                     <Images size={14} />
                     <span>My images{galleryImages.length ? ` (${galleryImages.length})` : ''}</span>
@@ -1200,7 +1208,8 @@ export default function ElementToolbar({
             <button
               type="button"
               onClick={openAi}
-              className="nav-btn nav-ghost element-bar-btn"
+              className="nav-btn nav-ghost element-bar-btn element-bar-btn-collapsible"
+              aria-label="Ask AI"
               data-tip="Describe the change and let AI make it"
             >
               <Wand2 size={15} />
@@ -1246,6 +1255,53 @@ export default function ElementToolbar({
       </div>
       {/* Portaled to body: the bar is docked inside the preview chrome, which
           would clip or offset a fixed overlay. */}
+      {urlOpen && createPortal(
+        <Modal zIndex={70}>
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">Image URL</h2>
+            <ModalCloseButton onClick={() => setUrlOpen(false)} />
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (urlDraft.trim()) setSrc(urlDraft.trim());
+              setUrlOpen(false);
+            }}
+            className="p-6 space-y-4"
+          >
+            <input
+              autoFocus
+              type="url"
+              inputMode="url"
+              value={urlDraft}
+              onChange={(e) => setUrlDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setUrlOpen(false); }}
+              placeholder="https://example.com/photo.jpg"
+              aria-label="Image URL"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+            <p className="text-xs text-slate-400">
+              Paste the web address of an image. Click Apply in the bar to use it.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setUrlOpen(false)}
+                className="rounded-lg px-4 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg px-5 py-2 font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors active:scale-[0.98]"
+              >
+                Done
+              </button>
+            </div>
+          </form>
+        </Modal>,
+        document.body,
+      )}
       {altOpen && createPortal(
         <Modal zIndex={70}>
           <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">

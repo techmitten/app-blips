@@ -1,4 +1,4 @@
-import { useCallback, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { WIDE_LAYOUT_QUERY } from '../lib/config';
 
 // Layout switch and pane lookup for components/PhoneTools.jsx.
@@ -23,4 +23,22 @@ export function usePreviewPaneRef(rootRef) {
     setPane(node?.closest('.preview-pane') || null);
   }, [rootRef]);
   return [ref, pane];
+}
+
+// Below this preview-pane width the floating click-to-edit dock no longer
+// fits on one row, so the editors switch to the phone layout instead.
+export const FLOATING_DOCK_MIN_WIDTH = 1000;
+
+// True when `pane` (an element) is narrower than FLOATING_DOCK_MIN_WIDTH.
+export function usePaneTooNarrow(pane) {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    if (!pane || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(([entry]) => {
+      setNarrow(entry.contentRect.width < FLOATING_DOCK_MIN_WIDTH);
+    });
+    observer.observe(pane);
+    return () => observer.disconnect();
+  }, [pane]);
+  return narrow;
 }

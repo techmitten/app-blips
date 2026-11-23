@@ -98,9 +98,11 @@ export default function TextFormatToolbar({
   onUndo,
   onRedo,
   onSelectParent = null,
+  // The preview pane is too narrow for the floating dock: use the phone layout.
+  forceCompact = false,
 }) {
   const t = typography || {};
-  const compact = useCompactLayout();
+  const compact = useCompactLayout() || forceCompact;
   const [open, setOpen] = useState(null); // wide bar popover: 'font' | 'color' | null
   const [sheet, setSheet] = useState(null); // phone tool: 'font' | 'size' | 'style' | 'align' | 'color' | null
   const [sizeDraft, setSizeDraft] = useState(null);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useCompactLayout, usePaneTooNarrow } from '../hooks/usePhoneTools';
 import '../styles/app/device-mockup.css';
 import '../styles/app/element-bar.css';
 import '../styles/app/browser.css';
@@ -135,6 +136,12 @@ export default function PreviewPane({
   codeProjectKey,
   codeAssetUrl = null,
 }) {
+  // Click-to-edit dock: a floating pill at the bottom of the canvas on
+  // desktop; the phone layout on touch screens or when the pane is too
+  // narrow for the pill.
+  const [paneEl, setPaneEl] = useState(null);
+  const paneTooNarrow = usePaneTooNarrow(paneEl);
+  const floatingDock = !useCompactLayout() && !paneTooNarrow;
   const [transitionState, setTransitionState] = useState({ 
     mode: previewMode, 
     orientation: previewOrientation, 
@@ -162,7 +169,7 @@ export default function PreviewPane({
   }, [isTransitioning]);
 
   return (
-    <div className="preview-pane flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col relative z-0 inset-shadow-preview noise-texture">
+    <div ref={setPaneEl} className="preview-pane flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col relative z-0 inset-shadow-preview noise-texture">
 
       {/* Canvas studio toolbar. Three grid zones, read left to right: what you
           are looking at, what device it is drawn for, what you can do with it.
@@ -422,14 +429,16 @@ export default function PreviewPane({
         </div>
       </div>
 
-      {/* Click-to-edit toolbar: a contextual second row that drops out from
-          under the toolbar while an element is selected. It overlays the top
-          of the canvas instead of taking layout space -- a bar that resized
-          the canvas would re-fit the preview zoom on every selection. The dock
+      {/* Click-to-edit toolbar while an element is selected: on desktop a
+          one-row pill floating at the bottom of the canvas; in the phone
+          layout a slim bar under the toolbar plus tools docked at the bottom.
+          Either way it overlays the canvas instead of taking layout space --
+          a bar that resized the canvas would re-fit the preview zoom on every
+          selection. The dock
           persists while the selection changes (the bar inside remounts per
           element), so it animates in once. */}
       {studioMode === 'website' && activeTab === 'preview' && (textSession || selectedElement) && (
-        <div className="element-bar-dock">
+        <div className={`element-bar-dock${floatingDock ? ' is-floating' : ''}`}>
           {textSession ? (
             <TextFormatToolbar
               key={textSession.key}
@@ -443,6 +452,7 @@ export default function PreviewPane({
               onUndo={onUndoText}
               onRedo={onRedoText}
               onSelectParent={onSelectParentElement}
+              forceCompact={paneTooNarrow}
             />
           ) : selectedElement.group ? (
             <ElementGroupToolbar
@@ -471,6 +481,7 @@ export default function PreviewPane({
               galleryImages={galleryImages}
               galleryBytesVersion={galleryBytesVersion}
               onUploadGalleryImage={onUploadGalleryImage}
+              forceCompact={paneTooNarrow}
             />
           )}
         </div>

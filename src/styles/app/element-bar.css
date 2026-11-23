@@ -38,6 +38,91 @@
   .element-bar-dock { animation-duration: 0.01ms; }
 }
 
+/* --- Floating dock (desktop) ---------------------------------------------
+   A one-row pill centred at the bottom of the canvas, holding every tool
+   with Cancel/Done (or Apply/Close) at its end, like Figma's bottom bar.
+   Nothing wraps: the text fields shrink first, and when the pane is too
+   narrow for the pill (FLOATING_DOCK_MIN_WIDTH) the editors switch to the
+   phone layout instead. Menus open upward. */
+.element-bar-dock.is-floating {
+  top: auto;
+  right: auto;
+  bottom: 1rem;
+  left: 50%;
+  translate: -50% 0;
+  /* One width for every editor, so the pill doesn't resize as the
+     selection changes. 61rem fits the widest one (text formatting). */
+  width: min(61rem, calc(100% - 2rem));
+  /* Solid, never see-through, and set off from whatever page is under it:
+     a raised tone, a double edge (light hairline inside, dark ring outside)
+     that shows on light and dark sites alike, and a deep shadow. */
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--color-slate-300);
+  border-radius: 0.9rem;
+  box-shadow:
+    0 0 0 3px rgb(255 255 255 / 0.7),
+    0 0 0 4px rgb(15 23 42 / 0.12),
+    0 10px 20px -8px rgb(15 23 42 / 0.3),
+    0 28px 56px -16px rgb(15 23 42 / 0.45);
+  animation-name: elementDockIn;
+}
+:is(html.dark, .force-dark) .element-bar-dock.is-floating {
+  background: linear-gradient(180deg, #2a2b2f 0%, #222326 100%);
+  border-color: rgb(255 255 255 / 0.16);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 0 0 1px rgb(0 0 0 / 0.7),
+    0 10px 22px -8px rgb(0 0 0 / 0.7),
+    0 28px 60px -16px rgb(0 0 0 / 0.85);
+}
+/* Black keys on the charcoal pill. Specific enough to beat the workspace's
+   steel keys (hero-landing.css). A key that is on keeps its pressed recess
+   and accent rim, so it still reads as on. */
+:is(html.dark, .force-dark) .element-bar-dock.is-floating .element-bar {
+  --key-bg: linear-gradient(180deg, #141416 0%, #0b0b0c 100%);
+  --key-bg-hover: linear-gradient(180deg, #1e1f22 0%, #131416 100%);
+  --key-border: rgb(255 255 255 / 0.1);
+  --key-border-hover: rgb(255 255 255 / 0.18);
+  --key-ink: rgb(255 255 255 / 0.82);
+  --key-ink-hover: #ffffff;
+  --key-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06),
+    0 1px 2px rgb(0 0 0 / 0.6);
+  --key-shadow-hover:
+    inset 0 1px 0 rgb(255 255 255 / 0.09),
+    0 2px 4px rgb(0 0 0 / 0.6);
+  --key-pressed-bg: #000000;
+}
+@keyframes elementDockIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.is-floating .element-bar {
+  flex-wrap: nowrap;
+  min-height: 0;
+  padding: 0.45rem 0.5rem 0.45rem 0.65rem;
+  column-gap: 0.5rem;
+}
+.is-floating :is(.element-bar-id, .element-bar-actions, .element-bar-body, .element-bar-format) { flex-wrap: nowrap; }
+/* Fields stretch to fill the fixed width (and give it back first when the
+   pane is tight). The text tools are all fixed-size keys, so that body keeps
+   its size; the actions take the slack and sit at the right end. */
+.is-floating .element-bar-body { flex: 1 1 auto; order: 0; }
+.is-floating .element-bar-format { flex: 0 0 auto; }
+.is-floating .element-bar-id { margin-right: 0; }
+.is-floating .element-bar-actions { margin-left: auto; order: 0; }
+.is-floating :is(.element-bar-grow, .element-bar-label-field, .element-bar-alt-input) { min-width: 5rem; }
+/* Long-form extras stay out of the pill: the file path, breadcrumbs and
+   keyboard hints (the tooltips carry the shortcuts). Cancel is an X. */
+.is-floating :is(.element-bar-path, .element-bar-breadcrumbs, .element-bar-keys) { display: none; }
+/* Cancel and the secondary keys (My images, Upload, Ask AI) are icon-only;
+   their tooltips and aria-labels still name them. */
+.is-floating :is(.element-bar-cancel, .element-bar-btn-collapsible) > span { display: none; }
+.is-floating :is(.element-bar-cancel, .element-bar-btn-collapsible) { padding-inline: 0.5rem; }
+.is-floating .element-bar-pop { top: auto; bottom: calc(100% + 0.75rem); }
+
 .element-bar {
   display: flex;
   flex-wrap: wrap;
