@@ -806,103 +806,21 @@
     linear-gradient(180deg, #7a8088 0%, #63686f 48%, #51555b 52%, #5c6167 100%);
   --key-border: rgb(0 0 0 / 0.55);
   --key-border-hover: rgb(0 0 0 / 0.6);
-  /* Backlit legends, no colour: a key that is off is dimmed, a key that is
-     on sits down into a dark recess with its legend lit bright white and
-     glowing (below). State reads as light and depth, like real hardware,
-     so the steel stays the star. */
-  /* Resting legends are a pale coral: a glow can't show against the light
-     silver of a key at rest, so the colour lives in the glyphs there. */
-  --key-ink: rgb(255 208 196 / 0.9);
-  --key-ink-hover: rgb(255 226 218);
+  /* Plain legends, no glow: a key that is off is slightly dimmed, a key
+     that is on sits down into a dark recess with a bright white legend.
+     State reads as depth, like real hardware, so the steel stays the star. */
+  --key-ink: rgb(238 244 250 / 0.78);
+  --key-ink-hover: #ffffff;
   --key-pressed-bg: linear-gradient(180deg, #0c0d0f 0%, #17191c 100%);
   --key-on-ink: #ffffff;
   --key-on-rim: rgb(255 255 255 / 0.16);
   --well-bg: rgb(0 0 0 / 0.55);
 }
 
-/* LED backlighting on the legends only (icon strokes and label letters):
-   drop-shadow and text-shadow follow the glyph shapes, so the key body
-   never lights. A real backlit legend has three layers: the glyph itself
-   (the diffuser, hot near-white), a tight bloom hugging it, and a wider,
-   fainter halo where the light spills through the cap. The bloom and halo
-   are a soft coral, the logo's coral (rgb 235 97 80) lifted toward peach so
-   it glows rather than reads as red. On a key that is on (a dark recess)
-   the glyphs stay near-white, as an LED's core does, and the halo carries
-   the colour; on a silver key at rest the halo can't show, so the glyphs
-   themselves are tinted (--key-ink above).
-   - rest: the LED is on at standby brightness, a soft but visible bloom
-   - hover: it brightens a step
-   - on: full drive, the legend goes pure white with a strong bloom
-   The bloom never sits at full opacity next to the letters, so they keep
-   their edges. Brightness changes ramp quickly, as an LED does. */
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar) {
-  --led-rest-text: 0 0 2px rgb(255 214 204 / 0.4), 0 0 7px rgb(250 150 130 / 0.34);
-  --led-rest-icon: drop-shadow(0 0 1px rgb(255 226 218 / 0.7)) drop-shadow(0 0 4px rgb(250 150 130 / 0.55));
-  --led-hover-text: 0 0 2px rgb(255 222 214 / 0.55), 0 0 8px rgb(250 150 130 / 0.48);
-  --led-hover-icon: drop-shadow(0 0 1px rgb(255 236 230 / 0.85)) drop-shadow(0 0 4.5px rgb(252 160 140 / 0.72));
-  --led-on-text: 0 0 2px rgb(255 214 202 / 0.75), 0 0 7px rgb(255 150 128 / 0.75), 0 0 18px rgb(240 105 85 / 0.6), 0 0 30px rgb(235 97 80 / 0.35);
-  --led-on-icon: drop-shadow(0 0 1px rgb(255 226 216)) drop-shadow(0 0 4px rgb(255 150 128 / 0.95)) drop-shadow(0 0 11px rgb(240 105 85 / 0.75));
-}
-
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_) {
-  text-shadow: var(--led-rest-text);
-  transition-property: color, background, border-color, box-shadow, text-shadow, transform;
-  transition-duration: 140ms;
-}
-
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_) svg {
-  filter: var(--led-rest-icon);
-  transition: filter 140ms ease-out;
-}
-
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_):hover:not(:disabled) {
-  text-shadow: var(--led-hover-text);
-}
-
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_):hover:not(:disabled) svg {
-  filter: var(--led-hover-icon);
-}
-
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_),
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_):hover {
-  color: #ffffff;
-  text-shadow: var(--led-on-text);
-}
-
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_) svg,
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost-active, .nav-segmented-btn-active, .element-bar-toggle[aria-pressed="true"], .history-header-toggle[aria-expanded="true"]):not(#_):hover svg {
-  filter: var(--led-on-icon);
-}
-
 .hero-landing .hero-stage-workspace .preview-pane-header :is([aria-label="Device preset"], [aria-label="Preview device"]) .nav-segmented-btn-active:not(#_) {
   /* toolbar-keys.css keeps the selected device in the logo's red; on this
-     toolbar it lights like every other key that is on. */
+     toolbar it is white like every other key that is on. */
   color: var(--key-on-ink) !important;
-}
-
-/* The version counter between Undo and Redo is a lit readout, not a key:
-   it sits on the dark well, so it takes the tint and a glow. */
-.hero-landing.dark .hero-stage-workspace .preview-pane-header .preview-version-count {
-  color: rgb(255 214 202);
-  text-shadow: 0 0 2px rgb(255 214 202 / 0.5), 0 0 8px rgb(245 125 105 / 0.5);
-}
-
-/* Unavailable keys: LED off. */
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_):disabled,
-.hero-landing.dark .hero-stage-workspace :is(.build-panel-header, .preview-pane-header, .element-bar)
-  :is(.nav-ghost, .nav-btn-secondary, .nav-segmented-btn, .history-header-toggle, .new-chat-btn):not(.brand-fill-text, .nav-btn-primary):not(#_):disabled svg {
-  text-shadow: none;
-  filter: none;
-  color: rgb(238 244 250 / 0.78);
 }
 
 /* Light toolbar: brushed aluminium, the light counterpart of the dark
@@ -950,8 +868,7 @@
 /* Seam between the chat and the preview: a machined joint, like two plates
    of the toolbar's steel meeting. A 3px groove (dark edge, a fine bright
    lip, dark edge) runs the full height, and a soft gleam brightens it
-   around the middle, echoing the keys' LED glow without the red, which is
-   kept for keys that are on. */
+   around the middle. */
 .hero-stage-workspace .pane-divider {
   --seam-dark: rgb(15 23 42 / 0.16);
   --seam-lip: rgb(255 255 255 / 0.9);
