@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  X, ArrowUpToLine, ArrowDownToLine, ArrowLeft, Sparkles, Upload, Loader2, Wand2, Link2, Type, Check, AlertTriangle,
+  X, ArrowUpToLine, ArrowDownToLine, Sparkles, Upload, Loader2, Wand2, Link2, Type, Check, AlertTriangle,
   ArrowUp, ArrowDown, CopyPlus, Trash2, ExternalLink, MessageSquarePlus, Captions, Lock, Unlock, Images, ChevronRight,
   ArrowUpDown, Scaling, Image as ImageIcon,
 } from 'lucide-react';
@@ -415,12 +415,13 @@ export default function ElementToolbar({
     />
   );
 
-  const uploadButton = (ref, label, tip) => (
+  // `collapsible`: icon-only in the floating dock (where space is tight).
+  const uploadButton = (ref, label, tip, collapsible = false) => (
     <button
       type="button"
       onClick={() => ref.current?.click()}
       disabled={busy}
-      className="nav-btn nav-btn-secondary element-bar-btn element-bar-btn-collapsible"
+      className={`nav-btn nav-btn-secondary element-bar-btn${collapsible ? ' element-bar-btn-collapsible' : ''}`}
       aria-label={label}
       data-tip={tip}
     >
@@ -882,355 +883,281 @@ export default function ElementToolbar({
 
       {/* What you can change */}
       <div className="element-bar-body">
-        {showAiInput ? (
+        {isImage && (
           <>
-            {message && (
-              <p className="element-bar-message" title={message}>
-                <AlertTriangle size={14} className="shrink-0" />
-                <span>{message}</span>
-              </p>
+            {thumbUrl && (
+              <img
+                src={thumbUrl}
+                alt=""
+                className="element-bar-thumb"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
             )}
-            {element.draftText && element.draftText !== element.text && (
-              <span className="element-bar-draft-badge" title={`Preserved draft: "${element.draftText}"`}>
-                Draft saved: “{element.draftText.slice(0, 48)}{element.draftText.length > 48 ? '…' : ''}”
-              </span>
-            )}
-            <input
-              type="text"
-              autoFocus
-              value={aiInstruction}
-              onChange={(e) => setAiInstruction(e.target.value)}
-              onKeyDown={submitOnEnter(() => handleAiSend(Boolean(aiInstruction.trim())))}
-              placeholder='Describe the change, e.g. "make this section darker with a subtle gradient"'
-              aria-label="Describe the change for AI"
-              className="element-bar-input element-bar-grow"
-            />
-          </>
-        ) : (
-          <>
-            {isImage && (
-              <>
-                {thumbUrl && (
-                  <img
-                    src={thumbUrl}
-                    alt=""
-                    className="element-bar-thumb"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                )}
-                {/* The web address lives in a modal (below) so the bar stays one
-                    compact row; the thumbnail shows which image is set. */}
-                <button
-                  type="button"
-                  onClick={() => { setUrlDraft(src.startsWith('data:') ? '' : src); setUrlOpen(true); }}
-                  disabled={busy}
-                  aria-label="Image URL"
-                  data-tip="Use an image from a web address"
-                  className="nav-btn nav-btn-secondary element-bar-btn element-bar-btn-collapsible"
-                >
-                  <Link2 size={14} />
-                  <span>Image URL</span>
-                </button>
-                <div className="element-bar-anchor">
-                  <button
-                    type="button"
-                    onClick={() => setGalleryOpen((o) => !o)}
-                    disabled={busy}
-                    aria-haspopup="dialog"
-                    aria-expanded={galleryOpen}
-                    aria-label="Choose from My images"
-                    data-tip={galleryOpen ? undefined : 'Pick from your project images (My images)'}
-                    className="nav-btn nav-btn-secondary element-bar-btn element-bar-btn-collapsible"
-                  >
-                    <Images size={14} />
-                    <span>My images{galleryImages.length ? ` (${galleryImages.length})` : ''}</span>
-                  </button>
-                  {galleryOpen && (
-                    <div
-                      ref={galleryPopRef}
-                      className="element-bar-pop element-bar-pop-gallery"
-                      role="dialog"
-                      aria-label="My images"
-                    >
-                      {galleryBody}
-                    </div>
-                  )}
-                </div>
-                {fileInput(imageFileRef)}
-                {uploadButton(imageFileRef, 'Upload', 'Upload an image from your computer')}
-                <input
-                  type="text"
-                  value={alt}
-                  onChange={(e) => setAlt(e.target.value)}
-                  onKeyDown={submitOnEnter(handleApply)}
-                  placeholder="Alt text (describes image)"
-                  aria-label="Alt text"
-                  className="element-bar-input element-bar-alt-input"
-                  disabled={busy}
-                />
-                <div className="element-bar-dims" role="group" aria-label="Image dimensions">
-                  <label className="element-bar-dim" data-tip="Image width in pixels">
-                    <span className="element-bar-dim-tag">W</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={imgWidth}
-                      onChange={(e) => handleWidthChange(e.target.value)}
-                      onKeyDown={submitOnEnter(handleApply)}
-                      aria-label="Image width"
-                      className="element-bar-input element-bar-dim-input"
-                      disabled={busy || fitToImage}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={toggleLockAspect}
-                    aria-pressed={lockAspect}
-                    aria-label={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
-                    data-tip={lockAspect ? 'Aspect ratio locked (proportional)' : 'Aspect ratio unlocked'}
-                    className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon element-bar-toggle"
-                    disabled={busy || fitToImage}
-                  >
-                    {lockAspect ? <Lock size={14} /> : <Unlock size={14} />}
-                  </button>
-                  <label className="element-bar-dim" data-tip="Image height in pixels">
-                    <span className="element-bar-dim-tag">H</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={imgHeight}
-                      onChange={(e) => handleHeightChange(e.target.value)}
-                      onKeyDown={submitOnEnter(handleApply)}
-                      aria-label="Image height"
-                      className="element-bar-input element-bar-dim-input"
-                      disabled={busy || fitToImage}
-                    />
-                  </label>
-                </div>
-                {uploadedSize && (
-                  <label className="element-bar-field" data-tip="Keep the width, and change the height to match the new image's proportions">
-                    <input
-                      type="checkbox"
-                      checked={fitToImage}
-                      onChange={(e) => setFitToImage(e.target.checked)}
-                      disabled={busy}
-                    />
-                    <span>Fit size to image</span>
-                  </label>
-                )}
-                <button
-                  type="button"
-                  onClick={() => { setAltDraft(alt); setAltOpen(true); }}
-                  disabled={isApplying}
-                  className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
-                  aria-label={alt.trim() ? 'Edit alt text' : 'Set alt text'}
-                  data-tip={alt.trim() ? `Alt text: ${alt.trim()}` : 'Set alt text (describes the image for screen readers)'}
-                >
-                  <Captions size={16} />
-                </button>
-              </>
-            )}
-
-            {showLink && (
-              <>
-                <label className="element-bar-field element-bar-label-field">
-                  <Type size={14} className="element-bar-field-icon" aria-hidden="true" />
-                  <input
-                    type="text"
-                    value={labelText}
-                    onChange={(e) => setLabelText(e.target.value)}
-                    onKeyDown={submitOnEnter(handleApply)}
-                    placeholder={role === 'button' ? 'Button label' : 'Link label'}
-                    aria-label={role === 'button' ? 'Button label' : 'Link label'}
-                    className="element-bar-input element-bar-input-icon"
-                    disabled={isApplying}
-                  />
-                </label>
-                <label className="element-bar-field element-bar-grow">
-                  <Link2 size={15} className="element-bar-field-icon" aria-hidden="true" />
-                  <input
-                    type="text"
-                    value={href}
-                    onChange={(e) => setHref(e.target.value)}
-                    onKeyDown={submitOnEnter(handleApply)}
-                    placeholder={linkTargets.length ? 'Link URL, page or #section' : 'Link URL  https://…'}
-                    aria-label="Link URL"
-                    list={linkTargets.length ? linkListId : undefined}
-                    className="element-bar-input element-bar-input-icon"
-                    disabled={isApplying}
-                  />
-                  {linkTargets.length > 0 && (
-                    <datalist id={linkListId}>
-                      {linkTargets.map((t) => <option key={t.value} value={t.value} label={t.label} />)}
-                    </datalist>
-                  )}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setNewTab((on) => !on)}
-                  aria-pressed={newTab}
-                  aria-label="Open link in a new tab"
-                  className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon element-bar-toggle"
-                  data-tip={newTab ? 'Opens in a new tab' : 'Opens in the same tab'}
-                  disabled={isApplying}
-                >
-                  <ExternalLink size={16} />
-                </button>
-              </>
-            )}
-
-            {showBackground && (
-              <>
-                <span className="element-bar-label">Fill</span>
-                <input
-                  type="color"
-                  value={/^#[0-9a-f]{6}$/i.test(bgColor) ? bgColor : '#ffffff'}
-                  onChange={(e) => setBgColor(e.target.value)}
-                  disabled={isApplying}
-                  className="element-bar-swatch"
-                  aria-label="Pick background color"
-                  title="Pick a background color"
-                />
-                <input
-                  type="text"
-                  value={bgColor}
-                  onChange={(e) => {
-                    const v = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
-                    setBgColor(v);
-                  }}
-                  onKeyDown={submitOnEnter(handleApply)}
-                  aria-label="Background color hex"
-                  spellCheck={false}
-                  className="element-bar-input element-bar-hex"
-                  disabled={isApplying}
-                />
-              </>
-            )}
-
-            {showWallpaper && (
-              <>
-                <span className="chrome-divider element-bar-divider" aria-hidden="true" />
-                <span className="element-bar-label">Wallpaper</span>
-                {fileInput(bgFileRef)}
-                {uploadButton(
-                  bgFileRef,
-                  bgImage ? 'Change' : 'Upload',
-                  element.backgroundImage && !bgImage
-                    ? 'Replace this background image'
-                    : 'Set a background image from your computer',
-                )}
-                {bgImage && (
-                  <span className="element-bar-ready">
-                    <img src={bgImage} alt="" className="element-bar-thumb element-bar-thumb-sm" />
-                    <Check size={13} aria-hidden="true" />
-                    Ready
-                    <button
-                      type="button"
-                      onClick={() => setBgImage('')}
-                      className="element-bar-ready-clear"
-                      aria-label="Discard uploaded wallpaper"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-              </>
-            )}
-
-            {isTextRole && onStartInlineEdit && element.text && (
+            {/* The web address lives in a modal (below) so the bar stays one
+                compact row; the thumbnail shows which image is set. */}
+            <button
+              type="button"
+              onClick={() => { setUrlDraft(src.startsWith('data:') ? '' : src); setUrlOpen(true); }}
+              disabled={busy}
+              aria-label="Image URL"
+              data-tip="Use an image from a web address"
+              className="nav-btn nav-btn-secondary element-bar-btn"
+            >
+              <Link2 size={14} />
+              <span>Image URL</span>
+            </button>
+            <div className="element-bar-anchor">
               <button
                 type="button"
-                onClick={onStartInlineEdit}
-                className="nav-btn nav-ghost element-bar-btn"
-                aria-label="Edit text in place"
-                data-tip="Format or edit this text directly on the page"
+                onClick={() => setGalleryOpen((o) => !o)}
+                disabled={busy}
+                aria-haspopup="dialog"
+                aria-expanded={galleryOpen}
+                aria-label="Choose from My images"
+                data-tip={galleryOpen ? undefined : 'Pick from your project images (My images)'}
+                className="nav-btn nav-btn-secondary element-bar-btn element-bar-btn-collapsible"
               >
-                <Type size={14} />
-                <span>Format text</span>
+                <Images size={14} />
+                <span>My images{galleryImages.length ? ` (${galleryImages.length})` : ''}</span>
               </button>
-            )}
-
-            {isTextRole && !hasEditableFields && !message && (
-              <p className="element-bar-hint">
-                <Type size={14} className="shrink-0" aria-hidden="true" />
-                <span>Click the text on the page or Format text to edit it in place</span>
-              </p>
-            )}
-
-            {message && (
-              <p className="element-bar-message" title={message}>
-                <AlertTriangle size={14} className="shrink-0" />
-                <span>{message}</span>
-              </p>
+              {galleryOpen && (
+                <div
+                  ref={galleryPopRef}
+                  className="element-bar-pop element-bar-pop-gallery"
+                  role="dialog"
+                  aria-label="My images"
+                >
+                  {galleryBody}
+                </div>
+              )}
+            </div>
+            {fileInput(imageFileRef)}
+            {uploadButton(imageFileRef, 'Upload', 'Upload an image from your computer', true)}
+            {/* Alt text is edited in a modal (below), like the image URL. */}
+            <button
+              type="button"
+              onClick={() => { setAltDraft(alt); setAltOpen(true); }}
+              disabled={busy}
+              className="nav-btn nav-btn-secondary element-bar-btn element-bar-btn-collapsible"
+              aria-label={alt.trim() ? 'Edit alt text' : 'Set alt text'}
+              data-tip={alt.trim() ? `Alt text: ${alt.trim()}` : 'Set alt text (describes the image for screen readers)'}
+            >
+              <Captions size={14} />
+              <span>Alt text</span>
+            </button>
+            <div className="element-bar-dims" role="group" aria-label="Image dimensions">
+              <label className="element-bar-dim" data-tip="Image width in pixels">
+                <span className="element-bar-dim-tag">W</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={imgWidth}
+                  onChange={(e) => handleWidthChange(e.target.value)}
+                  onKeyDown={submitOnEnter(handleApply)}
+                  aria-label="Image width"
+                  className="element-bar-input element-bar-dim-input"
+                  disabled={busy || fitToImage}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={toggleLockAspect}
+                aria-pressed={lockAspect}
+                aria-label={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
+                data-tip={lockAspect ? 'Aspect ratio locked (proportional)' : 'Aspect ratio unlocked'}
+                className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon element-bar-toggle"
+                disabled={busy || fitToImage}
+              >
+                {lockAspect ? <Lock size={14} /> : <Unlock size={14} />}
+              </button>
+              <label className="element-bar-dim" data-tip="Image height in pixels">
+                <span className="element-bar-dim-tag">H</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={imgHeight}
+                  onChange={(e) => handleHeightChange(e.target.value)}
+                  onKeyDown={submitOnEnter(handleApply)}
+                  aria-label="Image height"
+                  className="element-bar-input element-bar-dim-input"
+                  disabled={busy || fitToImage}
+                />
+              </label>
+            </div>
+            {uploadedSize && (
+              <label className="element-bar-field" data-tip="Keep the width, and change the height to match the new image's proportions">
+                <input
+                  type="checkbox"
+                  checked={fitToImage}
+                  onChange={(e) => setFitToImage(e.target.checked)}
+                  disabled={busy}
+                />
+                <span>Fit size to image</span>
+              </label>
             )}
           </>
+        )}
+
+        {showLink && (
+          <>
+            <label className="element-bar-field element-bar-label-field">
+              <Type size={14} className="element-bar-field-icon" aria-hidden="true" />
+              <input
+                type="text"
+                value={labelText}
+                onChange={(e) => setLabelText(e.target.value)}
+                onKeyDown={submitOnEnter(handleApply)}
+                placeholder={role === 'button' ? 'Button label' : 'Link label'}
+                aria-label={role === 'button' ? 'Button label' : 'Link label'}
+                className="element-bar-input element-bar-input-icon"
+                disabled={isApplying}
+              />
+            </label>
+            <label className="element-bar-field element-bar-grow">
+              <Link2 size={15} className="element-bar-field-icon" aria-hidden="true" />
+              <input
+                type="text"
+                value={href}
+                onChange={(e) => setHref(e.target.value)}
+                onKeyDown={submitOnEnter(handleApply)}
+                placeholder={linkTargets.length ? 'Link URL, page or #section' : 'Link URL  https://…'}
+                aria-label="Link URL"
+                list={linkTargets.length ? linkListId : undefined}
+                className="element-bar-input element-bar-input-icon"
+                disabled={isApplying}
+              />
+              {linkTargets.length > 0 && (
+                <datalist id={linkListId}>
+                  {linkTargets.map((t) => <option key={t.value} value={t.value} label={t.label} />)}
+                </datalist>
+              )}
+            </label>
+            <button
+              type="button"
+              onClick={() => setNewTab((on) => !on)}
+              aria-pressed={newTab}
+              aria-label="Open link in a new tab"
+              className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon element-bar-toggle"
+              data-tip={newTab ? 'Opens in a new tab' : 'Opens in the same tab'}
+              disabled={isApplying}
+            >
+              <ExternalLink size={16} />
+            </button>
+          </>
+        )}
+
+        {showBackground && (
+          <>
+            <span className="element-bar-label">Fill</span>
+            <input
+              type="color"
+              value={/^#[0-9a-f]{6}$/i.test(bgColor) ? bgColor : '#ffffff'}
+              onChange={(e) => setBgColor(e.target.value)}
+              disabled={isApplying}
+              className="element-bar-swatch"
+              aria-label="Pick background color"
+              title="Pick a background color"
+            />
+            <input
+              type="text"
+              value={bgColor}
+              onChange={(e) => {
+                const v = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
+                setBgColor(v);
+              }}
+              onKeyDown={submitOnEnter(handleApply)}
+              aria-label="Background color hex"
+              spellCheck={false}
+              className="element-bar-input element-bar-hex"
+              disabled={isApplying}
+            />
+          </>
+        )}
+
+        {showWallpaper && (
+          <>
+            <span className="chrome-divider element-bar-divider" aria-hidden="true" />
+            <span className="element-bar-label">Wallpaper</span>
+            {fileInput(bgFileRef)}
+            {uploadButton(
+              bgFileRef,
+              bgImage ? 'Change' : 'Upload',
+              element.backgroundImage && !bgImage
+                ? 'Replace this background image'
+                : 'Set a background image from your computer',
+            )}
+            {bgImage && (
+              <span className="element-bar-ready">
+                <img src={bgImage} alt="" className="element-bar-thumb element-bar-thumb-sm" />
+                <Check size={13} aria-hidden="true" />
+                Ready
+                <button
+                  type="button"
+                  onClick={() => setBgImage('')}
+                  className="element-bar-ready-clear"
+                  aria-label="Discard uploaded wallpaper"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+          </>
+        )}
+
+        {isTextRole && onStartInlineEdit && element.text && (
+          <button
+            type="button"
+            onClick={onStartInlineEdit}
+            className="nav-btn nav-ghost element-bar-btn"
+            aria-label="Edit text in place"
+            data-tip="Format or edit this text directly on the page"
+          >
+            <Type size={14} />
+            <span>Format text</span>
+          </button>
+        )}
+
+        {isTextRole && !hasEditableFields && !message && (
+          <p className="element-bar-hint">
+            <Type size={14} className="shrink-0" aria-hidden="true" />
+            <span>Click the text on the page or Format text to edit it in place</span>
+          </p>
+        )}
+
+        {message && (
+          <p className="element-bar-message" title={message}>
+            <AlertTriangle size={14} className="shrink-0" />
+            <span>{message}</span>
+          </p>
         )}
       </div>
 
       {/* What you can do with it, quietest first; one filled key. */}
       <div className="element-bar-actions">
-        {showAiInput ? (
-          <>
-            {hasEditableFields && (
-              <button
-                type="button"
-                onClick={() => setShowAiInput(false)}
-                className="nav-btn nav-ghost nav-btn-icon element-bar-btn-icon"
-                aria-label="Back to direct edits"
-                data-tip="Back to direct edits"
-              >
-                <ArrowLeft size={16} />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => handleAiSend(false)}
-              className="nav-btn nav-ghost element-bar-btn"
-              data-tip="Add this element and your request to the chat box, to send later"
-            >
-              <MessageSquarePlus size={15} />
-              <span>Add to chat</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAiSend(true)}
-              disabled={!aiInstruction.trim()}
-              className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
-              data-tip="AI makes this change now, as a new version"
-              data-tip-align="end"
-            >
-              <Sparkles size={15} />
-              <span>Apply with AI</span>
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={openAi}
-              className="nav-btn nav-ghost element-bar-btn element-bar-btn-collapsible"
-              aria-label="Ask AI"
-              data-tip="Describe the change and let AI make it"
-            >
-              <Wand2 size={15} />
-              <span>Ask AI</span>
-            </button>
-            {hasEditableFields && (
-              <button
-                type="button"
-                onClick={handleApply}
-                disabled={busy}
-                className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
-                data-tip="Applied instantly and saved as a new version"
-                data-tip-align="end"
-              >
-                {isApplying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                <span>{isApplying ? 'Applying…' : 'Apply'}</span>
-              </button>
-            )}
-          </>
+        <button
+          type="button"
+          onClick={openAi}
+          className="nav-btn nav-ghost element-bar-btn element-bar-btn-collapsible"
+          aria-label="Ask AI"
+          data-tip="Describe the change and let AI make it"
+        >
+          <Wand2 size={15} />
+          <span>Ask AI</span>
+        </button>
+        {hasEditableFields && (
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={busy}
+            className="nav-btn brand-fill-text preview-key bg-brand hover:bg-brand-hover text-white border border-transparent shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+            data-tip="Applied instantly and saved as a new version"
+            data-tip-align="end"
+          >
+            {isApplying ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+            <span>{isApplying ? 'Applying…' : 'Apply'}</span>
+          </button>
         )}
-        {canRestructure && !showAiInput && (
+        {canRestructure && (
           <>
             <span className="chrome-divider element-bar-divider" aria-hidden="true" />
             <div className="element-bar-struct" role="group" aria-label="Arrange">
@@ -1255,6 +1182,77 @@ export default function ElementToolbar({
       </div>
       {/* Portaled to body: the bar is docked inside the preview chrome, which
           would clip or offset a fixed overlay. */}
+      {/* Ask AI: describe the change in a modal; the bar stays as it is. */}
+      {showAiInput && createPortal(
+        <Modal zIndex={70}>
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="text-base 2xl:text-lg font-semibold text-slate-900">Ask AI</h2>
+            <ModalCloseButton onClick={() => setShowAiInput(false)} />
+          </div>
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (aiInstruction.trim()) handleAiSend(true); }}
+            className="p-6 space-y-4"
+          >
+            {message && (
+              <p className="flex items-start gap-2 text-sm text-amber-600">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                <span>{message}</span>
+              </p>
+            )}
+            {element.draftText && element.draftText !== element.text && (
+              <p className="text-xs text-slate-500" title={`Preserved draft: "${element.draftText}"`}>
+                Draft saved: “{element.draftText.slice(0, 80)}{element.draftText.length > 80 ? '…' : ''}”
+              </p>
+            )}
+            <textarea
+              autoFocus
+              rows={3}
+              value={aiInstruction}
+              onChange={(e) => setAiInstruction(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setShowAiInput(false);
+                // Enter sends; Shift+Enter starts a new line.
+                else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  if (aiInstruction.trim()) handleAiSend(true);
+                }
+              }}
+              placeholder='e.g. "Make this section darker with a subtle gradient"'
+              aria-label="Describe the change for AI"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+            />
+            <p className="text-xs text-slate-400">
+              Apply with AI makes the change now, as a new version. Add to chat puts this element and your request in the chat box, to send later.
+            </p>
+            <div className="flex flex-wrap justify-end gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => setShowAiInput(false)}
+                className="rounded-lg px-3 py-2 font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAiSend(false)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 font-medium border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <MessageSquarePlus size={15} />
+                Add to chat
+              </button>
+              <button
+                type="submit"
+                disabled={!aiInstruction.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sparkles size={15} />
+                Apply with AI
+              </button>
+            </div>
+          </form>
+        </Modal>,
+        document.body,
+      )}
       {urlOpen && createPortal(
         <Modal zIndex={70}>
           <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">

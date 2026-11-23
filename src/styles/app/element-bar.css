@@ -113,14 +113,21 @@
 .is-floating .element-bar-format { flex: 0 0 auto; }
 .is-floating .element-bar-id { margin-right: 0; }
 .is-floating .element-bar-actions { margin-left: auto; order: 0; }
-.is-floating :is(.element-bar-grow, .element-bar-label-field, .element-bar-alt-input) { min-width: 5rem; }
+.is-floating :is(.element-bar-grow, .element-bar-label-field) { min-width: 5rem; }
 /* Long-form extras stay out of the pill: the file path, breadcrumbs and
    keyboard hints (the tooltips carry the shortcuts). Cancel is an X. */
 .is-floating :is(.element-bar-path, .element-bar-breadcrumbs, .element-bar-keys) { display: none; }
-/* Cancel and the secondary keys (My images, Upload, Ask AI) are icon-only;
-   their tooltips and aria-labels still name them. */
-.is-floating :is(.element-bar-cancel, .element-bar-btn-collapsible) > span { display: none; }
-.is-floating :is(.element-bar-cancel, .element-bar-btn-collapsible) { padding-inline: 0.5rem; }
+/* Cancel is an X, and My images, Upload and Alt text are icon-only on the
+   image editor so the size fields fit beside them; tooltips and aria-labels
+   still name them. Image URL and Ask AI keep their labels. */
+.is-floating .element-bar-cancel > span,
+.is-floating .element-bar-body .element-bar-btn-collapsible > span { display: none; }
+.is-floating :is(.element-bar-cancel, .element-bar-body .element-bar-btn-collapsible) { padding-inline: 0.5rem; }
+/* Only text fields give up width; every other group keeps its size. */
+.is-floating .element-bar-body > * { flex-shrink: 0; }
+.is-floating .element-bar-body > :is(.element-bar-grow, .element-bar-label-field) { flex-shrink: 1; }
+/* Four digits is all a size needs. */
+.is-floating .element-bar-dim-input { width: 3.8rem; }
 .is-floating .element-bar-pop { top: auto; bottom: calc(100% + 0.75rem); }
 
 .element-bar {
@@ -282,23 +289,6 @@
 
 .element-bar-grow { flex: 1 1 7rem; min-width: 0; }
 .element-bar-label-field { flex: 1 1 6.5rem; min-width: 6rem; max-width: 12rem; }
-.element-bar-alt-input { flex: 0 1 9rem; min-width: 5.5rem; max-width: 10rem; }
-
-.element-bar-draft-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.55rem;
-  border-radius: 9999px;
-  background: rgb(from var(--color-accent) r g b / 0.12);
-  border: 1px solid rgb(from var(--color-accent) r g b / 0.35);
-  color: var(--color-brand);
-  font-size: 0.75rem;
-  font-weight: 600;
-  max-width: 18rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* Group selection: how many elements the box or Shift+clicks picked. */
 .element-bar-count {
