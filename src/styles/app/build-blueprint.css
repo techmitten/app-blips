@@ -1,10 +1,11 @@
 /* ===== Build blueprint (build overlay) =====
-   A wireframe that fills in as the code streams, over a step timeline.
+   The AppBlips logo drawing itself as the code streams, beside a step
+   timeline.
    Everything is sized in em from one font size that follows the device
    screen (the overlay is a size container), so the same layout reads well on
    a phone, a tablet and a desktop window. Colors follow the overlay's
    --build-* palette (navy in light, coral in dark) with fallbacks for use
-   outside it. Block positions are inline (percentages of the frame). */
+   outside it. */
 .build-blueprint {
   --bp-ink: var(--build-ink, #0f1a33);
   --bp-muted: var(--build-muted, #5a6b91);
@@ -18,7 +19,6 @@
   --bp-screen: #fbfdff;
   --bp-card-border: color-mix(in srgb, var(--bp-accent) 30%, transparent);
   --bp-card-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 14px 32px -14px rgb(15 23 42 / 0.28);
-  --bp-shimmer: color-mix(in srgb, var(--bp-accent) 20%, transparent);
   /* 13px on a phone, up to 19px on tablets and desktops. */
   font-size: clamp(13px, calc(7px + 1.4cqmin), 19px);
   display: flex;
@@ -35,47 +35,22 @@
 .build-blueprint.is-code { width: min(46em, 100%); }
 
 .build-blueprint-frame {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  border-radius: 0.8em;
-  background: var(--bp-card);
-  border: 1px solid var(--bp-card-border);
-  box-shadow: var(--bp-card-shadow);
-  overflow: hidden;
+  --bp-logo-tile: #0a0a0a;
+  --bp-logo-edge: transparent;
+  --bp-logo-shadow: drop-shadow(0 14px 22px rgb(15 23 42 / 0.22));
+  width: min(7.5em, 34cqb);
+  aspect-ratio: 1;
+  margin-bottom: 0.4em;
 }
-.build-blueprint-frame.is-touch {
-  /* Phone-shaped, and short enough that the timeline and footer stay on
-     screen on every device. */
-  width: min(62%, 30cqb, 15em);
-  aspect-ratio: 9 / 16;
-  border-radius: 0.9em;
-}
-
-.build-blueprint-block {
-  position: absolute;
-  border-radius: 0.35em;
-  border: 1px dashed var(--bp-line);
-  background: var(--bp-wait);
-  overflow: hidden;
-  transition: background-color 0.5s ease, border-color 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-/* Waiting blocks carry a slow sweep, staggered so the frame ripples. */
-.build-blueprint-block::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(100deg, transparent 20%, var(--bp-shimmer) 50%, transparent 80%);
-  transform: translateX(-100%);
-  animation: bp-shimmer 2.2s ease-in-out infinite;
-  animation-delay: calc(var(--bp-i) * 0.18s);
-}
-.build-blueprint-block.is-on {
-  border-style: solid;
-  border-color: transparent;
-  background: var(--bp-fill);
-}
-.build-blueprint-block.is-on::after { animation: none; opacity: 0; }
+/* The mark from public/favicon.svg: a dark tile, a white wave and the coral
+   dot. A faint copy of the wave shows the shape it is drawing towards. */
+.build-blueprint-logo { display: block; width: 100%; height: 100%; overflow: visible; filter: var(--bp-logo-shadow); }
+.build-blueprint-logo-tile { fill: var(--bp-logo-tile); stroke: var(--bp-logo-edge); stroke-width: 6; }
+.build-blueprint-logo-track,
+.build-blueprint-logo-wave { fill: none; stroke-width: 44; stroke-linecap: round; }
+.build-blueprint-logo-track { stroke: rgb(255 255 255 / 0.1); }
+.build-blueprint-logo-wave { stroke: #fff; }
+.build-blueprint-logo-dot { fill: #e9604f; }
 
 /* ----- Show code: an editor window in the blueprint's card language -----
    Same radius, surface, border and shadow as the wireframe frame it
@@ -214,69 +189,58 @@
   min-height: 0;
 }
 
-/* ----- Timeline ----- */
+/* ----- Current step and progress pips -----
+   One centred step name, its detail on a single reserved line, and a row of
+   pips: done steps filled, the current one stretched into a pill. */
 .build-blueprint-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75em;
-  width: min(16em, 100%);
-}
-.build-blueprint-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75em;
-  font: 600 1em/1.3 var(--font-control, inherit);
-  letter-spacing: -0.01em;
-  color: var(--bp-muted);
-  transition: color 0.3s ease, opacity 0.3s ease;
-}
-.build-blueprint-step.is-active,
-.build-blueprint-step.is-done { color: var(--bp-ink); }
-.build-blueprint-step.is-todo { opacity: 0.72; font-weight: 500; }
-
-.build-blueprint-dot {
-  position: relative;
-  flex: none;
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 1.35em;
-  height: 1.35em;
-  margin-top: -0.02em;
-  border-radius: 999px;
-  border: 1.5px solid var(--bp-line);
-  color: #fff;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  width: min(18em, 100%);
+  text-align: center;
 }
-.build-blueprint-dot svg { width: 0.8em; height: 0.8em; }
-.is-done > .build-blueprint-dot { background: var(--bp-accent); border-color: var(--bp-accent); }
-.is-active > .build-blueprint-dot { border-color: var(--bp-accent); }
-.is-active > .build-blueprint-dot::after {
-  content: '';
+.build-blueprint-now {
+  margin: 0;
+  font: 600 1.05em/1.3 var(--font-control, inherit);
+  letter-spacing: -0.01em;
+  color: var(--bp-ink);
+  animation: bp-in 0.3s ease both;
+}
+.build-blueprint-step-detail {
+  margin: 0.25em 0 0;
+  max-width: 100%;
+  font-weight: 500;
+  font-size: 0.84em;
+  line-height: 1.4;
+  color: var(--bp-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: bp-in 0.3s ease both;
+}
+.build-blueprint-pips {
+  list-style: none;
+  margin: 1em 0 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+}
+.build-blueprint-pip {
   width: 0.45em;
   height: 0.45em;
   border-radius: 999px;
-  background: var(--bp-accent);
-  animation: bp-pulse 1.4s ease-in-out infinite;
+  background: var(--bp-line);
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease;
 }
-
-.build-blueprint-step-text { display: flex; flex-direction: column; gap: 0.2em; min-width: 0; }
-.build-blueprint-step-detail {
-  font-weight: 500;
-  font-size: 0.84em;
-  letter-spacing: 0;
-  color: var(--bp-muted);
-  overflow-wrap: anywhere;
-  animation: bp-in 0.3s ease both;
-}
+.build-blueprint-pip.is-done { background: var(--bp-accent); }
+.build-blueprint-pip.is-active { width: 1.5em; background: var(--bp-accent); }
 
 /* ----- Footer: time, line count, code toggle ----- */
 .build-blueprint-footer {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.9em;
   font: 500 0.82em/1 var(--font-mono, monospace);
   color: var(--bp-muted);
@@ -304,6 +268,19 @@
 .build-blueprint-toggle:hover { background: var(--bp-fill); }
 .build-blueprint-toggle:focus-visible { outline: 2px solid var(--bp-accent); outline-offset: 2px; }
 
+/* ----- Phone and tablet mockups: larger -----
+   These devices are drawn at their real pixel size and then zoomed down to
+   fit the preview pane, so the desktop sizes end up tiny. A larger base size
+   (16px on a 399px phone, 24px on an 810px tablet) and a bigger logo, step
+   name and pips keep them readable once zoomed. */
+.build-blueprint:not(.is-wide) { font-size: clamp(15px, calc(8px + 2cqmin), 24px); gap: 1.6em; }
+.build-blueprint:not(.is-wide) .build-blueprint-frame { width: min(8.5em, 36cqb); }
+.build-blueprint:not(.is-wide) .build-blueprint-now { font-size: 1.2em; }
+.build-blueprint:not(.is-wide) .build-blueprint-step-detail { font-size: 0.92em; }
+.build-blueprint:not(.is-wide) .build-blueprint-pip { width: 0.55em; height: 0.55em; }
+.build-blueprint:not(.is-wide) .build-blueprint-pip.is-active { width: 1.8em; }
+.build-blueprint:not(.is-wide) .build-blueprint-footer { font-size: 0.88em; }
+
 /* ----- Short landscape screens (a phone on its side): side by side ----- */
 @container (orientation: landscape) and (max-height: 640px) {
   .build-blueprint {
@@ -323,40 +300,33 @@
   }
   .build-blueprint-frame,
   .build-blueprint-code { grid-area: visual; }
-  .build-blueprint-frame { width: min(22em, 46cqi); }
-  .build-blueprint-frame.is-touch { width: 34cqb; }
+  .build-blueprint-frame { width: min(7.5em, 40cqb); }
   .build-blueprint-code .live-code-peek.is-bare { height: calc(62cqb - 2.5em); }
   .build-blueprint-steps { grid-area: steps; align-self: end; }
   .build-blueprint-footer { grid-area: footer; align-self: start; }
 }
 
-/* ----- Website previews (desktop, full size): side by side too -----
-   The wireframe on the left, the timeline and footer on the right, whenever
-   the screen is wide enough for both. The timeline column has a fixed width:
-   sized to its content, it would grow and shrink as step details change and
-   the whole centred block would slide left and right during a build. */
+/* ----- Desktop with Show code open: side by side -----
+   The code window on the left, the timeline and footer on the right. Without
+   the code, the default stack (logo centred above the current step) is used.
+   The step column has a fixed width: sized to its content, it would grow and
+   shrink as step details change and the whole block would slide sideways. */
 @container (min-width: 760px) {
-  .build-blueprint.is-wide {
+  .build-blueprint.is-wide.is-code {
     display: grid;
-    grid-template-columns: auto 16em;
+    grid-template-columns: minmax(0, 1fr) 16em;
     grid-template-areas: 'visual steps' 'visual footer';
     align-items: center;
     column-gap: 2.4em;
     row-gap: 1.1em;
-    width: auto;
+    width: min(56em, 100%);
     max-width: 100%;
     margin-top: clamp(20px, 7cqb, 36px);
   }
-  .build-blueprint.is-wide.is-code {
-    grid-template-columns: minmax(0, 1fr) 16em;
-    width: min(56em, 100%);
-  }
-  .is-wide .build-blueprint-frame,
-  .is-wide .build-blueprint-code { grid-area: visual; }
-  .is-wide .build-blueprint-frame { width: min(22em, 46cqi); }
+  .is-wide.is-code .build-blueprint-code { grid-area: visual; }
   .is-wide .build-blueprint-code .live-code-peek.is-bare { height: min(calc(62cqb - 2.5em), 34em); }
-  .is-wide .build-blueprint-steps { grid-area: steps; align-self: end; }
-  .is-wide .build-blueprint-footer { grid-area: footer; align-self: start; }
+  .is-wide.is-code .build-blueprint-steps { grid-area: steps; align-self: end; }
+  .is-wide.is-code .build-blueprint-footer { grid-area: footer; align-self: start; }
 }
 
 /* Dark: the overlay's coral palette comes through the variables above;
@@ -368,15 +338,18 @@
   --bp-fill: color-mix(in srgb, var(--bp-accent) 20%, transparent);
   --bp-wait: color-mix(in srgb, var(--bp-accent) 6%, transparent);
 }
+/* On a near-black overlay the dark tile needs an edge to stand out. */
+:is(html.dark, .force-dark) .build-blueprint-frame {
+  --bp-logo-edge: rgb(255 255 255 / 0.12);
+  --bp-logo-shadow: none;
+}
 
-@keyframes bp-shimmer { to { transform: translateX(100%); } }
-@keyframes bp-pulse { 0%, 100% { transform: scale(0.7); opacity: 0.6; } 50% { transform: scale(1.1); opacity: 1; } }
 @keyframes bp-in { from { opacity: 0; transform: translateY(6px); } }
 
 @media (prefers-reduced-motion: reduce) {
   .build-blueprint,
+  .build-blueprint-now,
   .build-blueprint-step-detail,
-  .build-blueprint-block::after,
-  .is-active > .build-blueprint-dot::after,
-  .build-blueprint-code-tab { animation: none; }
+  .build-blueprint-pip,
+  .build-blueprint-code-tab { animation: none; transition: none; }
 }

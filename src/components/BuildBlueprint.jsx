@@ -1,39 +1,19 @@
-import { useEffect, useState } from 'react';
-import { Check, Code2, EyeOff, FileCode2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Code2, EyeOff, FileCode2 } from 'lucide-react';
 import ThinkingElapsed from './ThinkingElapsed';
-import useElapsedSeconds from '../hooks/useElapsedSeconds';
 
-// Wireframe blocks per studio, as [left, top, width, height] in percent of the
-// frame. They light up in order as the build progresses, so the picture reads
-// as the page assembling itself without ever rendering half-written HTML.
-const LAYOUTS = {
-  website: [
-    [4, 4, 92, 7], [4, 14, 92, 30], [4, 48, 28, 20], [36, 48, 28, 20],
-    [68, 48, 28, 20], [4, 72, 60, 5], [4, 80, 44, 5], [4, 90, 92, 6],
-  ],
-  app: [
-    [4, 4, 92, 7], [4, 14, 22, 82], [30, 14, 32, 18], [66, 14, 30, 18],
-    [30, 36, 66, 30], [30, 70, 31, 26], [65, 70, 31, 26],
-  ],
-  game: [
-    [4, 4, 28, 7], [68, 4, 28, 7], [4, 14, 92, 56], [28, 74, 44, 8],
-    [4, 86, 20, 10], [76, 86, 20, 10],
-  ],
-};
-// Phones are tall, so the same story is told in a single column.
-const LAYOUT_TOUCH = [
-  [6, 3, 88, 5], [6, 11, 88, 30], [6, 45, 88, 12], [6, 60, 88, 12],
-  [6, 75, 42, 9], [52, 75, 42, 9], [6, 90, 88, 6],
-];
+// The AppBlips mark draws itself while the build runs: the wave strokes in
+// with the coral dot riding its tip, then unwinds, on a loop. Paths are the
+// ones in public/favicon.svg.
+const LOGO_TILE = 'M118 0H394C477.4 0 512 34.6 512 118V394C512 477.4 477.4 512 394 512H118C34.6 512 0 477.4 0 394V118C0 34.6 34.6 0 118 0Z';
+const LOGO_WAVE = 'M106 296C146 166 206 166 246 252S348 346 382 214';
+const LOGO_DOT = { x: 388, y: 196, r: 46 };
+// The dot is smaller while it rides the stroke, then grows to its logo size.
+const RIDING_DOT_R = 30;
 
 const STEPS = ['Understanding your idea', 'Reasoning', 'Writing the code', 'Checking for errors', 'Finishing up'];
 const REASONING = 1;
 const CHECKING = 3;
-
-// The stream gives no percentage, so progress is estimated from how much code
-// has arrived and eases toward (never reaches) the end until the build moves
-// on. It only needs to feel honest, not be exact.
-const CHARS_FOR_TWO_THIRDS = 9000;
 
 // How far the build has got, from the signals the overlay already has. The
 // caller keeps the furthest value, so a repair pass inside "Writing" must not
@@ -51,12 +31,54 @@ function rawStage({ isThinking, status, hasCode, canSeeCode }) {
   return 0;
 }
 
-// Replaces the plain spinner while a build runs: a wireframe that fills in, a
-// step timeline and a quiet footer. The raw code stays one click away
+// Draws the mark and then reverses it, on a loop for as long as the build
+// runs. A cosine ping-pong slows to a stop at both ends, so the turn at the
+// top (logo complete) and at the bottom (empty) is seamless. Near the top the
+// dot leaves the stroke's tip and settles into its place in the logo.
+// `visible` restarts the loop when the logo comes back after Show code.
+const LOOP_MS = 3600;
+function useLogoDraw(visible) {
+  const waveRef = useRef(null);
+  const dotRef = useRef(null);
+
+  useEffect(() => {
+    const wave = waveRef.current;
+    const dot = dotRef.current;
+    if (!wave || !dot) return undefined;
+    const length = wave.getTotalLength();
+    wave.style.strokeDasharray = String(length);
+    const place = (drawn) => {
+      wave.style.strokeDashoffset = String(length * (1 - drawn));
+      const tip = wave.getPointAtLength(length * drawn);
+      // 0 while riding the stroke, 1 once settled; eased over the last 12%.
+      const k = Math.min(1, Math.max(0, (drawn - 0.88) / 0.12));
+      const settle = k * k * (3 - 2 * k);
+      dot.setAttribute('cx', String(tip.x + (LOGO_DOT.x - tip.x) * settle));
+      dot.setAttribute('cy', String(tip.y + (LOGO_DOT.y - tip.y) * settle));
+      dot.setAttribute('r', String(RIDING_DOT_R + (LOGO_DOT.r - RIDING_DOT_R) * settle));
+    };
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      place(1);
+      return undefined;
+    }
+    const start = performance.now();
+    let frame = 0;
+    const draw = (now) => {
+      place((1 - Math.cos(((now - start) / LOOP_MS) * 2 * Math.PI)) / 2);
+      frame = requestAnimationFrame(draw);
+    };
+    frame = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frame);
+  }, [visible]);
+
+  return { waveRef, dotRef };
+}
+
+// Replaces the plain spinner while a build runs: the AppBlips logo drawing
+// itself, the current step with a row of progress pips and a quiet footer. The raw code stays one click away
 // (`codeSlot`), since some people like watching it. Presentational only: it
 // reads the stream text through a ref and never touches generatedCode.
 export default function BuildBlueprint({
-  studioMode = 'app',
   isTouch = false,
   isThinking = false,
   thinkingSince = null,
@@ -65,8 +87,6 @@ export default function BuildBlueprint({
   codeRef = null,
   codeSlot = null,
 }) {
-  const [startedAt] = useState(() => Date.now());
-  const seconds = useElapsedSeconds(startedAt);
   const [chars, setChars] = useState(0);
   const [lines, setLines] = useState(0);
   const [showCode, setShowCode] = useState(false);
@@ -75,7 +95,7 @@ export default function BuildBlueprint({
   // builds with reasoning off don't tick a step that never happened.
   const [hasReasoned, setHasReasoned] = useState(false);
 
-  // Five reads a second is plenty for a counter and a progress estimate.
+  // Five reads a second is plenty for the line counter.
   useEffect(() => {
     if (!codeRef) return undefined;
     const id = setInterval(() => {
@@ -96,11 +116,8 @@ export default function BuildBlueprint({
   // (a repair pass that thinks stays on "Checking for errors").
   const stage = isThinking && furthest < CHECKING ? REASONING : furthest;
 
-  const progress = furthest >= CHECKING
-    ? 1
-    : 1 - Math.exp(-(codeRef ? chars / CHARS_FOR_TWO_THIRDS : seconds / 40) * 1.1);
   const fileName = page?.page || 'index.html';
-  const blocks = isTouch ? LAYOUT_TOUCH : (LAYOUTS[studioMode] || LAYOUTS.app);
+  const { waveRef, dotRef } = useLogoDraw(!(showCode && codeSlot));
 
   const detail = (index) => {
     if (index !== stage) return null;
@@ -111,6 +128,10 @@ export default function BuildBlueprint({
     if (status && status !== 'Synthesizing your app from your prompt.') return status;
     return null;
   };
+
+  // Reasoning is listed only once the model has actually reasoned.
+  const visibleSteps = STEPS.map((_, i) => i).filter((i) => i !== REASONING || hasReasoned);
+  const currentDetail = detail(stage);
 
   return (
     <div className={`build-blueprint${isTouch ? '' : ' is-wide'}${showCode && codeSlot ? ' is-code' : ''}`} role="status" aria-live="polite">
@@ -128,38 +149,34 @@ export default function BuildBlueprint({
           <div className="build-blueprint-code-screen">{codeSlot}</div>
         </div>
       ) : (
-        <div className={`build-blueprint-frame ${isTouch ? 'is-touch' : ''}`} aria-hidden="true">
-          {blocks.map(([x, y, w, h], i) => {
-            const on = progress >= (i + 0.5) / blocks.length;
-            return (
-              <span
-                key={i}
-                className={`build-blueprint-block ${on ? 'is-on' : ''}`}
-                style={{ left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, '--bp-i': i }}
-              />
-            );
-          })}
+        <div className="build-blueprint-frame" aria-hidden="true">
+          <svg className="build-blueprint-logo" viewBox="0 0 512 512">
+            <path className="build-blueprint-logo-tile" d={LOGO_TILE} />
+            <path className="build-blueprint-logo-track" d={LOGO_WAVE} />
+            <path ref={waveRef} className="build-blueprint-logo-wave" d={LOGO_WAVE} />
+            <circle ref={dotRef} className="build-blueprint-logo-dot" cx="106" cy="296" r={RIDING_DOT_R} />
+          </svg>
         </div>
       )}
 
-      <ol className="build-blueprint-steps">
-        {STEPS.map((label, i) => {
-          if (i === REASONING && !hasReasoned) return null;
-          const state = i < stage ? 'done' : i === stage ? 'active' : 'todo';
-          const extra = detail(i);
-          return (
-            <li key={label} className={`build-blueprint-step is-${state}`} aria-current={state === 'active' ? 'step' : undefined}>
-              <span className="build-blueprint-dot" aria-hidden="true">
-                {state === 'done' ? <Check size={11} strokeWidth={3.5} /> : null}
-              </span>
-              <span className="build-blueprint-step-text">
-                <span className="build-blueprint-step-label">{label}</span>
-                {extra && <span key={String(extra)} className="build-blueprint-step-detail">{extra}</span>}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      {/* Only the current step is named, centred, so step names of different
+          lengths never leave a ragged edge. The pips show where it is in the
+          sequence; each carries its step name for screen readers. */}
+      <div className="build-blueprint-steps">
+        <p key={STEPS[stage]} className="build-blueprint-now">{STEPS[stage]}</p>
+        {/* Always rendered, so the pips below don't jump as details come and go. */}
+        <p key={String(currentDetail ?? '')} className="build-blueprint-step-detail">{currentDetail || '\u00a0'}</p>
+        <ol className="build-blueprint-pips" aria-label={`Step ${visibleSteps.indexOf(stage) + 1} of ${visibleSteps.length}`}>
+          {visibleSteps.map((i) => {
+            const state = i < stage ? 'done' : i === stage ? 'active' : 'todo';
+            return (
+              <li key={STEPS[i]} className={`build-blueprint-pip is-${state}`} aria-current={state === 'active' ? 'step' : undefined}>
+                <span className="sr-only">{STEPS[i]}{state === 'done' ? ', done' : ''}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
 
       <div className="build-blueprint-footer">
         {codeRef && lines > 0 && <span className="tabular-nums">{lines.toLocaleString()} lines</span>}
