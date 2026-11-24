@@ -64,11 +64,9 @@
 
 .starter-strip-label {
   padding-left: 0.125rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--hero-kbd-fg, rgb(255 255 255 / 0.45));
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--hero-subtitle, rgb(255 255 255 / 0.6));
 }
 
 .starter-chip {
@@ -79,9 +77,11 @@
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Chip icons keep a soft tinted badge so they read as structured starters. */
+/* On the hero the chip icons are one neutral ink: the examples are
+   secondary to the composer, and a row of six hues read as decoration. */
 .hero-landing .starter-chip .starter-card-tile[data-hue] {
-  opacity: 0.92;
+  color: var(--hero-chip-icon);
+  background: var(--hero-chip-icon-bg);
 }
 
 .starter-chip:hover {

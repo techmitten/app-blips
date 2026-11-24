@@ -218,7 +218,7 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
   if (isChips) {
     return (
       <div className="starter-strip-wrap animate-fade-in" style={{ animationDelay: '0.08s' }}>
-        <p className="starter-strip-label">Try a starter</p>
+        <p className="starter-strip-label">Start from an example</p>
         <div className="starter-strip relative">
         <div
           ref={scrollerRef}

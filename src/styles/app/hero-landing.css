@@ -127,11 +127,30 @@
   padding-bottom: clamp(2.5rem, 8vh, 5rem);
 }
 
-.hero-back-btn {
+/* Breadcrumb in the stage's top-left corner: the way back to the picker and
+   the studio you are in. It replaces a decorative eyebrow above the title. */
+.hero-crumbs {
   position: absolute;
   top: 0.875rem;
   left: 1rem;
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.hero-crumbs-sep {
+  color: var(--hero-crumb-sep);
+}
+
+.hero-crumbs-current {
+  color: var(--hero-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.hero-back-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -157,45 +176,81 @@
   outline-offset: 2px;
 }
 
-.hero-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
-  padding: 0.3125rem 0.75rem;
-  border: 1px solid var(--hero-eyebrow-border);
-  border-radius: 9999px;
-  background: var(--hero-eyebrow-bg);
-  color: var(--hero-eyebrow-fg);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.hero-eyebrow-dot {
-  width: 0.4375rem;
-  height: 0.4375rem;
-  border-radius: 9999px;
-  background-color: var(--hero-accent);
+/* Title and subtitle sit flush left on the composer's edge, like the heading
+   of a document you are about to write. */
+.hero-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-bottom: 0.75rem;
+  padding-left: 0.125rem;
 }
 
 .hero-title {
   color: var(--hero-title);
-  font-size: clamp(1.75rem, 1.15rem + 2.2vw, 2.5rem);
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.028em;
+  font-size: clamp(1.875rem, 1.2rem + 2.4vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 
 .hero-subtitle {
-  max-width: 46ch;
+  max-width: 52ch;
   color: var(--hero-subtitle);
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 450;
   line-height: 1.5;
-  text-wrap: balance;
+  text-wrap: pretty;
+}
+
+/* ===== Build canvas =====
+   The empty stage is a drafting grid that fades out radially around the
+   composer, like the artboard the app is about to be drawn on. Lines are
+   centred on the stage and sized so the major lines (every third cell) run
+   along the composer's edges: 2 x 9.75rem = 19.5rem, half of the max-w-2xl
+   column (42rem) less its 1.5rem side padding. In rem, because the root
+   font size scales with the window. It replaces the coral bloom: the stage stays
+   neutral, and coral is left for focus. Static, so nothing moves unasked. */
+.hero-stage.hero-stage-first {
+  background: var(--hero-canvas-bg);
+}
+
+.hero-stage.hero-stage-first::before {
+  inset: 0;
+  height: auto;
+  animation: none;
+  background-image:
+    linear-gradient(var(--hero-grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hero-grid-major) 1px, transparent 1px),
+    linear-gradient(var(--hero-grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hero-grid-minor) 1px, transparent 1px);
+  background-size: 9.75rem 9.75rem, 9.75rem 9.75rem, 3.25rem 3.25rem, 3.25rem 3.25rem;
+  /* A percentage puts a tile's centre on the stage's centre; the extra half
+     tile moves its line there instead. */
+  background-position:
+    calc(50% + 4.875rem) calc(50% + 4.875rem), calc(50% + 4.875rem) calc(50% + 4.875rem),
+    calc(50% + 1.625rem) calc(50% + 1.625rem), calc(50% + 1.625rem) calc(50% + 1.625rem);
+  -webkit-mask-image: radial-gradient(ellipse 58% 62% at 50% 48%, #000 0%, rgb(0 0 0 / 0.55) 45%, transparent 78%);
+  mask-image: radial-gradient(ellipse 58% 62% at 50% 48%, #000 0%, rgb(0 0 0 / 0.55) 45%, transparent 78%);
+}
+
+.hero-landing {
+  --hero-canvas-bg: linear-gradient(180deg, #0e0f12 0%, #09090b 100%);
+  --hero-grid-minor: rgb(255 255 255 / 0.04);
+  --hero-grid-major: rgb(255 255 255 / 0.085);
+  --hero-crumb-sep: rgb(255 255 255 / 0.28);
+  --hero-chip-icon: rgb(255 255 255 / 0.6);
+  --hero-chip-icon-bg: rgb(255 255 255 / 0.06);
+}
+
+.hero-landing:not(.dark) {
+  --hero-canvas-bg: linear-gradient(180deg, #f7f8fa 0%, #eef1f5 100%);
+  --hero-grid-minor: rgb(15 23 42 / 0.045);
+  --hero-grid-major: rgb(15 23 42 / 0.085);
+  --hero-crumb-sep: rgb(15 23 42 / 0.3);
+  --hero-chip-icon: rgb(11 18 32 / 0.6);
+  --hero-chip-icon-bg: rgb(15 23 42 / 0.05);
 }
 
 /* Bezel: a frame around the composer, like a device's bezel round its
@@ -306,7 +361,8 @@
 .hero-kbd-hint {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-left: 0.125rem;
   gap: 0.625rem;
   margin-top: 0.25rem;
   color: var(--hero-kbd-fg);

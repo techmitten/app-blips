@@ -91,25 +91,29 @@ export default function HeroLanding({
           </div>
         ) : (
         <main className="hero-stage hero-stage-first flex-1 min-w-0 overflow-y-auto chat-scrollbar animate-fade-in">
-          {!isResuming && sidebarProps.onNewApp && (
-            <button
-              type="button"
-              onClick={sidebarProps.onNewApp}
-              className="hero-back-btn"
-              aria-label="Back to studio picker"
-              title="Switch studio"
-            >
-              <ArrowLeft size={14} aria-hidden="true" />
-              <span>Studios</span>
-            </button>
+          {!isResuming && (
+            <nav className="hero-crumbs" aria-label="Breadcrumb">
+              {sidebarProps.onNewApp && (
+                <>
+                  <button
+                    type="button"
+                    onClick={sidebarProps.onNewApp}
+                    className="hero-back-btn"
+                    aria-label="Back to studio picker"
+                    title="Switch studio"
+                  >
+                    <ArrowLeft size={14} aria-hidden="true" />
+                    <span>Studios</span>
+                  </button>
+                  <span className="hero-crumbs-sep" aria-hidden="true">/</span>
+                </>
+              )}
+              <span className="hero-crumbs-current" aria-current="page">{copy.eyebrow}</span>
+            </nav>
           )}
           {!isResuming && (
-            <div className="hero-column mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center gap-4 px-4 sm:px-6">
-              <div className="mb-3 flex flex-col items-center gap-2.5 text-center animate-stagger-1">
-                <p className="hero-eyebrow">
-                  <span className="hero-eyebrow-dot" aria-hidden="true" />
-                  <span>{copy.eyebrow}</span>
-                </p>
+            <div className="hero-column mx-auto flex min-h-full w-full max-w-2xl flex-col items-stretch justify-center gap-4 px-4 sm:px-6">
+              <div className="hero-heading animate-stagger-1">
                 <h1 className="hero-title">{copy.title}</h1>
                 <p className="hero-subtitle">{copy.subtitle}</p>
               </div>
