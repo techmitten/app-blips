@@ -50,8 +50,9 @@ const saveSavedOpen = (open) => {
 // through the whole build. Expanded (icon + label, plus a Recents list) or
 // collapsed to an icon-only strip; below `lg` it folds into a compact top bar
 // with a slide-out menu. It holds the ways to begin (a new app, website or
-// game, Import, Explore) and, once a build exists (`workspaceActive`), the
-// workspace controls: History, Tour, Exit and (desktop) Quit, plus the
+// game, Import, Explore), Tour (the part for the page you are on) and, once a
+// build exists (`workspaceActive`), the workspace controls: History, Exit
+// and (desktop) Quit, plus the
 // Chat/Preview switch and new-chat key in the mobile top bar.
 function RailItem({ icon: Icon, label, tip = label, collapsed, onClick, href, badge = null, primary = false, active = false, tour, tipKey, ariaPressed, ariaExpanded, ariaControls, ariaCurrent }) {
   const className = `hero-rail-item${primary ? ' hero-rail-item-primary' : ''}${active ? ' hero-rail-item-active' : ''}${collapsed ? ' is-collapsed' : ''}`;
@@ -233,6 +234,8 @@ export default function HeroSidebar({
       </div>
 
       <nav className="hidden lg:flex flex-col items-stretch gap-1 lg:flex-1 min-h-0" aria-label="Studio actions">
+        {/* The ways to begin, one block so the home tour can point at it. */}
+        <div className="flex flex-col items-stretch gap-1" data-tour="start">
         {STUDIOS.map(({ key, Icon, label, tip }) => (
           <RailItem
             key={key}
@@ -248,6 +251,7 @@ export default function HeroSidebar({
         {onImportSite && (
           <RailItem icon={FolderUp} label="Import a site" tip="Import an HTML page, a website .zip or a React + Vite project" collapsed={collapsed} onClick={onImportSite} />
         )}
+        </div>
         <span className="hero-rail-sep" role="separator" />
         <RailItem
           icon={FolderOpen}
@@ -317,8 +321,8 @@ export default function HeroSidebar({
         )}
         <span className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
-        {workspaceActive && (
-          <RailItem icon={Compass} label="Tour" tip="Take the workspace tour" tour="tour" collapsed={collapsed} onClick={onStartTour} />
+        {onStartTour && (
+          <RailItem icon={Compass} label="Tour" tip={workspaceActive ? 'Take the workspace tour' : 'Take the tour of the basics'} tour="tour" collapsed={collapsed} onClick={onStartTour} />
         )}
         {onToggleWhatsNew && (
           <RailItem icon={Megaphone} label="What’s New" tip="Updates and announcements" collapsed={collapsed} onClick={onToggleWhatsNew} active={whatsNewOpen} ariaPressed={whatsNewOpen} />
@@ -437,7 +441,7 @@ export default function HeroSidebar({
           <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
             <CircleHelp size={18} aria-hidden="true" /> Help
           </a>
-          {workspaceActive && (
+          {onStartTour && (
             <button type="button" className="studio-menu-item" onClick={fromMenu(onStartTour)}>
               <Compass size={18} aria-hidden="true" /> Take the tour
             </button>

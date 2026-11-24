@@ -245,7 +245,7 @@ export default function HeroLanding({
                   onWebSearchChange={onWebSearchChange}
                   voiceInput
                   footerExtra={sidebarProps.onNewProject ? (
-                    <div className="hero-studio-switch" role="group" aria-label="Studio">
+                    <div className="hero-studio-switch" role="group" aria-label="Studio" data-tour="studios">
                       {STUDIO_SWITCH.map(({ key, Icon, label }) => (
                         <button
                           key={key}

@@ -3,15 +3,22 @@ import '../styles/app/tour.css';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, ArrowRight, Check, Compass, Download, FolderOpen, History, Menu, MessageSquarePlus, MonitorSmartphone,
-  MousePointerClick, PartyPopper, Play, Repeat2, Share2, Sparkles, X,
+  ArrowLeft, ArrowRight, Check, Compass, Download, FolderOpen, History, LayoutGrid, Menu, MessageSquarePlus, MonitorSmartphone,
+  MousePointerClick, PartyPopper, Play, Plus, Repeat2, Share2, Sparkles, X,
 } from 'lucide-react';
-import { buildTourSteps, getTourState, setTourState } from '../lib/tourSteps';
+import { buildHomeTourSteps, buildTourSteps, getTourState, setTourState } from '../lib/tourSteps';
 import useTourGeometry from '../hooks/useTourGeometry';
 
 const STEP_ICONS = {
   idea: Sparkles, modes: Repeat2, preview: Play, devices: MonitorSmartphone, edit: MousePointerClick,
   history: History, download: Download, share: Share2, chats: MessageSquarePlus, apps: FolderOpen, finish: PartyPopper, menu: Menu,
+  studios: LayoutGrid, start: Plus,
+};
+
+// The invitation's words for each part of the tour (lib/tourSteps.js).
+const INVITE_COPY = {
+  home: { title: 'New here?', text: 'Take a 30-second tour of the basics.' },
+  build: { title: 'Your build is ready', text: 'Take a one-minute tour of your workspace.' },
 };
 
 function useMediaQuery(query) {
@@ -33,11 +40,13 @@ const INVITE_TIMEOUT_MS = 20000;
 // Must match the .tour-invite.is-leaving animation duration in tour.css.
 const INVITE_FADE_MS = 400;
 
-export function TourInvitation({ onStart, building = false }) {
+// `part` is which tour it offers: 'home' on the home page, 'build' in the
+// workspace. Each part is offered once.
+export function TourInvitation({ onStart, building = false, part = 'build' }) {
   // On a phone the toast would cover the build in progress, so it waits.
   const wideScreen = useMediaQuery(WIDE_LAYOUT_QUERY);
   const held = building && !wideScreen;
-  const [visible, setVisible] = useState(() => getTourState() == null);
+  const [visible, setVisible] = useState(() => getTourState(part) == null);
   const asideRef = useRef(null);
   const [leaving, setLeaving] = useState(false);
   // Hovering or focusing the toast pauses the countdown, so it cannot vanish
@@ -95,13 +104,13 @@ export function TourInvitation({ onStart, building = false }) {
     if (!leaving) return;
     const timer = setTimeout(() => {
       setVisible(false);
-      setTourState('dismissed');
+      setTourState('dismissed', part);
     }, INVITE_FADE_MS);
     return () => clearTimeout(timer);
-  }, [leaving]);
+  }, [leaving, part]);
 
   if (!visible || held) return null;
-  const dismiss = () => { setVisible(false); setTourState('dismissed'); };
+  const dismiss = () => { setVisible(false); setTourState('dismissed', part); };
   return (
     <aside
       ref={asideRef}
@@ -115,8 +124,8 @@ export function TourInvitation({ onStart, building = false }) {
     >
       <span className="tour-invite-icon" aria-hidden="true"><Compass size={18} /></span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold leading-tight">New here?</p>
-        <p className="text-xs text-slate-600 mt-0.5">Take a one-minute tour of your workspace.</p>
+        <p className="text-sm font-semibold leading-tight">{INVITE_COPY[part].title}</p>
+        <p className="text-xs text-slate-600 mt-0.5">{INVITE_COPY[part].text}</p>
       </div>
       <button type="button" onClick={() => { dismiss(); onStart(); }} className="tour-button tour-button-primary bg-brand brand-fill-text text-white hover:bg-brand-hover">
         Start tour
@@ -126,11 +135,13 @@ export function TourInvitation({ onStart, building = false }) {
   );
 }
 
-export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeView, studioMode, isForcedMobile = false }) {
+export default function GuidedTour({ part = 'build', onClose, onViewChange, hasCode, showCodeView, studioMode, isForcedMobile = false }) {
   const wideScreen = useMediaQuery(WIDE_LAYOUT_QUERY);
   const steps = useMemo(
-    () => buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode, isForcedMobile }),
-    [wideScreen, hasCode, showCodeView, studioMode, isForcedMobile],
+    () => (part === 'home'
+      ? buildHomeTourSteps({ wideScreen })
+      : buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode, isForcedMobile })),
+    [part, wideScreen, hasCode, showCodeView, studioMode, isForcedMobile],
   );
   const [index, setIndex] = useState(0);
   // Crossing the breakpoint changes the step count; never point past the end.
@@ -138,13 +149,12 @@ export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeVie
   const step = steps[safeIndex];
   const last = safeIndex === steps.length - 1;
   const cardRef = useRef(null);
-  const [shaking, setShaking] = useState(false);
 
   useLayoutEffect(() => {
     if (step.view) onViewChange(step.view);
   }, [step.view, onViewChange]);
 
-  const geometry = useTourGeometry({ targets: step.target, placement: step.placement, cardRef, stepKey: step.id });
+  const geometry = useTourGeometry({ targets: step.target, cardRef, stepKey: step.id });
 
   // The workspace goes inert so nothing behind the scrim is reachable; focus
   // returns to whatever launched the tour (or a sensible header control).
@@ -169,8 +179,8 @@ export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeVie
     if (measured) cardRef.current?.focus({ preventScroll: true });
   }, [measured]);
 
-  const finish = () => { setTourState('completed'); onClose(); };
-  const skip = () => { setTourState('dismissed'); onClose(); };
+  const finish = () => { setTourState('completed', part); onClose(); };
+  const skip = () => { setTourState('dismissed', part); onClose(); };
   const go = (next) => setIndex(Math.max(0, Math.min(steps.length - 1, next)));
 
   const handleKeyDown = (event) => {
@@ -189,14 +199,10 @@ export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeVie
     }
   };
 
-  // A stray tap on the scrim nudges the card rather than ending the tour.
-  const nudge = () => {
-    setShaking(false);
-    requestAnimationFrame(() => setShaking(true));
-    cardRef.current?.focus();
-  };
+  // A stray tap on the scrim does nothing but hand focus back to the card;
+  // it never ends the tour.
+  const refocus = () => cardRef.current?.focus();
 
-  const Icon = STEP_ICONS[step.icon] || Compass;
   const target = geometry?.target;
   const cardStyle = !geometry
     ? { visibility: 'hidden' }
@@ -210,7 +216,7 @@ export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeVie
 
   return createPortal(
     <div className="tour-layer" onKeyDown={handleKeyDown}>
-      <div className="tour-hitbox" aria-hidden="true" onClick={nudge} />
+      <div className="tour-hitbox" aria-hidden="true" onClick={refocus} />
       <div
         aria-hidden="true"
         className={`tour-spotlight ${target ? '' : 'tour-spotlight-empty'}`}
@@ -224,9 +230,8 @@ export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeVie
         aria-labelledby="tour-title"
         aria-describedby="tour-description"
         data-placement={geometry?.placement}
-        className={`tour-card bg-surface text-slate-900 ${geometry?.sheet ? 'tour-card-sheet' : ''} ${shaking ? 'tour-card-shake' : ''}`}
+        className={`tour-card bg-surface text-slate-900 ${geometry?.sheet ? 'tour-card-sheet' : ''}`}
         style={cardStyle}
-        onAnimationEnd={(event) => { if (event.animationName === 'tour-shake') setShaking(false); }}
       >
         {arrowStyle && <span className="tour-arrow bg-surface" style={arrowStyle} aria-hidden="true" />}
         <div className="flex items-center justify-between gap-3">
@@ -236,20 +241,37 @@ export default function GuidedTour({ onClose, onViewChange, hasCode, showCodeVie
           <button type="button" onClick={skip} aria-label="Close tour" className="tour-close text-slate-500 hover:bg-slate-100"><X size={18} /></button>
         </div>
 
-        <div key={step.id} className="tour-step-body" aria-live="polite" aria-atomic="true">
-          <div className="flex items-start gap-3 mt-1">
-            <span className="tour-step-icon" aria-hidden="true"><Icon size={18} /></span>
-            <div className="min-w-0">
-              <p className="sr-only">Step {safeIndex + 1} of {steps.length}</p>
-              <h2 id="tour-title" className="text-base font-bold leading-snug pt-1.5">{step.title}</h2>
-            </div>
-          </div>
-          <p id="tour-description" className="text-sm text-slate-600 leading-relaxed mt-3">{step.body}</p>
-          {step.tips && (
-            <ul className="tour-tips mt-3">
-              {step.tips.map(tip => <li key={tip}>{tip}</li>)}
-            </ul>
-          )}
+        {/* Every step is laid out in the same grid cell, with only the current
+            one shown, so the card always has the tallest step's height and
+            doesn't grow or shrink as you move through the tour. */}
+        <div className="tour-steps">
+          {steps.map((item, i) => {
+            const current = i === safeIndex;
+            const ItemIcon = STEP_ICONS[item.icon] || Compass;
+            return (
+              <div
+                key={current ? `${item.id}-current` : item.id}
+                className={`tour-step-body${current ? ' is-current' : ''}`}
+                aria-hidden={current ? undefined : true}
+                aria-live={current ? 'polite' : undefined}
+                aria-atomic={current ? 'true' : undefined}
+              >
+                <div className="flex items-start gap-3 mt-1">
+                  <span className="tour-step-icon" aria-hidden="true"><ItemIcon size={18} /></span>
+                  <div className="min-w-0">
+                    {current && <p className="sr-only">Step {safeIndex + 1} of {steps.length}</p>}
+                    <h2 id={current ? 'tour-title' : undefined} className="text-base font-bold leading-snug pt-1.5">{item.title}</h2>
+                  </div>
+                </div>
+                <p id={current ? 'tour-description' : undefined} className="text-sm text-slate-600 leading-relaxed mt-3">{item.body}</p>
+                {item.tips && (
+                  <ul className="tour-tips mt-3">
+                    {item.tips.map(tip => <li key={tip}>{tip}</li>)}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <div className="tour-dots mt-5" role="group" aria-label="Tour steps">

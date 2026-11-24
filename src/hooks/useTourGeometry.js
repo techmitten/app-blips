@@ -1,15 +1,13 @@
 import { useLayoutEffect, useState } from 'react';
 
 // Positioning engine for the guided tour: finds the step's anchor, keeps a
-// spotlight rect on it, and places the card beside it with an arrow pointing
-// at the anchor's centre. Stays attached across pane switches, resizing,
+// spotlight rect on it, and docks the card where it stays put (a corner on
+// desktop and tablet, a sheet on phones) without covering the anchor. Stays attached across pane switches, resizing,
 // scrolling, the on-screen keyboard (visualViewport), and late-mounting
 // anchors (e.g. Export appearing once a build lands).
 
-const GAP = 14;      // card <-> spotlight
 const MARGIN = 12;   // card <-> viewport edge
 const PAD = 6;       // spotlight <-> anchor
-const ARROW_INSET = 22;
 export const SHEET_QUERY = '(max-width: 639px)';
 
 // Anchors like `apps`/`settings`/`help` exist twice (desktop nav + the hidden
@@ -24,11 +22,9 @@ export function findTarget(names) {
   return null;
 }
 
-const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
-
 function sameGeometry(a, b) {
   if (!a || !b) return a === b;
-  const keys = ['left', 'top', 'width', 'maxHeight', 'placement', 'arrow', 'sheet'];
+  const keys = ['left', 'top', 'width', 'maxHeight', 'placement', 'corner', 'arrow', 'sheet'];
   if (keys.some(k => a[k] !== b[k])) return false;
   const ta = a.target; const tb = b.target;
   if (!ta || !tb) return ta === tb;
@@ -45,11 +41,25 @@ function viewportBox() {
   };
 }
 
-function computeGeometry(element, card, preferred) {
+// The card's own height, not counting its arrow. The arrow pokes out of the
+// card (which then has overflow: visible), so on a card placed above its
+// anchor it adds to scrollHeight but beside the anchor it doesn't. Counting
+// it made a card that only just fitted above flip to the side, measure
+// shorter, flip back above, and so on forever.
+function cardContentHeight(card) {
+  const arrow = card.querySelector('.tour-arrow');
+  const previous = arrow?.style.display;
+  if (arrow) arrow.style.display = 'none';
+  const height = Math.max(card.scrollHeight, card.offsetHeight);
+  if (arrow) arrow.style.display = previous || '';
+  return height || 260;
+}
+
+function computeGeometry(element, card) {
   const vp = viewportBox();
   const sheet = window.matchMedia(SHEET_QUERY).matches;
   const cardWidth = sheet ? vp.width : Math.min(380, vp.width - MARGIN * 2);
-  const cardHeight = Math.max(card?.scrollHeight || 0, card?.getBoundingClientRect().height || 260);
+  const cardHeight = card ? cardContentHeight(card) : 260;
   const rect = element?.getBoundingClientRect();
   const visible = rect && rect.width > 0 && rect.height > 0
     && rect.bottom > vp.y && rect.top < vp.y + vp.height;
@@ -77,57 +87,28 @@ function computeGeometry(element, card, preferred) {
     return { target, sheet: true, placement, arrow: null, left: 0, top: 0, width: cardWidth, maxHeight };
   }
 
+  // Desktop and tablet: the card docks in a corner and stays there; only the
+  // spotlight moves between steps. Bottom-right unless that would cover the
+  // anchor, then the next corner that leaves it clear.
   const maxHeight = Math.round(vp.height - MARGIN * 2);
-  if (!target) {
-    return {
-      target: null, sheet: false, placement: 'center', arrow: null, width: cardWidth, maxHeight,
-      left: Math.round(vp.x + (vp.width - cardWidth) / 2),
-      top: Math.round(vp.y + Math.max(MARGIN, (vp.height - cardHeight) / 2)),
-    };
-  }
-
-  const t = { ...target, right: target.left + target.width, bottom: target.top + target.height };
-  const fits = {
-    bottom: t.bottom + GAP + cardHeight <= vp.y + vp.height - MARGIN,
-    top: t.top - GAP - cardHeight >= vp.y + MARGIN,
-    right: t.right + GAP + cardWidth <= vp.x + vp.width - MARGIN,
-    left: t.left - GAP - cardWidth >= vp.x + MARGIN,
-  };
-  const order = [preferred, 'bottom', 'top', 'right', 'left'].filter(Boolean);
-  const canArrow = cardHeight <= maxHeight;
-  const placement = (canArrow && order.find(side => fits[side])) || 'overlay';
-
-  const minLeft = vp.x + MARGIN;
-  const maxLeft = vp.x + vp.width - cardWidth - MARGIN;
-  const minTop = vp.y + MARGIN;
-  const maxTop = vp.y + vp.height - cardHeight - MARGIN;
-  const centerX = t.left + t.width / 2;
-  const centerY = t.top + t.height / 2;
-  let left; let top; let arrow = null;
-
-  if (placement === 'bottom' || placement === 'top') {
-    left = clamp(centerX - cardWidth / 2, minLeft, maxLeft);
-    top = placement === 'bottom' ? t.bottom + GAP : t.top - GAP - cardHeight;
-    arrow = clamp(centerX - left, ARROW_INSET, cardWidth - ARROW_INSET);
-  } else if (placement === 'left' || placement === 'right') {
-    left = placement === 'right' ? t.right + GAP : t.left - GAP - cardWidth;
-    top = clamp(centerY - cardHeight / 2, minTop, maxTop);
-    arrow = clamp(centerY - top, ARROW_INSET, cardHeight - ARROW_INSET);
-  } else {
-    // Anchor fills the screen (e.g. the preview pane on a tablet): float the
-    // card inside it, bottom-centred, with no arrow.
-    left = clamp(centerX - cardWidth / 2, minLeft, maxLeft);
-    top = clamp(t.bottom - cardHeight - MARGIN * 2, minTop, maxTop);
-  }
-
+  const height = Math.min(cardHeight, maxHeight);
+  const corners = [
+    { name: 'bottom-right', left: vp.x + vp.width - MARGIN - cardWidth, top: vp.y + vp.height - MARGIN - height },
+    { name: 'top-right', left: vp.x + vp.width - MARGIN - cardWidth, top: vp.y + MARGIN },
+    { name: 'bottom-left', left: vp.x + MARGIN, top: vp.y + vp.height - MARGIN - height },
+    { name: 'top-left', left: vp.x + MARGIN, top: vp.y + MARGIN },
+  ];
+  const covers = (corner) => target
+    && corner.left < target.left + target.width && corner.left + cardWidth > target.left
+    && corner.top < target.top + target.height && corner.top + height > target.top;
+  const corner = corners.find(c => !covers(c)) || corners[0];
   return {
-    target, sheet: false, placement, width: cardWidth, maxHeight,
-    left: Math.round(left), top: Math.round(clamp(top, minTop, Math.max(minTop, maxTop))),
-    arrow: arrow == null ? null : Math.round(arrow),
+    target, sheet: false, placement: 'dock', corner: corner.name, arrow: null,
+    width: cardWidth, maxHeight, left: Math.round(corner.left), top: Math.round(corner.top),
   };
 }
 
-export default function useTourGeometry({ targets, placement, cardRef, stepKey }) {
+export default function useTourGeometry({ targets, cardRef, stepKey }) {
   // Joined so a fresh-but-equal array never re-subscribes every listener.
   const targetKey = [].concat(targets).join('|');
   const [geometry, setGeometry] = useState(null);
@@ -157,7 +138,7 @@ export default function useTourGeometry({ targets, placement, cardRef, stepKey }
         if (rail) resizeObserver.observe(rail);
         observedRail = rail;
       }
-      const next = computeGeometry(element, cardRef.current, placement);
+      const next = computeGeometry(element, cardRef.current);
       setGeometry(previous => (sameGeometry(previous, next) ? previous : next));
     };
     function schedule() {
@@ -202,7 +183,7 @@ export default function useTourGeometry({ targets, placement, cardRef, stepKey }
       window.visualViewport?.removeEventListener('resize', schedule);
       window.visualViewport?.removeEventListener('scroll', schedule);
     };
-  }, [targetKey, placement, cardRef, stepKey]);
+  }, [targetKey, cardRef, stepKey]);
 
   return geometry;
 }

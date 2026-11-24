@@ -1,3 +1,4 @@
+// Both parts of the guided tour (home, then build).
 // Run against the local dev server: TOUR_TEST_URL=http://127.0.0.1:5175 node testing/testGuidedTour.js
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
@@ -33,7 +34,28 @@ try {
     page.on('pageerror', (error) => errors.push(error.message));
 
     await page.goto(url, { waitUntil: 'networkidle' });
-    await page.locator('button[data-studio="app"]').click();
+
+    // Part one: the home tour, offered on the home page before any build.
+    const homeInvite = page.locator('.tour-invite');
+    await homeInvite.waitFor();
+    assert.match(await homeInvite.textContent(), /tour of the basics/);
+    await page.getByRole('button', { name: 'Start tour', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Describe what you want', exact: true }).waitFor();
+    const homeSteps = await page.locator('.tour-dot').count();
+    assert.equal(homeSteps, viewport.width >= 1024 ? 5 : 4, `Home tour steps at ${viewport.width}x${viewport.height}`);
+    for (let index = 0; index < homeSteps; index++) {
+      const card = page.locator('.tour-card');
+      await page.getByText(`Step ${index + 1} of ${homeSteps}`, { exact: true }).waitFor();
+      await page.locator('.tour-spotlight').waitFor();
+      await waitAnimations(card);
+      assert.equal(await page.locator('.tour-spotlight-empty').count(), 0, `Home step ${index + 1} has a visible spotlight at ${viewport.width}x${viewport.height}`);
+      await card.getByRole('button', { name: index === homeSteps - 1 ? 'Finish' : 'Next', exact: true }).click();
+    }
+    await page.locator('.tour-card').waitFor({ state: 'detached' });
+    assert.equal(await page.evaluate(() => localStorage.getItem('appblips-tour-home-v1')), 'completed');
+    assert.equal(await page.evaluate(() => localStorage.getItem('appblips-tour-v2')), null, 'The home tour leaves the build tour unseen');
+
+    // Part two: the build tour, offered once a project with a build is open.
     if (viewport.width < 1024) {
       await page.getByRole('button', { name: 'Open menu', exact: true }).click();
       await page.locator('#hero-mobile-menu').getByRole('button', { name: /^Projects/ }).click();
@@ -54,8 +76,9 @@ try {
       assert.ok(inviteBox.y + inviteBox.height <= composerBox.y + 1, `Tour invitation clears composer at ${viewport.width}x${viewport.height}: invite=${JSON.stringify(inviteBox)} composer=${JSON.stringify(composerBox)}`);
     }
 
+    assert.match(await invite.textContent(), /tour of your workspace/);
     await page.getByRole('button', { name: 'Start tour', exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: 'Describe what you want', exact: true });
+    const dialog = page.getByRole('dialog', { name: 'Keep refining', exact: true });
     await dialog.waitFor();
     await page.waitForFunction(() => document.activeElement?.classList.contains('tour-card'));
     assert.equal(await page.locator('#root').evaluate((el) => el.inert), true);
@@ -66,7 +89,7 @@ try {
     assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Close tour');
 
     const totalSteps = await page.locator('.tour-dot').count();
-    const expectedSteps = viewport.hasTouch ? 8 : viewport.width >= 1024 ? 10 : 9;
+    const expectedSteps = viewport.hasTouch ? 7 : 8;
     assert.equal(totalSteps, expectedSteps, `Expected ${expectedSteps} steps at ${viewport.width}x${viewport.height}`);
 
     for (let index = 0; index < totalSteps; index++) {
@@ -110,7 +133,7 @@ try {
         `Spotlight stayed aligned after rail collapse: spotlight=${JSON.stringify(spotlightBox)} prompt=${JSON.stringify(promptBox)}`,
       );
     }
-    const jumpStep = viewport.hasTouch ? 4 : 5;
+    const jumpStep = viewport.hasTouch ? 3 : 4;
     await page.getByRole('button', { name: `Go to step ${jumpStep}: Every change is a version` }).click();
     await page.getByText(`Step ${jumpStep} of ${totalSteps}`, { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Back', exact: true }).click();
@@ -124,22 +147,10 @@ try {
       assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-tour')), 'tour');
     }
 
+    // Both parts are done: a reload offers neither again.
     await page.reload({ waitUntil: 'networkidle' });
-    const studioBtn = page.locator('button[data-studio="app"]');
-    if (await studioBtn.isVisible().catch(() => false)) {
-      await studioBtn.click();
-    }
     await page.locator('#prompt').waitFor();
-    if (!(await page.locator('.hero-rail [data-tour="tour"], [data-tour="menu"]').first().isVisible().catch(() => false)) || (await page.locator('.hero-rail [data-tour="tour"]').count()) === 0) {
-      if (viewport.width < 1024) {
-        await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-        await page.locator('#hero-mobile-menu').getByRole('button', { name: /^Projects/ }).click();
-      } else {
-        await page.locator('.hero-rail [data-tour="apps"]').click();
-      }
-      await page.locator('.modal-card').getByRole('button', { name: /Tour fixture/ }).first().click();
-      await page.locator('#prompt').waitFor();
-    }
+    await page.waitForTimeout(500);
     assert.equal(await page.locator('.tour-invite').count(), 0);
     assert.deepEqual(errors, []);
     console.log(`Tour passed at ${viewport.width} × ${viewport.height}`);

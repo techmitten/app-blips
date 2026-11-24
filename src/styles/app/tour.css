@@ -64,6 +64,9 @@
   animation: tour-card-in 0.35s var(--tour-ease);
 }
 .tour-card:focus { outline: none; }
+/* Desktop and tablet: docked in a corner (useTourGeometry), so it doesn't
+   slide between steps; only the spotlight moves. */
+.tour-card[data-placement='dock'] { transition: none; }
 /* The arrow must poke out of the card, so the card can't clip it -- but it
    also scrolls if a step is taller than the viewport. Only the floating card
    gets an arrow, and it only overflows when the viewport is tiny. */
@@ -111,7 +114,9 @@
   background: var(--color-slate-300);
 }
 
-.tour-step-body { animation: tour-step-in 0.3s var(--tour-ease); }
+.tour-steps { display: grid; }
+.tour-step-body { grid-area: 1 / 1; visibility: hidden; }
+.tour-step-body.is-current { visibility: visible; animation: tour-step-in 0.3s var(--tour-ease); }
 .tour-step-icon {
   display: grid; place-items: center; flex-shrink: 0;
   width: 36px; height: 36px;
@@ -141,16 +146,12 @@
 /* Arrow-key hint is noise on touch devices. */
 @media (hover: none) { .tour-kbd-hint { display: none; } }
 
-.tour-card-shake { animation: tour-shake 0.4s ease; }
 
 @keyframes tour-card-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes tour-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes tour-sheet-drop { from { transform: translateY(-100%); } to { transform: none; } }
-@keyframes tour-step-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
-@keyframes tour-shake {
-  20%, 60% { transform: translateX(-5px); }
-  40%, 80% { transform: translateX(5px); }
-}
+/* A plain fade between steps: no sideways slide, which read as a shake. */
+@keyframes tour-step-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* First-visit invitation: a floating toast, so it never shifts the layout. */
 .tour-invite {
@@ -185,6 +186,6 @@
 @media (prefers-reduced-motion: reduce) {
   .tour-spotlight, .tour-card, .tour-dot-mark, .tour-button { transition: none; }
   .tour-spotlight::after { animation: none; }
-  .tour-card, .tour-card-sheet, .tour-card-sheet[data-placement='sheet-top'], .tour-step-body, .tour-card-shake, .tour-invite { animation: none; }
+  .tour-card, .tour-card-sheet, .tour-card-sheet[data-placement='sheet-top'], .tour-step-body, .tour-invite { animation: none; }
   .tour-invite.is-leaving { animation: none; opacity: 0; }
 }

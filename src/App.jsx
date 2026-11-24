@@ -175,7 +175,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setIsSettingsOpen(false);
     setDesktopOnboarding({ loading: false, info, replay: true });
   };
-  const [isTourOpen, setIsTourOpen] = useState(false);
+  // Which part of the guided tour is open: 'home' (the home page) or 'build'
+  // (the workspace), or null (lib/tourSteps.js).
+  const [tourPart, setTourPart] = useState(null);
   const tourLayoutRef = useRef(null);
 
   const [copied, setCopied] = useState(false);
@@ -2908,14 +2910,21 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     window.location.reload();
   };
 
+  // The part for the page you are on: the home tour before a build exists,
+  // the build tour after.
   const startTour = () => {
+    if (showHero) {
+      tourLayoutRef.current = null;
+      setTourPart('home');
+      return;
+    }
     tourLayoutRef.current = { mobileView, activeTab, isHistoryOpen };
     setActiveTab('preview');
     setIsHistoryOpen(false);
-    setIsTourOpen(true);
+    setTourPart('build');
   };
   const closeTour = () => {
-    setIsTourOpen(false);
+    setTourPart(null);
     if (tourLayoutRef.current) {
       setMobileView(tourLayoutRef.current.mobileView);
       setActiveTab(tourLayoutRef.current.activeTab);
@@ -3064,14 +3073,14 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     <>
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
 
-      {!showHero && !isResumingProject && (
+      {!isResumingProject && (
         <Suspense fallback={null}>
-          <TourInvitation onStart={startTour} building={isGenerating} />
+          <TourInvitation key={showHero ? 'home' : 'build'} part={showHero ? 'home' : 'build'} onStart={startTour} building={isGenerating} />
         </Suspense>
       )}
-      {isTourOpen && (
+      {tourPart && (
         <Suspense fallback={null}>
-          <GuidedTour onClose={closeTour} onViewChange={setMobileView} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} isForcedMobile={isForcedMobile} />
+          <GuidedTour key={tourPart} part={tourPart} onClose={closeTour} onViewChange={setMobileView} hasCode={Boolean(generatedCode)} showCodeView={showCodeView} studioMode={studioMode} isForcedMobile={isForcedMobile} />
         </Suspense>
       )}
 
