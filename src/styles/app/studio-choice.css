@@ -204,6 +204,11 @@
   text-align: left;
 }
 .studio-menu-item:hover { background: var(--sc-fill-hover); }
+/* The studio you are in (HeroSidebar.jsx marks it aria-current). */
+.studio-menu-item[aria-current="page"] {
+  background: var(--sc-fill-hover);
+  font-weight: 650;
+}
 .studio-menu-sep { height: 1px; margin: 0.5rem 0.75rem; background: var(--sc-line); }
 .studio-menu-heading {
   padding: 0.35rem 0.75rem 0.2rem;

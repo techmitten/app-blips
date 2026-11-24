@@ -186,6 +186,23 @@
   outline-offset: 1px;
 }
 
+/* Touch screens: finger-sized keys, the same size as the composer's own. */
+@media (pointer: coarse) {
+  .hero-studio-switch-btn {
+    width: var(--composer-key-size, 38px);
+    height: var(--composer-key-size, 38px);
+    border-radius: var(--composer-key-radius, 10px);
+  }
+}
+
+/* Very narrow phones: the footer wraps to two rows, and the example prompt
+   runs to three lines, so give the field room for all of it. */
+@media (max-width: 359px) {
+  .hero-landing .hero-composer .prompt-input-field {
+    min-height: 6.5rem;
+  }
+}
+
 .hero-landing {
   --hero-switch-divider: rgb(255 255 255 / 0.12);
   --hero-switch-fg: rgb(255 255 255 / 0.55);
