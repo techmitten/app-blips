@@ -98,7 +98,7 @@ try {
     }
     await page.locator('.tour-card').waitFor();
     if (viewport.width >= 1024) {
-      // Moving off the hover-expanded rail collapses it after a 0.2s delay; spotlight must track the shift.
+      // Moving off the hover-peeking rail collapses it after a short delay; the spotlight must stay on its anchor.
       await page.mouse.move(viewport.width / 2, viewport.height / 2);
       await page.locator('.hero-rail.lg\\:w-15').waitFor();
       await waitAnimations(page.locator('.hero-rail'));

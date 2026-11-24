@@ -16,6 +16,7 @@ AppBlips has no partnership or affiliate deal with these services. Each is a sep
 - **[Square](#square):** adds buy, pay and donate buttons.
 - **[Pollinations](#pollinations):** makes AI images and powers AI features like chatbots.
 - **[Google Sheets Backend](#google-sheets-backend) (beta):** saves RSVPs, votes and scores in your own Google Sheet.
+- **[Puter](#puter) (beta):** adds AI features, saved data and file uploads, with no key.
 - **[Pixabay](#pixabay):** finds free stock photos.
 - **[Tavily](#tavily):** lets the AI search the web for facts.
 - **[Surge](#surge):** the free hosting that Publish uses.
@@ -24,7 +25,7 @@ SEO and My images are built into the app instead. See [Tools](/features/tools).
 
 <Accordion title="Which studios use which extensions?">
   - **Responsive Website** and **Mobile & Web App** use all of them.
-  - **Browser Game** uses Umami, Plausible, Pollinations, Google Sheets Backend and Tavily.
+  - **Browser Game** uses Umami, Plausible, Pollinations, Google Sheets Backend, Puter and Tavily.
   - **Imported sites** (React + Vite projects) only use Tavily.
 </Accordion>
 
@@ -60,6 +61,8 @@ Do the same if you change your key or link later.
 ### Where your keys go
 
 Web3Forms, Umami, Plausible, tawk.to, Square and Google Sheets Backend only need a value that is meant to be public, like a form key or a payment link. It is written into your pages and into anything you publish or export.
+
+Puter needs no key at all: each visitor signs in to their own Puter account.
 
 Pollinations, Pixabay, Tavily and Surge use a sign-in or personal key. AppBlips never writes these into a page. The desktop app encrypts them with your computer's keychain. The browser version keeps them unencrypted in your own web browser, not on the server. Pixabay and Tavily keys go straight from your browser to those services. Surge and Pollinations don't accept browser requests, so their sign-ins pass through the AppBlips server, which doesn't store them.
 
@@ -239,6 +242,37 @@ It's a quick, free start for small sites. Firebase or Supabase do more but take 
 - Entries from the preview are real and are saved too.
 
 If **Test connection** says "Your script works, but there is a newer one", copy the script again and paste it over the old one. Then click **Deploy**, **Manage deployments**, edit the deployment and choose **New version**.
+
+## Puter
+
+**Use it for:** AI features (chat, image generation, reading text from images, text to speech), saving each visitor's data, and file uploads, all with no API key. [Puter](https://developer.puter.com) is in beta in AppBlips.
+
+Each visitor signs in to their own free Puter account, and their account pays for what they use. So there is no key in your site for anyone to find, and no bill for you.
+
+1. In AppBlips, click **Settings**, **Extensions** and the **Puter** card.
+2. Click the switch next to **Enable Puter**. There's nothing to paste: the card shows **Connected** straight away.
+3. Ask for an AI feature, saved data or file uploads in the builder chat. The AI builds them with Puter.
+4. [Publish](/features/publishing) your site to try them.
+
+Prompts to try:
+
+- "Add an AI chat assistant that answers visitors' questions, using Puter."
+- "Let each visitor save their notes with Puter, so they are still there on any device."
+- "Add an AI image generator where visitors type a description and get a picture, using Puter."
+- "Let visitors upload photos to their own Puter storage and show them in a gallery."
+
+The first time a visitor uses a Puter feature on your published or exported site, Puter's pop-up asks them to sign in.
+
+<Note>
+  Puter features don't run in the preview or in **Open in new tab**, because Puter needs a real web address. When you try one there, a message asks you to test it on your published site.
+</Note>
+
+- No key or secret of yours is ever written into your projects.
+- Each visitor's data is their own: it is saved in their Puter account and other visitors can't see it. For things everyone should share, like a poll or a leaderboard, use [Google Sheets Backend](#google-sheets-backend) instead.
+- Each Puter account has a free monthly allowance. When a visitor's runs out, Puter features stop working for them until it renews or they add credit on Puter.
+- If Pollinations is also connected, the AI builds AI features with Puter unless you name Pollinations in your request. Pollinations still makes the pictures in your pages.
+- Sites that use Puter show a small "Powered by Puter" link, as Puter asks.
+- Imported codebases don't use it.
 
 ## Pixabay
 

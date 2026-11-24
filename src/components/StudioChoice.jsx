@@ -242,15 +242,6 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
 
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFeedbackOpen(true)}
-                  aria-label="Send feedback"
-                  title="Send feedback"
-                  className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
-                >
-                  <MessageSquare size={17} aria-hidden="true" />
-                </button>
                 <a
                   href={DOCS_URL}
                   draggable={false}

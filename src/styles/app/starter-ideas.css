@@ -63,6 +63,13 @@
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
+/* Chip icons are a bare coloured glyph: the tile palette's hue, without its
+   disc. `.hero-landing` lifts this over the dark tile rules above
+   (`:is(html.dark, .force-dark) .starter-card-tile[data-hue]`). */
+.hero-landing .starter-chip .starter-card-tile[data-hue] {
+  background: none;
+}
+
 .starter-chip:hover {
   border-color: var(--hero-chip-border-hover);
   background: var(--hero-chip-bg-hover);

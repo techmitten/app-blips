@@ -1,5 +1,6 @@
 // The Showcase: projects built with AppBlips, opened from the studio picker.
-// The examples are the same exports as appblips.com/showcase, bundled in
+// The examples are the same exports, in the same order, as
+// appblips.com/showcase (AppBlips-Landing, ShowcasePage.tsx), bundled in
 // public/showcase so they open offline. People submit their own published
 // projects through Web3Forms (lib/appblipsInbox.js); nothing is listed until
 // the AppBlips team adds it to SHOWCASE_PROJECTS by hand.
@@ -13,6 +14,24 @@ export const SHOWCASE_SITE_URL = 'https://www.appblips.com/showcase';
 // browser). An approved submission has only `url` (and `author`) and is
 // framed from there, still sandboxed.
 export const SHOWCASE_PROJECTS = [
+  {
+    name: "Ray's Barber Shop",
+    category: 'Barber shop',
+    kind: 'website',
+    description: 'An old-school Brooklyn barber shop website with service menus, barber profiles, an interactive map, and online chair booking.',
+    file: 'ray-s-barber-shop.html',
+    thumbnail: '/showcase/ray-s-barber-shop.webp',
+    background: '#0b0b0d',
+  },
+  {
+    name: "Ray's Ski Resort",
+    category: 'Ski resort',
+    kind: 'website',
+    description: 'A mountain ski resort website with a daily snow report, live lift and trail status, interactive trail map, and lift ticket, lesson, and lodging booking.',
+    file: 'ray-s-ski-resort.html',
+    thumbnail: '/showcase/ray-s-ski-resort.webp',
+    background: '#0a1b2e',
+  },
   {
     name: 'Florist',
     category: 'Flower shop',
@@ -59,6 +78,15 @@ export const SHOWCASE_PROJECTS = [
     background: '#0b1020',
   },
   {
+    name: 'Operation',
+    category: 'Arcade game',
+    kind: 'game',
+    description: 'Test your steady hand by pulling funny ailments out of Sam without touching the metal edges, using mouse, keyboard, or touch controls.',
+    file: 'operation.html',
+    thumbnail: '/showcase/operation.webp',
+    background: '#050a12',
+  },
+  {
     name: 'Shooter',
     category: '3D arena shooter',
     kind: 'game',
@@ -66,15 +94,6 @@ export const SHOWCASE_PROJECTS = [
     file: 'shooter.html',
     thumbnail: '/showcase/shooter.webp',
     background: '#05070f',
-  },
-  {
-    name: "Ray's Barber Shop",
-    category: 'Barber shop',
-    kind: 'website',
-    description: 'An old-school Brooklyn barber shop website with service menus, barber profiles, an interactive map, and online chair booking.',
-    file: 'ray-s-barber-shop.html',
-    thumbnail: '/showcase/ray-s-barber-shop.webp',
-    background: '#0b0b0d',
   },
 ].map((project) => ({
   ...project,

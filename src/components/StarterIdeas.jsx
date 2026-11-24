@@ -234,13 +234,13 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
                 type="button"
                 onClick={() => onPick(starter)}
                 title={starter.prompt}
-                className="starter-chip group shrink-0 inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3.5 cursor-pointer"
+                className="starter-chip group shrink-0 inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3 pr-3.5 cursor-pointer"
               >
                 <span
                   data-hue={hue}
-                  className="starter-card-tile shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+                  className="starter-card-tile shrink-0 h-6 flex items-center"
                 >
-                  <IconComponent size={13} strokeWidth={2.2} aria-hidden="true" />
+                  <IconComponent size={14} strokeWidth={2.2} aria-hidden="true" />
                 </span>
                 <span className="text-[13px] font-semibold leading-none whitespace-nowrap">{starter.title}</span>
               </button>

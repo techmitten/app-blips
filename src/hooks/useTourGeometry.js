@@ -148,8 +148,9 @@ export default function useTourGeometry({ targets, placement, cardRef, stepKey }
         if (element) resizeObserver.observe(element);
         observed = element;
       }
-      // Track the collapsible side rail too: when it expands/collapses on hover,
-      // sibling panes translate horizontally without changing their own size.
+      // Track the side rail too: pinning or unpinning it moves the stage
+      // sideways without changing the anchor's own size. (A hover peek floats
+      // over the stage and moves nothing.)
       const rail = document.querySelector('.hero-rail');
       if (rail !== observedRail) {
         if (observedRail) resizeObserver.unobserve(observedRail);

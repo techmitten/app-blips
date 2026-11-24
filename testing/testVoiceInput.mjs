@@ -104,7 +104,10 @@ try {
   await page.getByRole('button', { name: 'Download', exact: true }).click();
   await expect(page.getByText(/Downloading voice model… \d+%|Preparing voice input…/)).toBeVisible();
   await expect(page.getByText('Listening…')).toHaveCount(0);
-  await expect(page.getByText('Voice input is ready. Click the microphone to speak.')).toBeVisible({ timeout: 300_000 });
+  // One short line at a time: the news, then the next step takes its place.
+  await expect(page.getByText(/^(Voice input is ready|Click the microphone)$/)).toBeVisible({ timeout: 300_000 });
+  await expect(page.getByText('Click the microphone', { exact: true })).toBeVisible();
+  await expect(page.getByText('Voice input is ready', { exact: true })).toHaveCount(0);
 
   // The UI's own fonts etc. may come from elsewhere; voice input only from
   // the pinned model revision on Hugging Face (and the CDN it redirects to).

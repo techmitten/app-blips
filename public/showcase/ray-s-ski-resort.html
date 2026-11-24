@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en" style="scroll-behavior:smooth">
+<head>
+<!-- @section: head -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ray's Ski Resort | Lift Tickets, Lessons, Lodging and Snow Report</title>
+<meta name="description" content="Fresh powder, fast lifts and bright blue runs. Buy lift tickets, check today's snow report and lift status, book ski lessons, rentals and cozy mountain lodging at Ray's Ski Resort.">
+<meta property="og:title" content="Ray's Ski Resort | Lift Tickets, Lessons, Lodging and Snow Report">
+<meta property="og:description" content="Fresh powder, fast lifts and bright blue runs. Buy lift tickets, check the snow report and book lessons and lodging at Ray's Ski Resort.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ice: { 50:'#f2f9ff', 100:'#e0f2fe', 200:'#bae6fd', 500:'#0ea5e9', 600:'#0284c7', 700:'#0369a1' },
+          navy: { 700:'#16324f', 800:'#0f2740', 900:'#0a1b2e' },
+          flame: { 500:'#ff7a1a', 600:'#f06500' }
+        },
+        fontFamily: {
+          display: ['Outfit', 'system-ui', 'sans-serif'],
+          body: ['Inter', 'system-ui', 'sans-serif']
+        }
+      }
+    }
+  }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox@3.3.1/dist/css/glightbox.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+<style>
+  [x-cloak]{display:none !important}
+  body{font-family:'Inter',system-ui,sans-serif}
+  h1,h2,h3,.font-display{font-family:'Outfit',system-ui,sans-serif}
+  .hero-grad{background:linear-gradient(180deg,rgba(10,27,46,.35) 0%,rgba(10,27,46,.75) 100%)}
+  .snow-bg{background-image:radial-gradient(circle at 20% 30%,rgba(255,255,255,.9) 0 1.5px,transparent 2px),radial-gradient(circle at 70% 60%,rgba(255,255,255,.7) 0 1px,transparent 2px),radial-gradient(circle at 45% 80%,rgba(255,255,255,.8) 0 1.5px,transparent 2px);background-size:140px 140px,190px 190px,240px 240px}
+</style>
+</head>
+<body class="bg-white text-navy-900 antialiased overflow-x-hidden">
+
+<!-- @section: nav -->
+<header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-ice-100" x-data="{open:false}">
+  <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 md:h-20 flex items-center justify-between" aria-label="Main">
+    <a href="#top" class="flex items-center gap-2 font-display font-bold text-lg md:text-xl text-navy-900">
+      <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true" class="shrink-0">
+        <rect width="40" height="40" rx="10" fill="#0ea5e9"/>
+        <path d="M6 30 L16 14 L22 23 L26 18 L34 30 Z" fill="#fff"/>
+        <path d="M14 14 L16 11 L18 14" fill="#e0f2fe"/>
+      </svg>
+      <span>Ray's Ski Resort</span>
+    </a>
+    <ul class="hidden md:flex items-center gap-6 text-sm font-medium text-navy-700">
+      <li><a href="#snow-report" class="hover:text-ice-600 transition">Snow Report</a></li>
+      <li><a href="#lifts-trails" class="hover:text-ice-600 transition">Lifts &amp; Trails</a></li>
+      <li><a href="#trail-map" class="hover:text-ice-600 transition">Trail Map</a></li>
+      <li><a href="#tickets" class="hover:text-ice-600 transition">Tickets</a></li>
+      <li><a href="#lessons" class="hover:text-ice-600 transition">Lessons</a></li>
+      <li><a href="#lodging" class="hover:text-ice-600 transition">Lodging</a></li>
+    </ul>
+    <div class="flex items-center gap-2">
+      <a href="#tickets" class="hidden sm:inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-flame-500 hover:bg-flame-600 text-white font-semibold text-sm shadow-md shadow-orange-200 transition">Buy Lift Tickets</a>
+      <button type="button" class="md:hidden inline-flex items-center justify-center w-11 h-11 rounded-lg border border-ice-200 text-navy-900" @click="open=!open" :aria-expanded="open.toString()" aria-controls="mobile-menu" aria-label="Toggle menu">
+        <svg x-show="!open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/></svg>
+        <svg x-cloak x-show="open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="mobile-menu" x-cloak x-show="open" x-transition class="md:hidden absolute left-0 right-0 top-full bg-white border-b border-ice-100 shadow-lg">
+      <ul class="flex flex-col px-4 py-4 gap-1 text-base font-medium text-navy-700">
+        <li><a @click="open=false" href="#snow-report" class="block py-3 px-2 rounded-lg hover:bg-ice-50">Snow Report</a></li>
+        <li><a @click="open=false" href="#lifts-trails" class="block py-3 px-2 rounded-lg hover:bg-ice-50">Lifts &amp; Trails</a></li>
+        <li><a @click="open=false" href="#trail-map" class="block py-3 px-2 rounded-lg hover:bg-ice-50">Trail Map</a></li>
+        <li><a @click="open=false" href="#tickets" class="block py-3 px-2 rounded-lg hover:bg-ice-50">Tickets</a></li>
+        <li><a @click="open=false" href="#lessons" class="block py-3 px-2 rounded-lg hover:bg-ice-50">Lessons</a></li>
+        <li><a @click="open=false" href="#lodging" class="block py-3 px-2 rounded-lg hover:bg-ice-50">Lodging</a></li>
+        <li class="pt-2"><a @click="open=false" href="#tickets" class="flex items-center justify-center min-h-[44px] rounded-full bg-flame-500 text-white font-semibold">Buy Lift Tickets</a></li>
+      </ul>
+    </div>
+  </nav>
+</header>
+
+<main id="top">
+
+<!-- @section: hero -->
+<section class="relative isolate overflow-hidden min-h-[560px] md:min-h-[680px] flex items-end">
+  <img src="https://images.unsplash.com/photo-1465220183275-1faa863377e3?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8MXx8c2tpJTIwcmVzb3J0JTIwbW91bnRhaW4lMjBzbG9wZXMlMjBzbm93JTIwbGFuZHNjYXBlfGVufDF8MHx8fDE3OTUyNDEzMjB8MA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="Snow-covered mountain slopes under a bright winter sky at Ray's Ski Resort" class="absolute inset-0 -z-10 w-full h-full object-cover bg-gradient-to-br from-ice-500 to-navy-800">
+  <div class="absolute inset-0 -z-10 hero-grad"></div>
+  <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-28 pb-14 md:pb-20">
+    <p class="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur px-3 py-1 text-xs sm:text-sm font-semibold text-white mb-5">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Open today, 8:30 AM to 4:00 PM
+    </p>
+    <h1 class="font-display text-4xl sm:text-5xl lg:text-7xl font-extrabold text-white leading-tight max-w-3xl break-words">Fresh Powder. Fast Lifts. Bright Blue Runs.</h1>
+    <p class="mt-5 max-w-2xl text-base sm:text-lg text-ice-100 leading-relaxed">Ray's Ski Resort offers lift tickets, rentals, lessons and cozy lodging, with a daily snow report and live-style lift and trail status so you can plan the perfect run.</p>
+    <div class="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
+      <a href="#tickets" class="inline-flex items-center justify-center min-h-[48px] px-7 rounded-full bg-flame-500 hover:bg-flame-600 text-white font-semibold shadow-lg shadow-black/20 transition">Buy Lift Tickets</a>
+      <a href="#snow-report" class="inline-flex items-center justify-center min-h-[48px] px-7 rounded-full bg-white text-navy-900 hover:bg-ice-100 font-semibold transition">View Snow Report</a>
+    </div>
+    <p class="mt-8 text-[11px] text-ice-200">Photo by <a class="underline" href="https://unsplash.com/@biron?utm_source=appblips&utm_medium=referral">Chris Biron</a> on <a class="underline" href="https://unsplash.com/?utm_source=appblips&utm_medium=referral">Unsplash</a></p>
+  </div>
+</section>
+
+<!-- @section: snow-report -->
+<section id="snow-report" class="py-16 md:py-24 bg-ice-50 scroll-mt-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-widest text-ice-600">Mountain conditions</p>
+        <h2 class="font-display text-2xl md:text-4xl font-bold text-navy-900 mt-2">Today's Snow Report</h2>
+      </div>
+      <p class="text-sm text-navy-700 max-w-sm">Sample data for this prototype. Last updated Tuesday, 7:00 AM.</p>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div class="rounded-2xl bg-white p-5 md:p-6 shadow-sm border border-ice-100">
+        <p class="text-xs md:text-sm font-medium text-navy-700">New snow (24 hrs)</p>
+        <p class="font-display text-3xl md:text-4xl font-bold text-ice-600 mt-2">8"</p>
+      </div>
+      <div class="rounded-2xl bg-white p-5 md:p-6 shadow-sm border border-ice-100">
+        <p class="text-xs md:text-sm font-medium text-navy-700">Base depth</p>
+        <p class="font-display text-3xl md:text-4xl font-bold text-ice-600 mt-2">58"</p>
+      </div>
+      <div class="rounded-2xl bg-white p-5 md:p-6 shadow-sm border border-ice-100">
+        <p class="text-xs md:text-sm font-medium text-navy-700">Summit temp</p>
+        <p class="font-display text-3xl md:text-4xl font-bold text-ice-600 mt-2">24°F</p>
+      </div>
+      <div class="rounded-2xl bg-white p-5 md:p-6 shadow-sm border border-ice-100">
+        <p class="text-xs md:text-sm font-medium text-navy-700">Wind (summit)</p>
+        <p class="font-display text-3xl md:text-4xl font-bold text-ice-600 mt-2">12 mph</p>
+      </div>
+    </div>
+    <div class="mt-6 rounded-2xl bg-navy-900 text-white p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
+      <div class="shrink-0 inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-ice-500">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <h3 class="font-display text-xl md:text-2xl font-bold">Conditions: Packed powder and fresh snow</h3>
+        <p class="mt-2 text-ice-100 text-sm md:text-base leading-relaxed">Overnight snowfall has left soft, fresh coverage on upper mountain runs. Groomed trails are excellent this morning. Expect some ice patches on lower beginner slopes after 2 PM.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: lifts-trails -->
+<section id="lifts-trails" class="py-16 md:py-24 scroll-mt-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl mb-10">
+      <p class="text-sm font-semibold uppercase tracking-widest text-ice-600">Live-style status</p>
+      <h2 class="font-display text-2xl md:text-4xl font-bold mt-2">Lift and Trail Status</h2>
+      <p class="mt-3 text-navy-700 leading-relaxed">Sample status for this prototype. Check before you head up the mountain.</p>
+    </div>
+    <div class="grid md:grid-cols-2 gap-8 md:gap-10">
+      <div>
+        <h3 class="font-display text-xl font-bold mb-4">Lifts</h3>
+        <ul class="divide-y divide-ice-100 rounded-2xl border border-ice-100 bg-white shadow-sm">
+          <li class="flex items-center justify-between gap-3 p-4"><span class="font-medium">Summit Express (Quad)</span><span class="shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1">Open</span></li>
+          <li class="flex items-center justify-between gap-3 p-4"><span class="font-medium">Eagle Gondola</span><span class="shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1">Open</span></li>
+          <li class="flex items-center justify-between gap-3 p-4"><span class="font-medium">Aspen Triple Chair</span><span class="shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1">Open</span></li>
+          <li class="flex items-center justify-between gap-3 p-4"><span class="font-medium">Ridge Double Chair</span><span class="shrink-0 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-1">Delayed</span></li>
+          <li class="flex items-center justify-between gap-3 p-4"><span class="font-medium">Bunny Carpet</span><span class="shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1">Open</span></li>
+          <li class="flex items-center justify-between gap-3 p-4"><span class="font-medium">Canyon Surface Lift</span><span class="shrink-0 rounded-full bg-rose-100 text-rose-700 text-xs font-semibold px-3 py-1">Closed for wind</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="font-display text-xl font-bold mb-4">Trails</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="rounded-2xl border border-ice-100 bg-white p-5 shadow-sm">
+            <div class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-emerald-500"></span><p class="font-semibold">Green (Beginner)</p></div>
+            <p class="mt-3 font-display text-2xl font-bold">12 <span class="text-base font-medium text-navy-700">of 12 open</span></p>
+          </div>
+          <div class="rounded-2xl border border-ice-100 bg-white p-5 shadow-sm">
+            <div class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-ice-500"></span><p class="font-semibold">Blue (Intermediate)</p></div>
+            <p class="mt-3 font-display text-2xl font-bold">18 <span class="text-base font-medium text-navy-700">of 20 open</span></p>
+          </div>
+          <div class="rounded-2xl border border-ice-100 bg-white p-5 shadow-sm">
+            <div class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-navy-900"></span><p class="font-semibold">Black (Advanced)</p></div>
+            <p class="mt-3 font-display text-2xl font-bold">8 <span class="text-base font-medium text-navy-700">of 10 open</span></p>
+          </div>
+          <div class="rounded-2xl border border-ice-100 bg-white p-5 shadow-sm">
+            <div class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-flame-500"></span><p class="font-semibold">Terrain Park</p></div>
+            <p class="mt-3 font-display text-2xl font-bold">3 <span class="text-base font-medium text-navy-700">of 4 open</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: trail-map -->
+<section id="trail-map" class="py-16 md:py-24 bg-ice-50 scroll-mt-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl mb-10">
+      <p class="text-sm font-semibold uppercase tracking-widest text-ice-600">Plan your day</p>
+      <h2 class="font-display text-2xl md:text-4xl font-bold mt-2">Trail Map</h2>
+      <p class="mt-3 text-navy-700 leading-relaxed">A simplified overview of runs, lifts and the terrain park. Print this page or save it to your phone before you ride.</p>
+    </div>
+    <div class="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+      <div class="lg:col-span-2 rounded-3xl bg-white border border-ice-100 shadow-sm p-3 sm:p-6">
+        <svg viewBox="0 0 800 520" class="w-full h-auto" role="img" aria-labelledby="trailmap-title">
+          <title id="trailmap-title">Simplified trail map of Ray's Ski Resort showing green, blue, black runs, lifts and the terrain park</title>
+          <defs>
+            <linearGradient id="snowg" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="#f2f9ff"/>
+              <stop offset="1" stop-color="#e0f2fe"/>
+            </linearGradient>
+          </defs>
+          <rect width="800" height="520" rx="24" fill="url(#snowg)"/>
+          <path d="M40 470 L220 230 L300 300 L430 110 L560 260 L640 200 L760 470 Z" fill="#ffffff" stroke="#bae6fd" stroke-width="3"/>
+          <path d="M430 110 L470 170 L450 160 L430 190 L410 160 Z" fill="#ffffff"/>
+          <!-- Green runs -->
+          <path d="M440 150 C 500 200, 540 300, 600 440" fill="none" stroke="#10b981" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 14"/>
+          <path d="M240 330 C 280 380, 330 420, 360 460" fill="none" stroke="#10b981" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 14"/>
+          <!-- Blue runs -->
+          <path d="M430 120 C 390 180, 360 260, 330 380 S 300 440, 320 470" fill="none" stroke="#0ea5e9" stroke-width="6" stroke-linecap="round"/>
+          <path d="M470 140 C 520 220, 560 320, 680 470" fill="none" stroke="#0ea5e9" stroke-width="6" stroke-linecap="round"/>
+          <path d="M300 300 C 340 320, 370 340, 420 400" fill="none" stroke="#0ea5e9" stroke-width="6" stroke-linecap="round"/>
+          <!-- Black runs -->
+          <path d="M430 110 C 420 200, 440 260, 470 330 S 520 420, 500 470" fill="none" stroke="#0a1b2e" stroke-width="6" stroke-linecap="round"/>
+          <path d="M560 260 C 600 300, 620 360, 720 460" fill="none" stroke="#0a1b2e" stroke-width="6" stroke-linecap="round" stroke-dasharray="14 8"/>
+          <!-- Terrain park -->
+          <rect x="220" y="250" width="90" height="50" rx="10" fill="none" stroke="#ff7a1a" stroke-width="4" stroke-dasharray="6 6"/>
+          <text x="265" y="280" text-anchor="middle" font-size="16" font-family="Outfit, sans-serif" font-weight="700" fill="#f06500">Park</text>
+          <!-- Lifts -->
+          <line x1="440" y1="112" x2="300" y2="470" stroke="#16324f" stroke-width="2.5" stroke-dasharray="10 5"/>
+          <line x1="455" y1="122" x2="560" y2="470" stroke="#16324f" stroke-width="2.5" stroke-dasharray="10 5"/>
+          <line x1="250" y1="330" x2="130" y2="470" stroke="#16324f" stroke-width="2.5" stroke-dasharray="10 5"/>
+          <!-- Labels -->
+          <g font-family="Outfit, sans-serif" font-size="15" font-weight="600" fill="#0f2740">
+            <rect x="452" y="70" width="150" height="30" rx="8" fill="#ffffff" stroke="#bae6fd"/>
+            <text x="527" y="90" text-anchor="middle">Summit Express</text>
+            <rect x="110" y="430" width="120" height="30" rx="8" fill="#ffffff" stroke="#bae6fd"/>
+            <text x="170" y="450" text-anchor="middle">Base Lodge</text>
+            <rect x="590" y="400" width="130" height="30" rx="8" fill="#ffffff" stroke="#bae6fd"/>
+            <text x="655" y="420" text-anchor="middle">Eagle Gondola</text>
+          </g>
+          <circle cx="430" cy="110" r="7" fill="#ff7a1a" stroke="#ffffff" stroke-width="3"/>
+          <circle cx="170" cy="470" r="0" fill="none"/>
+        </svg>
+      </div>
+      <aside class="rounded-3xl bg-white border border-ice-100 shadow-sm p-6 md:p-8">
+        <h3 class="font-display text-xl font-bold">Legend</h3>
+        <ul class="mt-5 space-y-4 text-sm text-navy-700">
+          <li class="flex items-center gap-3"><span class="w-10 h-1.5 rounded-full bg-emerald-500"></span> Green: beginner runs</li>
+          <li class="flex items-center gap-3"><span class="w-10 h-1.5 rounded-full bg-ice-500"></span> Blue: intermediate runs</li>
+          <li class="flex items-center gap-3"><span class="w-10 h-1.5 rounded-full bg-navy-900"></span> Black: advanced runs</li>
+          <li class="flex items-center gap-3"><span class="w-10 border-t-2 border-dashed border-navy-700"></span> Chairlift or gondola</li>
+          <li class="flex items-center gap-3"><span class="w-10 h-4 rounded border-2 border-dashed border-flame-500"></span> Terrain park</li>
+        </ul>
+        <div class="mt-6 pt-6 border-t border-ice-100">
+          <p class="text-sm text-navy-700 leading-relaxed">The map is simplified and not to scale. Always check current trail status above before you ride.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- @section: tickets -->
+<section id="tickets" class="py-16 md:py-24 scroll-mt-20" x-data="{period:'day'}">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+      <div class="max-w-2xl">
+        <p class="text-sm font-semibold uppercase tracking-widest text-ice-600">Lift tickets &amp; rentals</p>
+        <h2 class="font-display text-2xl md:text-4xl font-bold mt-2">Pick Your Pass</h2>
+        <p class="mt-3 text-navy-700 leading-relaxed">Buy online and skip the ticket window. Prices are sample values for this prototype.</p>
+      </div>
+      <div class="inline-flex w-full md:w-auto rounded-full bg-ice-100 p-1" role="group" aria-label="Ticket period">
+        <button type="button" @click="period='day'" :class="period==='day' ? 'bg-white shadow text-navy-900' : 'text-navy-700'" class="flex-1 md:flex-none min-h-[44px] px-6 rounded-full font-semibold text-sm transition">Day Tickets</button>
+        <button type="button" @click="period='multi'" :class="period==='multi' ? 'bg-white shadow text-navy-900' : 'text-navy-700'" class="flex-1 md:flex-none min-h-[44px] px-6 rounded-full font-semibold text-sm transition">Multi-Day Passes</button>
+      </div>
+    </div>
+
+    <div x-show="period==='day'" class="grid md:grid-cols-3 gap-6">
+      <div class="rounded-3xl border border-ice-100 bg-white p-6 md:p-8 shadow-sm flex flex-col">
+        <h3 class="font-display text-xl font-bold">Adult Day Ticket</h3>
+        <p class="mt-1 text-sm text-navy-700">Ages 19 to 64, full mountain access</p>
+        <p class="mt-6 font-display text-4xl font-extrabold">$129<span class="text-base font-medium text-navy-700"> / day</span></p>
+        <ul class="mt-6 space-y-2 text-sm text-navy-700 flex-1">
+          <li>All lifts and trails</li><li>Terrain park access</li><li>Online price guarantee</li>
+        </ul>
+        <a href="#booking" class="mt-8 inline-flex items-center justify-center min-h-[48px] rounded-full bg-navy-900 hover:bg-navy-700 text-white font-semibold transition">Buy Adult Ticket</a>
+      </div>
+      <div class="rounded-3xl border-2 border-ice-500 bg-white p-6 md:p-8 shadow-lg shadow-ice-100 flex flex-col relative">
+        <span class="absolute -top-3 left-6 rounded-full bg-flame-500 text-white text-xs font-semibold px-3 py-1">Most popular</span>
+        <h3 class="font-display text-xl font-bold">Youth Day Ticket</h3>
+        <p class="mt-1 text-sm text-navy-700">Ages 7 to 18</p>
+        <p class="mt-6 font-display text-4xl font-extrabold">$89<span class="text-base font-medium text-navy-700"> / day</span></p>
+        <ul class="mt-6 space-y-2 text-sm text-navy-700 flex-1">
+          <li>All lifts and trails</li><li>Free kids' camp check-in</li><li>Family discount when bought together</li>
+        </ul>
+        <a href="#booking" class="mt-8 inline-flex items-center justify-center min-h-[48px] rounded-full bg-flame-500 hover:bg-flame-600 text-white font-semibold transition">Buy Youth Ticket</a>
+      </div>
+      <div class="rounded-3xl border border-ice-100 bg-white p-6 md:p-8 shadow-sm flex flex-col">
+        <h3 class="font-display text-xl font-bold">Senior Day Ticket</h3>
+        <p class="mt-1 text-sm text-navy-700">Ages 65 and over</p>
+        <p class="mt-6 font-display text-4xl font-extrabold">$74<span class="text-base font-medium text-navy-700"> / day</span></p>
+        <ul class="mt-6 space-y-2 text-sm text-navy-700 flex-1">
+          <li>All lifts and trails</li><li>Weekday pricing</li><li>Proof of age at pickup</li>
+        </ul>
+        <a href="#booking" class="mt-8 inline-flex items-center justify-center min-h-[48px] rounded-full bg-navy-900 hover:bg-navy-700 text-white font-semibold transition">Buy Senior Ticket</a>
+      </div>
+    </div>
+
+    <div x-cloak x-show="period==='multi'" class="grid md:grid-cols-3 gap-6">
+      <div class="rounded-3xl border border-ice-100 bg-white p-6 md:p-8 shadow-sm flex flex-col">
+        <h3 class="font-display text-xl font-bold">3-Day Pass</h3>
+        <p class="mt-1 text-sm text-navy-700">Any three days within the season</p>
+        <p class="mt-6 font-display text-4xl font-extrabold">$329<span class="text-base font-medium text-navy-700"> adult</span></p>
+        <ul class="mt-6 space-y-2 text-sm text-navy-700 flex-1"><li>Save about 15% on day tickets</li><li>Use on any non-consecutive days</li></ul>
+        <a href="#booking" class="mt-8 inline-flex items-center justify-center min-h-[48px] rounded-full bg-navy-900 hover:bg-navy-700 text-white font-semibold transition">Buy 3-Day Pass</a>
+      </div>
+      <div class="rounded-3xl border-2 border-ice-500 bg-white p-6 md:p-8 shadow-lg shadow-ice-100 flex flex-col relative">
+        <span class="absolute -top-3 left-6 rounded-full bg-flame-500 text-white text-xs font-semibold px-3 py-1">Best value</span>
+        <h3 class="font-display text-xl font-bold">5-Day Pass</h3>
+        <p class="mt-1 text-sm text-navy-700">Any five days within the season</p>
+        <p class="mt-6 font-display text-4xl font-extrabold">$529<span class="text-base font-medium text-navy-700"> adult</span></p>
+        <ul class="mt-6 space-y-2 text-sm text-navy-700 flex-1"><li>Save about 18% on day tickets</li><li>Includes one free lesson voucher</li></ul>
+        <a href="#booking" class="mt-8 inline-flex items-center justify-center min-h-[48px] rounded-full bg-flame-500 hover:bg-flame-600 text-white font-semibold transition">Buy 5-Day Pass</a>
+      </div>
+      <div class="rounded-3xl border border-ice-100 bg-white p-6 md:p-8 shadow-sm flex flex-col">
+        <h3 class="font-display text-xl font-bold">Season Pass</h3>
+        <p class="mt-1 text-sm text-navy-700">Unlimited riding all season</p>
+        <p class="mt-6 font-display text-4xl font-extrabold">$899<span class="text-base font-medium text-navy-700"> adult</span></p>
+        <ul class="mt-6 space-y-2 text-sm text-navy-700 flex-1"><li>Unlimited lift access</li><li>10% off lessons and rentals</li></ul>
+        <a href="#booking" class="mt-8 inline-flex items-center justify-center min-h-[48px] rounded-full bg-navy-900 hover:bg-navy-700 text-white font-semibold transition">Buy Season Pass</a>
+      </div>
+    </div>
+
+    <div class="mt-12 rounded-3xl bg-ice-50 border border-ice-100 p-6 md:p-10">
+      <h3 class="font-display text-xl md:text-2xl font-bold">Rental Equipment</h3>
+      <p class="mt-2 text-navy-700 text-sm md:text-base">Reserve online and pick up at the rental shop at the base lodge.</p>
+      <div class="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="rounded-2xl bg-white p-5 shadow-sm"><p class="font-semibold">Skis and boots</p><p class="mt-2 font-display text-2xl font-bold">$45<span class="text-sm font-medium text-navy-700"> / day</span></p></div>
+        <div class="rounded-2xl bg-white p-5 shadow-sm"><p class="font-semibold">Snowboard and boots</p><p class="mt-2 font-display text-2xl font-bold">$48<span class="text-sm font-medium text-navy-700"> / day</span></p></div>
+        <div class="rounded-2xl bg-white p-5 shadow-sm"><p class="font-semibold">Helmet add-on</p><p class="mt-2 font-display text-2xl font-bold">$10<span class="text-sm font-medium text-navy-700"> / day</span></p></div>
+        <div class="rounded-2xl bg-white p-5 shadow-sm"><p class="font-semibold">Kids' package</p><p class="mt-2 font-display text-2xl font-bold">$32<span class="text-sm font-medium text-navy-700"> / day</span></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: lessons -->
+<section id="lessons" class="py-16 md:py-24 bg-navy-900 text-white scroll-mt-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-widest text-ice-200">Ski and snowboard school</p>
+        <h2 class="font-display text-2xl md:text-4xl font-bold mt-2">Lessons for Every Level</h2>
+        <p class="mt-4 text-ice-100 leading-relaxed">Certified instructors teach first turns, confident carving and terrain park basics. Groups are kept small and matched by ability.</p>
+        <div class="mt-8 space-y-4">
+          <div class="rounded-2xl bg-white/5 border border-white/10 p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h3 class="font-display text-lg font-bold">Group Lesson</h3>
+              <p class="font-semibold text-ice-200">From $59 / 2 hours</p>
+            </div>
+            <p class="mt-2 text-sm text-ice-100">Small groups of up to six, for beginners and improvers.</p>
+          </div>
+          <div class="rounded-2xl bg-white/5 border border-white/10 p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h3 class="font-display text-lg font-bold">Private Lesson</h3>
+              <p class="font-semibold text-ice-200">$155 / hour</p>
+            </div>
+            <p class="mt-2 text-sm text-ice-100">One-on-one coaching tailored to your goals and pace.</p>
+          </div>
+          <div class="rounded-2xl bg-white/5 border border-white/10 p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <h3 class="font-display text-lg font-bold">Kids' Full-Day Camp</h3>
+              <p class="font-semibold text-ice-200">$89 / day</p>
+            </div>
+            <p class="mt-2 text-sm text-ice-100">Lessons, lunch supervision and games for ages 4 to 12.</p>
+          </div>
+        </div>
+        <a href="#booking" class="mt-8 inline-flex items-center justify-center w-full sm:w-auto min-h-[48px] px-7 rounded-full bg-flame-500 hover:bg-flame-600 text-white font-semibold transition">Book a Lesson</a>
+      </div>
+      <figure>
+        <img src="https://images.unsplash.com/photo-1519659675643-e5885721661f?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8NHx8c2tpJTIwcmVzb3J0JTIwbW91bnRhaW4lMjBzbG9wZXMlMjBzbm93JTIwbGFuZHNjYXBlfGVufDF8MHx8fDE3OTUyNDEzMjB8MA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="A group of skiers gathered together on a snowy mountain park" class="w-full aspect-[4/3] object-cover rounded-3xl bg-gradient-to-br from-ice-500 to-navy-700 shadow-2xl">
+        <figcaption class="mt-3 text-xs text-ice-200">Photo by <a class="underline" href="https://unsplash.com/@joanoger?utm_source=appblips&utm_medium=referral">Joan Oger</a> on <a class="underline" href="https://unsplash.com/?utm_source=appblips&utm_medium=referral">Unsplash</a></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- @section: feature-band -->
+<section class="relative isolate overflow-hidden py-20 md:py-28">
+  <img src="https://images.unsplash.com/photo-1644768606833-0cf3c35b3755?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8MXx8c2tpZXIlMjBvbiUyMHNub3d5JTIwc2xvcGUlMjBicmlnaHQlMjBzdW5ueSUyMGRheXxlbnwxfDF8fHwxNzk1MjQxMzIwfDA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="A skier carving down a snowy slope on a bright sunny day" class="absolute inset-0 -z-10 w-full h-full object-cover bg-gradient-to-br from-ice-500 to-navy-800">
+  <div class="absolute inset-0 -z-10 bg-navy-900/60"></div>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+    <h2 class="font-display text-3xl md:text-5xl font-extrabold text-white max-w-3xl mx-auto break-words">Your Best Run Starts Here</h2>
+    <p class="mt-4 text-ice-100 max-w-xl mx-auto">Buy your pass online, reserve rentals and lock in your lesson before you arrive.</p>
+    <a href="#tickets" class="mt-8 inline-flex items-center justify-center min-h-[48px] px-8 rounded-full bg-flame-500 hover:bg-flame-600 text-white font-semibold transition">Start Planning</a>
+    <p class="mt-8 text-[11px] text-ice-200">Photo by <a class="underline" href="https://unsplash.com/@lanceanderson?utm_source=appblips&utm_medium=referral">Lance Anderson</a> on <a class="underline" href="https://unsplash.com/?utm_source=appblips&utm_medium=referral">Unsplash</a></p>
+  </div>
+</section>
+
+<!-- @section: lodging -->
+<section id="lodging" class="py-16 md:py-24 scroll-mt-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl mb-10">
+      <p class="text-sm font-semibold uppercase tracking-widest text-ice-600">Stay on the mountain</p>
+      <h2 class="font-display text-2xl md:text-4xl font-bold mt-2">Lodging Options</h2>
+      <p class="mt-3 text-navy-700 leading-relaxed">From ski-in, ski-out cabins to lakeside chalets, find a place to rest between runs. Rates are sample values.</p>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+      <article class="rounded-3xl overflow-hidden border border-ice-100 bg-white shadow-sm hover:shadow-lg transition">
+        <img src="https://images.unsplash.com/photo-1613525041465-88225ec0122a?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8MXx8c2tpJTIwbG9kZ2UlMjBjYWJpbiUyMGluJTIwc25vd3klMjBtb3VudGFpbnN8ZW58MXwwfHx8MTc5NTI0MTMyMXww&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="A wooden cabin surrounded by snow-covered ground near trees" class="w-full aspect-[4/3] object-cover bg-gradient-to-br from-ice-200 to-ice-500">
+        <div class="p-6">
+          <p class="text-xs font-semibold text-ice-600 uppercase tracking-wider">Ski-in, ski-out</p>
+          <h3 class="font-display text-xl font-bold mt-1">Pine Ridge Cabins</h3>
+          <p class="mt-2 text-sm text-navy-700">Private wood-cabins with fireplaces, hot tubs and direct trail access.</p>
+          <div class="mt-4 flex items-center justify-between"><p class="font-semibold">From $210 / night</p><a href="#booking" class="text-sm font-semibold text-ice-600 hover:text-ice-700">Check dates</a></div>
+          <p class="mt-4 text-[11px] text-navy-700">Photo by <a class="underline" href="https://unsplash.com/@gregalthoff?utm_source=appblips&utm_medium=referral">Greg Althoff</a> on <a class="underline" href="https://unsplash.com/?utm_source=appblips&utm_medium=referral">Unsplash</a></p>
+        </div>
+      </article>
+      <article class="rounded-3xl overflow-hidden border border-ice-100 bg-white shadow-sm hover:shadow-lg transition">
+        <img src="https://images.unsplash.com/photo-1761477728758-186afe49ab16?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8M3x8c2tpJTIwbG9kZ2UlMjBjYWJpbiUyMGluJTIwc25vd3klMjBtb3VudGFpbnN8ZW58MXwwfHx8MTc5NTI0MTMyMXww&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="Wooden cabins nestled in a snowy mountain landscape" class="w-full aspect-[4/3] object-cover bg-gradient-to-br from-ice-200 to-ice-500">
+        <div class="p-6">
+          <p class="text-xs font-semibold text-ice-600 uppercase tracking-wider">Family favorite</p>
+          <h3 class="font-display text-xl font-bold mt-1">Summit Lodge</h3>
+          <p class="mt-2 text-sm text-navy-700">Hotel-style rooms, a heated pool and an on-site restaurant at the base.</p>
+          <div class="mt-4 flex items-center justify-between"><p class="font-semibold">From $165 / night</p><a href="#booking" class="text-sm font-semibold text-ice-600 hover:text-ice-700">Check dates</a></div>
+          <p class="mt-4 text-[11px] text-navy-700">Photo by <a class="underline" href="https://unsplash.com/@lukafotografie?utm_source=appblips&utm_medium=referral">Luka Peters</a> on <a class="underline" href="https://unsplash.com/?utm_source=appblips&utm_medium=referral">Unsplash</a></p>
+        </div>
+      </article>
+      <article class="rounded-3xl overflow-hidden border border-ice-100 bg-white shadow-sm hover:shadow-lg transition">
+        <img src="https://images.unsplash.com/photo-1642271544954-b1fcce2b8cd3?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8Nnx8c2tpJTIwbG9kZ2UlMjBjYWJpbiUyMGluJTIwc25vd3klMjBtb3VudGFpbnN8ZW58MXwwfHx8MTc5NTI0MTMyMXww&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="A cabin in the middle of a snowy mountain" class="w-full aspect-[4/3] object-cover bg-gradient-to-br from-ice-200 to-ice-500">
+        <div class="p-6">
+          <p class="text-xs font-semibold text-ice-600 uppercase tracking-wider">Quiet and cozy</p>
+          <h3 class="font-display text-xl font-bold mt-1">Lakeside Chalets</h3>
+          <p class="mt-2 text-sm text-navy-700">Two-bedroom chalets for groups, with a shuttle to the lifts every 15 minutes.</p>
+          <div class="mt-4 flex items-center justify-between"><p class="font-semibold">From $280 / night</p><a href="#booking" class="text-sm font-semibold text-ice-600 hover:text-ice-700">Check dates</a></div>
+          <p class="mt-4 text-[11px] text-navy-700">Photo by <a class="underline" href="https://unsplash.com/@mlapergolaphoto?utm_source=appblips&utm_medium=referral">Mario La Pergola</a> on <a class="underline" href="https://unsplash.com/?utm_source=appblips&utm_medium=referral">Unsplash</a></p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- @section: gallery -->
+<section id="gallery" class="py-16 md:py-24 bg-ice-50 scroll-mt-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl mb-10">
+      <p class="text-sm font-semibold uppercase tracking-widest text-ice-600">Gallery</p>
+      <h2 class="font-display text-2xl md:text-4xl font-bold mt-2">On the Mountain</h2>
+      <p class="mt-3 text-navy-700 leading-relaxed">Tap any photo to view it full screen.</p>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
+      <a href="https://images.unsplash.com/photo-1418985991508-e47386d96a71?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8Mnx8c2tpJTIwcmVzb3J0JTIwbW91bnRhaW4lMjBzbG9wZXMlMjBzbm93JTIwbGFuZHNjYXBlfGVufDF8MHx8fDE3OTUyNDEzMjB8MA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" class="glightbox block rounded-2xl overflow-hidden" data-gallery="resort" data-title="Ground covered in fresh snow">
+        <img src="https://images.unsplash.com/photo-1418985991508-e47386d96a71?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8Mnx8c2tpJTIwcmVzb3J0JTIwbW91bnRhaW4lMjBzbG9wZXMlMjBzbm93JTIwbGFuZHNjYXBlfGVufDF8MHx8fDE3OTUyNDEzMjB8MA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="Ground covered in fresh snow on the mountain" class="w-full aspect-square object-cover bg-gradient-to-br from-ice-500 to-navy-700 hover:scale-105 transition duration-500">
+      </a>
+      <a href="https://images.unsplash.com/photo-1585773622274-3be290c6f8f8?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8Nnx8c2tpJTIwcmVzb3J0JTIwbW91bnRhaW4lMjBzbG9wZXMlMjBzbm93JTIwbGFuZHNjYXBlfGVufDF8MHx8fDE3OTUyNDEzMjB8MA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" class="glightbox block rounded-2xl overflow-hidden" data-gallery="resort" data-title="Snow-covered peak under a blue sky">
+        <img src="https://images.unsplash.com/photo-1585773622274-3be290c6f8f8?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8Nnx8c2tpJTIwcmVzb3J0JTIwbW91bnRhaW4lMjBzbG9wZXMlMjBzbm93JTIwbGFuZHNjYXBlfGVufDF8MHx8fDE3OTUyNDEzMjB8MA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="Snow-covered mountain under a blue sky" class="w-full aspect-square object-cover bg-gradient-to-br from-ice-500 to-navy-700 hover:scale-105 transition duration-500">
+      </a>
+      <a href="https://images.unsplash.com/photo-1614089916276-eb5be76854bd?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8M3x8c2tpJTIwcmVzb3J0JTIwbW91bnRhaW4lMjBzbG9wZXMlMjBzbm93JTIwbGFuZHNjYXBlfGVufDF8MHx8fDE3OTUyNDEzMjB8MA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" class="glightbox block rounded-2xl overflow-hidden" data-gallery="resort" data-title="Snow-covered mountain in daylight">
+        <img src="https://images.unsplash.com/photo-1614089916276-eb5be76854bd?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8M3x8c2tpJTIwcmVzb3J0JTIwbW91bnRhaW4lMjBzbG9wZXMlMjBzbm93JTIwbGFuZHNjYXBlfGVufDF8MHx8fDE3OTUyNDEzMjB8MA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="Snow-covered mountain in daylight" class="w-full aspect-square object-cover bg-gradient-to-br from-ice-500 to-navy-700 hover:scale-105 transition duration-500">
+      </a>
+      <a href="https://images.unsplash.com/photo-1789655573855-811b85cfbda7?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8Nnx8c2tpZXIlMjBvbiUyMHNub3d5JTIwc2xvcGUlMjBicmlnaHQlMjBzdW5ueSUyMGRheXxlbnwxfDF8fHwxNzk1MjQxMzIwfDA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" class="glightbox block rounded-2xl overflow-hidden" data-gallery="resort" data-title="Skiers on a slope beside pine forest">
+        <img src="https://images.unsplash.com/photo-1789655573855-811b85cfbda7?ixid=M3wxMTMyOTcyfDB8MXxzZWFyY2h8Nnx8c2tpZXIlMjBvbiUyMHNub3d5JTIwc2xvcGUlMjBicmlnaHQlMjBzdW5ueSUyMGRheXxlbnwxfDF8fHwxNzk1MjQxMzIwfDA&ixlib=rb-4.1.0&auto=format&fit=crop&w=1600&q=80" alt="Skiers on a snow-covered slope bordered by pine forest" class="w-full aspect-square object-cover bg-gradient-to-br from-ice-500 to-navy-700 hover:scale-105 transition duration-500">
+      </a>
+    </div>
+    <p class="mt-6 text-[11px] text-navy-700 leading-relaxed">Photos by <a class="underline" href="https://unsplash.com/@albertorestifo?utm_source=appblips&utm_medium=referral">Alberto Restifo</a>, <a class="underline" href="https://unsplash.com/@vbk_media?utm_source=appblips&utm_medium=referral">Valentin Kremer</a> (see below), <a class="underline" href="https://unsplash.com/@sickhews?utm_source=appblips&utm_medium=referral">Wes Hicks</a> and <a class="underline" href="https://unsplash.com/@aimgestudio?utm_source=appblips&utm_medium=referral">Martin Gleizes</a> on <a class="underline" href="https://unsplash.com/?utm_source=appblips&utm_medium=referral">Unsplash</a>.</p>
+  </div>
+</section>
+
+<!-- @section: faq -->
+<section id="faq" class="py-16 md:py-24 scroll-mt-20">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-10">
+      <p class="text-sm font-semibold uppercase tracking-widest text-ice-600">Good to know</p>
+      <h2 class="font-display text-2xl md:text-4xl font-bold mt-2">Frequently Asked Questions</h2>
+    </div>
+    <div class="space-y-3" x-data="{active:1}">
+      <div class="rounded-2xl border border-ice-100 bg-white shadow-sm">
+        <h3><button type="button" class="w-full min-h-[56px] flex items-center justify-between gap-4 text-left px-5 py-4 font-semibold" @click="active = active===1 ? null : 1" :aria-expanded="(active===1).toString()" aria-controls="faq-1">What time do the lifts open?<span class="text-ice-600 text-xl" x-text="active===1 ? '−' : '+'"></span></button></h3>
+        <div id="faq-1" x-show="active===1" x-cloak class="px-5 pb-5 text-sm text-navy-700 leading-relaxed">The base lifts open at 8:30 AM daily, with the summit express starting at 9:00 AM. Last chairs run at 4:00 PM.</div>
+      </div>
+      <div class="rounded-2xl border border-ice-100 bg-white shadow-sm">
+        <h3><button type="button" class="w-full min-h-[56px] flex items-center justify-between gap-4 text-left px-5 py-4 font-semibold" @click="active = active===2 ? null : 2" :aria-expanded="(active===2).toString()" aria-controls="faq-2">Can I buy tickets at the window?<span class="text-ice-600 text-xl" x-text="active===2 ? '−' : '+'"></span></button></h3>
+        <div id="faq-2" x-show="active===2" x-cloak class="px-5 pb-5 text-sm text-navy-700 leading-relaxed">Yes, but buying online is faster and often cheaper. Online tickets can be picked up at the window or scanned from your phone.</div>
+      </div>
+      <div class="rounded-2xl border border-ice-100 bg-white shadow-sm">
+        <h3><button type="button" class="w-full min-h-[56px] flex items-center justify-between gap-4 text-left px-5 py-4 font-semibold" @click="active = active===3 ? null : 3" :aria-expanded="(active===3).toString()" aria-controls="faq-3">Do I need to be a beginner to take a lesson?<span class="text-ice-600 text-xl" x-text="active===3 ? '−' : '+'"></span></button></h3>
+        <div id="faq-3" x-show="active===3" x-cloak class="px-5 pb-5 text-sm text-navy-700 leading-relaxed">Not at all. Lessons are offered for complete beginners through experienced riders wanting to refine technique or learn the terrain park.</div>
+      </div>
+      <div class="rounded-2xl border border-ice-100 bg-white shadow-sm">
+        <h3><button type="button" class="w-full min-h-[56px] flex items-center justify-between gap-4 text-left px-5 py-4 font-semibold" @click="active = active===4 ? null : 4" :aria-expanded="(active===4).toString()" aria-controls="faq-4">What happens if a lift closes because of weather?<span class="text-ice-600 text-xl" x-text="active===4 ? '−' : '+'"></span></button></h3>
+        <div id="faq-4" x-show="active===4" x-cloak class="px-5 pb-5 text-sm text-navy-700 leading-relaxed">Closed lifts are marked on the lift status list above. Multi-day pass holders can use a held day within the season, and day ticket holders can request a credit at the ticket office.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- @section: booking -->
+<section id="booking" class="py-16 md:py-24 bg-ice-50 scroll-mt-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid lg:grid-cols-2 gap-10 lg:gap-16">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-widest text-ice-600">Book or ask a question</p>
+        <h2 class="font-display text-2xl md:text-4xl font-bold mt-2">Reserve Your Visit</h2>
+        <p class="mt-4 text-navy-700 leading-relaxed">Tell us what you're planning and our team will confirm your tickets, lesson, rental or lodging within one business day.</p>
+        <ul class="mt-6 space-y-3 text-navy-700 text-sm">
+          <li class="flex gap-3"><span class="text-ice-600 font-bold">✓</span> Lift tickets and season passes</li>
+          <li class="flex gap-3"><span class="text-ice-600 font-bold">✓</span> Lessons and kids' camp</li>
+          <li class="flex gap-3"><span class="text-ice-600 font-bold">✓</span> Rentals and lodging</li>
+        </ul>
+      </div>
+      <form id="booking-form" novalidate class="rounded-3xl bg-white border border-ice-100 shadow-sm p-6 md:p-8 space-y-5">
+        <div>
+          <label for="name" class="block text-sm font-semibold mb-1.5">Full name</label>
+          <input id="name" name="name" type="text" autocomplete="name" class="w-full min-h-[48px] rounded-xl border border-ice-200 px-4 focus:outline-none focus:ring-2 focus:ring-ice-500" required>
+          <p data-error-for="name" class="hidden mt-1.5 text-sm text-rose-600">Please enter your name.</p>
+        </div>
+        <div>
+          <label for="email" class="block text-sm font-semibold mb-1.5">Email address</label>
+          <input id="email" name="email" type="email" autocomplete="email" class="w-full min-h-[48px] rounded-xl border border-ice-200 px-4 focus:outline-none focus:ring-2 focus:ring-ice-500" required>
+          <p data-error-for="email" class="hidden mt-1.5 text-sm text-rose-600">Please enter a valid email address.</p>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-5">
+          <div>
+            <label for="date" class="block text-sm font-semibold mb-1.5">Visit date</label>
+            <input id="date" name="date" type="date" class="w-full min-h-[48px] rounded-xl border border-ice-200 px-4 focus:outline-none focus:ring-2 focus:ring-ice-500" required>
+            <p data-error-for="date" class="hidden mt-1.5 text-sm text-rose-600">Please choose a visit date.</p>
+          </div>
+          <div>
+            <label for="interest" class="block text-sm font-semibold mb-1.5">I'm interested in</label>
+            <select id="interest" name="interest" class="w-full min-h-[48px] rounded-xl border border-ice-200 px-3 bg-white focus:outline-none focus:ring-2 focus:ring-ice-500">
+              <option value="">Choose one</option>
+              <option>Lift tickets</option>
+              <option>Season pass</option>
+              <option>Lessons</option>
+              <option>Rentals</option>
+              <option>Lodging</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label for="message" class="block text-sm font-semibold mb-1.5">Message (optional)</label>
+          <textarea id="message" name="message" rows="4" class="w-full rounded-xl border border-ice-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ice-500"></textarea>
+        </div>
+        <button type="submit" class="w-full min-h-[48px] rounded-full bg-flame-500 hover:bg-flame-600 text-white font-semibold transition">Send Booking Request</button>
+        <p id="form-success" role="status" class="hidden rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 p-4 text-sm font-medium">Thanks! Your request has been received. Our team will confirm within one business day.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- @section: visit -->
+<section id="visit" class="py-16 md:py-24 scroll-mt-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid lg:grid-cols-2 gap-10 lg:gap-12 items-start">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-widest text-ice-600">Plan your trip</p>
+        <h2 class="font-display text-2xl md:text-4xl font-bold mt-2">Find the Mountain</h2>
+        <div class="mt-6 grid sm:grid-cols-2 gap-6">
+          <div>
+            <h3 class="font-display font-bold text-lg">Address</h3>
+            <p class="mt-2 text-navy-700 text-sm leading-relaxed">123 Main Street<br>Mountain Town</p>
+          </div>
+          <div>
+            <h3 class="font-display font-bold text-lg">Hours</h3>
+            <p class="mt-2 text-navy-700 text-sm leading-relaxed">Daily, 8:30 AM to 4:00 PM<br>Rental shop opens 7:30 AM</p>
+          </div>
+          <div>
+            <h3 class="font-display font-bold text-lg">Phone</h3>
+            <p class="mt-2 text-navy-700 text-sm"><a href="tel:+15555550100" class="hover:text-ice-600">(555) 555-0100</a></p>
+          </div>
+          <div>
+            <h3 class="font-display font-bold text-lg">Email</h3>
+            <p class="mt-2 text-navy-700 text-sm break-words"><a href="mailto:hello@raysskiresort.example" class="hover:text-ice-600">hello@raysskiresort.example</a></p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <iframe title="Map showing Mountain Town, home of Ray's Ski Resort" src="https://www.openstreetmap.org/export/embed.html?bbox=-120.2654%2C39.1768%2C-120.2054%2C39.2168&amp;layer=mapnik&amp;marker=39.1968%2C-120.2354" loading="lazy" style="border:0;width:100%;height:380px" class="rounded-3xl"></iframe>
+        <a href="https://www.openstreetmap.org/?mlat=39.1968&amp;mlon=-120.2354#map=16/39.1968/-120.2354" target="_blank" rel="noopener noreferrer" class="mt-3 inline-flex items-center min-h-[44px] text-sm font-semibold text-ice-600 hover:text-ice-700">View larger map</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- @section: footer -->
+<footer class="bg-navy-900 text-ice-100">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-20 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="sm:col-span-2 lg:col-span-1">
+      <p class="font-display text-xl font-bold text-white">Ray's Ski Resort</p>
+      <p class="mt-3 text-sm leading-relaxed text-ice-200">Fresh powder, fast lifts and bright blue runs for every level of rider.</p>
+      <a href="#booking" class="mt-6 inline-flex items-center justify-center min-h-[44px] px-6 rounded-full bg-flame-500 hover:bg-flame-600 text-white font-semibold text-sm transition">Buy Lift Tickets</a>
+    </div>
+    <div>
+      <h2 class="font-display font-bold text-white">Mountain</h2>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a href="#snow-report" class="hover:text-white">Snow Report</a></li>
+        <li><a href="#lifts-trails" class="hover:text-white">Lift and Trail Status</a></li>
+        <li><a href="#trail-map" class="hover:text-white">Trail Map</a></li>
+        <li><a href="#gallery" class="hover:text-white">Gallery</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="font-display font-bold text-white">Plan</h2>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a href="#tickets" class="hover:text-white">Lift Tickets</a></li>
+        <li><a href="#lessons" class="hover:text-white">Lessons</a></li>
+        <li><a href="#lodging" class="hover:text-white">Lodging</a></li>
+        <li><a href="#faq" class="hover:text-white">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="font-display font-bold text-white">Contact</h2>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li>123 Main Street, Mountain Town</li>
+        <li><a href="tel:+15555550100" class="hover:text-white">(555) 555-0100</a></li>
+        <li class="break-words"><a href="mailto:hello@raysskiresort.example" class="hover:text-white">hello@raysskiresort.example</a></li>
+        <li><a href="#visit" class="hover:text-white">Directions and hours</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="border-t border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between text-xs text-ice-200">
+      <p>© 2025 Ray's Ski Resort. All rights reserved.</p>
+      <p class="leading-relaxed">Photos: Chris Biron, Big Bear Cabins, Lance Anderson, Joan Oger, Greg Althoff, Luka Peters, Mario La Pergola, Alberto Restifo, Valentin Kremer, Wes Hicks, Martin Gleizes, all on <a class="underline" href="https://unsplash.com/?utm_source=appblips&utm_medium=referral">Unsplash</a>.</p>
+    </div>
+  </div>
+</footer>
+
+<!-- @section: scripts -->
+<script src="https://cdn.jsdelivr.net/npm/glightbox@3.3.1/dist/js/glightbox.min.js"></script>
+<script>
+  if (typeof GLightbox === 'function') { GLightbox({ selector: '.glightbox' }); }
+
+  (function () {
+    var form = document.getElementById('booking-form');
+    if (!form) return;
+    var success = document.getElementById('form-success');
+    var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    function setError(id, show) {
+      var el = form.querySelector('[data-error-for="' + id + '"]');
+      if (el) el.classList.toggle('hidden', !show);
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var name = form.name.value.trim();
+      var email = form.email.value.trim();
+      var date = form.date.value;
+      var ok = true;
+      setError('name', !name); if (!name) ok = false;
+      setError('email', !emailRe.test(email)); if (!emailRe.test(email)) ok = false;
+      setError('date', !date); if (!date) ok = false;
+      if (!ok) { success.classList.add('hidden'); return; }
+      success.classList.remove('hidden');
+      form.reset();
+    });
+  })();
+</script>
+</body>
+</html>

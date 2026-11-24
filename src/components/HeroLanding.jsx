@@ -5,6 +5,13 @@ import { TriangleAlert, RotateCcw, X } from 'lucide-react';
 import HeroSidebar from './HeroSidebar';
 import PromptInput from './PromptInput';
 import StarterIdeas from './StarterIdeas';
+import { loadHeroRailCollapsed, saveHeroRailCollapsed } from '../lib/config';
+
+// Hover intent for the side rail: a short wait before it opens, so sweeping
+// the pointer past it on the way to the window edge doesn't flash it open,
+// and a longer grace before it closes, so a brief overshoot doesn't either.
+const RAIL_OPEN_DELAY_MS = 120;
+const RAIL_CLOSE_DELAY_MS = 240;
 
 const COPY = {
   ask: {
@@ -21,7 +28,7 @@ const COPY = {
   },
   app: {
     title: 'What should we build?',
-    subtitle: "Describe your app in plain words. We'll build it.",
+    subtitle: 'Describe your app in plain words, then try it right here.',
   },
 };
 
@@ -66,24 +73,47 @@ export default function HeroLanding({
   isResuming = false,
   ...sidebarProps
 }) {
-  const [railPinned, setRailPinned] = useState(false);
+  // Pinned keeps the rail open and gives it room in the layout; otherwise it
+  // stays an icon strip and peeks open over the stage on hover or keyboard
+  // focus, so the workspace never reflows underneath the pointer.
+  const [railPinned, setRailPinned] = useState(() => !loadHeroRailCollapsed());
   const [railHovered, setRailHovered] = useState(false);
-  const hoverCloseTimerRef = useRef(null);
-  const railCollapsed = !railPinned && !railHovered;
+  const [railFocused, setRailFocused] = useState(false);
+  const hoverTimerRef = useRef(null);
+  const railPeeking = !railPinned && (railHovered || railFocused);
+  const railCollapsed = !railPinned && !railPeeking;
   const toggleRailPinned = () => {
-    setRailPinned((prev) => !prev);
+    setRailPinned((prev) => {
+      saveHeroRailCollapsed(prev);
+      return !prev;
+    });
   };
   const handleRailMouseEnter = () => {
-    clearTimeout(hoverCloseTimerRef.current);
-    setRailHovered(true);
+    clearTimeout(hoverTimerRef.current);
+    if (railHovered) return;
+    hoverTimerRef.current = setTimeout(() => setRailHovered(true), RAIL_OPEN_DELAY_MS);
   };
   const handleRailMouseLeave = () => {
-    clearTimeout(hoverCloseTimerRef.current);
-    hoverCloseTimerRef.current = setTimeout(() => {
-      setRailHovered(false);
-    }, 200);
+    clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setRailHovered(false), RAIL_CLOSE_DELAY_MS);
   };
-  useEffect(() => () => clearTimeout(hoverCloseTimerRef.current), []);
+  // Keyboard users get the labels too: tabbing into the rail opens it, and
+  // leaving it (or Escape) closes it. A mouse click focuses without
+  // :focus-visible, so clicking a key doesn't count as a keyboard peek.
+  const handleRailFocus = (event) => {
+    if (event.target.matches?.(':focus-visible')) setRailFocused(true);
+  };
+  const handleRailBlur = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) setRailFocused(false);
+  };
+  const handleRailKeyDown = (event) => {
+    if (event.key === 'Escape' && railPeeking && !event.defaultPrevented) {
+      clearTimeout(hoverTimerRef.current);
+      setRailFocused(false);
+      setRailHovered(false);
+    }
+  };
+  useEffect(() => () => clearTimeout(hoverTimerRef.current), []);
 
   const copy = COPY[chatMode === 'ask' ? 'ask' : COPY[studioMode] ? studioMode : 'app'];
   const workspaceActive = Boolean(workspace);
@@ -96,6 +126,10 @@ export default function HeroLanding({
         onToggleCollapsed={toggleRailPinned}
         onMouseEnter={handleRailMouseEnter}
         onMouseLeave={handleRailMouseLeave}
+        onFocus={handleRailFocus}
+        onBlur={handleRailBlur}
+        onKeyDown={handleRailKeyDown}
+        peeking={railPeeking}
         workspaceActive={workspaceActive}
         resolvedTheme={theme}
         {...sidebarProps}

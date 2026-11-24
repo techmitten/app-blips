@@ -492,6 +492,24 @@
   outline-offset: 2px;
 }
 
+/* The up/down hint after the word: the reel is a switch, so it shouldn't read
+   as a static label (or a disabled button). */
+.chat-mode-reel:has(.chat-mode-reel-hint) {
+  padding-right: 8px;
+}
+
+.chat-mode-reel-hint {
+  flex: none;
+  margin-left: -4px;
+  opacity: 0.55;
+  transition: opacity 160ms ease;
+}
+
+.chat-mode-reel:hover .chat-mode-reel-hint,
+.chat-mode-reel:focus-visible .chat-mode-reel-hint {
+  opacity: 0.9;
+}
+
 /* One-word window that clips the spinning strip. */
 .chat-mode-reel-window {
   display: block;
@@ -526,6 +544,21 @@
   .chat-mode-reel-track.is-spinning {
     transition-duration: 1ms;
   }
+}
+
+/* Voice-ready hand-off: each half fades in as it takes the line. */
+.voice-ready-swap {
+  display: inline-block;
+  animation: voice-ready-in 240ms ease-out;
+}
+
+@keyframes voice-ready-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-ready-swap { animation: none; }
 }
 
 /* Voice dictation: while the mic is live, the key carries a soft pulsing ring

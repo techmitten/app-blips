@@ -38,6 +38,10 @@
   --hero-rail-primary: rgb(255 255 255 / 0.06);
   --hero-rail-primary-edge: rgb(255 255 255 / 0.1);
   --hero-rail-muted: rgb(255 255 255 / 0.5);
+  --hero-rail-sep: rgb(255 255 255 / 0.08);
+  --hero-rail-float-shadow:
+    1px 0 0 rgb(255 255 255 / 0.1),
+    24px 0 48px -16px rgb(0 0 0 / 0.85);
   --hero-chip-bg: rgb(255 255 255 / 0.04);
   --hero-chip-bg-hover: rgb(255 255 255 / 0.08);
   --hero-chip-border: rgb(255 255 255 / 0.12);
@@ -127,27 +131,83 @@
   text-wrap: balance;
 }
 
+/* Bezel: a frame around the composer, like a device's bezel round its
+   screen. The wrapper takes a few pixels of padding with concentric corners
+   (frame radius = dock radius + gap), a faint fill and a hairline edge, and
+   carries the long drop shadow, so the dock reads as set into it. The
+   frame's outer edge keeps the column's width, flush with the chips below;
+   the focus halo fills the channel between frame and dock. */
+.hero-composer {
+  --hero-bezel-gap: 6px;
+  padding: var(--hero-bezel-gap);
+  border-radius: calc(1.375rem + var(--hero-bezel-gap));
+  border: 1px solid var(--hero-bezel-edge);
+  background: var(--hero-bezel-bg);
+  box-shadow: var(--hero-bezel-shadow);
+}
+
+.hero-landing {
+  --hero-bezel-edge: rgb(255 255 255 / 0.09);
+  --hero-bezel-bg: linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02));
+  --hero-bezel-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.06),
+    0 28px 56px -24px rgb(0 0 0 / 0.9);
+}
+
+.hero-landing:not(.dark) {
+  --hero-bezel-edge: rgb(15 23 42 / 0.1);
+  --hero-bezel-bg: linear-gradient(180deg, rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.32));
+  --hero-bezel-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    0 1px 2px rgb(15 23 42 / 0.05),
+    0 24px 48px -24px rgb(15 23 42 / 0.28);
+}
+
+@media (max-width: 639px) {
+  .hero-composer {
+    --hero-bezel-gap: 5px;
+  }
+}
+
 /* The composer is the one raised surface on the stage: a clear two steps
-   lighter than the stage, with an edge that holds on its own. */
-.hero-composer .prompt-input-dock {
+   lighter than the stage, with an edge that holds on its own. Scoped to
+   `.hero-landing.dark` so it outranks the app's own dark dock rule
+   (prompt-input.css, `:is(html.dark, .force-dark) .prompt-input-dock`),
+   which otherwise wins on specificity. Light has its own block below. */
+.hero-landing.dark .hero-composer .prompt-input-dock {
   border-color: rgb(255 255 255 / 0.2);
   border-radius: 1.375rem;
   background: #262626;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow:
-    0 28px 56px -24px rgb(0 0 0 / 0.9),
+    0 1px 2px rgb(0 0 0 / 0.5),
     0 6px 16px -8px rgb(0 0 0 / 0.6),
     inset 0 1px 0 rgb(255 255 255 / 0.06);
 }
 
-.hero-composer .prompt-input-dock:focus-within {
-  border-color: rgb(255 255 255 / 0.4);
+/* Typing lights the rim in the icon's coral -- the same colour as the
+   stage's bloom, so focus reads as the composer catching that light. It is
+   the hero's one accent moment; nothing else on the stage uses the coral. */
+.hero-landing.dark .hero-composer .prompt-input-dock:focus-within {
+  border-color: rgb(235 97 80 / 0.6);
   box-shadow:
-    0 0 0 4px rgb(255 255 255 / 0.05),
-    0 28px 56px -24px rgb(0 0 0 / 0.9),
+    0 0 0 4px rgb(235 97 80 / 0.14),
+    0 18px 60px -28px rgb(235 97 80 / 0.45),
+    0 1px 2px rgb(0 0 0 / 0.5),
     0 6px 16px -8px rgb(0 0 0 / 0.6),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+/* The mode key sits one step clearer than the dock so it reads as a control. */
+.hero-landing.dark .hero-composer .chat-mode-reel {
+  border-color: rgb(255 255 255 / 0.2);
+  background: rgb(255 255 255 / 0.1);
+}
+
+.hero-landing.dark .hero-composer .chat-mode-reel:hover {
+  border-color: rgb(255 255 255 / 0.32);
+  background: rgb(255 255 255 / 0.14);
 }
 
 /* Room to write: a taller field at reading size (16px also stops iOS from
@@ -164,8 +224,17 @@
 .hero-rail {
   background: var(--hero-ground);
   color: var(--hero-rail-fg);
-  transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: width;
+  transition:
+    width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease-out;
+}
+
+/* Hairline between the top keys and the session keys (Exit, Quit). */
+.hero-rail-sep {
+  flex: none;
+  height: 1px;
+  margin: 0.375rem 0.6rem;
+  background: var(--hero-rail-sep);
 }
 
 /* Wordmark images; the .studio-logo-dark/-light classes (studio-choice.css)
@@ -287,43 +356,52 @@
   box-shadow: 0 0 8px 1px rgb(57 135 208 / 0.9);
 }
 
-.hero-rail-recents {
-  grid-template-rows: 1fr;
-  margin-top: 1rem;
-  opacity: 1;
+/* Saved apps list, folded in under its key. It takes the rail's free space
+   and scrolls past that (it may shrink, the keys below may not), so the
+   bottom keys never get pushed off screen. The fold animates its height
+   where the browser can interpolate to `auto`, and snaps elsewhere. */
+.hero-rail-saved {
+  interpolate-size: allow-keywords;
+  flex-direction: column;
+  flex: 0 1 auto;
+  height: auto;
   min-height: 0;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  opacity: 1;
   transition:
-    grid-template-rows 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    margin-top 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-bottom 280ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 180ms ease-out 70ms;
 }
 
-.hero-rail-recents.is-collapsed {
-  grid-template-rows: 0fr;
-  margin-top: 0;
+.hero-rail-saved.is-collapsed {
+  height: 0;
+  margin-bottom: 0;
   opacity: 0;
   pointer-events: none;
   transition:
-    grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    margin-top 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-bottom 260ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 110ms ease-out;
 }
 
-.hero-rail-recents-inner {
+.hero-rail-saved-inner {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
-.hero-rail-recents.is-collapsed .hero-rail-recents-inner {
-  overflow: hidden;
+/* The disclosure chevron after the count; turns over when the list is open. */
+.hero-rail-chevron {
+  flex: none;
+  margin-left: 0.35rem;
+  color: var(--hero-rail-muted);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.hero-rail-heading {
-  padding: 0 0.6rem 0.35rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--hero-rail-muted);
+.hero-rail-chevron.is-open {
+  transform: rotate(180deg);
 }
 
 .hero-rail-recent {
@@ -331,7 +409,8 @@
   align-items: center;
   width: 100%;
   min-height: 2rem;
-  padding: 0.35rem 0.6rem;
+  /* Names line up with the key labels above (icon column + gap). */
+  padding: 0.35rem 0.6rem 0.35rem calc(0.72rem + 17px + 0.7rem);
   border-radius: 0.6rem;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -346,15 +425,67 @@
   color: var(--hero-rail-fg-strong);
 }
 
+/* The open project: a short bar in the icon column marks it. */
+.hero-rail-recent.is-current {
+  position: relative;
+  color: var(--hero-rail-fg-strong);
+  font-weight: 600;
+}
+
+.hero-rail-recent.is-current::before {
+  content: '';
+  position: absolute;
+  left: calc(0.72rem + 17px / 2 - 1px);
+  top: 0.55rem;
+  bottom: 0.55rem;
+  width: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* The way to the full Saved apps window: quieter than the projects. */
+.hero-rail-manage {
+  color: var(--hero-rail-muted);
+}
+
 /* Desktop: the brand row is the rail's header. It takes the pane headers'
    height and starts at the stage's top inset, so the logo, the Build title
    and the preview toolbar share one centre line. Positioning the mark and
    toggle explicitly lets the brand height, wordmark opacity, and toggle
    position all transition smoothly instead of snapping between flex rows
    and columns. */
+/* Below the desktop layout the slot steps aside and the rail is the top bar. */
+.hero-rail-slot {
+  display: contents;
+}
+
 @media (min-width: 1024px) and (not ((hover: none) and (pointer: coarse))) {
+  /* The slot keeps the icon strip's width in the layout; pinning widens it
+     (and so moves the stage) once, on purpose. A hover or focus peek only
+     widens the rail, which is positioned over the stage's left edge. */
+  .hero-rail-slot {
+    display: block;
+    position: relative;
+    flex: none;
+    width: 3.75rem;
+    transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .hero-rail-slot.is-pinned {
+    width: 14rem;
+  }
+
   .hero-rail {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 40;
     padding-top: 0.375rem;
+  }
+
+  /* Peeking, the rail is a floating panel: an edge and a soft cast shadow
+     lift it off the stage it now covers. */
+  .hero-rail.is-peeking {
+    box-shadow: var(--hero-rail-float-shadow);
   }
 
   .hero-rail-brand {
@@ -468,6 +599,10 @@
       margin-left 240ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  .hero-rail-item.is-collapsed .hero-rail-chevron {
+    display: none;
+  }
+
   .hero-rail-item.is-collapsed .hero-rail-count {
     max-width: 0;
     min-width: 0;
@@ -491,6 +626,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hero-rail,
+  .hero-rail-slot,
   .hero-rail-brand,
   .hero-rail-brand-mark,
   .hero-rail-wordmark,
@@ -498,7 +634,8 @@
   .hero-rail-item .hero-rail-label,
   .hero-rail-count,
   .hero-rail-dot,
-  .hero-rail-recents {
+  .hero-rail-chevron,
+  .hero-rail-saved {
     transition: none;
   }
 }
@@ -575,15 +712,15 @@
   --hero-subtitle: rgb(11 18 32 / 0.66);
   --hero-stage-edge: rgb(15 23 42 / 0.14);
   --hero-stage-divider: rgb(15 23 42 / 0.07);
-  --hero-drift: rgb(125 211 252 / 0.22);
+  --hero-drift: rgb(125 211 252 / 0.3);
   /* The picker's mesh (sky, cyan, peach, mint -- no purple, per the brand)
      pushed out to the corners and turned well down, so the middle of the
      stage is a calm slate field the white composer stands clear of. */
   --hero-stage-bg:
-    radial-gradient(40% 44% at 4% 0%, rgb(56 189 248 / 0.3), transparent 72%),
-    radial-gradient(36% 40% at 98% 0%, rgb(34 211 238 / 0.2), transparent 72%),
-    radial-gradient(40% 42% at 98% 102%, rgb(251 168 90 / 0.28), transparent 74%),
-    radial-gradient(38% 40% at 2% 102%, rgb(52 211 153 / 0.2), transparent 74%),
+    radial-gradient(46% 50% at 4% 0%, rgb(56 189 248 / 0.44), transparent 72%),
+    radial-gradient(42% 46% at 98% 0%, rgb(34 211 238 / 0.3), transparent 72%),
+    radial-gradient(46% 48% at 98% 102%, rgb(251 168 90 / 0.4), transparent 74%),
+    radial-gradient(44% 46% at 2% 102%, rgb(52 211 153 / 0.3), transparent 74%),
     #e1e7f0;
   --hero-rail-fg: rgb(11 18 32 / 0.76);
   --hero-rail-fg-strong: #0b1220;
@@ -592,6 +729,10 @@
   --hero-rail-primary-edge: rgb(15 23 42 / 0.12);
   --hero-rail-primary-hover: #ffffff;
   --hero-rail-muted: rgb(11 18 32 / 0.6);
+  --hero-rail-sep: rgb(15 23 42 / 0.1);
+  --hero-rail-float-shadow:
+    1px 0 0 rgb(15 23 42 / 0.1),
+    20px 0 40px -18px rgb(15 23 42 / 0.35);
   --hero-chip-bg: rgb(255 255 255 / 0.7);
   --hero-chip-bg-hover: #ffffff;
   --hero-chip-border: rgb(15 23 42 / 0.12);
@@ -609,7 +750,7 @@
   background: #ffffff;
   box-shadow:
     0 1px 2px rgb(15 23 42 / 0.06),
-    0 22px 44px -22px rgb(15 23 42 / 0.3);
+    0 8px 18px -12px rgb(15 23 42 / 0.22);
 }
 
 .hero-landing:not(.dark) .hero-composer .prompt-input-dock:focus-within {
@@ -617,7 +758,7 @@
   box-shadow:
     0 0 0 4px rgb(15 23 42 / 0.06),
     0 1px 2px rgb(15 23 42 / 0.06),
-    0 22px 44px -22px rgb(15 23 42 / 0.34);
+    0 8px 18px -12px rgb(15 23 42 / 0.26);
 }
 
 /* The rail's primary key is a white card, like the picker's. */

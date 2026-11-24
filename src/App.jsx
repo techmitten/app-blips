@@ -3359,6 +3359,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         onOpenApps={() => setIsProjectsListOpen(true)}
         savedAppsCount={myProjects.length}
         recents={myProjects}
+        currentProjectId={currentProjectId}
         onLoadProject={loadProject}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenExtensions={() => { setSettingsInitialTab('connectors'); setIsSettingsOpen(true); }}

@@ -1,11 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, X, Paperclip, Camera, Send, Mic, Globe } from 'lucide-react';
+import { Loader2, X, Paperclip, Camera, Send, Mic, Globe, ChevronsUpDown } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import ConfirmModal from './ConfirmModal';
 import { MODEL_SIZE_LABEL } from '../lib/whisperModel';
 import { matchSkillCommands } from '../lib/skills';
+
+// Shown once the voice model has downloaded. The two halves take turns in one
+// short line (the full sentence was too long for the composer's footer): the
+// news first, then the next step, which stays until the mic is clicked.
+// Screen readers get the whole sentence once.
+const VOICE_READY_HANDOFF_MS = 2400;
+
+function VoiceReadyLabel() {
+  const [showHint, setShowHint] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowHint(true), VOICE_READY_HANDOFF_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <span role="status" className="voice-listening-label text-xs font-semibold text-slate-500 dark:text-slate-400">
+      <span className="sr-only">Voice input is ready. Click the microphone to speak.</span>
+      <span key={showHint ? 'hint' : 'ready'} aria-hidden="true" className="voice-ready-swap">
+        {showHint ? 'Click the microphone' : 'Voice input is ready'}
+      </span>
+    </span>
+  );
+}
 
 // The mode control is one slot-machine reel with two stops; clicking it
 // advances Build -> Ask -> Build.
@@ -310,20 +332,20 @@ export default function PromptInput({
           aria-activedescendant={activeCommand ? `prompt-skill-${activeCommand.id}` : undefined}
           placeholder={
             isClarifying
-              ? "Type your answer here..."
+              ? "Type your answer…"
               : chatMode === 'ask'
-                ? (isChatActive ? "Ask a question about the code..." : "Ask anything...")
+                ? (isChatActive ? "Ask a question about the code…" : "Ask anything…")
                 : isWebsite
                   ? (isChatActive
-                    ? "e.g. Change the hero photo, add a pricing section..."
-                    : "e.g. A one-page site for a cozy neighborhood bakery...")
+                    ? "e.g. Change the hero photo, add a pricing section…"
+                    : "e.g. A one-page site for a cozy neighborhood bakery…")
                   : studioMode === 'game'
                     ? (isChatActive
-                      ? "e.g. Create a project timeline, set reminders, track tasks..."
-                      : "e.g. A neon breakout with power-ups and a high-score table...")
+                      ? "e.g. Add a boss level, make the ball faster…"
+                      : "e.g. A neon breakout with power-ups and a high-score table…")
                     : (isChatActive
-                      ? "e.g. Make the background dark, add a reset button..."
-                      : "e.g. A minimalist task manager with categories...")
+                      ? "e.g. Make the background dark, add a reset button…"
+                      : "e.g. A minimalist task manager with categories…")
           }
           className={`prompt-input-field w-full min-h-14 sm:min-h-16.5 max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar`}
           disabled={isGenerating}
@@ -402,6 +424,8 @@ export default function PromptInput({
                     ))}
                   </span>
                 </span>
+                {/* Up/down marks the key as a switch rather than a label. */}
+                <ChevronsUpDown size={12} strokeWidth={2.25} aria-hidden="true" className="chat-mode-reel-hint" />
               </button>
             </>
           ) : null}
@@ -439,11 +463,7 @@ export default function PromptInput({
                   {modelProgress != null ? `Downloading voice model… ${modelProgress}%` : 'Preparing voice input…'}
                 </span>
               )}
-              {modelReady && (
-                <span role="status" className="voice-listening-label text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  Voice input is ready. Click the microphone to speak.
-                </span>
-              )}
+              {modelReady && <VoiceReadyLabel />}
               <button
                 type="button"
                 onClick={toggleVoice}
