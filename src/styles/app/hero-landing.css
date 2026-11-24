@@ -169,14 +169,13 @@
 }
 
 /* The selected studio wears its own aurora colours (--studio-a/-b, set per
-   key from SWITCH_TINT in HeroLanding.jsx): a soft wash of the two, and
-   the icon in a deepened shade of the first so it stays legible. */
+   key from SWITCH_TINT in HeroLanding.jsx): a soft wash of the two. Its icon
+   stays the footer's gray (below). */
 .hero-studio-switch-btn[aria-pressed="true"] {
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--studio-a) 26%, transparent),
     color-mix(in srgb, var(--studio-b) 26%, transparent));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--studio-a) 35%, transparent);
-  color: color-mix(in srgb, var(--studio-a) 72%, var(--hero-switch-ink));
   cursor: default;
   transition: background 0.9s ease, color 0.9s ease, box-shadow 0.9s ease;
 }
@@ -208,7 +207,6 @@
   --hero-switch-fg: rgb(255 255 255 / 0.55);
   --hero-switch-fg-strong: #ffffff;
   --hero-switch-hover: rgb(255 255 255 / 0.07);
-  --hero-switch-ink: #ffffff;
 }
 
 .hero-landing:not(.dark) {
@@ -216,7 +214,6 @@
   --hero-switch-fg: #5b6478;
   --hero-switch-fg-strong: #0b1220;
   --hero-switch-hover: rgb(15 23 42 / 0.05);
-  --hero-switch-ink: #000000;
 }
 
 /* Title and subtitle sit flush left on the composer's edge, like the heading
@@ -1103,8 +1100,15 @@
   color: #4b5468;
 }
 
-.hero-landing:not(.dark) .hero-composer .composer-key:not(.prompt-input-send) {
-  color: #2b3345;
+/* Every icon in the home composer's footer is one quiet gray (both
+   themes), darkening on hover. Send keeps its filled key, and web search
+   keeps its red while it's on (it spends on the provider's key). */
+.hero-landing .hero-composer .prompt-input-footer :is(.composer-key, .chat-mode-option, .hero-studio-switch-btn):not(.prompt-input-send):not(.prompt-web-search[aria-pressed="true"]) {
+  color: var(--hero-switch-fg);
+}
+
+.hero-landing .hero-composer .prompt-input-footer :is(.composer-key, .chat-mode-option, .hero-studio-switch-btn):not(.prompt-input-send):not(.prompt-web-search[aria-pressed="true"]):not([aria-pressed="true"].hero-studio-switch-btn):hover:not(:disabled) {
+  color: var(--hero-switch-fg-strong);
 }
 
 .hero-landing:not(.dark) .hero-composer .chat-mode-reel {
