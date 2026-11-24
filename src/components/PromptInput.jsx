@@ -77,6 +77,9 @@ export default function PromptInput({
   webSearch = false,
   onWebSearchChange,
   voiceInput = false,
+  // Extra keys at the end of the footer's left group (the home page puts its
+  // studio switch here). Omitted everywhere else.
+  footerExtra = null,
 }) {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -333,8 +336,10 @@ export default function PromptInput({
           placeholder={
             isClarifying
               ? "Type your answer…"
-              : chatMode === 'ask'
-                ? (isChatActive ? "Ask a question about the code…" : "Ask anything…")
+              // Before the first message (the home page) Ask keeps the
+              // studio's own example, so switching modes changes nothing.
+              : chatMode === 'ask' && isChatActive
+                ? "Ask a question about the code…"
                 : isWebsite
                   ? (isChatActive
                     ? "e.g. Change the hero photo, add a pricing section…"
@@ -429,6 +434,7 @@ export default function PromptInput({
               </button>
             </>
           ) : null}
+          {footerExtra}
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {isGenerating && (

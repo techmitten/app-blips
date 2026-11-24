@@ -71,7 +71,6 @@ try {
   const page = await app.firstWindow();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.getByRole('button', { name: 'Skip video' }).click({ timeout: 5000 }).catch(() => {});
   await page.getByRole('button', { name: 'My projects' }).click({ timeout: 20000 });
   await page.getByText('YouTube Test').first().click();
 

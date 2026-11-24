@@ -23,7 +23,6 @@ try {
     const page = await context.newPage();
     await page.addInitScript(() => {
       if (window !== window.top) return;
-      localStorage.setItem('orion-skip-splash', 'true');
       localStorage.setItem('orion-show-code-view', 'true');
       localStorage.setItem('orion-legal-agreement', JSON.stringify({ terms: '2099-01-01', privacy: '2099-01-01', agreedAt: new Date().toISOString() }));
       localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, onboardingComplete: true }));

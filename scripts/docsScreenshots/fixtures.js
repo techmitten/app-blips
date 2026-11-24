@@ -1,5 +1,9 @@
 // Seed projects for scripts/docs-screenshots.mjs. Hand-written stand-ins for
 // what the AI builds, so the docs screenshots need no provider or tokens.
+// Ray's Ski Resort is the real Showcase project from public/showcase/.
+import { readFileSync } from 'node:fs';
+
+const skiResort = readFileSync(new URL('../../public/showcase/ray-s-ski-resort.html', import.meta.url), 'utf8');
 
 const tipApp = `<!doctype html>
 <html lang="en">
@@ -187,7 +191,15 @@ export function seedProjects() {
       reply: 'Your bakery site is ready with three pages: **Home**, **Menu** and **Visit us**. Each page shares the same header, so visitors can move between them from anywhere.',
     },
   ];
+  const skiVersions = [
+    {
+      id: 'ski-1', files: { 'index.html': skiResort }, code: skiResort, chatSessionId: 'ski-chat', timestamp: '11:20',
+      prompt: 'A website for Ray’s Ski Resort with a daily snow report, live lift and trail status, an interactive trail map, and booking for lift tickets, lessons and lodging.',
+      reply: 'Your **Ray’s Ski Resort** site is ready. It opens with today’s snow report, then lift and trail status, the trail map, and booking for tickets, lessons and lodging.',
+    },
+  ];
   return [
+    { id: 'docs-ski', name: 'Ray’s Ski Resort', updatedAt: at(60), data: { versions: skiVersions, currentVersionIndex: 0, chatContextStartIndex: 0, currentChatSessionId: 'ski-chat', studioMode: 'website' } },
     { id: 'docs-tip', name: 'Tip Splitter', updatedAt: at(5), data: { versions: tipVersions, currentVersionIndex: 1, chatContextStartIndex: 0, currentChatSessionId: 'tip-chat', studioMode: 'app' } },
     { id: 'docs-bakery', name: 'Hearth & Crumb', updatedAt: at(30), data: { versions: siteVersions, currentVersionIndex: 0, chatContextStartIndex: 0, currentChatSessionId: 'site-chat', studioMode: 'website' } },
   ];

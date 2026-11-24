@@ -18,7 +18,6 @@ const NamingModal = lazy(() => import('./components/NamingModal'));
 import { isProjectNameTaken } from './lib/projectsStorage';
 import ConfirmModal from './components/ConfirmModal';
 
-import SplashScreen from './components/SplashScreen';
 import DesktopStorageNotice from './components/DesktopStorageNotice';
 import UpdateNotice from './components/UpdateNotice';
 const DesktopOnboarding = lazy(() => import('./components/DesktopOnboarding'));
@@ -27,7 +26,6 @@ import { BUNDLED_LEGAL_DATES, fetchLegalDates, loadAgreement, needsAgreement, sa
 const loadSettingsModal = () => import('./components/SettingsModal');
 const SettingsModal = lazy(loadSettingsModal);
 const ProjectsListModal = lazy(() => import('./components/ProjectsListModal'));
-const StudioChoice = lazy(() => import('./components/StudioChoice'));
 const ImportSiteDialog = lazy(() => import('./components/ImportSiteDialog'));
 const ShowcaseModal = lazy(() => import('./components/ShowcaseModal'));
 const PublishDialog = lazy(() => import('./components/PublishDialog'));
@@ -63,7 +61,7 @@ import {
 import {
   STARTER_PRESETS, ASK_STARTER_PRESETS, WEBSITE_STARTER_PRESETS, GAME_STARTER_PRESETS, STARTER_SAMPLE_SIZE, HTML_STREAM_START_RE, PREVIEW_MODES, PREVIEW_SHUTTER_MS, STUDIO_MODES, DOCS_URL, normalizeStudioMode
 } from './lib/constants';
-import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadPromptSuggestions, PROMPT_SUGGESTIONS_KEY, loadWebSearch, WEB_SEARCH_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadSkipSplash, SKIP_SPLASH_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadCodeAutocomplete, CODE_AUTOCOMPLETE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, clearStartFresh, isWideLayout } from './lib/config';
+import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_CLARIFYING_QUESTIONS_KEY, loadPromptSuggestions, PROMPT_SUGGESTIONS_KEY, loadWebSearch, WEB_SEARCH_KEY, loadGameEngineRouter, GAME_ENGINE_ROUTER_KEY, loadWebsiteAddonRouter, WEBSITE_ADDON_ROUTER_KEY, loadAutoFollowCode, AUTO_FOLLOW_CODE_KEY, loadCodeAutocomplete, CODE_AUTOCOMPLETE_KEY, loadLiveCodePreview, LIVE_CODE_PREVIEW_KEY, loadReasoningEffort, BUILD_REASONING_EFFORT_KEY, loadChatMode, saveChatMode, loadBuildPaneSide, BUILD_PANE_SIDE_KEY, markStartFresh, isWideLayout } from './lib/config';
 
 import useTheme from './hooks/useTheme';
 import useProviderWeb from './hooks/useProviderWeb';
@@ -111,13 +109,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   const [gameEngineRouter, setGameEngineRouter] = useState(loadGameEngineRouter);
   const [websiteAddonRouter, setWebsiteAddonRouter] = useState(loadWebsiteAddonRouter);
   const [webSearchOn, setWebSearchOn] = useState(loadWebSearch);
-  const [skipSplash, setSkipSplash] = useState(loadSkipSplash);
-  // Once per launch: the first screen shown plays it (setup on a new desktop
-  // install, otherwise the studio picker or workspace), and the screens
-  // that follow mount their own copy, which mustn't play it again.
-  // Coming back from a sign-in that left the page has already had its splash.
-  const [splashDone, setSplashDone] = useState(Boolean(signInHandoff));
-  const endSplash = useCallback(() => setSplashDone(true), []);
   const [autoFollowCode, setAutoFollowCode] = useState(loadAutoFollowCode);
   const [codeAutocomplete, setCodeAutocomplete] = useState(loadCodeAutocomplete);
   const [liveCodePreview, setLiveCodePreview] = useState(loadLiveCodePreview);
@@ -143,23 +134,22 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // onboarding, while a truly fresh install still gets it.
   const [desktopOnboarding, setDesktopOnboarding] = useState({ loading: true });
   // Preload Settings once the user reaches a screen that actually has a
-  // Settings button (after onboarding and splash), so opening it feels instant
-  // without adding 150 KB to the initial page load.
+  // Settings button (after onboarding), so opening it feels instant without
+  // adding 150 KB to the initial page load.
   useEffect(() => {
-    if (desktopOnboarding || (!skipSplash && !splashDone)) return;
+    if (desktopOnboarding) return;
     loadSettingsModal().catch(() => {});
-  }, [desktopOnboarding, skipSplash, splashDone]);
+  }, [desktopOnboarding]);
   // Terms of Use / Privacy Policy agreement (lib/legal.js). The dates start as
   // this build's and are replaced by the landing site's once fetched, which
   // never holds up startup.
   const [legalDates, setLegalDates] = useState(BUNDLED_LEGAL_DATES);
   const [legalAgreement, setLegalAgreement] = useState(loadAgreement);
   useEffect(() => {
-    if (!skipSplash && !splashDone) return undefined;
     let cancelled = false;
     fetchLegalDates().then((dates) => { if (!cancelled) setLegalDates(dates); });
     return () => { cancelled = true; };
-  }, [skipSplash, splashDone]);
+  }, []);
   const agreeToLegal = () => setLegalAgreement(saveAgreement(legalDates));
   useEffect(() => {
     let cancelled = false;
@@ -211,13 +201,12 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   }, []);
   // Which studio the workspace is in: 'app', 'website' or 'game'. Drives
   // prompt selection, starter ideas, preview defaults and copy; persisted
-  // per-project so reopening restores it. Starts null: a fresh session must
-  // pick a studio first (StudioChoice gate). On a renderer reload, a project
-  // resume or adopted pending job can fill it before the gate shows. Once
-  // picked, the choice is never re-litigated inside the header; the other studio is only
-  // ever reached through "New", which asks again.
+  // per-project so reopening restores it. Starts null while startup settles:
+  // a project resume or an adopted pending job can fill it, and otherwise the
+  // home page opens in the App studio (see the pending-job effect). The other
+  // studios are reached from the side rail, which asks before discarding work.
   // Coming back from a Free AI sign-in that left the page (signInHandoff.js)
-  // reopens the studio the prompt was typed in instead of the picker.
+  // reopens the studio the prompt was typed in.
   const [studioMode, setStudioMode] = useState(() => (
     signInHandoff?.studioMode && signInHandoff.studioMode !== 'codebase' ? normalizeStudioMode(signInHandoff.studioMode) : null
   ));
@@ -416,12 +405,11 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   const [isNamingModalOpen, setIsNamingModalOpen] = useState(false);
   const [tempProjectName, setTempProjectName] = useState('');
   const [shouldGenerateAfterNaming, setShouldGenerateAfterNaming] = useState(false);
-  const [isNewChatConfirmOpen, setIsNewChatConfirmOpen] = useState(false);
+  // Leaving the current work from the side rail (a new project in a studio,
+  // Import, Exit) asks first when something would be lost. Holds what was
+  // asked for -- 'app' | 'website' | 'game' | 'import' -- or null.
+  const [pendingLeave, setPendingLeave] = useState(null);
   const [isChatResetConfirmOpen, setIsChatResetConfirmOpen] = useState(false);
-  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
-  // Mid-session studio pick: opened by "New" once any work has been confirmed
-  // away (or when there is none). Cancelable -- unlike the forced gate.
-  const [isStudioChoiceOpen, setIsStudioChoiceOpen] = useState(false);
 
   // --- Mobile Layout ---
   const [mobileView, setMobileView] = useState('chat'); // 'chat' | 'preview'
@@ -1659,11 +1647,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   }, [webSearchOn]);
   const providerWeb = useProviderWeb();
   // Whether this server has the built-in photo library (lib/unsplash.js).
-  // Deferred until the splash finishes so it stays off the initial load path.
   useEffect(() => {
-    if (!skipSplash && !splashDone) return;
     refreshPhotoLibrary();
-  }, [skipSplash, splashDone]);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(AUTO_FOLLOW_CODE_KEY, autoFollowCode);
@@ -1680,10 +1666,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   useEffect(() => {
     localStorage.setItem(BUILD_PANE_SIDE_KEY, buildPaneSide);
   }, [buildPaneSide]);
-
-  useEffect(() => {
-    localStorage.setItem(SKIP_SPLASH_KEY, skipSplash);
-  }, [skipSplash]);
 
   useEffect(() => {
     saveChatMode(chatMode);
@@ -1704,29 +1686,41 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // by projectId) or when both the job and the workspace have no project yet.
   useEffect(() => {
     if (isResumingProject) return; // Still loading — wait.
-    // Cold launches always stop at the picker. Keep interrupted work saved
-    // until its project is explicitly opened from the library.
-    if (coldStart && !currentProjectId) return;
+    // Nothing resumed and no studio yet: the home page opens in the App
+    // studio, unless a pending build below pins another one.
+    const openHome = () => {
+      if (studioModeRef.current) return;
+      setStudioMode('app');
+      setPreviewMode(STUDIO_MODES.app.defaultPreviewMode);
+    };
+    // Cold launches always start on the home page. Keep interrupted work
+    // saved until its project is explicitly opened from the library.
+    if (coldStart && !currentProjectId) {
+      openHome();
+      return;
+    }
     const job = loadPendingJob();
     if (!job) {
       setInterruptedJob(null);
+      openHome();
       return;
     }
     const jobBelongsHere =
       (job.projectId ?? null) === (currentProjectId ?? null);
     if (jobBelongsHere) {
       setInterruptedJob(job);
-      // A pending build pins its studio: reopen straight into the workspace
-      // the build started in (its retry banner lives there) instead of
-      // stopping at the studio-choice gate.
+      // A pending build pins its studio: reopen straight into the studio the
+      // build started in (its retry banner lives there).
       if (!studioModeRef.current) {
         setStudioMode(normalizeStudioMode(job.studioMode));
       }
     } else {
       setInterruptedJob(null);
+      openHome();
     }
     // If the job belongs to a different project, leave the record intact but
     // don't surface it — the user can encounter it by opening that project.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isResumingProject, coldStart, currentProjectId]);
 
   const handleShowCodeViewChange = (value) => {
@@ -2454,7 +2448,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       imagesToSave: imported.images,
     });
     setIsImportSiteOpen(false);
-    setIsStudioChoiceOpen(false);
   };
 
   // Imported codebase (ImportSiteDialog has already read and checked the zip):
@@ -2512,7 +2505,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       codebaseToSave: imported.meta,
     });
     setIsImportSiteOpen(false);
-    setIsStudioChoiceOpen(false);
   };
 
   // The project back as a .zip, every file at its original path. The lockfile
@@ -2554,31 +2546,32 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // never got saved is worth a warning.
   const hasUnsavedWork = !currentProjectId && Boolean(generatedCode || versions.length > 0 || hasSentFirstPrompt || galleryImages.length);
 
-  const handleNewApp = () => {
-    if (isGenerating || hasUnsavedWork) {
-      setIsNewChatConfirmOpen(true);
-    } else {
-      // Nothing to lose -- go straight to the studio pick.
-      handleConfirmNewChat();
+  // The studio Exit returns to: the home page of the studio you were in
+  // (an imported codebase has no empty workspace, so App).
+  const homeStudio = studioMode && studioMode !== 'codebase' ? studioMode : 'app';
+
+  // Carries out a side-rail request to leave the current work: open a new
+  // project in a studio, or open Import (which keeps the workspace as it is
+  // until a site is actually imported).
+  const leaveTo = (target) => {
+    setPendingLeave(null);
+    if (target === 'import') {
+      setIsImportSiteOpen(true);
+      return;
     }
+    if (!STUDIO_MODES[target] || target === 'codebase') return;
+    // Switching studios on the home page keeps what was typed so far.
+    const keptPrompt = showHero ? prompt : '';
+    resetCurrentWorkspace(target);
+    if (keptPrompt) setPrompt(keptPrompt);
+    requestAnimationFrame(() => document.getElementById('prompt')?.focus());
   };
 
-  const handleConfirmNewChat = () => {
-    setIsNewChatConfirmOpen(false);
-    // Confirmed: leaving the current app. Mark it so a reload before a studio
-    // is picked lands on the picker instead of resuming the old project.
-    markStartFresh();
-    // The workspace is left untouched until a studio is chosen, so "Go back"
-    // on the choice screen cancels cleanly.
-    setIsStudioChoiceOpen(true);
-  };
-
-  const handleConfirmExit = () => {
-    setIsExitConfirmOpen(false);
-    // Same as "New": the workspace stays untouched until a studio is chosen,
-    // so "Go back" on the picker returns to it.
-    markStartFresh();
-    setIsStudioChoiceOpen(true);
+  // A new project in a studio (the rail's App/Website/Game keys, Exit) or
+  // Import. Asks first only when a build is running or work was never saved.
+  const requestLeave = (target) => {
+    if (isGenerating || hasUnsavedWork) setPendingLeave(target);
+    else leaveTo(target);
   };
 
   const handleCancelNaming = () => {
@@ -2864,34 +2857,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     if (freeSignedIn) clearPromptForSignIn();
   }, [freeSignedIn]);
 
-  // The studio-choice screen. Forced on a fresh session (gate), or opened by
-  // "New" once work was confirmed away. Picking seeds the untitled name and
-  // the studio's default preview device.
-  const handleChooseStudio = (mode) => {
-    if (!STUDIO_MODES[mode]) return;
-    // There is no empty codebase workspace: the only way in is an import.
-    if (mode === 'codebase') {
-      setIsImportSiteOpen(true);
-      return;
-    }
-    resetCurrentWorkspace(mode);
-    setIsStudioChoiceOpen(false);
-  };
-
-  const handleCancelStudioChoice = () => {
-    // Going back re-anchors the untouched workspace: a reload should resume
-    // the previous project like it would before "New" was clicked.
-    clearStartFresh();
-    setIsStudioChoiceOpen(false);
-  };
-
-  // Opening a previous build straight from the choice screen: the project
-  // carries its own studio, so loading one dismisses the choice.
-  const handleLoadProjectFromChoice = (project) => {
-    setIsStudioChoiceOpen(false);
-    loadProject(project);
-  };
-
   // Deleting the currently-open project also clears the workspace.
   const handleDeleteProject = async (project) => {
     const wasCurrent = currentProjectId === project.id;
@@ -2958,17 +2923,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     }
   };
 
-  // Mounted at the same first-child position across loading, onboarding,
-  // studio choice and workspace so the splash video starts immediately without
-  // waiting for /api/provider and never remounts when loading resolves.
-  const splashNode = !desktopOnboarding?.replay && (
-    <SplashScreen skip={skipSplash || splashDone} onDone={endSplash} aboveSetup />
-  );
-
   if (desktopOnboarding?.loading) {
     return (
       <>
-      {splashNode}
       <div className="h-dvh overflow-hidden bg-slate-50 flex items-center justify-center font-sans">
         <Loader2 className="animate-spin text-slate-400" size={28} />
       </div>
@@ -2979,7 +2936,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   if (desktopOnboarding) {
     return (
       <>
-      {splashNode}
       <Suspense fallback={null}>
         <DesktopOnboarding
           providerInfo={desktopOnboarding.info}
@@ -3032,7 +2988,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   };
   // The SEO page needs a workspace to attach its answers to; imported
   // codebases don't use connectors.
-  const seoProject = studioMode && studioMode !== 'codebase' && !isStudioChoiceOpen
+  const seoProject = studioMode && studioMode !== 'codebase'
     ? {
       profile: seoProfile,
       enabled: isSeoEnabled(seoProfile),
@@ -3062,7 +3018,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     }
     : null;
 
-  // Shared by the studio picker and the workspace.
   const settingsModal = isSettingsOpen && (
     <Suspense fallback={null}>
       <SettingsModal
@@ -3083,8 +3038,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         onGameEngineRouterChange={setGameEngineRouter}
         websiteAddonRouter={websiteAddonRouter}
         onWebsiteAddonRouterChange={setWebsiteAddonRouter}
-        skipSplash={skipSplash}
-        onSkipSplashChange={setSkipSplash}
         autoFollowCode={autoFollowCode}
         onAutoFollowCodeChange={setAutoFollowCode}
         codeAutocomplete={codeAutocomplete}
@@ -3107,70 +3060,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     </Suspense>
   );
 
-  // Cold launches begin at the picker; renderer reloads can resume a project
-  // or pending job. Mid-session, the same screen opens over "New".
-  const showStudioChoice = isStudioChoiceOpen || (!isResumingProject && studioMode === null);
-  if (showStudioChoice) {
-    return (
-      <>
-      {splashNode}
-      <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
-        <Suspense fallback={null}>
-          <StudioChoice
-            onSelectStudio={handleChooseStudio}
-            onImportSite={() => setIsImportSiteOpen(true)}
-            onOpenShowcase={() => setIsShowcaseOpen(true)}
-            onCancel={isStudioChoiceOpen && !isProjectsListOpen && !isShowcaseOpen ? handleCancelStudioChoice : null}
-            onOpenProjects={() => setIsProjectsListOpen(true)}
-            recents={myProjects}
-            currentProjectId={currentProjectId}
-            onLoadProject={handleLoadProjectFromChoice}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onOpenExtensions={() => { setSettingsInitialTab('connectors'); setIsSettingsOpen(true); }}
-            resolvedTheme={resolvedTheme}
-            onToggleTheme={handleToggleTheme}
-            freeAccount={freeAccount}
-          />
-        </Suspense>
-        {settingsModal}
-        <DesktopStorageNotice />
-        <UpdateNotice />
-        {legalGate}
-        {isProjectsListOpen && (
-          <Suspense fallback={null}>
-            <ProjectsListModal
-              projects={myProjects}
-              currentProjectId={currentProjectId}
-              onClose={() => setIsProjectsListOpen(false)}
-              onLoadProject={handleLoadProjectFromChoice}
-              onRenameProject={renameProject}
-              onDeleteProject={handleDeleteProject}
-            />
-          </Suspense>
-        )}
-        {isShowcaseOpen && (
-          <Suspense fallback={null}>
-            <ShowcaseModal onClose={() => setIsShowcaseOpen(false)} />
-          </Suspense>
-        )}
-        {isImportSiteOpen && (
-          <Suspense fallback={null}>
-            <ImportSiteDialog
-              onImported={handleImportedSite}
-              onCancel={() => setIsImportSiteOpen(false)}
-              isNameTaken={(name) => isProjectNameTaken(myProjects, name)}
-              reasoningEffort={effectiveReasoningEffort}
-            />
-          </Suspense>
-        )}
-      </div>
-      </>
-    );
-  }
-
   return (
     <>
-    {splashNode}
     <div className="app-shell fixed inset-0 overflow-hidden bg-slate-50 flex flex-col font-sans">
 
       {!showHero && !isResumingProject && (
@@ -3200,22 +3091,20 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         </Suspense>
       )}
 
-      {isExitConfirmOpen && (
-        <ConfirmModal
-          title="Exit to the studio picker?"
-          subtitle="You'll choose between building an app or a website."
-          onClose={() => setIsExitConfirmOpen(false)}
-          onConfirm={handleConfirmExit}
-          confirmLabel="Exit"
-          confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
-        >
-          <div className="rounded-xl border border-amber-100 bg-amber-50 dark:border-slate-200 dark:bg-slate-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
-            <TriangleAlert size={18} className="text-amber-500 dark:text-slate-900 shrink-0 mt-0.5" />
-            <span>
-              Your current work stays as it is until you pick a studio. Choose &ldquo;Go back&rdquo; on the next screen to return to it, or pick a studio to start something new.
-            </span>
-          </div>
-        </ConfirmModal>
+      {isShowcaseOpen && (
+        <Suspense fallback={null}>
+          <ShowcaseModal onClose={() => setIsShowcaseOpen(false)} />
+        </Suspense>
+      )}
+      {isImportSiteOpen && (
+        <Suspense fallback={null}>
+          <ImportSiteDialog
+            onImported={handleImportedSite}
+            onCancel={() => setIsImportSiteOpen(false)}
+            isNameTaken={(name) => isProjectNameTaken(myProjects, name)}
+            reasoningEffort={effectiveReasoningEffort}
+          />
+        </Suspense>
       )}
 
       {exportNotice && (
@@ -3253,12 +3142,12 @@ export default function App({ coldStart = false, signInHandoff = null }) {
           </div>
         </ConfirmModal>
       )}
-      {isNewChatConfirmOpen && (
+      {pendingLeave && (
         <ConfirmModal
-          title="Start something new?"
-          subtitle="This will clear your current workspace."
-          onClose={() => setIsNewChatConfirmOpen(false)}
-          onConfirm={handleConfirmNewChat}
+          title={pendingLeave === 'import' ? 'Import a site?' : 'Start something new?'}
+          subtitle={pendingLeave === 'import' ? 'The import replaces your current workspace.' : 'This will clear your current workspace.'}
+          onClose={() => setPendingLeave(null)}
+          onConfirm={() => leaveTo(pendingLeave)}
           confirmLabel="Continue"
           confirmClass="brand-fill-text inline-flex items-center gap-1.5 rounded-lg px-5 py-2 font-semibold bg-brand text-white hover:bg-brand-hover transition-colors"
         >
@@ -3266,8 +3155,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
             <TriangleAlert size={18} className="text-amber-500 dark:text-slate-900 shrink-0 mt-0.5" />
             <span>
               {isGenerating && !hasUnsavedWork
-                ? 'The AI is still working on this project. Starting something new will stop it; everything finished so far is already saved. You’ll pick the studio on the next screen.'
-                : 'You have unsaved changes. Starting something new will discard your current work including any generated code and version history. You’ll pick the studio on the next screen.'}
+                ? 'The AI is still working on this project. Leaving it will stop the build; everything finished so far is already saved.'
+                : 'You have unsaved changes. Leaving now discards your current work, including any generated code and version history.'}
             </span>
           </div>
         </ConfirmModal>
@@ -3344,22 +3233,13 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         webSearchProvider={providerWeb.provider}
         webSearch={webSearchOn}
         onWebSearchChange={setWebSearchOn}
-        starterIdeas={
-          chatMode === 'ask'
-            ? ASK_STARTER_PRESETS
-            : studioMode === 'website'
-              ? WEBSITE_STARTER_PRESETS
-              : studioMode === 'game'
-                ? GAME_STARTER_PRESETS
-                : STARTER_PRESETS
-        }
-        starterSampleSize={chatMode !== 'ask' ? STARTER_SAMPLE_SIZE[studioMode] : undefined}
-        onPickStarter={setPrompt}
         error={error}
         interruptedJob={interruptedJob}
         onRetryInterruptedJob={handleRetryInterruptedJob}
         onDismissInterruptedJob={handleDismissInterruptedJob}
-        onNewApp={handleNewApp}
+        onNewProject={requestLeave}
+        onImportSite={() => requestLeave('import')}
+        onOpenShowcase={() => setIsShowcaseOpen(true)}
         onOpenApps={() => setIsProjectsListOpen(true)}
         savedAppsCount={myProjects.length}
         recents={myProjects}
@@ -3374,7 +3254,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         onToggleHistory={() => setIsHistoryOpen((open) => !open)}
         onStartTour={startTour}
         onToggleTheme={handleToggleTheme}
-        onExit={() => setIsExitConfirmOpen(true)}
+        onExit={() => requestLeave(homeStudio)}
         mobileView={mobileView}
         onMobileViewChange={setMobileView}
         onNewChat={requestNewChat}

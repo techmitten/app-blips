@@ -245,9 +245,9 @@ export default function useProjects({ workspace }) {
 
         // Start-fresh marker: the user confirmed leaving the previous project
         // (New App / Exit / workspace reset) and hasn't adopted another one
-        // since, so land on the studio picker instead of resurrecting that
+        // since, so land on the home page instead of resurrecting that
         // project. Stays set until a project is adopted or they go back, so
-        // reloads keep showing the picker for the whole new-app flow.
+        // reloads keep showing the home page for the whole new-app flow.
         const startFresh = isStartFresh();
 
         if (!currentProjectId && !startFresh) {

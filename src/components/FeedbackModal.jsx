@@ -51,7 +51,7 @@ const TYPE_STYLES = {
   },
 };
 
-// "Send feedback", opened from the studio picker's top bar. Sends the message
+// "Send feedback", opened from the side rail. Sends the message
 // to the AppBlips team (lib/feedback.js). Escape closes only this dialog.
 export default function FeedbackModal({ onClose }) {
   const [type, setType] = useState('Idea');

@@ -38,7 +38,6 @@ try {
   let page = await app.firstWindow();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.getByRole('button', { name: 'Skip video' }).click({ timeout: 5000 }).catch(() => {});
   await page.getByRole('button', { name: /Import a site/ }).first().click({ timeout: 20000 });
   await page.locator('input[type=file][accept*=zip]').setInputFiles(zipPath);
   await page.getByRole('button', { name: /I’ll fill in the .env settings/ }).click();
@@ -69,14 +68,13 @@ try {
   assert.ok(existsSync(join(folder, 'site', 'src', 'assets', 'hero.png')));
   assert.deepEqual(errors, []);
 
-  // Restart: a fresh launch opens on the studio picker; reopening the site
-  // from My projects rehydrates its files from blobs. (The route is saved
+  // Restart: a fresh launch opens on the home page; reopening the site
+  // from Saved apps rehydrates its files from blobs. (The route is saved
   // with the next save, not on every click, so it opens on the home page.)
   await app.close();
   app = await launch();
   page = await app.firstWindow();
-  await page.getByRole('button', { name: 'Skip video' }).click({ timeout: 5000 }).catch(() => {});
-  await page.getByRole('button', { name: 'My projects' }).click({ timeout: 20000 });
+  await page.getByRole('button', { name: 'Saved apps' }).click({ timeout: 20000 });
   await page.getByText('Acme Bakery').first().click();
   const frame2 = page.frameLocator('iframe[data-appblips-browser]');
   page.on('console', (m) => { if (m.type() === 'error') console.log('restart console error:', m.text().slice(0, 300)); });

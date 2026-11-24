@@ -7,9 +7,7 @@ import { loadHeroRailCollapsed, saveHeroRailCollapsed } from '../lib/config';
 const RAIL_OPEN_DELAY_MS = 120;
 const RAIL_CLOSE_DELAY_MS = 240;
 
-// State for HeroSidebar, shared by every screen that shows it (the studio
-// picker and the studio shell), so pinning it on one keeps it pinned on the
-// other. Pinned keeps the rail open and gives it room in the layout;
+// State for HeroSidebar (shown by the studio shell, HeroLanding). Pinned keeps the rail open and gives it room in the layout;
 // otherwise it stays an icon strip and peeks open over the stage on hover or
 // keyboard focus, so the page never reflows underneath the pointer. Returns
 // the props to spread onto HeroSidebar.

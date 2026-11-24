@@ -6,7 +6,6 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
   await page.addInitScript(() => {
-    localStorage.setItem('orion-skip-splash', 'true');
     localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, onboardingComplete: true }));
   });
   const errors = [];

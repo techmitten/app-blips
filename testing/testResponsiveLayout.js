@@ -120,7 +120,6 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
       if (window !== window.top) return;
-      localStorage.setItem('orion-skip-splash', 'true');
       localStorage.setItem('appblips-tour-v1', 'dismissed');
       localStorage.setItem('orion-show-code-view', 'true');
       const code = '<!doctype html><html><body style="margin:0;background:#e0f2fe"><h1>Responsive fixture</h1><button onclick="this.textContent=123">Try it</button></body></html>';

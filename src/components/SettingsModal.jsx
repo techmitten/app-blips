@@ -24,7 +24,7 @@ import { CURRENT_VERSION } from '../lib/updates';
 
 // Settings modal, split into tabs: Appearance (theme from useTheme in
 // App, chat font size from useChatFont, build pane side), Workspace (code
-// view, splash), AI (your own AI provider, then reasoning, suggested prompts),
+// view), AI (your own AI provider, then reasoning, suggested prompts),
 // Connectors (services the AI wires into projects), Tools (built-in extras
 // like SEO and My images, the native connectors), Skills (abilities the AI
 // can use or be asked to use, like clarifying questions), Data (project backup and the desktop projects folder),
@@ -135,8 +135,6 @@ export default function SettingsModal({
   onGameEngineRouterChange,
   websiteAddonRouter,
   onWebsiteAddonRouterChange,
-  skipSplash,
-  onSkipSplashChange,
   autoFollowCode,
   onAutoFollowCodeChange,
   codeAutocomplete,
@@ -330,9 +328,6 @@ export default function SettingsModal({
               </SettingRow>
               <SettingRow id="set-livecode" title="Live code preview" description="Show the code being written in the preview pane while an app is generated.">
                 <Switch checked={liveCodePreview} onChange={onLiveCodePreviewChange} labelledBy="set-livecode" />
-              </SettingRow>
-              <SettingRow id="set-splash" title="Skip splash screen" description="Skip the intro animation on launch. Takes effect on the next page load.">
-                <Switch checked={skipSplash} onChange={onSkipSplashChange} labelledBy="set-splash" />
               </SettingRow>
               <SettingRow
                 id="set-updates"

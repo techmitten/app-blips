@@ -1,7 +1,7 @@
 // Keeps an unsent prompt across the Free AI sign-in (freeSignIn.js). Sign-in
 // is meant to stay in a popup, but some browsers (mobile, blocked popups) send
 // the whole page through Google or GitHub and back. That full page load would
-// replay the splash, land on the studio picker and drop the typed prompt. So
+// land on the App home page and drop the typed prompt. So
 // the prompt, its studio and project are saved just before the sign-in opens,
 // and the next page load picks them up once.
 import { safeStorage } from './config.js';

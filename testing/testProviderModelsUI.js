@@ -6,7 +6,6 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
   await page.addInitScript(() => {
-    localStorage.setItem('orion-skip-splash', 'true');
     localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, onboardingComplete: true }));
   });
   const errors = [];
@@ -43,7 +42,6 @@ try {
   assert.equal(await page.locator('.model-combobox input').inputValue(), 'custom-coder');
   assert.deepEqual(errors, []);
   const onboarding = await browser.newPage();
-  await onboarding.addInitScript(() => localStorage.setItem('orion-skip-splash', 'true'));
   await onboarding.route(/\/api\/provider\/models$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ id: 'onboarding-coder', label: 'Onboarding Model' }]) }));
   await onboarding.goto(process.env.MODEL_TEST_URL || 'http://127.0.0.1:5182');
   await onboarding.getByRole('textbox', { name: 'Your name' }).fill('Tester');

@@ -48,7 +48,6 @@ try {
   const context = await browser.newContext({ permissions: ['microphone'] });
   await context.addInitScript(() => {
     localStorage.setItem('appblips-web-provider', JSON.stringify({ onboardingComplete: true }));
-    localStorage.setItem('orion-splash-last-shown', String(Date.now()));
   });
   const offsite = [];
   context.on('request', (request) => {
@@ -62,9 +61,6 @@ try {
 
   const openHero = async () => {
     await page.goto(origin);
-    const skip = page.getByRole('button', { name: 'Skip video' });
-    if (await skip.isVisible().catch(() => false)) await skip.click();
-    await page.getByRole('button', { name: /Mobile & Web App/ }).click();
     await expect(page.getByRole('button', { name: 'Start voice input' })).toBeVisible();
   };
 

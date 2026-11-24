@@ -20,7 +20,6 @@ const newPage = async () => {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.addInitScript(() => {
     if (window !== window.top) return;
-    localStorage.setItem('orion-skip-splash', 'true');
     localStorage.setItem('orion-reasoning-effort-build', 'high');
     localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, onboardingComplete: true }));
   });

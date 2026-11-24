@@ -47,7 +47,6 @@ async function launch({ store = false, snap = false } = {}) {
   await page.evaluate((key) => localStorage.removeItem(key), CHECK_CACHE_KEY);
   githubCalls.length = 0;
   await page.reload();
-  await page.getByRole('button', { name: 'Skip video' }).click({ timeout: 5000 }).catch(() => {});
   const close = async () => {
     await app.close();
     await rm(home, { recursive: true, force: true });

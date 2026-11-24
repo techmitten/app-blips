@@ -72,7 +72,6 @@ try {
   await page.addInitScript((row) => {
     if (window === window.top) {
       sessionStorage.setItem('orion-app-session-started', 'true');
-      localStorage.setItem('orion-skip-splash', 'true');
       localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, onboardingComplete: true }));
       localStorage.setItem('orion-legal-agreement', JSON.stringify({ terms: '2099-01-01', privacy: '2099-01-01', agreedAt: new Date().toISOString() }));
       localStorage.setItem('orion-projects', JSON.stringify([row]));

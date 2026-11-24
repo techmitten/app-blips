@@ -1,17 +1,45 @@
 import '../styles/app/hero-landing.css';
+import '../styles/app/studio-choice.css';
 import '../styles/app/starter-ideas.css';
-import { ArrowLeft, TriangleAlert, RotateCcw, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { TriangleAlert, RotateCcw, X, AppWindow, Globe, Gamepad2 } from 'lucide-react';
 import HeroSidebar from './HeroSidebar';
 import PromptInput from './PromptInput';
-import StarterIdeas from './StarterIdeas';
+import WhatsNew from './WhatsNew';
+import Aurora from './reactbits/Aurora';
 import useHeroRail from '../hooks/useHeroRail';
 
+// The light theme's moving backdrop: React Bits' Aurora drawn as soft pastel
+// light (lightMode) hanging from the top of the stage, in the app icon's
+// coral running to apricot and rose. Rendered at 1x pixel density: the light
+// is all soft gradients, so a sharper canvas would only cost GPU time. It
+// leans gently toward the pointer, pauses itself when hidden or offscreen,
+// and holds still for reduced motion.
+const AURORA_PROPS = {
+  colorStops: ['#ff8a6b', '#ffb36b', '#f2667a'],
+  lightMode: true,
+  direction: 'top',
+  height: 0.34,
+  amplitude: 0.9,
+  blend: 0.8,
+  glow: 0.7,
+  scale: 0.8,
+  speed: 0.45,
+  layers: 2,
+  opacity: 0.55,
+  dpr: 1,
+};
+
+// The studio switch inside the composer's footer: three quiet icon keys, one
+// click to move between the studios on the home page without opening the
+// side rail. Same action as the rail's New app / New website / New game keys.
+const STUDIO_SWITCH = [
+  { key: 'app', Icon: AppWindow, label: 'App studio' },
+  { key: 'website', Icon: Globe, label: 'Website studio' },
+  { key: 'game', Icon: Gamepad2, label: 'Game studio' },
+];
+
 const COPY = {
-  ask: {
-    eyebrow: 'Ask AI',
-    title: 'Ask AI any question.',
-    subtitle: 'Ask about your app, or anything else.',
-  },
   website: {
     eyebrow: 'Website Studio',
     title: 'What website should we build?',
@@ -29,16 +57,17 @@ const COPY = {
   },
 };
 
-// The studio shell shown after the studio pick: a side rail plus a rounded,
+// The studio shell and the app's home page: a side rail plus a rounded,
 // brand-colored stage. Before the first prompt the stage holds one centered
-// composer (HeroPrompt); once a build exists App passes the workspace (chat,
-// history drawer and preview) as `workspace` and the stage shows that instead.
+// composer for the current studio (the rail switches studios); once a build
+// exists App passes the workspace (chat, history drawer and preview) as
+// `workspace` and the stage shows that instead. What's New (from the rail)
+// covers the stage without unmounting what is under it.
 // The shell itself stays mounted across the hand-off, so the rail keeps its
 // state and the screen never changes underneath the user. It owns no
 // generation state -- prompt, attachment and mode all live in App and are
 // shared with the workspace composer, so nothing typed here is lost.
-// `theme` is the app's resolved theme: dark keeps the near-black coral look,
-// light mirrors the studio picker (see hero-landing.css).
+// `theme` is the app's resolved theme (see hero-landing.css).
 export default function HeroLanding({
   studioMode = 'app',
   theme = 'dark',
@@ -59,9 +88,6 @@ export default function HeroLanding({
   webSearchProvider = '',
   webSearch = false,
   onWebSearchChange,
-  starterIdeas,
-  starterSampleSize,
-  onPickStarter,
   error,
   interruptedJob,
   onRetryInterruptedJob,
@@ -72,8 +98,31 @@ export default function HeroLanding({
 }) {
   const rail = useHeroRail();
 
-  const copy = COPY[chatMode === 'ask' ? 'ask' : COPY[studioMode] ? studioMode : 'app'];
+  // Ask mode only changes the corner label; the heading and subtitle stay the
+  // studio's own, so switching modes doesn't change the page under the user.
+  const studioCopy = COPY[COPY[studioMode] ? studioMode : 'app'];
+  const copy = chatMode === 'ask' ? { ...studioCopy, eyebrow: 'Ask AI' } : studioCopy;
   const workspaceActive = Boolean(workspace);
+
+  // What's New: Escape or Back closes it and puts focus back where it was.
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const whatsNewRef = useRef(null);
+  useEffect(() => {
+    if (!showWhatsNew) return undefined;
+    const returnFocus = document.activeElement;
+    whatsNewRef.current?.querySelector('.whats-new-back')?.focus({ preventScroll: true });
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (event.target.closest?.('[role="dialog"]')) return;
+      setShowWhatsNew(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      returnFocus?.focus?.({ preventScroll: true });
+    };
+  }, [showWhatsNew]);
+  const closeWhatsNewThen = (fn) => (fn ? (...args) => { setShowWhatsNew(false); return fn(...args); } : fn);
 
   return (
     <div className={`hero-landing${theme === 'light' ? '' : ' dark force-dark'}${workspaceActive ? ' hero-landing-workspace' : ''} flex-1 min-h-0 min-w-0 flex flex-col lg:flex-row`}>
@@ -81,35 +130,39 @@ export default function HeroLanding({
         {...rail}
         workspaceActive={workspaceActive}
         resolvedTheme={theme}
+        studioMode={studioMode}
         {...sidebarProps}
+        onNewProject={closeWhatsNewThen(sidebarProps.onNewProject)}
+        onLoadProject={closeWhatsNewThen(sidebarProps.onLoadProject)}
+        whatsNewOpen={showWhatsNew}
+        onToggleWhatsNew={() => setShowWhatsNew((open) => !open)}
       />
 
-      <div className="flex-1 min-h-0 min-w-0 flex px-1.5 pb-1.5 lg:pl-0 lg:pt-1.5">
+      <div className="relative flex-1 min-h-0 min-w-0 flex px-1.5 pb-1.5 lg:pl-0 lg:pt-1.5">
+        {showWhatsNew && (
+          <div
+            ref={whatsNewRef}
+            className="hero-stage studio-choice hero-whats-new top-0 right-1.5 bottom-1.5 left-1.5 lg:left-0 lg:top-1.5 chat-scrollbar animate-fade-in"
+          >
+            <WhatsNew onBack={() => setShowWhatsNew(false)} />
+          </div>
+        )}
         {workspaceActive ? (
           <div className="hero-stage hero-stage-workspace flex-1 min-w-0 min-h-0 flex">
             {workspace}
           </div>
         ) : (
         <main className="hero-stage hero-stage-first flex-1 min-w-0 overflow-y-auto chat-scrollbar animate-fade-in">
+          {/* Aurora light behind the composer (light theme only; hero-landing.css). */}
+          {theme === 'light' && (
+            <div className="hero-aurora" aria-hidden="true">
+              <Aurora {...AURORA_PROPS} />
+            </div>
+          )}
           {!isResuming && (
-            <nav className="hero-crumbs" aria-label="Breadcrumb">
-              {sidebarProps.onNewApp && (
-                <>
-                  <button
-                    type="button"
-                    onClick={sidebarProps.onNewApp}
-                    className="hero-back-btn"
-                    aria-label="Back to studio picker"
-                    title="Switch studio"
-                  >
-                    <ArrowLeft size={14} aria-hidden="true" />
-                    <span>Studios</span>
-                  </button>
-                  <span className="hero-crumbs-sep" aria-hidden="true">/</span>
-                </>
-              )}
-              <span className="hero-crumbs-current" aria-current="page">{copy.eyebrow}</span>
-            </nav>
+            <p className="hero-crumbs">
+              <span className="hero-crumbs-current">{copy.eyebrow}</span>
+            </p>
           )}
           {!isResuming && (
             <div className="hero-column mx-auto flex min-h-full w-full max-w-2xl flex-col items-stretch justify-center gap-4 px-4 sm:px-6">
@@ -142,6 +195,23 @@ export default function HeroLanding({
                   webSearch={webSearch}
                   onWebSearchChange={onWebSearchChange}
                   voiceInput
+                  footerExtra={sidebarProps.onNewProject ? (
+                    <div className="hero-studio-switch" role="group" aria-label="Studio">
+                      {STUDIO_SWITCH.map(({ key, Icon, label }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          aria-pressed={studioMode === key}
+                          aria-label={label}
+                          data-tip={label}
+                          onClick={() => { if (studioMode !== key) sidebarProps.onNewProject(key); }}
+                          className="hero-studio-switch-btn"
+                        >
+                          <Icon size={16} aria-hidden="true" />
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 />
               </div>
 
@@ -186,15 +256,6 @@ export default function HeroLanding({
                   </div>
                 </div>
               )}
-
-              <div className="w-full animate-stagger-3">
-                <StarterIdeas
-                  variant="chips"
-                  ideas={starterIdeas}
-                  sampleSize={starterSampleSize}
-                  onPick={(starter) => onPickStarter(starter.prompt)}
-                />
-              </div>
 
               <p className="hero-kbd-hint animate-stagger-3" aria-hidden="true">
                 <span>Press <kbd>Enter</kbd> to {chatMode === 'ask' ? 'send' : 'build'}</span>

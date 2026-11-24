@@ -1,4 +1,4 @@
-// "Send feedback" (the studio picker's top bar) emails the AppBlips team
+// "Send feedback" (the side rail) emails the AppBlips team
 // through Web3Forms (lib/appblipsInbox.js) with the feedback key.
 import {
   APPBLIPS_FEEDBACK_KEY, COOLDOWN_MS, EMAIL_RE, looksLikeBot, postToAppBlipsInbox,

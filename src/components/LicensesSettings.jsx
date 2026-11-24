@@ -23,7 +23,7 @@ const FONTS = [
 // uses a few React Bits components (components/reactbits/), so it's credited
 // here by hand.
 const REACT_BITS = {
-  name: 'React Bits (BorderGlow, RotatingText)',
+  name: 'React Bits (Aurora, BorderGlow, RotatingText)',
   author: 'David Haz',
   license: 'MIT + Commons Clause',
   homepage: 'https://reactbits.dev/',

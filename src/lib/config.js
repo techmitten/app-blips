@@ -25,13 +25,13 @@ export const isWideLayout = () => window.matchMedia(WIDE_LAYOUT_QUERY).matches;
 export const THEME_META_COLOR = { light: '#f1f3f5', dark: '#080808' };
 
 // 'light' | 'dark' | 'system'. Anything unrecognised (or unreadable storage)
-// falls back to dark.
+// falls back to light, the default theme.
 export const loadThemePreference = () => {
   try {
     const stored = safeStorage('local')?.getItem(THEME_KEY);
-    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'dark';
+    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'light';
   } catch {
-    return 'dark';
+    return 'light';
   }
 };
 
@@ -144,18 +144,6 @@ export const loadWebsiteAddonRouter = () => {
     return safeStorage('local')?.getItem(WEBSITE_ADDON_ROUTER_KEY) !== 'false';
   } catch {
     return true;
-  }
-};
-
-export const SKIP_SPLASH_KEY = 'orion-skip-splash';
-
-// Boolean: when true the splash screen is skipped entirely on load. Off by
-// default so new users still see the branded intro.
-export const loadSkipSplash = () => {
-  try {
-    return safeStorage('local')?.getItem(SKIP_SPLASH_KEY) === 'true';
-  } catch {
-    return false;
   }
 };
 
@@ -274,12 +262,11 @@ export const beginAppSession = ({ returningFromSignIn = false } = {}) => {
   }
 };
 
-// Start-fresh marker: a cold launch, leaving the current app ("New App" /
-// "Exit"), or a workspace reset means page loads must land on the studio
-// picker instead of auto-resuming the previously-open project. Cleared when a
-// project is adopted (rememberProjectId) or the user cancels out of the
-// picker, so it survives any number of reloads while the new-app flow is
-// still in progress.
+// Start-fresh marker: a cold launch, leaving the current app (a new project
+// or "Exit" in the side rail), or a workspace reset means page loads must land
+// on the home page instead of auto-resuming the previously-open project.
+// Cleared when a project is adopted (rememberProjectId), so it survives any
+// number of reloads while the new-app flow is still in progress.
 export const markStartFresh = () => {
   try {
     safeStorage('local')?.setItem(START_FRESH_KEY, 'true');

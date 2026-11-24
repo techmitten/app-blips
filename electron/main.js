@@ -441,7 +441,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 600,
     show: false,
-    backgroundColor: '#080808',
+    backgroundColor: '#f1f3f5',
     title: 'AppBlips',
     icon: join(APP_DIR, 'build', 'icon.png'),
     autoHideMenuBar: true,

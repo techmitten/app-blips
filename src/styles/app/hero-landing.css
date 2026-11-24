@@ -1,11 +1,9 @@
-/* First-build hero (HeroLanding.jsx / HeroSidebar.jsx): the screen shown after
-   the studio pick until the first prompt is submitted. It follows the app
+/* Home page and studio shell (HeroLanding.jsx / HeroSidebar.jsx): the
+   composer shown until the first prompt is submitted, then the workspace. It follows the app
    theme. Dark: near-black canvas (matching the app's own dark-theme ground,
    --color-slate-50) with the coral from the app icon (#eb6150) as the one
    accent colour -- a quiet SaaS backdrop rather than a multicolour gradient.
-   Light: the studio picker's look (studio-choice.css) so the jump from one to
-   the other feels continuous -- slate ground, the picker's pastel colours
-   kept to the stage corners, solid white surfaces with layered shadows. The
+   Light: a slate ground with pastel colours kept to the stage corners, solid white surfaces with layered shadows. The
    light overrides are the `:not(.dark)` blocks below; HeroLanding only adds
    `dark force-dark` when the theme is dark. */
 
@@ -14,8 +12,8 @@
    instead of sitting behind it. In dark the root also carries
    `dark force-dark`, so the composer and chips take their dark styles. */
 .hero-landing {
-  /* Positioning context for the mobile slide-out menu (absolute, like the
-     studio picker's, so no ancestor transform can trap it). */
+  /* Positioning context for the mobile slide-out menu (absolute, so no
+     ancestor transform can trap it). */
   position: relative;
   overflow: hidden;
   background: var(--hero-ground);
@@ -37,11 +35,6 @@
   --hero-eyebrow-bg: rgb(255 255 255 / 0.03);
   --hero-eyebrow-border: rgb(255 255 255 / 0.1);
   --hero-eyebrow-fg: rgb(255 255 255 / 0.75);
-  --hero-back-bg: rgb(255 255 255 / 0.03);
-  --hero-back-bg-hover: rgb(255 255 255 / 0.07);
-  --hero-back-border: rgb(255 255 255 / 0.1);
-  --hero-back-fg: rgb(255 255 255 / 0.65);
-  --hero-back-fg-hover: #fff;
   --hero-rail-fg: rgb(255 255 255 / 0.72);
   --hero-rail-fg-strong: #fff;
   --hero-rail-hover: rgb(255 255 255 / 0.08);
@@ -64,8 +57,8 @@
   --hero-kbd-border: rgb(255 255 255 / 0.12);
 }
 
-/* The studio picker's typeface, so the shell reads as the same product as the
-   screen before it. --font-sans is redefined too because the global h1-h3
+/* The landing page's typeface, so the shell reads as the same product.
+   --font-sans is redefined too because the global h1-h3
    rule (index.css) reads it, not font-family. The workspace inside the stage
    keeps the app's own face. */
 .hero-rail,
@@ -127,8 +120,8 @@
   padding-bottom: clamp(2.5rem, 8vh, 5rem);
 }
 
-/* Breadcrumb in the stage's top-left corner: the way back to the picker and
-   the studio you are in. It replaces a decorative eyebrow above the title. */
+/* The studio you are in, in the stage's top-left corner. It replaces a
+   decorative eyebrow above the title. */
 .hero-crumbs {
   position: absolute;
   top: 0.875rem;
@@ -140,40 +133,66 @@
   font-size: 0.8125rem;
 }
 
-.hero-crumbs-sep {
-  color: var(--hero-crumb-sep);
-}
-
 .hero-crumbs-current {
   color: var(--hero-title);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
-.hero-back-btn {
+/* Studio switch (HeroLanding.jsx), inside the composer's footer next to
+   Build/Ask: three icon keys behind a hairline divider. Quiet until hovered;
+   the current studio gets a soft fill. Tooltips name each one. */
+.hero-studio-switch {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  border: 1px solid var(--hero-back-border);
-  border-radius: 9999px;
-  background: var(--hero-back-bg);
-  color: var(--hero-back-fg);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  gap: 2px;
+  margin-left: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--hero-switch-divider);
+}
+
+.hero-studio-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--hero-switch-fg);
   cursor: pointer;
-  transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.hero-back-btn:hover {
-  background: var(--hero-back-bg-hover);
-  color: var(--hero-back-fg-hover);
+.hero-studio-switch-btn:hover {
+  background: var(--hero-switch-hover);
+  color: var(--hero-switch-fg-strong);
 }
 
-.hero-back-btn:focus-visible {
+.hero-studio-switch-btn[aria-pressed="true"] {
+  background: var(--hero-switch-active-bg);
+  color: var(--hero-switch-fg-strong);
+  cursor: default;
+}
+
+.hero-studio-switch-btn:focus-visible {
   outline: 2px solid var(--color-indigo-500);
-  outline-offset: 2px;
+  outline-offset: 1px;
+}
+
+.hero-landing {
+  --hero-switch-divider: rgb(255 255 255 / 0.12);
+  --hero-switch-fg: rgb(255 255 255 / 0.55);
+  --hero-switch-fg-strong: #ffffff;
+  --hero-switch-hover: rgb(255 255 255 / 0.07);
+  --hero-switch-active-bg: rgb(255 255 255 / 0.12);
+}
+
+.hero-landing:not(.dark) {
+  --hero-switch-divider: rgb(15 23 42 / 0.14);
+  --hero-switch-fg: #5b6478;
+  --hero-switch-fg-strong: #0b1220;
+  --hero-switch-hover: rgb(15 23 42 / 0.05);
+  --hero-switch-active-bg: rgb(15 23 42 / 0.08);
 }
 
 /* Title and subtitle sit flush left on the composer's edge, like the heading
@@ -239,16 +258,16 @@
   --hero-canvas-bg: linear-gradient(180deg, #0e0f12 0%, #09090b 100%);
   --hero-grid-minor: rgb(255 255 255 / 0.04);
   --hero-grid-major: rgb(255 255 255 / 0.085);
-  --hero-crumb-sep: rgb(255 255 255 / 0.28);
   --hero-chip-icon: rgb(255 255 255 / 0.6);
   --hero-chip-icon-bg: rgb(255 255 255 / 0.06);
 }
 
 .hero-landing:not(.dark) {
-  --hero-canvas-bg: linear-gradient(180deg, #f7f8fa 0%, #eef1f5 100%);
+  /* The aurora (.hero-aurora, see "Light canvas" below) sits on near-white
+     paper. */
+  --hero-canvas-bg: linear-gradient(180deg, #f3f4f8 0%, #e9ecf2 100%);
   --hero-grid-minor: rgb(15 23 42 / 0.045);
   --hero-grid-major: rgb(15 23 42 / 0.085);
-  --hero-crumb-sep: rgb(15 23 42 / 0.3);
   --hero-chip-icon: rgb(11 18 32 / 0.6);
   --hero-chip-icon-bg: rgb(15 23 42 / 0.05);
 }
@@ -285,12 +304,11 @@
 }
 
 .hero-landing:not(.dark) {
-  --hero-bezel-edge: rgb(15 23 42 / 0.11);
-  --hero-bezel-bg: linear-gradient(180deg, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.42));
+  --hero-bezel-edge: rgb(15 23 42 / 0.16);
+  --hero-bezel-bg: #ffffff;
   --hero-bezel-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.9),
-    0 1px 2px rgb(15 23 42 / 0.06),
-    0 24px 48px -22px rgb(15 23 42 / 0.24);
+    0 1px 3px rgb(15 23 42 / 0.12),
+    0 22px 48px -20px rgb(15 23 42 / 0.45);
 }
 
 @media (max-width: 639px) {
@@ -619,6 +637,46 @@
   background: currentColor;
 }
 
+/* GitHub, Discord, Privacy and Terms at the foot of the rail. Shown only
+   while the rail has labels; collapsed to icons it fades out of the way. */
+.hero-rail-links {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 1.75rem;
+  margin-top: 0.25rem;
+  padding: 0 0.6rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--hero-rail-muted);
+  transition: opacity 180ms ease-out 60ms;
+}
+
+.hero-rail-links.is-collapsed {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 110ms ease-out;
+}
+
+.hero-rail-links a {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.25rem;
+  transition: color 0.15s ease;
+}
+
+.hero-rail-links a:hover {
+  color: var(--hero-rail-fg-strong);
+}
+
+.hero-rail-links a:focus-visible {
+  outline: 2px solid var(--color-indigo-500);
+  outline-offset: 2px;
+}
+
 /* The way to the full Saved apps window: quieter than the projects. */
 .hero-rail-manage {
   color: var(--hero-rail-muted);
@@ -881,48 +939,43 @@
 /* ===== Light theme ===== */
 
 .hero-landing:not(.dark) {
-  /* Cool slate matching StudioChoice, so moving between picker and composer
-     feels like one continuous studio. */
-  --hero-ground: #dde3ed;
-  --hero-title: #0b1220;
-  --hero-subtitle: rgb(11 18 32 / 0.68);
-  --hero-stage-edge: rgb(15 23 42 / 0.12);
-  --hero-stage-divider: rgb(15 23 42 / 0.07);
+  /* A pale, faintly cool ground, so the white stage reads as one sheet of
+     paper lifted just off it. */
+  --hero-ground: #eceef4;
+  --hero-title: #0a0d14;
+  --hero-subtitle: #3a4356;
+  --hero-stage-edge: rgb(15 23 42 / 0.18);
+  --hero-stage-divider: rgb(15 23 42 / 0.05);
   --hero-drift: rgb(217 71 47 / 0.06);
   --hero-accent: #d9472f;
   --hero-eyebrow-bg: rgb(255 255 255 / 0.72);
   --hero-eyebrow-border: rgb(15 23 42 / 0.1);
   --hero-eyebrow-fg: rgb(11 18 32 / 0.78);
-  --hero-back-bg: rgb(255 255 255 / 0.72);
-  --hero-back-bg-hover: #ffffff;
-  --hero-back-border: rgb(15 23 42 / 0.12);
-  --hero-back-fg: rgb(11 18 32 / 0.7);
-  --hero-back-fg-hover: #0b1220;
   --hero-stage-bg:
     radial-gradient(46% 40% at 92% 104%, rgb(217 71 47 / 0.1), transparent 70%),
     radial-gradient(50% 35% at 15% -5%, rgb(255 255 255 / 0.65), transparent 70%),
     #e7ecf3;
-  --hero-rail-fg: rgb(11 18 32 / 0.76);
+  --hero-rail-fg: #2b3345;
   --hero-rail-fg-strong: #0b1220;
   --hero-rail-hover: rgb(15 23 42 / 0.08);
   --hero-rail-primary: #ffffff;
   --hero-rail-primary-edge: rgb(15 23 42 / 0.12);
   --hero-rail-primary-hover: #ffffff;
-  --hero-rail-muted: rgb(11 18 32 / 0.6);
+  --hero-rail-muted: #4b5468;
   --hero-rail-sep: rgb(15 23 42 / 0.1);
   --hero-rail-float-shadow:
     1px 0 0 rgb(15 23 42 / 0.1),
     20px 0 40px -18px rgb(15 23 42 / 0.35);
-  --hero-chip-bg: rgb(255 255 255 / 0.78);
+  --hero-chip-bg: #ffffff;
   --hero-chip-bg-hover: #ffffff;
-  --hero-chip-border: rgb(15 23 42 / 0.11);
+  --hero-chip-border: rgb(15 23 42 / 0.26);
   --hero-chip-border-hover: rgb(217 71 47 / 0.35);
   --hero-chip-highlight: #ffffff;
-  --hero-chip-fg: rgb(11 18 32 / 0.82);
+  --hero-chip-fg: #1a2131;
   --hero-chip-fg-hover: #0b1220;
-  --hero-kbd-fg: rgb(11 18 32 / 0.5);
-  --hero-kbd-bg: rgb(255 255 255 / 0.7);
-  --hero-kbd-border: rgb(15 23 42 / 0.14);
+  --hero-kbd-fg: #4b5468;
+  --hero-kbd-bg: #ffffff;
+  --hero-kbd-border: rgb(15 23 42 / 0.24);
   --hero-arrow-bg: #ffffff;
   --hero-arrow-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 6px 14px -6px rgb(15 23 42 / 0.3);
 }
@@ -930,12 +983,12 @@
 /* Composer: a solid white card with the picker's layered shadow (a tight
    contact shadow plus a long soft one), and a soft coral halo while typing. */
 .hero-landing:not(.dark) .hero-composer .prompt-input-dock {
-  border: 1px solid rgb(15 23 42 / 0.12);
+  border: 1px solid rgb(15 23 42 / 0.3);
   border-radius: 1.25rem;
   background: #ffffff;
   box-shadow:
-    0 1px 2px rgb(15 23 42 / 0.06),
-    0 8px 18px -12px rgb(15 23 42 / 0.22);
+    0 1px 2px rgb(15 23 42 / 0.05),
+    0 10px 22px -14px rgb(15 23 42 / 0.18);
 }
 
 .hero-landing:not(.dark) .hero-composer .prompt-input-dock:focus-within {
@@ -946,12 +999,107 @@
     0 10px 24px -12px rgb(15 23 42 / 0.26);
 }
 
-/* The rail's primary key is a white card, like the picker's. */
+/* ===== Light canvas =====
+   React Bits' Aurora (components/reactbits/Aurora.jsx, settings in
+   HeroLanding.jsx) hangs soft coral light from the top of the stage. It is
+   drawn in its light mode, as pastel light for a white page. The drafting
+   grid stays on top, and the static white wash (::after) keeps the
+   composer's surroundings calm and readable. Light theme only. */
+.hero-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-aurora::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(34% 26% at 50% 50%, rgb(243 244 248 / 0.6), transparent 100%);
+}
+
+/* A bolder, tighter headline, set a size up: the page's one loud element. */
+.hero-landing:not(.dark) .hero-title {
+  font-size: clamp(2rem, 1.25rem + 2.8vw, 3.1rem);
+  font-weight: 750;
+  letter-spacing: -0.045em;
+}
+
+/* The studio label in the corner becomes a quiet glass tag with the brand
+   dot, so it sits on the paper like the composer does. */
+.hero-landing:not(.dark) .hero-crumbs-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgb(15 23 42 / 0.18);
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+  color: #1a2131;
+  font-size: 0.75rem;
+}
+
+.hero-landing:not(.dark) .hero-crumbs-current::before {
+  content: '';
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background: var(--hero-accent);
+}
+
+/* Send: the one coral key on the page, ready as soon as there is a prompt. */
+.hero-landing:not(.dark) .hero-composer .prompt-input-send:not(:disabled) {
+  background: linear-gradient(180deg, #f2806a 0%, #e4634c 100%);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    0 6px 14px -6px rgb(228 99 76 / 0.6);
+}
+
+.hero-landing:not(.dark) .hero-composer .prompt-input-send:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ec735c 0%, #d9553e 100%);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    0 8px 18px -6px rgb(217 85 62 / 0.65);
+}
+
+/* Example chips: solid white with a clear edge and a small lift. */
+.hero-landing:not(.dark) .starter-chip {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.1);
+}
+
+/* Contrast on the light page: the prompt's placeholder, the composer's
+   keys and the corner tag are dark enough to read at a glance (all at or
+   above WCAG AA on white). */
+.hero-landing:not(.dark) .hero-composer .prompt-input-field::placeholder {
+  color: #4b5468;
+}
+
+.hero-landing:not(.dark) .hero-composer .composer-key:not(.prompt-input-send) {
+  color: #2b3345;
+}
+
+.hero-landing:not(.dark) .hero-composer .chat-mode-reel {
+  border-color: rgb(15 23 42 / 0.24);
+  background: #f1f3f7;
+  color: #1a2131;
+}
+
+.hero-landing:not(.dark) .hero-composer .prompt-input-send:disabled {
+  color: #5b6478;
+  opacity: 1;
+}
+
+/* The rail's primary key is a white card. */
 .hero-landing:not(.dark) .hero-rail-item-primary {
   box-shadow: inset 0 0 0 1px var(--hero-rail-primary-edge), 0 1px 2px rgb(15 23 42 / 0.06);
 }
 
-/* The slide-out menu reuses the studio picker's panel classes, which read
+/* The slide-out menu reuses the studio-menu-* classes (studio-choice.css), which read
    --sc-* variables; map them onto the hero's own palette here. */
 .hero-menu {
   --sc-bg: var(--hero-ground);

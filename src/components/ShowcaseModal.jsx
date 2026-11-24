@@ -149,7 +149,7 @@ function ShowcaseViewer({ project, onBack, onClose }) {
   );
 }
 
-// "Showcase", opened from the studio picker: the projects on
+// "Showcase", opened from Explore in the side rail: the projects on
 // appblips.com/showcase, playable in place, plus a way to submit your own.
 export default function ShowcaseModal({ onClose }) {
   const [filter, setFilter] = useState('all');

@@ -11,8 +11,8 @@ import { providerWebAvailability, refreshProviderWeb, subscribeProviderWeb } fro
 export default function useProviderWeb() {
   useEffect(() => {
     const refresh = () => { refreshProviderWeb(); };
-    // Defer the initial status check so it does not compete with the splash
-    // screen and critical assets on first load; provider changes still run immediately.
+    // Defer the initial status check so it does not compete with critical
+    // assets on first load; provider changes still run immediately.
     const timer = setTimeout(refresh, 1500);
     const unsubscribe = onProviderChange(refresh);
     return () => {

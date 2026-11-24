@@ -34,7 +34,6 @@ async function openPage(browser, { projectId = '', viewport = VIEWPORT } = {}) {
     sessionStorage.setItem('docs-seeded', '1');
     localStorage.clear();
     localStorage.setItem('orion-theme', 'dark');
-    localStorage.setItem('orion-skip-splash', 'true');
     localStorage.setItem('appblips-tour-v1', 'dismissed');
     localStorage.setItem('appblips-tour-v2', 'dismissed');
     localStorage.setItem('orion-legal-agreement', JSON.stringify({ terms: '2026-11-17', privacy: '2026-11-17', agreedAt: new Date().toISOString() }));
@@ -86,7 +85,6 @@ const shots = {
 
   async 'new-app-prompt'(browser) {
     const page = await openPage(browser);
-    await page.getByRole('button', { name: 'Build an app: Mobile & Web App' }).click();
     await page.locator('#prompt').waitFor();
     await page.locator('#prompt').fill('A tip calculator. I enter the bill, pick a tip percentage and the number of people, and it shows the tip and the total per person.');
     await settle(page);
@@ -121,7 +119,9 @@ const shots = {
 
   async 'website-desktop'(browser) {
     const page = await openPage(browser, { viewport: WIDE });
-    await openProject(page, 'Hearth & Crumb');
+    await openProject(page, 'Ray’s Ski Resort');
+    await page.waitForLoadState('networkidle');
+    await settle(page, 2000);
     await save(page, 'website-desktop');
     return page;
   },

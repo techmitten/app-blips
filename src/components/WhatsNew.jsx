@@ -92,7 +92,7 @@ export default function WhatsNew({ onBack }) {
   return (
     <main id="whats-new" className="whats-new mx-auto w-full max-w-4xl flex-1 px-4 sm:px-6 md:px-10" aria-labelledby="whats-new-title">
       <button type="button" onClick={onBack} className="studio-nav-link studio-focus whats-new-back">
-        <ArrowLeft size={16} aria-hidden="true" /> Back to studios
+        <ArrowLeft size={16} aria-hidden="true" /> Back
       </button>
       <header className="whats-new-header">
         <span className="studio-eyebrow"><span className="studio-eyebrow-dot" aria-hidden="true" /> The AppBlips bulletin</span>

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Plus, FolderOpen, PanelLeftClose, PanelLeftOpen, Settings,
+  FolderOpen, PanelLeftClose, PanelLeftOpen, Settings,
   CircleHelp, MessageSquare, MessageSquarePlus, Plug, Menu, X, Github, ShieldCheck, ScrollText,
   History, Compass, Sun, Moon, DoorOpen, Power, ChevronDown,
+  AppWindow, Globe, Gamepad2, FolderUp, LayoutGrid, Megaphone,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
@@ -14,6 +15,17 @@ import FeedbackModal from './FeedbackModal';
 import FreeAccountControl from './FreeAccountControl';
 
 const MAX_RECENTS = 5;
+const PRIVACY_URL = 'https://www.appblips.com/privacy';
+const TERMS_URL = 'https://www.appblips.com/terms';
+
+// The three studios a new project can start in. On the home page the key of
+// the studio you are in is marked current; in a workspace each one starts a
+// new project there.
+const STUDIOS = [
+  { key: 'app', Icon: AppWindow, label: 'New app', tip: 'New mobile & web app', menuLabel: 'Mobile & web app' },
+  { key: 'website', Icon: Globe, label: 'New website', tip: 'New responsive website', menuLabel: 'Responsive website' },
+  { key: 'game', Icon: Gamepad2, label: 'New game', tip: 'New browser game', menuLabel: 'Browser game' },
+];
 const SAVED_OPEN_KEY = 'appblips-rail-saved-open';
 
 // Whether the desktop rail's Saved apps list is shown. Open unless the user
@@ -34,13 +46,14 @@ const saveSavedOpen = (open) => {
   }
 };
 
-// Side rail of the studio shell (HeroLanding), shown from the first prompt
+// Side rail of the studio shell (HeroLanding), shown from the home page
 // through the whole build. Expanded (icon + label, plus a Recents list) or
 // collapsed to an icon-only strip; below `lg` it folds into a compact top bar
-// of icon keys. Once a build exists (`workspaceActive`) it also carries the
+// with a slide-out menu. It holds the ways to begin (a new app, website or
+// game, Import, Explore) and, once a build exists (`workspaceActive`), the
 // workspace controls: History, Tour, Exit and (desktop) Quit, plus the
 // Chat/Preview switch and new-chat key in the mobile top bar.
-function RailItem({ icon: Icon, label, tip = label, collapsed, onClick, href, badge = null, primary = false, active = false, tour, tipKey, ariaPressed, ariaExpanded, ariaControls }) {
+function RailItem({ icon: Icon, label, tip = label, collapsed, onClick, href, badge = null, primary = false, active = false, tour, tipKey, ariaPressed, ariaExpanded, ariaControls, ariaCurrent }) {
   const className = `hero-rail-item${primary ? ' hero-rail-item-primary' : ''}${active ? ' hero-rail-item-active' : ''}${collapsed ? ' is-collapsed' : ''}`;
   const content = (
     <>
@@ -59,7 +72,7 @@ function RailItem({ icon: Icon, label, tip = label, collapsed, onClick, href, ba
     );
   }
   return (
-    <button type="button" onClick={onClick} className={className} aria-label={label} aria-pressed={ariaPressed} aria-expanded={ariaExpanded} aria-controls={ariaControls} {...tipProps}>
+    <button type="button" onClick={onClick} className={className} aria-label={label} aria-pressed={ariaPressed} aria-expanded={ariaExpanded} aria-controls={ariaControls} aria-current={ariaCurrent} {...tipProps}>
       {content}
     </button>
   );
@@ -75,8 +88,12 @@ export default function HeroSidebar({
   onBlur,
   onKeyDown,
   peeking = false,
-  onNewApp,
-  newActive = false,
+  studioMode = null,
+  onNewProject,
+  onImportSite,
+  onOpenShowcase,
+  whatsNewOpen = false,
+  onToggleWhatsNew,
   onOpenApps,
   savedAppsCount = 0,
   recents = [],
@@ -117,7 +134,10 @@ export default function HeroSidebar({
     });
   };
 
-  // Slide-out menu below lg, the same one the studio picker uses below md.
+  // On the home page the studio you are in is the current one.
+  const currentStudio = workspaceActive || whatsNewOpen ? null : studioMode;
+
+  // Slide-out menu below lg.
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   useEffect(() => {
@@ -152,7 +172,7 @@ export default function HeroSidebar({
       <div className={`hero-rail-brand flex items-center gap-2 px-1.5 ${collapsed ? 'is-collapsed' : ''}`}>
         <span className="hero-rail-brand-mark flex items-center gap-2 min-w-0">
           <img src="/favicon.svg" alt="" aria-hidden="true" width={24} height={24} className="h-6 w-6 shrink-0" />
-          {/* Same two wordmarks as the studio picker (one shows per theme). Fades out smoothly when the desktop rail collapses to icons. */}
+          {/* Two wordmarks, one per theme. Fades out smoothly when the desktop rail collapses to icons. */}
           <span className="hero-rail-wordmark">
             <img src="/appblips-wordmark-dark.svg" alt="AppBlips" width={1203} height={276} className="hero-rail-wordmark-img studio-logo-dark" />
             <img src="/appblips-wordmark-light.svg" alt="" aria-hidden="true" width={1203} height={276} className="hero-rail-wordmark-img studio-logo-light" />
@@ -213,7 +233,22 @@ export default function HeroSidebar({
       </div>
 
       <nav className="hidden lg:flex flex-col items-stretch gap-1 lg:flex-1 min-h-0" aria-label="Studio actions">
-        <RailItem icon={Plus} label="New" tip="Start something new" collapsed={collapsed} onClick={onNewApp} primary active={newActive} />
+        {STUDIOS.map(({ key, Icon, label, tip }) => (
+          <RailItem
+            key={key}
+            icon={Icon}
+            label={label}
+            tip={tip}
+            collapsed={collapsed}
+            onClick={() => onNewProject?.(key)}
+            active={currentStudio === key}
+            ariaCurrent={currentStudio === key ? 'page' : undefined}
+          />
+        ))}
+        {onImportSite && (
+          <RailItem icon={FolderUp} label="Import a site" tip="Import an HTML page, a website .zip or a React + Vite project" collapsed={collapsed} onClick={onImportSite} />
+        )}
+        <span className="hero-rail-sep" role="separator" />
         <RailItem
           icon={FolderOpen}
           label="Saved apps"
@@ -277,10 +312,16 @@ export default function HeroSidebar({
             badge={versionsCount > 0 ? <span className="hero-rail-dot" aria-hidden="true" /> : null}
           />
         )}
+        {onOpenShowcase && (
+          <RailItem icon={LayoutGrid} label="Explore" tip="See what others built with AppBlips" collapsed={collapsed} onClick={onOpenShowcase} />
+        )}
         <span className="hidden lg:block lg:flex-1" aria-hidden="true" />
 
         {workspaceActive && (
           <RailItem icon={Compass} label="Tour" tip="Take the workspace tour" tour="tour" collapsed={collapsed} onClick={onStartTour} />
+        )}
+        {onToggleWhatsNew && (
+          <RailItem icon={Megaphone} label="What’s New" tip="Updates and announcements" collapsed={collapsed} onClick={onToggleWhatsNew} active={whatsNewOpen} ariaPressed={whatsNewOpen} />
         )}
         <RailItem icon={Plug} label="Extensions" collapsed={collapsed} onClick={onOpenExtensions} />
         <RailItem icon={Settings} label="Settings" tour="settings" collapsed={collapsed} onClick={onOpenSettings} />
@@ -290,13 +331,24 @@ export default function HeroSidebar({
         {workspaceActive && (
           <>
             <span className="hero-rail-sep" role="separator" />
-            <RailItem icon={DoorOpen} label="Exit" tip="Exit to the studio picker (app, website or game)" collapsed={collapsed} onClick={onExit} />
+            <RailItem icon={DoorOpen} label="Exit" tip="Close this project and go to the home page" collapsed={collapsed} onClick={onExit} />
             {isDesktop && (
               <RailItem icon={Power} label="Quit" tip="Quit AppBlips" collapsed={collapsed} onClick={() => desktopBridge.app.quit()} />
             )}
           </>
         )}
         <FreeAccountControl account={freeAccount} variant="rail" collapsed={collapsed} />
+        {/* Community and legal links, only while the rail shows labels. */}
+        <div className={`hero-rail-links${collapsed ? ' is-collapsed' : ''}`} inert={collapsed} aria-hidden={collapsed}>
+          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" aria-label="AppBlips on GitHub" title="AppBlips on GitHub">
+            <Github size={14} aria-hidden="true" />
+          </a>
+          <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" aria-label="Join the AppBlips Discord" title="Join the AppBlips Discord">
+            <DiscordIcon size={14} />
+          </a>
+          <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">Privacy</a>
+          <a href={TERMS_URL} target="_blank" rel="noopener noreferrer">Terms</a>
+        </div>
       </nav>
     </aside>
     </div>
@@ -321,10 +373,25 @@ export default function HeroSidebar({
               <div className="studio-menu-sep" role="separator" />
             </>
           )}
+          <p className="studio-menu-heading">New project</p>
+          {STUDIOS.map(({ key, Icon, menuLabel }) => (
+            <button
+              key={key}
+              type="button"
+              className="studio-menu-item"
+              aria-current={currentStudio === key ? 'page' : undefined}
+              onClick={fromMenu(() => onNewProject?.(key))}
+            >
+              <Icon size={18} aria-hidden="true" /> {menuLabel}
+            </button>
+          ))}
+          {onImportSite && (
+            <button type="button" className="studio-menu-item" onClick={fromMenu(onImportSite)}>
+              <FolderUp size={18} aria-hidden="true" /> Import a site
+            </button>
+          )}
+          <div className="studio-menu-sep" role="separator" />
           <p className="studio-menu-heading">Workspace</p>
-          <button type="button" className="studio-menu-item" onClick={fromMenu(onNewApp)}>
-            <Plus size={18} aria-hidden="true" /> New Project
-          </button>
           {workspaceActive && canNewChat && onNewChat && (
             <button type="button" className="studio-menu-item" onClick={fromMenu(onNewChat)}>
               <MessageSquarePlus size={18} aria-hidden="true" /> New chat
@@ -336,6 +403,11 @@ export default function HeroSidebar({
           {workspaceActive && (
             <button type="button" className="studio-menu-item" aria-expanded={isHistoryOpen} onClick={fromMenu(onToggleHistory)}>
               <History size={18} aria-hidden="true" /> History{versionsCount > 0 ? ` (${versionsCount})` : ''}
+            </button>
+          )}
+          {onOpenShowcase && (
+            <button type="button" className="studio-menu-item" onClick={fromMenu(onOpenShowcase)}>
+              <LayoutGrid size={18} aria-hidden="true" /> Explore
             </button>
           )}
           {recentProjects.length > 0 && (
@@ -370,6 +442,11 @@ export default function HeroSidebar({
               <Compass size={18} aria-hidden="true" /> Take the tour
             </button>
           )}
+          {onToggleWhatsNew && (
+            <button type="button" className="studio-menu-item" onClick={fromMenu(onToggleWhatsNew)}>
+              <Megaphone size={18} aria-hidden="true" /> What’s New
+            </button>
+          )}
           <button type="button" className="studio-menu-item" onClick={fromMenu(() => setFeedbackOpen(true))}>
             <MessageSquare size={18} aria-hidden="true" /> Send feedback
           </button>
@@ -383,16 +460,16 @@ export default function HeroSidebar({
           </a>
           <div className="studio-menu-sep" role="separator" />
           <p className="studio-menu-heading">Legal</p>
-          <a href="https://www.appblips.com/privacy" target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
+          <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
             <ShieldCheck size={18} aria-hidden="true" /> Privacy Policy
           </a>
-          <a href="https://www.appblips.com/terms" target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
+          <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" className="studio-menu-item" onClick={fromMenu()}>
             <ScrollText size={18} aria-hidden="true" /> Terms of Service
           </a>
           {workspaceActive && (
             <>
               <div className="studio-menu-sep" role="separator" />
-              <button type="button" className="studio-menu-item" aria-label="Exit to the studio picker" onClick={fromMenu(onExit)}>
+              <button type="button" className="studio-menu-item" aria-label="Exit to the home page" onClick={fromMenu(onExit)}>
                 <DoorOpen size={18} aria-hidden="true" /> Exit
               </button>
               {isDesktop && (

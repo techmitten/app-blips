@@ -1,4 +1,4 @@
-// The Showcase: projects built with AppBlips, opened from the studio picker.
+// The Showcase: projects built with AppBlips, opened from the side rail's Explore.
 // The examples are the same exports, in the same order, as
 // appblips.com/showcase (AppBlips-Landing, ShowcasePage.tsx), bundled in
 // public/showcase so they open offline. People submit their own published
