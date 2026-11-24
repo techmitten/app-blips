@@ -210,14 +210,14 @@
   --hero-switch-hover: rgb(15 23 42 / 0.05);
 }
 
-/* Title and subtitle are centred over the composer. */
+/* Title and subtitle sit flush left on the composer's edge, like the heading
+   of a document you are about to write. */
 .hero-heading {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 0.625rem;
   margin-bottom: 0.75rem;
-  text-align: center;
+  padding-left: 0.125rem;
 }
 
 .hero-title {
