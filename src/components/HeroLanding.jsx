@@ -9,14 +9,22 @@ import WhatsNew from './WhatsNew';
 import Aurora from './reactbits/Aurora';
 import useHeroRail from '../hooks/useHeroRail';
 
+// Each studio has its own light, so the page says which one you are in:
+// App warm coral (the app icon's), Website clear sky blue, Game violet to
+// pink with a mint edge.
+const AURORA_COLORS = {
+  app: ['#ff8a6b', '#ffb36b', '#f2667a'],
+  website: ['#5ea8ff', '#7dd3fc', '#8b8cff'],
+  game: ['#a78bfa', '#f472b6', '#5eead4'],
+};
+
 // The light theme's moving backdrop: React Bits' Aurora drawn as soft pastel
-// light (lightMode) hanging from the top of the stage, in the app icon's
-// coral running to apricot and rose. Rendered at 1x pixel density: the light
+// light (lightMode) hanging from the top of the stage, in the studio's
+// colours (AURORA_COLORS). Rendered at 1x pixel density: the light
 // is all soft gradients, so a sharper canvas would only cost GPU time. It
 // leans gently toward the pointer, pauses itself when hidden or offscreen,
 // and holds still for reduced motion.
 const AURORA_PROPS = {
-  colorStops: ['#ff8a6b', '#ffb36b', '#f2667a'],
   lightMode: true,
   direction: 'top',
   height: 0.34,
@@ -33,21 +41,62 @@ const AURORA_PROPS = {
 // The studio switch inside the composer's footer: three quiet icon keys, one
 // click to move between the studios on the home page without opening the
 // side rail. Same action as the rail's New app / New website / New game keys.
+// Named by the plain `title`: a styled tooltip would be clipped by the dock.
 const STUDIO_SWITCH = [
   { key: 'app', Icon: AppWindow, label: 'App studio' },
   { key: 'website', Icon: Globe, label: 'Website studio' },
   { key: 'game', Icon: Gamepad2, label: 'Game studio' },
 ];
 
+// Switching studio fades the aurora from one studio's colours to the next
+// instead of snapping. Only this wrapper re-renders while it fades; Aurora
+// picks the new stops up on its next frame. Reduced motion switches at once.
+const AURORA_FADE_MS = 900;
+const hexToRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const rgbToHex = (rgb) => `#${rgb.map((c) => Math.round(c).toString(16).padStart(2, '0')).join('')}`;
+const mixStops = (from, to, t) => to.map((stop, i) => {
+  const a = hexToRgb(from[i] || stop);
+  const b = hexToRgb(stop);
+  return rgbToHex(a.map((c, k) => c + (b[k] - c) * t));
+});
+
+function StudioAurora({ colors }) {
+  const [stops, setStops] = useState(colors);
+  // The stops on screen right now, so a switch made mid-fade starts from
+  // wherever the last fade had got to.
+  const shownRef = useRef(colors);
+  useEffect(() => {
+    const from = shownRef.current;
+    if (from.join() === colors.join()) return undefined;
+    const duration = prefersReducedMotion() ? 0 : AURORA_FADE_MS;
+    let raf = 0;
+    const start = performance.now();
+    const step = (now) => {
+      const t = duration ? Math.min(1, Math.max(0, (now - start) / duration)) : 1;
+      const next = t < 1 ? mixStops(from, colors, t * t * (3 - 2 * t)) : colors;
+      shownRef.current = next;
+      setStops(next);
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [colors]);
+  return <Aurora {...AURORA_PROPS} colorStops={stops} />;
+}
+
+const prefersReducedMotion = () => (
+  typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+);
+
 const COPY = {
   website: {
     eyebrow: 'Website Studio',
-    title: 'What website should we build?',
+    title: 'What should we build?',
     subtitle: 'Describe your site, then click to edit it.',
   },
   game: {
     eyebrow: 'Game Studio',
-    title: 'What game should we build?',
+    title: 'What should we build?',
     subtitle: 'Describe the game, then play it right here.',
   },
   app: {
@@ -156,7 +205,7 @@ export default function HeroLanding({
           {/* Aurora light behind the composer (light theme only; hero-landing.css). */}
           {theme === 'light' && (
             <div className="hero-aurora" aria-hidden="true">
-              <Aurora {...AURORA_PROPS} />
+              <StudioAurora colors={AURORA_COLORS[studioMode] || AURORA_COLORS.app} />
             </div>
           )}
           {!isResuming && (
@@ -203,9 +252,10 @@ export default function HeroLanding({
                           type="button"
                           aria-pressed={studioMode === key}
                           aria-label={label}
-                          data-tip={label}
+                          title={label}
                           onClick={() => { if (studioMode !== key) sidebarProps.onNewProject(key); }}
                           className="hero-studio-switch-btn"
+                          style={{ '--studio-a': AURORA_COLORS[key][0], '--studio-b': AURORA_COLORS[key][2] }}
                         >
                           <Icon size={16} aria-hidden="true" />
                         </button>

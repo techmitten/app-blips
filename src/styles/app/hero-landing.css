@@ -141,7 +141,7 @@
 
 /* Studio switch (HeroLanding.jsx), inside the composer's footer next to
    Build/Ask: three icon keys behind a hairline divider. Quiet until hovered;
-   the current studio gets a soft fill. Tooltips name each one. */
+   the current studio is tinted with its aurora colours. */
 .hero-studio-switch {
   display: inline-flex;
   align-items: center;
@@ -168,10 +168,17 @@
   color: var(--hero-switch-fg-strong);
 }
 
+/* The selected studio wears its own aurora colours (--studio-a/-b, set per
+   key from AURORA_COLORS in HeroLanding.jsx): a soft wash of the two, and
+   the icon in a deepened shade of the first so it stays legible. */
 .hero-studio-switch-btn[aria-pressed="true"] {
-  background: var(--hero-switch-active-bg);
-  color: var(--hero-switch-fg-strong);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--studio-a) 26%, transparent),
+    color-mix(in srgb, var(--studio-b) 26%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--studio-a) 35%, transparent);
+  color: color-mix(in srgb, var(--studio-a) 72%, var(--hero-switch-ink));
   cursor: default;
+  transition: background 0.9s ease, color 0.9s ease, box-shadow 0.9s ease;
 }
 
 .hero-studio-switch-btn:focus-visible {
@@ -184,7 +191,7 @@
   --hero-switch-fg: rgb(255 255 255 / 0.55);
   --hero-switch-fg-strong: #ffffff;
   --hero-switch-hover: rgb(255 255 255 / 0.07);
-  --hero-switch-active-bg: rgb(255 255 255 / 0.12);
+  --hero-switch-ink: #ffffff;
 }
 
 .hero-landing:not(.dark) {
@@ -192,7 +199,7 @@
   --hero-switch-fg: #5b6478;
   --hero-switch-fg-strong: #0b1220;
   --hero-switch-hover: rgb(15 23 42 / 0.05);
-  --hero-switch-active-bg: rgb(15 23 42 / 0.08);
+  --hero-switch-ink: #000000;
 }
 
 /* Title and subtitle sit flush left on the composer's edge, like the heading

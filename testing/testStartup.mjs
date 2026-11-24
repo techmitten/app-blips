@@ -65,7 +65,7 @@ try {
       });
       await page.reload();
       await expect(page.locator('#prompt')).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'What website should we build?' })).toBeVisible();
+      await expect(page.getByText('Describe your site, then click to edit it.')).toBeVisible();
     }
     await context.close();
   }
