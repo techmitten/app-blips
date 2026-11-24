@@ -20,14 +20,14 @@ const text = (step) => [step.title, step.body, ...(step.tips || [])].join(' ');
 assert.equal(TOUR_KEY, 'appblips-tour-v2');
 assert.notEqual(HOME_TOUR_KEY, TOUR_KEY);
 
-// Home tour: the composer, studio switch, Build/Ask, then the rail (or, on
+// Home tour: the composer and studio switch, then the rail (or, on
 // narrow screens, one step for the whole menu).
 for (const wideScreen of [true, false]) {
   const steps = buildHomeTourSteps({ wideScreen });
   const label = `home wide=${wideScreen}`;
   assert.deepEqual(steps.map((step) => step.id), wideScreen
-    ? ['idea', 'studios', 'modes', 'start', 'finish']
-    : ['idea', 'studios', 'modes', 'finish'], `${label}: steps`);
+    ? ['idea', 'studios', 'start', 'finish']
+    : ['idea', 'studios', 'finish'], `${label}: steps`);
   for (const step of steps) {
     for (const target of step.target) assert.ok(anchors.has(target), `${label}: ${step.id} targets missing anchor "${target}"`);
     // Home steps never switch the workspace's Chat/Preview pane.
@@ -45,8 +45,10 @@ for (const studioMode of ['app', 'website', 'game', 'codebase']) {
         const label = `${studioMode} wide=${wideScreen} code=${hasCode} forcedMobile=${isForcedMobile}`;
         assert.equal(new Set(steps.map((step) => step.id)).size, steps.length, `${label}: unique ids`);
         // Moved to the home tour.
-        for (const moved of ['idea', 'modes', 'apps']) assert.ok(!steps.some((step) => step.id === moved), `${label}: no ${moved} step`);
+        for (const moved of ['idea', 'apps']) assert.ok(!steps.some((step) => step.id === moved), `${label}: no ${moved} step`);
         assert.equal(steps[0].id, 'refine', `${label}: starts with refining`);
+        // Build/Ask sits in the build pane's header, so the build tour shows it.
+        assert.equal(steps[1].id, 'modes', `${label}: Build/Ask after refining`);
         assert.equal(steps.some((step) => step.id === 'devices'), !isForcedMobile, `${label}: devices step`);
         assert.equal(Boolean(steps.find((step) => step.id === 'chats')?.tips?.length), !wideScreen, `${label}: mobile new chat tip`);
         for (const step of steps) {

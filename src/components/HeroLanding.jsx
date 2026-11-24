@@ -2,7 +2,7 @@ import '../styles/app/hero-landing.css';
 import '../styles/app/studio-choice.css';
 import '../styles/app/starter-ideas.css';
 import { useEffect, useRef, useState } from 'react';
-import { TriangleAlert, RotateCcw, X, AppWindow, Globe, Gamepad2 } from 'lucide-react';
+import { TriangleAlert, RotateCcw, X, Smartphone, AppWindow, Gamepad2 } from 'lucide-react';
 import HeroSidebar from './HeroSidebar';
 import PromptInput from './PromptInput';
 import WhatsNew from './WhatsNew';
@@ -16,6 +16,16 @@ const AURORA_COLORS = {
   app: ['#ff8a6b', '#ffb36b', '#f2667a'],
   website: ['#5ea8ff', '#7dd3fc', '#8b8cff'],
   game: ['#a78bfa', '#f472b6', '#5eead4'],
+};
+
+// The selected studio key's tint: [icon and edge, second wash stop], taken
+// from the studio's aurora but chosen so the three keys read apart. Game leads
+// with the aurora's pink (its violet sat too close to Website's blue), and
+// Website keeps to sky blue.
+const SWITCH_TINT = {
+  app: [AURORA_COLORS.app[0], AURORA_COLORS.app[2]],
+  website: [AURORA_COLORS.website[0], AURORA_COLORS.website[1]],
+  game: [AURORA_COLORS.game[1], AURORA_COLORS.game[0]],
 };
 
 // The light theme's moving backdrop: React Bits' Aurora drawn as soft pastel
@@ -43,8 +53,8 @@ const AURORA_PROPS = {
 // side rail. Same action as the rail's New app / New website / New game keys.
 // Named by the plain `title`: a styled tooltip would be clipped by the dock.
 const STUDIO_SWITCH = [
-  { key: 'app', Icon: AppWindow, label: 'App studio' },
-  { key: 'website', Icon: Globe, label: 'Website studio' },
+  { key: 'app', Icon: Smartphone, label: 'App studio' },
+  { key: 'website', Icon: AppWindow, label: 'Website studio' },
   { key: 'game', Icon: Gamepad2, label: 'Game studio' },
 ];
 
@@ -88,21 +98,25 @@ const prefersReducedMotion = () => (
   typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
 );
 
+// One subtitle for every studio, like the heading, so switching studios
+// never reflows the page above the composer.
+const SUBTITLE = 'Describe it in plain words, then try it right here.';
+
 const COPY = {
   website: {
     eyebrow: 'Website Studio',
     title: 'What should we build?',
-    subtitle: 'Describe your site, then click to edit it.',
+    subtitle: SUBTITLE,
   },
   game: {
     eyebrow: 'Game Studio',
     title: 'What should we build?',
-    subtitle: 'Describe the game, then play it right here.',
+    subtitle: SUBTITLE,
   },
   app: {
     eyebrow: 'App Studio',
     title: 'What should we build?',
-    subtitle: 'Describe your app in plain words, then try it right here.',
+    subtitle: SUBTITLE,
   },
 };
 
@@ -147,10 +161,9 @@ export default function HeroLanding({
 }) {
   const rail = useHeroRail();
 
-  // Ask mode only changes the corner label; the heading and subtitle stay the
-  // studio's own, so switching modes doesn't change the page under the user.
-  const studioCopy = COPY[COPY[studioMode] ? studioMode : 'app'];
-  const copy = chatMode === 'ask' ? { ...studioCopy, eyebrow: 'Ask AI' } : studioCopy;
+  // The home page always builds (App resets Ask on the way here); Build/Ask
+  // is in the workspace, so there is no Ask copy.
+  const copy = COPY[COPY[studioMode] ? studioMode : 'app'];
   const workspaceActive = Boolean(workspace);
 
   // What's New: Escape or Back closes it and puts focus back where it was.
@@ -183,6 +196,9 @@ export default function HeroLanding({
         {...sidebarProps}
         onNewProject={closeWhatsNewThen(sidebarProps.onNewProject)}
         onLoadProject={closeWhatsNewThen(sidebarProps.onLoadProject)}
+        chatMode={chatMode}
+        onChatModeChange={onChatModeChange}
+        isGenerating={isGenerating}
         whatsNewOpen={showWhatsNew}
         onToggleWhatsNew={() => setShowWhatsNew((open) => !open)}
       />
@@ -229,8 +245,7 @@ export default function HeroLanding({
                   isGenerating={isGenerating}
                   isChatActive={false}
                   hasCode={false}
-                  chatMode={chatMode}
-                  onChatModeChange={onChatModeChange}
+                  chatMode="build"
                   isClarifying={false}
                   studioMode={studioMode}
                   attachment={attachment}
@@ -255,7 +270,7 @@ export default function HeroLanding({
                           title={label}
                           onClick={() => { if (studioMode !== key) sidebarProps.onNewProject(key); }}
                           className="hero-studio-switch-btn"
-                          style={{ '--studio-a': AURORA_COLORS[key][0], '--studio-b': AURORA_COLORS[key][2] }}
+                          style={{ '--studio-a': SWITCH_TINT[key][0], '--studio-b': SWITCH_TINT[key][1] }}
                         >
                           <Icon size={16} aria-hidden="true" />
                         </button>

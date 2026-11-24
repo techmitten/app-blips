@@ -4,7 +4,7 @@ import {
   FolderOpen, PanelLeftClose, PanelLeftOpen, Settings,
   CircleHelp, MessageSquare, MessageSquarePlus, Plug, Menu, X, Github, ShieldCheck, ScrollText,
   History, Compass, Sun, Moon, DoorOpen, Power, ChevronDown,
-  AppWindow, Globe, Gamepad2, FolderUp, LayoutGrid, Megaphone,
+  Smartphone, AppWindow, Gamepad2, FolderUp, LayoutGrid, Megaphone,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
@@ -13,6 +13,7 @@ import { safeStorage } from '../lib/config';
 import DiscordIcon from './DiscordIcon';
 import FeedbackModal from './FeedbackModal';
 import FreeAccountControl from './FreeAccountControl';
+import ChatModeToggle from './ChatModeToggle';
 
 const MAX_RECENTS = 5;
 const PRIVACY_URL = 'https://www.appblips.com/privacy';
@@ -22,8 +23,8 @@ const TERMS_URL = 'https://www.appblips.com/terms';
 // the studio you are in is marked current; in a workspace each one starts a
 // new project there.
 const STUDIOS = [
-  { key: 'app', Icon: AppWindow, label: 'New app', tip: 'New mobile & web app', menuLabel: 'Mobile & web app' },
-  { key: 'website', Icon: Globe, label: 'New website', tip: 'New responsive website', menuLabel: 'Responsive website' },
+  { key: 'app', Icon: Smartphone, label: 'New app', tip: 'New mobile & web app', menuLabel: 'Mobile & web app' },
+  { key: 'website', Icon: AppWindow, label: 'New website', tip: 'New responsive website', menuLabel: 'Responsive website' },
   { key: 'game', Icon: Gamepad2, label: 'New game', tip: 'New browser game', menuLabel: 'Browser game' },
 ];
 const SAVED_OPEN_KEY = 'appblips-rail-saved-open';
@@ -115,6 +116,9 @@ export default function HeroSidebar({
   onMobileViewChange,
   onNewChat,
   canNewChat = false,
+  chatMode = 'build',
+  onChatModeChange,
+  isGenerating = false,
 }) {
   const recentProjects = recents.slice(0, MAX_RECENTS);
 
@@ -220,6 +224,11 @@ export default function HeroSidebar({
       )}
 
       <div className="ml-auto flex items-center gap-1 lg:hidden">
+        {/* Build/Ask, which sits in the build pane's header at lg and up;
+            that header is folded away here. Only with the chat showing. */}
+        {workspaceActive && onChatModeChange && mobileView === 'chat' && (
+          <ChatModeToggle chatMode={chatMode} onChatModeChange={onChatModeChange} disabled={isGenerating} className="hero-rail-mode" />
+        )}
         <button
           type="button"
           onClick={() => setMenuOpen(true)}

@@ -5,6 +5,7 @@ import '../styles/app/clarifying-card.css';
 import StarterIdeas from './StarterIdeas';
 import ChatTranscript from './ChatTranscript';
 import PromptInput from './PromptInput';
+import ChatModeToggle from './ChatModeToggle';
 import PromptSuggestions from './PromptSuggestions';
 import { displayBuildPrompt } from '../lib/buildMessages';
 
@@ -80,8 +81,11 @@ export default function BuildPanel({
 
       {/* Studio Panel Header Bar — aligns horizontally with PreviewPane's header */}
       <div className="build-panel-header relative h-14 sm:h-16 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-5 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#14161f] shadow-xs z-10">
+        {/* Build/Ask in place of a title: the key names what a message does.
+            Below lg this header is folded away and the key rides in the
+            rail's top bar instead (HeroSidebar). */}
         <div className="flex items-center">
-          <h2 className="build-panel-title text-sm 2xl:text-base font-bold text-slate-900 whitespace-nowrap tracking-tight">Build</h2>
+          <ChatModeToggle chatMode={chatMode} onChatModeChange={onChatModeChange} disabled={isGenerating} className="build-panel-mode" />
         </div>
         {/* Quick actions */}
         <div className="col-start-3 justify-self-end flex items-center">
@@ -244,7 +248,6 @@ export default function BuildPanel({
           isChatActive={isChatActive}
           hasCode={Boolean(generatedCode)}
           chatMode={chatMode}
-          onChatModeChange={onChatModeChange}
           isClarifying={isClarifying}
           hasClarifyingChoices={hasClarifyingChoices}
           studioMode={studioMode}

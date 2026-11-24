@@ -1585,6 +1585,9 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // prompt is submitted (which flips isChatActive), then the same shell's stage
   // holds the build/preview workspace for good.
   const showHero = !isChatActive;
+  // The home page has no Build/Ask key (it lives in the build pane's header),
+  // so a first message always builds, even if Ask was left on last time.
+  if (showHero && chatMode === 'ask') setChatMode('build');
 
   // Opening a saved project mounts the transcript after this effect would have
   // run on an unchanged `versions.length`, so the pane stayed at the top.

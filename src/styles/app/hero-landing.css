@@ -169,7 +169,7 @@
 }
 
 /* The selected studio wears its own aurora colours (--studio-a/-b, set per
-   key from AURORA_COLORS in HeroLanding.jsx): a soft wash of the two, and
+   key from SWITCH_TINT in HeroLanding.jsx): a soft wash of the two, and
    the icon in a deepened shade of the first so it stays legible. */
 .hero-studio-switch-btn[aria-pressed="true"] {
   background: linear-gradient(135deg,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, X, Paperclip, Camera, Send, Mic, Globe, ChevronsUpDown } from 'lucide-react';
+import { Loader2, X, Paperclip, Camera, Send, Mic, Globe } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import ConfirmModal from './ConfirmModal';
@@ -29,25 +29,11 @@ function VoiceReadyLabel() {
   );
 }
 
-// The mode control is one slot-machine reel with two stops; clicking it
-// advances Build -> Ask -> Build.
 // Names for the web search tooltip, by provider id (lib/providerWeb.js).
 const WEB_SEARCH_PROVIDERS = { deepseek: 'DeepSeek', anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemini', xai: 'xAI', openrouter: 'OpenRouter' };
 
-const MODE_SEQUENCE = ['build', 'ask'];
-const STOPS = MODE_SEQUENCE.length;
-const MODE_LABELS = { build: 'Build', ask: 'Ask' };
-const MODE_INDEX = Object.fromEntries(MODE_SEQUENCE.map((mode, index) => [mode, index]));
-// No extra full turns: with only two stops, spinning past the target before
-// landing on it just made the other label flash by on the way, which read as
-// the reel overshooting its own selection. Moving straight to the next stop
-// keeps the slide but drops the detour.
-const REEL_EXTRA_ITEMS = 0;
-const REEL_NORMALIZE_AT = 30;  // a multiple of the stop count; rewind here to keep it finite
-const REEL_ITEM_COUNT = 40;
-const REEL_ITEMS = Array.from({ length: REEL_ITEM_COUNT }, (_, i) => MODE_SEQUENCE[i % STOPS]);
-
-// Prompt textarea with the Build/Ask mode toggle and submit/cancel footer.
+// Prompt textarea with its attach/voice/submit footer. Build/Ask lives in the
+// build pane's header (ChatModeToggle).
 // Desktop Enter sends; touch keyboards keep Enter for newlines. Cmd/Ctrl+Enter sends.
 // The textarea auto-grows to a cap before scrolling.
 export default function PromptInput({
@@ -59,7 +45,6 @@ export default function PromptInput({
   isChatActive,
   hasCode,
   chatMode,
-  onChatModeChange,
   isClarifying,
   hasClarifyingChoices = false,
   studioMode = 'app',
@@ -122,29 +107,7 @@ export default function PromptInput({
     onSubmit();
   };
 
-  const selectedMode = chatMode === 'ask' ? 'ask' : 'build';
-
   const [isAttachmentOpen, setIsAttachmentOpen] = useState(false);
-  const [reelIndex, setReelIndex] = useState(MODE_INDEX[selectedMode]);
-  const [spinning, setSpinning] = useState(false);
-  const [lastMode, setLastMode] = useState(selectedMode);
-  if (lastMode !== selectedMode) {
-    setLastMode(selectedMode);
-    setSpinning(true);
-    setReelIndex((index) => {
-      const delta = ((MODE_INDEX[selectedMode] - (index % STOPS)) % STOPS + STOPS) % STOPS;
-      return index + delta + REEL_EXTRA_ITEMS;
-    });
-  }
-  const handleReelEnd = (event) => {
-    if (event.propertyName !== 'transform') return;
-    setSpinning(false);
-    setReelIndex((index) => (index >= REEL_NORMALIZE_AT ? index - REEL_NORMALIZE_AT : index));
-  };
-  const cycleMode = () => {
-    const next = MODE_SEQUENCE[(MODE_INDEX[selectedMode] + 1) % STOPS];
-    if (next !== chatMode) onChatModeChange(next);
-  };
 
   useEffect(() => {
     const resize = () => {
@@ -336,28 +299,26 @@ export default function PromptInput({
           placeholder={
             isClarifying
               ? "Type your answer…"
-              // Before the first message (the home page) Ask keeps the
-              // studio's own example, so switching modes changes nothing.
-              : chatMode === 'ask' && isChatActive
-                ? "Ask a question about the code…"
-                : isWebsite
-                  ? (isChatActive
+              // Before the first message (the home page) every studio and
+              // mode shares one short line, so switching changes nothing.
+              : !isChatActive
+                ? "Describe your idea…"
+                : chatMode === 'ask'
+                  ? "Ask a question about the code…"
+                  : isWebsite
                     ? "e.g. Change the hero photo, add a pricing section…"
-                    : "e.g. A one-page site for a cozy neighborhood bakery…")
-                  : studioMode === 'game'
-                    ? (isChatActive
+                    : studioMode === 'game'
                       ? "e.g. Add a boss level, make the ball faster…"
-                      : "e.g. A neon breakout with power-ups and a high-score table…")
-                    : (isChatActive
-                      ? "e.g. Make the background dark, add a reset button…"
-                      : "e.g. A minimalist task manager with categories…")
+                      : "e.g. Make the background dark, add a reset button…"
           }
           className={`prompt-input-field w-full min-h-14 sm:min-h-16.5 max-h-40 px-5 pt-4 pb-2 outline-none resize-none text-slate-950 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 text-sm font-medium leading-relaxed bg-transparent custom-scrollbar`}
           disabled={isGenerating}
         />
       </div>
-      <div className="prompt-input-footer flex flex-wrap items-center justify-between gap-2 px-3 sm:px-3.5 pb-3 pt-1.5">
-        <div className="flex items-center gap-x-2 gap-y-2">
+      <div className="prompt-input-footer flex items-end justify-between gap-2 px-3 sm:px-3.5 pb-3 pt-1.5">
+        {/* On a narrow screen the left keys wrap among themselves, so mic and
+            send stay at the end of the last row instead of on a row alone. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
           {!isGenerating ? (
             <>
               {onAttachFile && (
@@ -410,28 +371,6 @@ export default function PromptInput({
                 )}
               </div>
               )}
-              <button
-                type="button"
-                data-tour="mode"
-                onClick={cycleMode}
-                aria-label={`${MODE_LABELS[selectedMode]} mode. Activate to switch mode.`}
-                title={`${MODE_LABELS[selectedMode]} mode — click to switch`}
-                className={`chat-mode-reel${spinning ? ' is-spinning' : ''}`}
-              >
-                <span className="chat-mode-reel-window" aria-hidden="true">
-                  <span
-                    className={`chat-mode-reel-track ${spinning ? 'is-spinning' : ''}`}
-                    style={{ transform: `translateY(calc(${-reelIndex} * var(--composer-key-size)))` }}
-                    onTransitionEnd={handleReelEnd}
-                  >
-                    {REEL_ITEMS.map((word, index) => (
-                      <span key={index} className="chat-mode-reel-item">{MODE_LABELS[word]}</span>
-                    ))}
-                  </span>
-                </span>
-                {/* Up/down marks the key as a switch rather than a label. */}
-                <ChevronsUpDown size={12} strokeWidth={2.25} aria-hidden="true" className="chat-mode-reel-hint" />
-              </button>
             </>
           ) : null}
           {footerExtra}

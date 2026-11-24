@@ -206,11 +206,10 @@
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
   .prompt-input-field { font-size: 16px; max-height: min(176px, 28dvh); }
-  /* The composer rank is 4 keys + Build: ~316px at the default key size, so it
-     holds one line on a 360px phone. flex-wrap stays as the escape hatch for
-     narrower hardware rather than something the normal layout relies on. */
-  .prompt-input-footer { flex-wrap: wrap; gap: 8px; }
-  .prompt-input-footer > div:last-child { margin-left: auto; }
+  /* When the keys don't fit one line (the home page's studio switch on a
+     phone), the left group wraps within itself (PromptInput.jsx) and mic and
+     send stay at the end of its last row. */
+  .prompt-input-footer { gap: 8px; }
   .preview-canvas {
     padding-left: max(12px, env(safe-area-inset-left));
     padding-right: max(12px, env(safe-area-inset-right));

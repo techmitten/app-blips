@@ -2,8 +2,8 @@
 // reasoned about (and tested) without React or the DOM.
 //
 // The tour comes in two parts. The home tour (buildHomeTourSteps) covers the
-// home page: the composer, the studio switch, Build/Ask and the side rail.
-// The build tour (buildTourSteps) covers the workspace once a build exists:
+// home page: the composer, the studio switch and the side rail. The build
+// tour (buildTourSteps) covers the workspace once a build exists: Build/Ask,
 // preview, versions, download, share and chats. Each part remembers on its
 // own whether it was seen.
 //
@@ -52,17 +52,6 @@ export function buildHomeTourSteps({ wideScreen }) {
       title: 'Pick what you are making',
       body: 'App, Website or Game: each studio is tuned for what it makes. The light at the top of the page shows which one you are in.',
       tips: ['Switching keeps what you have typed.'],
-    },
-    {
-      id: 'modes',
-      icon: 'modes',
-      target: ['mode', 'prompt'],
-      title: 'Build or Ask',
-      body: 'Tap the mode key to switch what your message does.',
-      tips: [
-        'Build makes it, and changes it later.',
-        'Ask answers questions without changing anything.',
-      ],
     },
   ];
   if (wideScreen) {
@@ -124,9 +113,19 @@ export function buildTourSteps({ wideScreen, hasCode, showCodeView, studioMode, 
     body: codebase
       ? 'Tell AppBlips what to change in your imported site. It reads and edits the project\'s real files, one change at a time.'
       : `Each message changes your ${noun} in place, one step at a time. Say what to add, fix or restyle.`,
+    tips: ['Attach a screenshot of the preview to point at what you mean.'],
+  });
+
+  steps.push({
+    id: 'modes',
+    icon: 'modes',
+    target: ['mode', 'prompt'],
+    view: 'chat',
+    title: 'Build or Ask',
+    body: 'The mode key at the top of the chat switches what your message does.',
     tips: [
-      'Attach a screenshot of the preview to point at what you mean.',
-      `Ask mode answers questions about your ${noun} without changing it.`,
+      `Build changes your ${noun}.`,
+      `Ask answers questions about it without changing anything.`,
     ],
   });
 

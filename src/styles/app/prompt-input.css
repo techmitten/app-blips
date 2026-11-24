@@ -540,6 +540,18 @@
   white-space: nowrap;
 }
 
+/* In the build pane's header and the phone top bar (ChatModeToggle): a
+   header-sized key rather than a composer one. */
+.chat-mode-reel:is(.build-panel-mode, .hero-rail-mode) {
+  --composer-key-size: 32px;
+  --composer-key-radius: 9px;
+}
+
+.chat-mode-reel:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chat-mode-reel-track.is-spinning {
     transition-duration: 1ms;
