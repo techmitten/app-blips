@@ -272,7 +272,7 @@ export default function HeroLanding({
                           className="hero-studio-switch-btn"
                           style={{ '--studio-a': SWITCH_TINT[key][0], '--studio-b': SWITCH_TINT[key][1] }}
                         >
-                          <Icon size={16} aria-hidden="true" />
+                          <Icon size={18} aria-hidden="true" />
                         </button>
                       ))}
                     </div>

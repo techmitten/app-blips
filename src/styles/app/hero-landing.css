@@ -140,14 +140,16 @@
 }
 
 /* Studio switch (HeroLanding.jsx), inside the composer's footer next to
-   Build/Ask: three icon keys behind a hairline divider. Quiet until hovered;
-   the current studio is tinted with its aurora colours. */
+   attach and web search: three icon keys behind a hairline divider, with
+   more room around it than between the keys, so tools and studios read as
+   two groups. Quiet until hovered; the current studio is tinted with its
+   aurora colours. */
 .hero-studio-switch {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  margin-left: 2px;
-  padding-left: 8px;
+  margin-left: 4px;
+  padding-left: 12px;
   border-left: 1px solid var(--hero-switch-divider);
 }
 
@@ -155,9 +157,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  /* The composer's own key size, so they match attach and web search. */
+  width: var(--composer-key-size, 38px);
+  height: var(--composer-key-size, 38px);
+  border-radius: var(--composer-key-radius, 10px);
   color: var(--hero-switch-fg);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
@@ -185,15 +188,6 @@
   outline-offset: 1px;
 }
 
-/* Touch screens: finger-sized keys, the same size as the composer's own. */
-@media (pointer: coarse) {
-  .hero-studio-switch-btn {
-    width: var(--composer-key-size, 38px);
-    height: var(--composer-key-size, 38px);
-    border-radius: var(--composer-key-radius, 10px);
-  }
-}
-
 /* Very narrow phones: the footer wraps to two rows, and the example prompt
    runs to three lines, so give the field room for all of it. */
 @media (max-width: 359px) {
@@ -216,14 +210,14 @@
   --hero-switch-hover: rgb(15 23 42 / 0.05);
 }
 
-/* Title and subtitle sit flush left on the composer's edge, like the heading
-   of a document you are about to write. */
+/* Title and subtitle are centred over the composer. */
 .hero-heading {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.625rem;
   margin-bottom: 0.75rem;
-  padding-left: 0.125rem;
+  text-align: center;
 }
 
 .hero-title {
@@ -400,8 +394,7 @@
 .hero-kbd-hint {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  padding-left: 0.125rem;
+  justify-content: center;
   gap: 0.625rem;
   margin-top: 0.25rem;
   color: var(--hero-kbd-fg);
