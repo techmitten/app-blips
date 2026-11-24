@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import '../styles/app/studio-choice.css';
 import { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  ArrowRight, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
+  ArrowRight, BriefcaseBusiness, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
   Megaphone, MessageSquare, Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, Volume2, VolumeX, X,
 } from 'lucide-react';
 import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
@@ -51,7 +51,7 @@ const STUDIOS = [
   {
     key: 'game',
     Icon: Gamepad2,
-    title: 'Browser Game',
+    title: 'Game',
     description: '2D and 3D games with touch and keyboard controls that run in the browser.',
     cta: 'Build a game',
   },
@@ -326,42 +326,45 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
               {showWhatsNew ? <WhatsNew onBack={() => navigateToNews(false)} /> : <div className="relative flex flex-1 flex-col">
 
             <div className="studio-main relative mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
-              <header className="flex flex-col items-center text-center animate-stagger-1">
-                <span className="studio-eyebrow">
-                  <span className="studio-eyebrow-dot" aria-hidden="true" />
-                  {onCancel ? 'New project' : 'Welcome to AppBlips'}
-                </span>
-                {/* The visible heading cycles through the three studios; screen
-                    readers get one stable sentence instead of a changing one. */}
-                <h1 className="studio-title text-4xl font-bold leading-[1.05] tracking-tight studio-text-strong sm:text-5xl md:text-6xl">
-                  <span className="sr-only">What will you build? An app, a website or a game.</span>
-                  <span className="studio-title-line" aria-hidden="true">
-                    <span>Build</span>
-                    <RotatingText
-                      ref={titleRef}
-                      texts={ROTATING_STUDIOS}
-                      auto={!titleHeld}
-                      mainClassName="studio-rotate"
-                      highlight
-                      fixedWidth
-                      highlightColor={isDark ? '#ec6452' : '#d9472f'}
-                      effect="slide"
-                      splitBy="characters"
-                      staggerDuration={0.02}
-                      staggerFrom="last"
-                      rotationInterval={2600}
-                    />
+              {/* One panel built like an app window: a title bar, the heading,
+                  the three ways to make something new (hover or focus
+                  highlights a row, click starts) and a footer bar with the
+                  other ways in. */}
+              <div className="studio-panel animate-stagger-1">
+                <div className="studio-panel-bar">
+                  <span className="studio-eyebrow">
+                    <span className="studio-eyebrow-dot" aria-hidden="true" />
+                    {onCancel ? 'New project' : 'Welcome to AppBlips'}
                   </span>
-                </h1>
-                <p className="studio-lead mt-4 max-w-2xl text-base leading-snug studio-text-muted sm:mt-5 sm:whitespace-nowrap sm:text-lg">
-                  Describe your idea and watch it come to life.
-                </p>
-              </header>
-
-              {/* The three ways to make something new. Hover or focus
-                  highlights a row, click starts. */}
-              <div className="studio-panel animate-stagger-3">
-                <div className="studio-list" role="group" aria-label="Choose what to build" onKeyDown={onListKeyDown} onPointerLeave={releaseTitle}>
+                </div>
+                <header className="studio-panel-head flex flex-col items-center text-center">
+                  {/* The visible heading cycles through the three studios; screen
+                      readers get one stable sentence instead of a changing one. */}
+                  <h1 className="studio-title font-bold leading-[1.1] tracking-tight studio-text-strong">
+                    <span className="sr-only">What will you build? An app, a website or a game.</span>
+                    <span className="studio-title-line" aria-hidden="true">
+                      <span>Build</span>
+                      <RotatingText
+                        ref={titleRef}
+                        texts={ROTATING_STUDIOS}
+                        auto={!titleHeld}
+                        mainClassName="studio-rotate"
+                        highlight
+                        fixedWidth
+                        highlightColor={isDark ? '#ec6452' : '#d9472f'}
+                        effect="slide"
+                        splitBy="characters"
+                        staggerDuration={0.02}
+                        staggerFrom="last"
+                        rotationInterval={2600}
+                      />
+                    </span>
+                  </h1>
+                  <p className="studio-lead leading-snug studio-text-muted">
+                    Describe your idea and watch it come to life.
+                  </p>
+                </header>
+                <div className="studio-list animate-stagger-3" role="group" aria-label="Choose what to build" onKeyDown={onListKeyDown} onPointerLeave={releaseTitle}>
                   {indicator && (
                     <span
                       className="studio-indicator"
@@ -388,37 +391,49 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                       data-active={active === key}
                       className={`studio-row group ${FOCUS_RING}`}
                     >
-                      <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-xl">
+                      <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-lg">
                         <Icon className="h-5 w-5" aria-hidden="true" />
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="studio-row-title studio-text-strong">{title}</span>
                         <span className="studio-row-desc studio-text-soft">{description}</span>
                       </span>
+                      <kbd className="studio-key studio-row-key" aria-hidden="true">{index + 1}</kbd>
                       <ArrowRight size={18} className="studio-row-arrow shrink-0" aria-hidden="true" />
                     </button>
                   ))}
+                  {/* Announced but not built yet: shown, not selectable, and
+                      outside the 1-3 keys and arrow-key navigation. */}
+                  <div className="studio-row studio-row-soon" aria-disabled="true">
+                    <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-lg">
+                      <BriefcaseBusiness className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="studio-row-title studio-text-strong">Career</span>
+                      <span className="studio-row-desc studio-text-soft">Résumés, portfolios and personal pages that help you get hired.</span>
+                    </span>
+                    <span className="studio-soon-badge">Coming soon</span>
+                  </div>
                 </div>
 
-              </div>
-
-              {/* Opening, importing or browsing instead of starting fresh. */}
-              <div className="studio-chips animate-stagger-3">
-                {EXTRA_ROWS.filter((row) => !row.hidden).map(({ key, Icon, title, description, label, onClick }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={onClick}
-                    onPointerEnter={(event) => blipOnHover(event, CHIP_PITCH)}
-                    aria-label={label}
-                    title={description}
-                    data-studio={key}
-                    className={`studio-chip ${FOCUS_RING}`}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span className="studio-text-strong">{title}</span>
-                  </button>
-                ))}
+                {/* Opening, importing or browsing instead of starting fresh. */}
+                <div className="studio-chips">
+                  {EXTRA_ROWS.filter((row) => !row.hidden).map(({ key, Icon, title, description, label, onClick }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={onClick}
+                      onPointerEnter={(event) => blipOnHover(event, CHIP_PITCH)}
+                      aria-label={label}
+                      title={description}
+                      data-studio={key}
+                      className={`studio-chip ${FOCUS_RING}`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span className="studio-text-strong">{title}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>}

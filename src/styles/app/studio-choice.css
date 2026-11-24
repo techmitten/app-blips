@@ -38,6 +38,20 @@
   --sc-card-inset-hover: rgb(255 255 255 / 0.1);
   --sc-card-shadow: 0 16px 36px -24px rgb(0 0 0 / 0.9);
   --sc-card-shadow-hover: 0 22px 44px -26px rgb(0 0 0 / 0.95);
+  /* The picker panel is a solid object, not glass: an opaque body, a lit
+     heading band, a recessed tray for the rows, a hairline ring outside the
+     border and a layered drop shadow. */
+  --sc-panel-bg: #121212;
+  --sc-panel-head: linear-gradient(180deg, #1c1c1c 0%, #141414 100%);
+  --sc-panel-head-glow: rgb(236 100 82 / 0.14);
+  --sc-panel-tray: #0c0c0c;
+  --sc-panel-line: rgb(255 255 255 / 0.12);
+  --sc-panel-top: rgb(255 255 255 / 0.22);
+  --sc-panel-divider: rgb(255 255 255 / 0.08);
+  --sc-panel-divider-shade: rgb(0 0 0 / 0.6);
+  --sc-panel-ring: rgb(0 0 0 / 0.8);
+  --sc-panel-tray-shade: rgb(0 0 0 / 0.7);
+  --sc-panel-shadow: 0 2px 4px rgb(0 0 0 / 0.5), 0 12px 24px -8px rgb(0 0 0 / 0.6), 0 40px 80px -24px rgb(0 0 0 / 0.85);
 
   background-color: var(--sc-bg);
   color: var(--sc-text-strong);
@@ -81,6 +95,17 @@
      ground instead of floating as flat white rectangles. */
   --sc-card-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 14px 30px -14px rgb(15 23 42 / 0.3);
   --sc-card-shadow-hover: 0 2px 4px rgb(15 23 42 / 0.1), 0 26px 46px -18px rgb(15 23 42 / 0.42);
+  --sc-panel-bg: #ffffff;
+  --sc-panel-head: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --sc-panel-head-glow: rgb(217 71 47 / 0.08);
+  --sc-panel-tray: #f1f4f9;
+  --sc-panel-line: rgb(15 23 42 / 0.14);
+  --sc-panel-top: rgb(15 23 42 / 0.1);
+  --sc-panel-divider: rgb(15 23 42 / 0.1);
+  --sc-panel-divider-shade: #ffffff;
+  --sc-panel-ring: rgb(15 23 42 / 0.04);
+  --sc-panel-tray-shade: rgb(15 23 42 / 0.12);
+  --sc-panel-shadow: 0 1px 2px rgb(15 23 42 / 0.1), 0 10px 20px -8px rgb(15 23 42 / 0.16), 0 36px 72px -24px rgb(15 23 42 / 0.32);
 }
 
 .studio-choice h1 {
@@ -99,7 +124,7 @@
   outline: 2px solid var(--sc-ring);
   outline-offset: 3px;
 }
-.studio-row.studio-focus:focus-visible { outline-offset: 1px; border-radius: 0.875rem; }
+.studio-row.studio-focus:focus-visible { outline-offset: -2px; }
 
 /* No strip: the top bar floats on the page's backdrop. */
 .studio-topbar {
@@ -253,13 +278,16 @@
 .studio-choice [data-studio="import"]   { --tint: 51 65 85; }
 .studio-choice [data-studio="showcase"] { --tint: 190 24 93; }
 
-:root:not(.dark) .studio-row .studio-icon-tile,
-:root:not(.dark) .studio-chip svg {
-  border-color: rgb(var(--tint) / 0.3);
-  background-color: rgb(var(--tint) / 0.13);
-  color: rgb(var(--tint));
+:root:not(.dark) .studio-chip svg { color: rgb(var(--tint)); }
+/* Studio rows use one accent, not a colour per row: neutral tiles that take
+   the brand red on the active row, in both themes. */
+:root:not(.dark) .studio-row .studio-icon-tile {
+  border-color: var(--sc-line);
+  background-color: #ffffff;
+  color: var(--sc-text-muted);
 }
-:root:not(.dark) .studio-chip svg { background: none; border: 0; }
+.studio-row .studio-icon-tile { transition: color 0.2s ease, border-color 0.2s ease; }
+.studio-row[data-active="true"] .studio-icon-tile { color: var(--sc-red); border-color: var(--sc-line-strong); }
 
 .studio-icon-tile {
   border: 1px solid var(--sc-line);
@@ -268,7 +296,7 @@
 }
 
 /* Dark theme: icons take the brand red, like the onboarding page's. */
-.dark .studio-row .studio-icon-tile,
+.dark .studio-row .studio-icon-tile { color: var(--sc-text-muted); }
 .dark .studio-chip svg { color: var(--sc-red); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -297,7 +325,7 @@
   white-space: nowrap;
 }
 .studio-rotate {
-  border-radius: 0.22em;
+  border-radius: 0.14em;
   padding-bottom: 0.14em;
 }
 
@@ -308,72 +336,80 @@
   padding-top: clamp(0.25rem, 1.8vh, 2rem);
 }
 .studio-title {
-  margin-top: clamp(0.5rem, 2.2vh, 1.5rem);
-  font-size: clamp(1.75rem, min(6.5vh, 9vw), 3.75rem);
+  font-size: clamp(1.625rem, min(5.5vh, 8vw), 3rem);
   letter-spacing: -0.03em;
 }
 .studio-lead {
-  max-width: 40rem;
-  margin-top: clamp(0.375rem, 1.8vh, 1.25rem);
-  font-size: clamp(0.875rem, 2.2vh, 1.125rem);
+  margin-top: clamp(0.375rem, 1.4vh, 0.875rem);
+  font-size: clamp(0.875rem, 2vh, 1.0625rem);
 }
 .studio-footer-inner { padding-block: 0.375rem; }
 @media (max-height: 620px) { .studio-lead { display: none; } }
 @media (max-height: 820px) { .studio-topbar-inner { height: 4rem; } }
 @media (min-width: 900px) and (max-width: 1199px) { .studio-main { padding-inline: 1.5rem; } }
 
-/* The picker: one frosted panel holding the list of the three studios. */
+/* The picker, built like an app window: a solid panel with a title bar, the
+   heading, the studio list and a footer bar, every section split by a full
+   width hairline. */
 .studio-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  margin-top: clamp(1rem, 4.5vh, 3rem);
   overflow: hidden;
-  border: 1px solid var(--sc-card-line);
-  border-top-color: var(--sc-card-top);
-  border-radius: 1.25rem;
-  background-color: var(--sc-card-bg);
-  box-shadow: inset 0 1px 0 var(--sc-card-inset), var(--sc-card-shadow);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
-  backdrop-filter: blur(14px) saturate(130%);
+  border: 1px solid var(--sc-panel-line);
+  border-top-color: var(--sc-panel-top);
+  border-radius: 0.75rem;
+  background-color: var(--sc-panel-bg);
+  box-shadow: 0 0 0 1px var(--sc-panel-ring), var(--sc-panel-shadow);
 }
+.studio-panel > * + * { border-top: 1px solid var(--sc-panel-divider); }
+
+/* Title bar: what this window is. */
+.studio-panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  background-color: var(--sc-panel-tray);
+}
+
+.studio-panel-head {
+  padding: clamp(1rem, 3.5vh, 2.25rem) 1.25rem;
+  background:
+    radial-gradient(70% 90% at 50% 0%, var(--sc-panel-head-glow), transparent 70%),
+    var(--sc-panel-head);
+}
+
+/* The studio list: full-width rows split by hairlines. The highlight is one
+   element that slides between them, with a brand-red edge on the left. */
 .studio-list {
-  --list-pad: 0.5rem;
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: var(--list-pad);
 }
 .studio-indicator {
   position: absolute;
   top: 0;
-  left: var(--list-pad);
-  right: var(--list-pad);
-  border: 1px solid var(--sc-line);
-  border-radius: 0.875rem;
-  background-color: var(--sc-fill-hover);
-  box-shadow: inset 0 1px 0 var(--sc-card-inset);
-  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), height 0.35s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.3s ease, border-color 0.3s ease;
+  left: 0;
+  right: 0;
+  background-color: var(--sc-fill);
+  box-shadow: inset 3px 0 0 var(--sc-red);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), height 0.3s cubic-bezier(0.32, 0.72, 0, 1);
   pointer-events: none;
 }
-:root:not(.dark) .studio-indicator {
-  border-color: rgb(var(--tint) / 0.25);
-  background-color: rgb(var(--tint) / 0.07);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
-}
+:root:not(.dark) .studio-indicator { background-color: rgb(15 23 42 / 0.035); }
 .studio-row {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
   gap: 0.875rem;
-  padding: clamp(0.625rem, 1.8vh, 1rem) 0.875rem;
-  border: 1px solid transparent;
-  border-radius: 0.875rem;
+  padding: clamp(0.625rem, 1.8vh, 1rem) 1.25rem;
   text-align: left;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
-.studio-row .studio-icon-tile { width: 2.75rem; height: 2.75rem; }
+.studio-row + .studio-row { border-top: 1px solid var(--sc-panel-divider); }
+.studio-row .studio-icon-tile { width: 2.5rem; height: 2.5rem; }
 .studio-row-title { font-size: 1rem; font-weight: 600; line-height: 1.25; }
 .studio-row-desc { margin-top: 0.125rem; font-size: 0.875rem; line-height: 1.4; }
 .studio-row-arrow {
@@ -381,22 +417,55 @@
   opacity: 0.6;
   transition: transform 0.2s ease, opacity 0.2s ease, color 0.2s ease;
 }
-.studio-row:active { transform: scale(0.99); }
 .studio-row[data-active="true"] .studio-row-arrow {
   opacity: 1;
   color: var(--sc-red);
   transform: translateX(3px);
 }
-:root:not(.dark) .studio-row[data-active="true"] .studio-row-arrow { color: rgb(var(--tint)); }
+
+/* A studio that's announced but not open yet. */
+.studio-row-soon { cursor: default; }
+.studio-row-soon .studio-icon-tile,
+.studio-row-soon .studio-row-title,
+.studio-row-soon .studio-row-desc { opacity: 0.55; }
+.studio-soon-badge {
+  flex-shrink: 0;
+  padding: 0.1875rem 0.5rem;
+  border: 1px solid var(--sc-line-strong);
+  border-radius: 0.3125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--sc-text-muted);
+}
+
+/* Keycaps: each row's shortcut (1-3). */
+.studio-key {
+  display: inline-flex;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.3125rem;
+  border: 1px solid var(--sc-line-strong);
+  border-bottom-width: 2px;
+  border-radius: 0.3125rem;
+  background-color: var(--sc-panel-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--sc-text-muted);
+}
+@media (hover: none), (max-width: 639px) { .studio-row-key { display: none; } }
 
 /* Phones: titles only, the arrow carries the action. */
 @media (max-width: 639px) {
   .studio-row-desc { display: none; }
-  .studio-row .studio-icon-tile { width: 2.5rem; height: 2.5rem; }
 }
-
 @media (min-width: 900px) {
-  .studio-list { --list-pad: 0.75rem; justify-content: center; }
   .studio-row-title { font-size: 1.0625rem; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -405,83 +474,58 @@
 @media (max-height: 700px) {
   .studio-row { padding-block: 0.5rem; }
   .studio-row-desc { display: none; }
-  .studio-chips { margin-top: 0.5rem; }
 }
 
-/* Secondary entry points: compact pills under the panel, one row from
-   640px up (phones stack them, below). */
-
+/* The window's label in the title bar. */
 .studio-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.3125rem 0.75rem 0.3125rem 0.625rem;
-  border: 1px solid var(--sc-line);
-  border-radius: 9999px;
-  background-color: var(--sc-fill);
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--sc-text-muted);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
 }
 .studio-eyebrow-dot {
   width: 0.4375rem;
   height: 0.4375rem;
   border-radius: 9999px;
   background-color: var(--sc-red);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sc-red) 22%, transparent);
 }
-@media (max-height: 700px) { .studio-eyebrow { display: none; } }
+
+/* Footer bar: the other ways in (open, import, browse) as equal segments
+   split by hairlines. Phones stack them as rows like the studios above. */
 .studio-chips {
   display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: clamp(0.625rem, 2.4vh, 1.5rem);
+  background-color: var(--sc-panel-tray);
 }
 .studio-chip {
   display: inline-flex;
-  flex-shrink: 0;
+  flex: 1 1 0;
+  min-width: 0;
   white-space: nowrap;
-  min-height: 2.75rem;
+  min-height: 3rem;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0 1rem;
-  border: 1px solid var(--sc-line);
-  border-radius: 9999px;
-  background-color: var(--sc-fill);
+  padding: 0 0.75rem;
   font-size: 0.875rem;
   font-weight: 600;
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease;
 }
-.studio-chip:hover { background-color: var(--sc-fill-hover); border-color: var(--sc-line-strong); transform: translateY(-1px); }
-.studio-chip:active { transform: scale(0.98); }
-@media (hover: none) { .studio-chip:hover { transform: none; } }
-
-/* Phones: the chips stack as full-width buttons the size of the studio rows
-   above them (same width inside the panel's padding and border, same height
-   as a row with its 2.5rem icon tile, same corner radius). Left-aligned like
-   the rows: the 1rem icon is centred where a row's tile is (0.875rem padding
-   + 0.75rem) and the gap puts the title where a row's title starts. */
+.studio-chip + .studio-chip { border-left: 1px solid var(--sc-panel-divider); }
+.studio-chip:hover { background-color: var(--sc-fill-hover); }
+.studio-chip.studio-focus:focus-visible { outline-offset: -2px; }
 @media (max-width: 639px) {
-  .studio-chips {
-    flex-direction: column;
-    align-items: stretch;
-    padding-inline: calc(0.5rem + 1px);
-  }
+  .studio-chips { flex-direction: column; }
   .studio-chip {
     justify-content: flex-start;
     gap: 1.625rem;
-    padding-inline: 1.625rem 0.875rem;
-    min-height: calc(2.5rem + 2 * clamp(0.625rem, 1.8vh, 1rem));
-    border-radius: 0.875rem;
+    padding-inline: 2rem 1.25rem;
+    min-height: 3.25rem;
   }
-}
-@media (max-width: 639px) and (max-height: 700px) {
-  .studio-chip { min-height: 3.5rem; }
+  .studio-chip + .studio-chip { border-left: 0; border-top: 1px solid var(--sc-panel-divider); }
 }
 
 /* Mobile slide-out menu (rendered below md only). Absolute inside
