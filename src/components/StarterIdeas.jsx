@@ -217,7 +217,9 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
 
   if (isChips) {
     return (
-      <div className="starter-strip relative animate-fade-in" style={{ animationDelay: '0.08s' }}>
+      <div className="starter-strip-wrap animate-fade-in" style={{ animationDelay: '0.08s' }}>
+        <p className="starter-strip-label">Try a starter</p>
+        <div className="starter-strip relative">
         <div
           ref={scrollerRef}
           role="region"
@@ -234,15 +236,15 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
                 type="button"
                 onClick={() => onPick(starter)}
                 title={starter.prompt}
-                className="starter-chip group shrink-0 inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3 pr-3.5 cursor-pointer"
+                className="starter-chip group shrink-0 inline-flex items-center gap-2 rounded-[0.6875rem] py-1.5 pl-2.5 pr-3.5 cursor-pointer"
               >
                 <span
                   data-hue={hue}
-                  className="starter-card-tile shrink-0 h-6 flex items-center"
+                  className="starter-card-tile shrink-0 h-5 w-5 rounded-md flex items-center justify-center"
                 >
-                  <IconComponent size={14} strokeWidth={2.2} aria-hidden="true" />
+                  <IconComponent size={13} strokeWidth={2.2} aria-hidden="true" />
                 </span>
-                <span className="text-[13px] font-semibold leading-none whitespace-nowrap">{starter.title}</span>
+                <span className="text-[13px] font-medium leading-none whitespace-nowrap">{starter.title}</span>
               </button>
             );
           })}
@@ -259,6 +261,7 @@ export default function StarterIdeas({ ideas, onPick, sampleSize, variant = 'car
             <ChevronRight size={16} aria-hidden="true" />
           </button>
         )}
+        </div>
       </div>
     );
   }

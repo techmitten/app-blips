@@ -7,7 +7,6 @@ import { initProjectStore, isDesktop } from './lib/desktop'
 import { installBrowserKeyStorage } from './lib/browserKeys'
 import { beginAppSession } from './lib/config'
 import { takePromptForSignIn } from './lib/signInHandoff'
-import { unlockUiSound } from './lib/uiSound'
 import { installGlobalErrorLogging, logError, reactRootErrorOptions } from './lib/errorLog'
 
 installGlobalErrorLogging()
@@ -40,7 +39,6 @@ if (isAdminUsageRoute) {
   // Saved projects are loaded (from disk in the desktop app, IndexedDB in the
   // browser) before the first render, so the synchronous storage helpers see them.
   Promise.all([initProjectStore(), startAndroidApi()]).then(() => {
-    unlockUiSound()
     createRoot(document.getElementById('root'), reactRootErrorOptions).render(
       <StrictMode>
         <App coldStart={coldStart} signInHandoff={signInHandoff} />

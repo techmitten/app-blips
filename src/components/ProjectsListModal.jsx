@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
-import { formatModifiedTime } from '../lib/helpers';
+import { formatModifiedTime, formatRelativeTime } from '../lib/helpers';
 import { isProjectNameTaken, projectVersionCount } from '../lib/projectsStorage';
 import { normalizeStudioMode } from '../lib/constants';
 
@@ -30,29 +30,6 @@ const studioOf = (project) => normalizeStudioMode(project.studioMode);
 // Touch screens: focusing the search on open would throw up the on-screen
 // keyboard over the list the person came to see.
 const coarsePointer = () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
-
-const toDate = (value) => {
-  if (!value) return null;
-  const d = typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
-  return isNaN(d.getTime()) ? null : d;
-};
-
-// "Edited 5m ago" style; the exact timestamp stays available as a tooltip.
-const formatRelative = (value) => {
-  const d = toDate(value);
-  if (!d) return 'Just now';
-  const mins = Math.round((Date.now() - d.getTime()) / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days}d ago`;
-  return d.toLocaleDateString(undefined, {
-    month: 'short', day: 'numeric', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
-  });
-};
 
 const ICON_BTN = 'inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 dark:text-slate-500';
 
@@ -377,7 +354,7 @@ export default function ProjectsListModal({
                             </span>
                             <span aria-hidden="true" className="text-slate-300">·</span>
                             <span className="truncate" title={formatModifiedTime(project.lastModified)}>
-                              Edited {formatRelative(project.lastModified)}
+                              Edited {formatRelativeTime(project.lastModified)}
                             </span>
                           </span>
                         </button>

@@ -9,7 +9,7 @@ import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
 import { SHORTCUT_HINTS } from '../lib/shortcuts';
 import { isDesktop, desktopBridge } from '../lib/desktop';
 import { safeStorage } from '../lib/config';
-import { DiscordIcon } from './StudioChoice';
+import DiscordIcon from './DiscordIcon';
 import FeedbackModal from './FeedbackModal';
 import FreeAccountControl from './FreeAccountControl';
 
@@ -76,6 +76,7 @@ export default function HeroSidebar({
   onKeyDown,
   peeking = false,
   onNewApp,
+  newActive = false,
   onOpenApps,
   savedAppsCount = 0,
   recents = [],
@@ -212,7 +213,7 @@ export default function HeroSidebar({
       </div>
 
       <nav className="hidden lg:flex flex-col items-stretch gap-1 lg:flex-1 min-h-0" aria-label="Studio actions">
-        <RailItem icon={Plus} label="New" tip="Start something new" collapsed={collapsed} onClick={onNewApp} primary />
+        <RailItem icon={Plus} label="New" tip="Start something new" collapsed={collapsed} onClick={onNewApp} primary active={newActive} />
         <RailItem
           icon={FolderOpen}
           label="Saved apps"
@@ -301,8 +302,8 @@ export default function HeroSidebar({
     </div>
 
     {/* Mobile slide-out menu (below lg). Always mounted so it can animate;
-        `inert` keeps the closed panel out of tab order. Reuses the studio
-        picker's panel styles (studio-choice.css). */}
+        `inert` keeps the closed panel out of tab order. Its panel styles live
+        in studio-choice.css. */}
     <div className="hero-menu lg:hidden" data-open={menuOpen}>
       <div className="studio-menu-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
       <aside id="hero-mobile-menu" className="studio-menu-panel" aria-label="Menu" inert={!menuOpen}>

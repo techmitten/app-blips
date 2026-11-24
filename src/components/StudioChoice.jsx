@@ -1,73 +1,195 @@
-import { createPortal } from 'react-dom';
+import '../styles/app/hero-landing.css';
 import '../styles/app/studio-choice.css';
-import { useSyncExternalStore, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import {
-  ArrowRight, BriefcaseBusiness, CircleHelp, FolderUp, Gamepad2, Github, LibraryBig, Menu, MonitorSmartphone,
-  Megaphone, MessageSquare, Moon, ScrollText, ShieldCheck, Settings, Smartphone, Sparkles, Sun, Volume2, VolumeX, X,
-} from 'lucide-react';
-import { DOCS_URL, GITHUB_URL, DISCORD_URL } from '../lib/constants';
-import RotatingText from './reactbits/RotatingText';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, ChevronRight, FolderUp, Github, LayoutGrid, LibraryBig, Megaphone, X } from 'lucide-react';
+import { GITHUB_URL, DISCORD_URL } from '../lib/constants';
+import useHeroRail from '../hooks/useHeroRail';
+import DiscordIcon from './DiscordIcon';
+import HeroSidebar from './HeroSidebar';
 import WhatsNew from './WhatsNew';
-import FeedbackModal from './FeedbackModal';
-import FreeAccountControl from './FreeAccountControl';
-import { isUiSoundLocked, isUiSoundMuted, playBlip, setUiSoundMuted, subscribeUiSoundLocked } from '../lib/uiSound';
-
-// Lucide has no Discord mark, so this is the brand's own glyph (official
-// invite/widget assets), drawn to match the lucide icons' ~17px box.
-export function DiscordIcon({ size = 17, ...props }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.07.07 0 0 0-.075.035c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.036 19.74 19.74 0 0 0-4.885 1.516.07.07 0 0 0-.032.027C.533 9.045-.32 13.579.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.927 1.793 8.18 1.793 12.061 0a.073.073 0 0 1 .078.01c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.076.076 0 0 0-.041.107c.36.698.772 1.364 1.225 1.993a.076.076 0 0 0 .084.029 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.673-3.549-13.66a.061.061 0 0 0-.031-.028M8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.095 2.157 2.418 0 1.334-.955 2.419-2.157 2.419m7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.418 2.157-2.418 1.21 0 2.176 1.095 2.157 2.418 0 1.334-.946 2.419-2.157 2.419" />
-    </svg>
-  );
-}
 
 // Studio choice screen. Two lives:
 //   1. Forced gate -- a fresh session with nothing to resume must pick a
 //      studio before any workspace exists (no way back, nothing to go back to).
 //   2. Mid-session pick -- opened by "New" after the discard confirmation;
 //      `onCancel` is set then, so bailing returns to the untouched workspace.
-// Styled to match the appblips.com landing page (see studio-choice.css): a
-// monochrome stage with a top bar, a centred hero and light glass cards, so
-// stepping from the marketing site into the studio feels like the same
-// product. It follows the app theme: dark is the landing page's look, light
-// is its mirror image.
+// It is the app's start page, in the manner of a document tool's "New"
+// screen: what you can make on the left, each shown as a wireframe of what
+// comes out, and your existing work on the right. Nothing moves or makes a
+// sound until it is clicked. It follows the app theme (see studio-choice.css).
+
+// Wireframes of what each studio produces. One drawing language for all
+// three: layered surfaces, soft gradients, hairline outlines and brand-coral
+// marks for the primary interactive elements.
+const SKETCH = { viewBox: '0 0 240 150', fill: 'none', 'aria-hidden': true, className: 'studio-sketch' };
+
+// A dashboard on a desktop window with the same app on a phone in front.
+function AppSketch() {
+  return (
+    <svg {...SKETCH}>
+      <defs>
+        <linearGradient id="sp-app-chart" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--sc-red)" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="var(--sc-red)" stopOpacity="0.2" />
+        </linearGradient>
+        <linearGradient id="sp-app-panel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--sp-sketch-elevated)" />
+          <stop offset="100%" stopColor="var(--sp-surface)" />
+        </linearGradient>
+      </defs>
+      {/* Desktop window */}
+      <g className="sk-layer-back">
+        <rect className="sk-line sk-surface" x="18" y="20" width="160" height="106" rx="7" />
+        <path className="sk-chrome" d="M18 27a7 7 0 0 1 7-7h146a7 7 0 0 1 7 7v8H18v-8z" />
+        <path className="sk-line" d="M18 35h160M58 35v91" />
+        <circle className="sk-dot" cx="27" cy="27.5" r="2" />
+        <circle className="sk-dot" cx="34" cy="27.5" r="2" />
+        <circle className="sk-dot" cx="41" cy="27.5" r="2" />
+        {/* Sidebar items */}
+        <rect className="sk-block-strong" x="25" y="44" width="26" height="5" rx="2" />
+        <rect className="sk-accent-soft" x="23" y="43" width="3" height="7" rx="1.5" />
+        <rect className="sk-block" x="25" y="55" width="20" height="4" rx="2" />
+        <rect className="sk-block" x="25" y="64" width="24" height="4" rx="2" />
+        <rect className="sk-block" x="25" y="73" width="18" height="4" rx="2" />
+        {/* Dashboard header & KPI cards */}
+        <rect className="sk-block-strong" x="68" y="44" width="44" height="6" rx="2" />
+        <rect className="sk-block" x="68" y="54" width="28" height="4" rx="2" />
+        <rect className="sk-line sk-card" x="68" y="65" width="70" height="50" rx="4" />
+        {/* Chart bars */}
+        <rect className="sk-block" x="76" y="95" width="9" height="13" rx="2" />
+        <rect className="sk-block" x="89" y="86" width="9" height="22" rx="2" />
+        <rect className="sk-block" x="102" y="90" width="9" height="18" rx="2" />
+        <rect x="115" y="74" width="9" height="34" rx="2" fill="url(#sp-app-chart)" />
+      </g>
+      {/* Mobile companion in front */}
+      <g className="sk-layer-front">
+        <rect className="sk-shadow" x="148" y="38" width="70" height="102" rx="11" />
+        <rect className="sk-line" x="148" y="36" width="70" height="102" rx="11" fill="url(#sp-app-panel)" />
+        <rect className="sk-block" x="174" y="41" width="18" height="2.5" rx="1.25" />
+        <rect className="sk-block-strong" x="158" y="50" width="30" height="5" rx="2" />
+        <rect className="sk-line sk-card" x="158" y="61" width="50" height="26" rx="4" />
+        <path className="sk-spark" d="M163 80l9-7 8 4 10-9 12 6" />
+        <circle className="sk-accent" cx="190" cy="68" r="2.2" />
+        <rect className="sk-block" x="158" y="94" width="50" height="4" rx="2" />
+        <rect className="sk-block" x="158" y="102" width="36" height="4" rx="2" />
+        <rect className="sk-accent" x="158" y="114" width="50" height="14" rx="4" />
+        <rect className="sk-cta-label" x="171" y="119.5" width="24" height="3" rx="1.5" />
+      </g>
+    </svg>
+  );
+}
+
+// Two browser windows, one behind the other: a site with more than one page.
+function WebsiteSketch() {
+  return (
+    <svg {...SKETCH}>
+      <defs>
+        <linearGradient id="sp-web-media" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="var(--sc-red)" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="var(--sp-sketch-fill)" />
+        </linearGradient>
+      </defs>
+      {/* Back browser window */}
+      <g className="sk-layer-back">
+        <rect className="sk-line sk-surface" x="52" y="16" width="166" height="104" rx="7" />
+        <path className="sk-line" d="M52 30h166" />
+        <rect className="sk-block" x="64" y="38" width="42" height="5" rx="2" />
+        <rect className="sk-block" x="64" y="48" width="90" height="4" rx="2" />
+      </g>
+      {/* Front browser window */}
+      <g className="sk-layer-front">
+        <rect className="sk-shadow" x="22" y="34" width="168" height="104" rx="7" />
+        <rect className="sk-line sk-surface" x="22" y="32" width="168" height="104" rx="7" />
+        <path className="sk-chrome" d="M22 39a7 7 0 0 1 7-7h154a7 7 0 0 1 7 7v7H22v-7z" />
+        <path className="sk-line" d="M22 46h168" />
+        <circle className="sk-dot" cx="31" cy="39" r="2" />
+        <circle className="sk-dot" cx="38" cy="39" r="2" />
+        <circle className="sk-dot" cx="45" cy="39" r="2" />
+        <rect className="sk-block" x="66" y="36.5" width="80" height="5" rx="2.5" />
+        {/* Nav bar */}
+        <rect className="sk-block-strong" x="32" y="54" width="18" height="4.5" rx="2" />
+        <rect className="sk-block" x="124" y="54.5" width="14" height="3.5" rx="1.5" />
+        <rect className="sk-block" x="143" y="54.5" width="14" height="3.5" rx="1.5" />
+        <rect className="sk-block" x="162" y="54.5" width="16" height="3.5" rx="1.5" />
+        {/* Hero copy + CTA */}
+        <rect className="sk-block-strong" x="32" y="68" width="64" height="7" rx="2.5" />
+        <rect className="sk-block" x="32" y="79" width="48" height="5" rx="2" />
+        <rect className="sk-accent" x="32" y="92" width="38" height="12" rx="4" />
+        <rect className="sk-cta-label" x="40" y="96.5" width="22" height="3" rx="1.5" />
+        {/* Hero image card */}
+        <rect className="sk-line" x="110" y="66" width="68" height="40" rx="4" fill="url(#sp-web-media)" />
+        <circle className="sk-accent-soft" cx="126" cy="78" r="4.5" />
+        <path className="sk-line" d="M110 98l17-15 13 11 10-7 28 19" />
+        {/* Feature cards */}
+        <rect className="sk-line sk-card" x="32" y="114" width="44" height="13" rx="3" />
+        <rect className="sk-line sk-card" x="84" y="114" width="44" height="13" rx="3" />
+        <rect className="sk-line sk-card" x="136" y="114" width="44" height="13" rx="3" />
+      </g>
+    </svg>
+  );
+}
+
+// A level on a screen: platforms, a score, and the player mid-jump.
+function GameSketch() {
+  return (
+    <svg {...SKETCH}>
+      <defs>
+        <radialGradient id="sp-game-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="var(--sc-red)" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="var(--sc-red)" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {/* Arcade frame */}
+      <rect className="sk-line sk-surface" x="24" y="18" width="192" height="114" rx="8" />
+      {/* HUD bar */}
+      <rect className="sk-block-strong" x="34" y="27" width="32" height="6" rx="3" />
+      <circle className="sk-accent" cx="178" cy="30" r="3" />
+      <circle className="sk-accent" cx="188" cy="30" r="3" />
+      <circle className="sk-block" cx="198" cy="30" r="3" />
+      {/* Ground & platforms */}
+      <path className="sk-block" d="M24 112h192v12a8 8 0 0 1-8 8H32a8 8 0 0 1-8-8z" />
+      <path className="sk-line" d="M24 112h192" />
+      <rect className="sk-line sk-card" x="94" y="84" width="46" height="8" rx="3" />
+      <rect className="sk-line sk-card" x="154" y="62" width="42" height="8" rx="3" />
+      {/* Start pad & trajectory */}
+      <path className="sk-line" d="M42 112v-8h14v8" />
+      <path className="sk-line sk-dash" d="M60 100c10-30 30-34 50-30" />
+      {/* Player & collectible */}
+      <g className="sk-layer-front">
+        <circle cx="117" cy="76" r="18" fill="url(#sp-game-glow)" />
+        <rect className="sk-accent" x="110" y="69" width="14" height="14" rx="3.5" />
+        <circle className="sk-cta-label" cx="115" cy="74.5" r="1.2" />
+        <circle className="sk-cta-label" cx="120" cy="74.5" r="1.2" />
+        <circle className="sk-accent-soft" cx="175" cy="50" r="6" />
+        <circle className="sk-line" cx="175" cy="50" r="6" />
+      </g>
+    </svg>
+  );
+}
 
 const STUDIOS = [
   {
     key: 'app',
-    Icon: Smartphone,
+    Sketch: AppSketch,
     title: 'Mobile & Web App',
-    description: 'Interactive tools, dashboards and utilities that work on any device.',
+    description: 'Tools, dashboards and utilities that work on phones and desktops.',
     cta: 'Build an app',
   },
   {
     key: 'website',
-    Icon: MonitorSmartphone,
+    Sketch: WebsiteSketch,
     title: 'Responsive Website',
-    description: 'Multi-page sites that look sharp on every screen, ready to share.',
+    description: 'Sites with several pages that fit every screen, ready to publish.',
     cta: 'Build a website',
   },
   {
     key: 'game',
-    Icon: Gamepad2,
+    Sketch: GameSketch,
     title: 'Game',
-    description: '2D and 3D games with touch and keyboard controls that run in the browser.',
+    description: '2D and 3D games for the browser, with touch and keyboard controls.',
     cta: 'Build a game',
   },
 ];
-// The heading's rotating word ("Build an app", "Build a website", ...). Same
-// order as STUDIOS: hovering a studio row jumps the title to its index.
-const ROTATING_STUDIOS = ['an app', 'a website', 'a game'];
-// Hover blip pitch (semitones) per studio row: a rising major triad, so moving
-// down the list climbs. The secondary chips share one lower note.
-const ROW_PITCHES = [0, 4, 7];
-const CHIP_PITCH = -5;
-// Mouse only: a tap on a touch screen also fires pointerenter, and it would
-// blip just as the studio opens.
-const blipOnHover = (event, pitch) => {
-  if (event.pointerType === 'mouse') playBlip(pitch);
-};
 
 // Colours come from the studio-* classes (studio-choice.css), not Tailwind's
 // white/black utilities, so each one has a dark and a light value.
@@ -75,22 +197,13 @@ const FOCUS_RING = 'studio-focus';
 const NAV_LINK = `studio-nav-link rounded-md px-1 text-sm font-medium ${FOCUS_RING}`;
 const GHOST_BTN = `studio-ghost-btn inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium ${FOCUS_RING}`;
 
-const MENU_ITEM = `studio-menu-item ${FOCUS_RING}`;
-
-export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenProjects, onOpenSettings, onImportSite = null, onOpenShowcase = null, resolvedTheme, onToggleTheme = null, freeAccount = null }) {
-  // Escape mirrors the on-screen close control, but only when there is
-  // something to go back to (the forced gate has none). A modal open over the
-  // picker (e.g. Settings) handles its own Escape first.
-  // Mobile slide-out menu. Escape closes it before it would close the picker.
-  const [menuOpen, setMenuOpen] = useState(false);
+export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenProjects, onOpenSettings, onOpenExtensions, onImportSite = null, onOpenShowcase = null, recents = [], currentProjectId = null, onLoadProject = null, resolvedTheme, onToggleTheme = null, freeAccount = null }) {
+  // The same side rail as the studio shell, with the same pinned state.
+  const rail = useHeroRail();
   const [showWhatsNew, setShowWhatsNew] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const scrollRef = useRef(null);
   const newsLinkRef = useRef(null);
-  const navigateToNews = (open) => {
-    setMenuOpen(false);
-    setShowWhatsNew(open);
-  };
+  const navigateToNews = setShowWhatsNew;
   useEffect(() => {
     if (!showWhatsNew) return;
     const scroll = scrollRef.current;
@@ -102,54 +215,11 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
       newsLink?.focus({ preventScroll: true });
     };
   }, [showWhatsNew]);
-  // The highlighted studio row: follows hover and keyboard focus.
-  const [active, setActive] = useState('app');
-  // While a mouse is over a studio row, the title's rotating word shows that
-  // studio and stops rotating; it carries on from there once the mouse leaves.
-  // Mouse only, so a tap on a touch screen (which also fires pointer events)
-  // doesn't jump the title just as the studio opens.
-  const titleRef = useRef(null);
-  const [titleHeld, setTitleHeld] = useState(false);
-  const holdTitle = (event, index) => {
-    if (event.pointerType !== 'mouse') return;
-    setTitleHeld(true);
-    titleRef.current?.jumpTo(index);
-  };
-  const releaseTitle = (event) => {
-    if (event.pointerType === 'mouse') setTitleHeld(false);
-  };
-  const rowRefs = useRef({});
-  const [soundMuted, setSoundMuted] = useState(isUiSoundMuted);
-  const toggleSound = () => {
-    const next = !soundMuted;
-    setUiSoundMuted(next);
-    setSoundMuted(next);
-  };
-  // After a reload the browser keeps audio locked until a click; hovers can't
-  // unlock it, so the speaker pulses and says so.
-  const soundLocked = useSyncExternalStore(subscribeUiSoundLocked, isUiSoundLocked);
-  const soundWaiting = soundLocked && !soundMuted;
-  const soundLabel = soundMuted ? 'Turn sounds on' : soundWaiting ? 'Click anywhere to enable sounds' : 'Mute sounds';
-  const [indicator, setIndicator] = useState(null);
-
-  // The highlight is one element that slides to the active row. It is
-  // measured from the DOM because row heights change with the window
-  // (descriptions wrap or hide).
-  useLayoutEffect(() => {
-    const row = rowRefs.current[active];
-    if (!row) return undefined;
-    const measure = () => setIndicator({ top: row.offsetTop, height: row.offsetHeight });
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(row.parentElement);
-    return () => observer.disconnect();
-  }, [active, showWhatsNew]);
-
   // Number keys 1-3 start a studio from anywhere on the picker, unless a
   // field or a modal has the keyboard.
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || menuOpen || showWhatsNew) return;
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || showWhatsNew) return;
       if (event.target.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="menu"]')) return;
       const studio = STUDIOS[Number(event.key) - 1];
       if (!studio) return;
@@ -158,285 +228,180 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onSelectStudio, menuOpen, showWhatsNew]);
+  }, [onSelectStudio, showWhatsNew]);
 
-  // Up/Down (and Home/End) move between the studio rows, like a menu.
-  const onListKeyDown = (event) => {
-    const index = STUDIOS.findIndex((studio) => studio.key === active);
+  // Arrow keys (and Home/End) move between the studio tiles.
+  const tileRefs = useRef([]);
+  const onTilesKeyDown = (event) => {
+    const index = tileRefs.current.indexOf(document.activeElement);
+    if (index < 0) return;
     const next = {
+      ArrowRight: (index + 1) % STUDIOS.length,
       ArrowDown: (index + 1) % STUDIOS.length,
+      ArrowLeft: (index - 1 + STUDIOS.length) % STUDIOS.length,
       ArrowUp: (index - 1 + STUDIOS.length) % STUDIOS.length,
       Home: 0,
       End: STUDIOS.length - 1,
     }[event.key];
     if (next === undefined) return;
     event.preventDefault();
-    rowRefs.current[STUDIOS[next].key]?.focus();
+    tileRefs.current[next]?.focus();
   };
 
+  // Escape mirrors the on-screen close control, but only when there is
+  // something to go back to (the forced gate has none); in What's New it goes
+  // back to the studios first. A modal open over the picker (e.g. Settings)
+  // handles its own Escape first.
   useEffect(() => {
-    if (!onCancel && !menuOpen && !showWhatsNew) return;
+    if (!onCancel && !showWhatsNew) return;
     const onKeyDown = (event) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
-      if (menuOpen) setMenuOpen(false);
-      else if (showWhatsNew) setShowWhatsNew(false);
+      if (showWhatsNew) setShowWhatsNew(false);
       else onCancel?.();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onCancel, menuOpen, showWhatsNew]);
+  }, [onCancel, showWhatsNew]);
 
-  // Runs the action after the panel has started closing, so a modal (Settings)
-  // doesn't open over a menu that is still on screen.
-  const fromMenu = (fn) => () => { setMenuOpen(false); fn?.(); };
-
-  const isDark = resolvedTheme === 'dark';
-
-  const handleOpenProjects = () => {
-    onOpenProjects?.();
-  };
-
-  const EXTRA_ROWS = [
+  // Opening saved work, bringing a site in or looking around, instead of
+  // starting fresh.
+  // Recent projects themselves are listed in the side rail.
+  const ACTIONS = [
     {
       key: 'projects',
       Icon: LibraryBig,
       title: 'My projects',
-      description: 'Pick up where you left off.',
-      label: 'My projects: open a saved project',
-      onClick: handleOpenProjects,
+      description: recents.length > 0 ? 'Search, rename or delete saved projects.' : 'Open a project you saved earlier.',
+      onClick: onOpenProjects,
     },
     {
       key: 'import',
       Icon: FolderUp,
       title: 'Import a site',
-      description: 'Open an HTML page, a website .zip or a React + Vite project and keep editing it with AI.',
-      label: 'Import a site: open an HTML page, a website .zip or a React + Vite project',
+      description: 'Keep editing an HTML page, a website .zip or a React + Vite project.',
       onClick: onImportSite,
       hidden: !onImportSite,
     },
     {
       key: 'showcase',
-      Icon: Sparkles,
+      Icon: LayoutGrid,
       title: 'Explore',
       description: 'See what others built with AppBlips.',
-      label: 'Explore: see what others built',
       onClick: onOpenShowcase,
       hidden: !onOpenShowcase,
     },
   ];
+  const actionRow = ({ Icon, title, description, onClick }) => (
+    <button type="button" onClick={onClick} aria-label={title} title={description} className={`studio-action-card ${FOCUS_RING}`}>
+      <span className="studio-action-icon" aria-hidden="true">
+        <Icon size={16} />
+      </span>
+      <span className="studio-action-text">
+        <span className="studio-action-title studio-text-strong">{title}</span>
+        <span className="studio-action-desc studio-text-soft">{description}</span>
+      </span>
+      <ChevronRight size={15} className="studio-action-chevron" aria-hidden="true" />
+    </button>
+  );
 
+  // "New" in the rail is this page; it brings the studios back into view.
+  const focusStudios = () => {
+    navigateToNews(false);
+    requestAnimationFrame(() => tileRefs.current[0]?.focus());
+  };
+
+  // Laid out like the studio shell (HeroLanding): the side rail, then the
+  // page in the same inset stage the composer and workspace use.
   return (
-    <div className="studio-choice relative flex flex-1 min-h-0 flex-col overflow-hidden">
-      {/* Behind everything, top bar and footer included, so they float on it. */}
-      <div className="studio-glow pointer-events-none absolute inset-0" aria-hidden="true" />
-      {/* Top bar, like the landing page's: mark left, quick links centred
-          (md+), GitHub, theme and settings on the right. Kept outside the
-          scroll container so it stays static when scrolling (e.g. What's New). */}
-      <nav className="studio-topbar relative z-20 shrink-0">
-            <div className="studio-topbar-inner relative mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-20 sm:px-6 md:px-10">
-              <span className="studio-logo mr-auto">
-                <img src="/favicon.svg" alt="" aria-hidden="true" width={28} height={28} className="studio-logo-icon" />
-                <img src="/appblips-wordmark-dark.svg" alt="AppBlips" width={1203} height={276} className="studio-logo-img studio-logo-dark" />
-                <img src="/appblips-wordmark-light.svg" alt="" aria-hidden="true" width={1203} height={276} className="studio-logo-img studio-logo-light" />
-              </span>
-
-
-              <div className="flex items-center gap-2">
-                <a
-                  href={DOCS_URL}
-                  draggable={false}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Help and documentation"
-                  title="Help and documentation"
-                  className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
-                >
-                  <CircleHelp size={17} aria-hidden="true" />
-                </a>
-                <button
-                  type="button"
-                  onClick={toggleSound}
-                  aria-label="Mute sounds"
-                  aria-pressed={soundMuted}
-                  title={soundLabel}
-                  className={`${GHOST_BTN} relative h-9 w-9 max-md:hidden`}
-                >
-                  {soundWaiting && <span aria-hidden="true" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
-                  {soundMuted ? <VolumeX size={17} aria-hidden="true" /> : <Volume2 size={17} aria-hidden="true" />}
-                </button>
-                {onToggleTheme && (
-                  <button
-                    type="button"
-                    onClick={onToggleTheme}
-                    aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-                    title={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-                    className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
-                  >
-                    {resolvedTheme === 'dark' ? <Sun size={17} aria-hidden="true" /> : <Moon size={17} aria-hidden="true" />}
-                  </button>
-                )}
-                {onOpenSettings && (
-                  <button
-                    type="button"
-                    onClick={onOpenSettings}
-                    aria-label="Settings"
-                    title="Settings"
-                    className={`${GHOST_BTN} h-9 w-9 max-md:hidden`}
-                  >
-                    <Settings size={17} aria-hidden="true" />
-                  </button>
-                )}
-                <FreeAccountControl account={freeAccount} variant="topbar" />
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen(true)}
-                  aria-label="Open menu"
-                  aria-expanded={menuOpen}
-                  aria-controls="studio-mobile-menu"
-                  className={`${GHOST_BTN} h-11 w-11 md:hidden`}
-                >
-                  <Menu size={18} aria-hidden="true" />
-                </button>
-                {onCancel && (
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    aria-label="Go back"
-                    title="Go back (Esc)"
-                    className={`${GHOST_BTN} h-9 w-9`}
-                  >
-                    <X size={18} aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </nav>
-
+    <div className={`hero-landing${resolvedTheme === 'light' ? '' : ' dark force-dark'} flex flex-1 min-h-0 min-w-0 flex-col lg:flex-row`}>
+      <HeroSidebar
+        {...rail}
+        newActive
+        onNewApp={focusStudios}
+        onOpenApps={onOpenProjects}
+        savedAppsCount={recents.length}
+        recents={recents}
+        currentProjectId={currentProjectId}
+        onLoadProject={onLoadProject}
+        onOpenSettings={onOpenSettings}
+        onOpenExtensions={onOpenExtensions}
+        onToggleTheme={onToggleTheme}
+        resolvedTheme={resolvedTheme}
+        freeAccount={freeAccount}
+      />
+      <div className="flex flex-1 min-h-0 min-w-0 px-1.5 pb-1.5 lg:pl-0 lg:pt-1.5">
+        <div className="hero-stage studio-stage studio-choice studio-picker relative flex flex-1 min-h-0 min-w-0 flex-col">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              aria-label="Go back"
+              title="Go back (Esc)"
+              className={`${GHOST_BTN} studio-close h-9 w-9`}
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          )}
           <div ref={scrollRef} className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
             <div className="flex min-h-full flex-col">
               {showWhatsNew ? <WhatsNew onBack={() => navigateToNews(false)} /> : <div className="relative flex flex-1 flex-col">
 
-            <div className="studio-main relative mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-14 md:px-10">
-              {/* One panel built like an app window: a title bar, the heading,
-                  the three ways to make something new (hover or focus
-                  highlights a row, click starts) and a footer bar with the
-                  other ways in. */}
-              <div className="studio-panel animate-stagger-1">
-                <div className="studio-panel-bar">
-                  <span className="studio-eyebrow">
-                    <span className="studio-eyebrow-dot" aria-hidden="true" />
-                    {onCancel ? 'New project' : 'Welcome to AppBlips'}
-                  </span>
-                </div>
-                <header className="studio-panel-head flex flex-col items-center text-center">
-                  {/* The visible heading cycles through the three studios; screen
-                      readers get one stable sentence instead of a changing one. */}
-                  <h1 className="studio-title font-bold leading-[1.1] tracking-tight studio-text-strong">
-                    <span className="sr-only">What will you build? An app, a website or a game.</span>
-                    <span className="studio-title-line" aria-hidden="true">
-                      <span>Build</span>
-                      <RotatingText
-                        ref={titleRef}
-                        texts={ROTATING_STUDIOS}
-                        auto={!titleHeld}
-                        mainClassName="studio-rotate"
-                        highlight
-                        fixedWidth
-                        highlightColor={isDark ? '#ec6452' : '#d9472f'}
-                        effect="slide"
-                        splitBy="characters"
-                        staggerDuration={0.02}
-                        staggerFrom="last"
-                        rotationInterval={2600}
-                      />
-                    </span>
-                  </h1>
-                  <p className="studio-lead leading-snug studio-text-muted">
-                    Describe your idea and watch it come to life.
-                  </p>
-                </header>
-                <div className="studio-list animate-stagger-3" role="group" aria-label="Choose what to build" onKeyDown={onListKeyDown} onPointerLeave={releaseTitle}>
-                  {indicator && (
-                    <span
-                      className="studio-indicator"
-                      data-studio={active}
-                      style={{ transform: `translateY(${indicator.top}px)`, height: indicator.height }}
-                      aria-hidden="true"
-                    />
-                  )}
-                  {STUDIOS.map(({ key, Icon, title, description, cta }, index) => (
-                    <button
-                      key={key}
-                      ref={(node) => { rowRefs.current[key] = node; }}
-                      type="button"
-                      aria-keyshortcuts={String(index + 1)}
-                      onClick={() => onSelectStudio(key)}
-                      onMouseEnter={() => setActive(key)}
-                      onPointerEnter={(event) => {
-                        holdTitle(event, index);
-                        blipOnHover(event, ROW_PITCHES[index]);
-                      }}
-                      onFocus={() => setActive(key)}
-                      aria-label={`${cta}: ${title}`}
-                      data-studio={key}
-                      data-active={active === key}
-                      className={`studio-row group ${FOCUS_RING}`}
-                    >
-                      <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-lg">
-                        <Icon className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="studio-row-title studio-text-strong">{title}</span>
-                        <span className="studio-row-desc studio-text-soft">{description}</span>
-                      </span>
-                      <kbd className="studio-key studio-row-key" aria-hidden="true">{index + 1}</kbd>
-                      <ArrowRight size={18} className="studio-row-arrow shrink-0" aria-hidden="true" />
-                    </button>
-                  ))}
-                  {/* Announced but not built yet: shown, not selectable, and
-                      outside the 1-3 keys and arrow-key navigation. */}
-                  <div className="studio-row studio-row-soon" aria-disabled="true">
-                    <span className="studio-icon-tile flex shrink-0 items-center justify-center rounded-lg">
-                      <BriefcaseBusiness className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="studio-row-title studio-text-strong">Career</span>
-                      <span className="studio-row-desc studio-text-soft">Résumés, portfolios and personal pages that help you get hired.</span>
-                    </span>
-                    <span className="studio-soon-badge">Coming soon</span>
-                  </div>
-                </div>
+            <main className="studio-main studio-wrap">
+              <header className="studio-head">
+                <p className="studio-eyebrow">
+                  <span className="studio-eyebrow-dot" aria-hidden="true" />
+                  <span>AppBlips Studio</span>
+                </p>
+                <h1 className="studio-title studio-text-strong">Start a new project</h1>
+                <p className="studio-lead studio-text-muted">Choose what you’re making. You’ll describe it on the next screen.</p>
+              </header>
 
-                {/* Opening, importing or browsing instead of starting fresh. */}
-                <div className="studio-chips">
-                  {EXTRA_ROWS.filter((row) => !row.hidden).map(({ key, Icon, title, description, label, onClick }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={onClick}
-                      onPointerEnter={(event) => blipOnHover(event, CHIP_PITCH)}
-                      aria-label={label}
-                      title={description}
-                      data-studio={key}
-                      className={`studio-chip ${FOCUS_RING}`}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      <span className="studio-text-strong">{title}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+              <section className="studio-new" aria-label="New project">
+                  <div className="studio-tiles" role="group" aria-label="Choose what to build" onKeyDown={onTilesKeyDown}>
+                    {STUDIOS.map(({ key, Sketch, title, description, cta }, index) => (
+                      <button
+                        key={key}
+                        ref={(node) => { tileRefs.current[index] = node; }}
+                        type="button"
+                        aria-keyshortcuts={String(index + 1)}
+                        onClick={() => onSelectStudio(key)}
+                        aria-label={`${cta}: ${title}`}
+                        data-studio={key}
+                        className={`studio-tile ${FOCUS_RING}`}
+                      >
+                        <span className="studio-tile-art"><Sketch /></span>
+                        <span className="studio-tile-body">
+                          <span className="studio-tile-copy">
+                            <span className="studio-tile-title studio-text-strong">{title}</span>
+                            <span className="studio-tile-desc studio-text-soft">{description}</span>
+                          </span>
+                          <span className="studio-tile-foot">
+                            <span className="studio-tile-cta">
+                              <span>{cta}</span>
+                              <ArrowRight size={14} className="studio-tile-arrow" aria-hidden="true" />
+                            </span>
+                            <kbd className="studio-key" aria-hidden="true" title={`Press ${index + 1}`}>{index + 1}</kbd>
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {/* Other ways to begin: saved work, an existing site, the showcase. */}
+                  <ul className="studio-actions">
+                    {ACTIONS.filter((action) => !action.hidden).map((action) => <li key={action.key}>{actionRow(action)}</li>)}
+                  </ul>
+                </section>
+            </main>
           </div>}
 
           <footer className="studio-footer relative shrink-0">
-            <div className="studio-footer-inner flex flex-col items-center gap-1 px-4 py-3 sm:py-4 sm:px-6 md:flex-row md:justify-center md:gap-6 md:px-10">
+            <div className="studio-footer-inner studio-wrap flex flex-col items-center gap-1 xl:flex-row xl:justify-center xl:gap-6">
               <button
                 ref={newsLinkRef}
                 type="button"
                 onClick={() => navigateToNews(true)}
                 aria-current={showWhatsNew ? 'page' : undefined}
-                className={`${NAV_LINK} inline-flex min-h-9 items-center gap-2`}
+                className={`${NAV_LINK} inline-flex min-h-9 items-center gap-2 whitespace-nowrap`}
               >
                 <Megaphone size={17} aria-hidden="true" /> What’s New
               </button>
@@ -480,92 +445,14 @@ export default function StudioChoice({ onSelectStudio, onCancel = null, onOpenPr
                   Terms of Service
                 </a>
               </nav>
-              <p className="studio-text-soft pb-1 text-xs">© 2026 TechMitten LLC. All rights reserved.</p>
+              <p className="studio-text-soft text-xs">© 2026 TechMitten LLC. All rights reserved.</p>
             </div>
           </footer>
             </div>
           </div>
 
-      {/* Mobile slide-out menu (below md): everything the header and footer
-          drop at that width. Always mounted so it can animate; `inert` keeps
-          the closed panel out of tab order and the accessibility tree. */}
-      <div className="md:hidden" data-open={menuOpen}>
-        <div className="studio-menu-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
-        <aside
-          id="studio-mobile-menu"
-          className="studio-menu-panel"
-          aria-label="Menu"
-          inert={!menuOpen}
-        >
-          <div className="studio-menu-head">
-            <span className="text-sm font-semibold studio-text-strong">Menu</span>
-            <button
-              type="button"
-              onClick={() => setMenuOpen(false)}
-              aria-label="Close menu"
-              className={`${GHOST_BTN} h-9 w-9`}
-            >
-              <X size={18} aria-hidden="true" />
-            </button>
-          </div>
-          <div className="studio-menu-list">
-            {freeAccount?.state?.required && (
-              <>
-                <p className="studio-menu-heading">Account</p>
-                <FreeAccountControl account={freeAccount} variant="studio-menu" onBeforeAction={() => setMenuOpen(false)} />
-                <div className="studio-menu-sep" role="separator" />
-              </>
-            )}
-            <p className="studio-menu-heading">Preferences</p>
-            {onOpenSettings && (
-              <button type="button" className={MENU_ITEM} onClick={fromMenu(onOpenSettings)}>
-                <Settings size={18} aria-hidden="true" /> Settings
-              </button>
-            )}
-            {onToggleTheme && (
-              <button type="button" className={MENU_ITEM} onClick={onToggleTheme}>
-                {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
-                {isDark ? 'Light theme' : 'Dark theme'}
-              </button>
-            )}
-            <button type="button" className={MENU_ITEM} onClick={toggleSound}>
-              {soundMuted ? <VolumeX size={18} aria-hidden="true" /> : <Volume2 size={18} aria-hidden="true" />}
-              {soundMuted ? 'Turn sounds on' : 'Mute sounds'}
-            </button>
-            <div className="studio-menu-sep" role="separator" />
-            <p className="studio-menu-heading">Help &amp; Feedback</p>
-            <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
-              <CircleHelp size={18} aria-hidden="true" /> Help
-            </a>
-            <button type="button" className={MENU_ITEM} onClick={() => navigateToNews(true)}>
-              <Megaphone size={18} aria-hidden="true" /> What’s New
-            </button>
-            <button type="button" className={MENU_ITEM} onClick={fromMenu(() => setFeedbackOpen(true))}>
-              <MessageSquare size={18} aria-hidden="true" /> Send feedback
-            </button>
-            <div className="studio-menu-sep" role="separator" />
-            <p className="studio-menu-heading">Community</p>
-            <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
-              <Github size={18} aria-hidden="true" /> GitHub
-            </a>
-            <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
-              <DiscordIcon size={18} /> Discord
-            </a>
-            <div className="studio-menu-sep" role="separator" />
-            <p className="studio-menu-heading">Legal</p>
-            <a href="https://www.appblips.com/privacy" target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
-              <ShieldCheck size={18} aria-hidden="true" /> Privacy Policy
-            </a>
-            <a href="https://www.appblips.com/terms" target="_blank" rel="noopener noreferrer" className={MENU_ITEM} onClick={fromMenu()}>
-              <ScrollText size={18} aria-hidden="true" /> Terms of Service
-            </a>
-          </div>
-        </aside>
+        </div>
       </div>
-      {feedbackOpen && createPortal(
-        <FeedbackModal onClose={() => setFeedbackOpen(false)} />,
-        document.body,
-      )}
     </div>
   );
 }

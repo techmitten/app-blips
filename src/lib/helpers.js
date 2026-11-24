@@ -50,6 +50,30 @@ export const getEffectivePreviewBox = (mode, orientation) => {
 };
 
 // Handles both Date objects and the plain ISO strings stored as `updated_at`.
+const toDate = (value) => {
+  if (!value) return null;
+  const d = typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// "5m ago" style, for "Edited 5m ago" lines; pair it with formatModifiedTime
+// when the exact timestamp should stay available (e.g. as a tooltip).
+export const formatRelativeTime = (value) => {
+  const d = toDate(value);
+  if (!d) return 'Just now';
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString(undefined, {
+    month: 'short', day: 'numeric', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  });
+};
+
 export const formatModifiedTime = (value) => {
   if (!value) return 'Just now';
   if (typeof value === 'string') {

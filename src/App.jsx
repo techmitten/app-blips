@@ -3122,7 +3122,11 @@ export default function App({ coldStart = false, signInHandoff = null }) {
             onOpenShowcase={() => setIsShowcaseOpen(true)}
             onCancel={isStudioChoiceOpen && !isProjectsListOpen && !isShowcaseOpen ? handleCancelStudioChoice : null}
             onOpenProjects={() => setIsProjectsListOpen(true)}
+            recents={myProjects}
+            currentProjectId={currentProjectId}
+            onLoadProject={handleLoadProjectFromChoice}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenExtensions={() => { setSettingsInitialTab('connectors'); setIsSettingsOpen(true); }}
             resolvedTheme={resolvedTheme}
             onToggleTheme={handleToggleTheme}
             freeAccount={freeAccount}

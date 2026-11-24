@@ -28,10 +28,20 @@
   /* The stage's left edge is the divider against the rail, so it gets an
      extra line over the edge: together about 0.24 instead of 0.16. */
   --hero-stage-divider: rgb(255 255 255 / 0.1);
-  --hero-drift: rgb(235 97 80 / 0.06);
+  --hero-drift: rgb(235 97 80 / 0.055);
   --hero-stage-bg:
-    radial-gradient(46% 40% at 92% 104%, rgb(235 97 80 / 0.18), transparent 70%),
+    radial-gradient(46% 40% at 92% 104%, rgb(235 97 80 / 0.16), transparent 70%),
+    radial-gradient(50% 35% at 15% -5%, rgb(255 255 255 / 0.03), transparent 70%),
     #080808;
+  --hero-accent: #ec6452;
+  --hero-eyebrow-bg: rgb(255 255 255 / 0.03);
+  --hero-eyebrow-border: rgb(255 255 255 / 0.1);
+  --hero-eyebrow-fg: rgb(255 255 255 / 0.75);
+  --hero-back-bg: rgb(255 255 255 / 0.03);
+  --hero-back-bg-hover: rgb(255 255 255 / 0.07);
+  --hero-back-border: rgb(255 255 255 / 0.1);
+  --hero-back-fg: rgb(255 255 255 / 0.65);
+  --hero-back-fg-hover: #fff;
   --hero-rail-fg: rgb(255 255 255 / 0.72);
   --hero-rail-fg-strong: #fff;
   --hero-rail-hover: rgb(255 255 255 / 0.08);
@@ -42,12 +52,16 @@
   --hero-rail-float-shadow:
     1px 0 0 rgb(255 255 255 / 0.1),
     24px 0 48px -16px rgb(0 0 0 / 0.85);
-  --hero-chip-bg: rgb(255 255 255 / 0.04);
-  --hero-chip-bg-hover: rgb(255 255 255 / 0.08);
-  --hero-chip-border: rgb(255 255 255 / 0.12);
-  --hero-chip-border-hover: rgb(255 255 255 / 0.26);
-  --hero-chip-fg: rgb(255 255 255 / 0.8);
+  --hero-chip-bg: rgb(255 255 255 / 0.035);
+  --hero-chip-bg-hover: rgb(255 255 255 / 0.07);
+  --hero-chip-border: rgb(255 255 255 / 0.1);
+  --hero-chip-border-hover: rgb(236 100 82 / 0.38);
+  --hero-chip-highlight: rgb(255 255 255 / 0.08);
+  --hero-chip-fg: rgb(255 255 255 / 0.78);
   --hero-chip-fg-hover: #fff;
+  --hero-kbd-fg: rgb(255 255 255 / 0.42);
+  --hero-kbd-bg: rgb(255 255 255 / 0.05);
+  --hero-kbd-border: rgb(255 255 255 / 0.12);
 }
 
 /* The studio picker's typeface, so the shell reads as the same product as the
@@ -109,13 +123,66 @@
    its left and right edges. Sits a little above true centre, where a single
    focal block looks centred. */
 .hero-column {
-  padding-top: 2.5rem;
-  padding-bottom: clamp(2.5rem, 9vh, 5.5rem);
+  padding-top: 3rem;
+  padding-bottom: clamp(2.5rem, 8vh, 5rem);
+}
+
+.hero-back-btn {
+  position: absolute;
+  top: 0.875rem;
+  left: 1rem;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--hero-back-border);
+  border-radius: 9999px;
+  background: var(--hero-back-bg);
+  color: var(--hero-back-fg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+}
+
+.hero-back-btn:hover {
+  background: var(--hero-back-bg-hover);
+  color: var(--hero-back-fg-hover);
+}
+
+.hero-back-btn:focus-visible {
+  outline: 2px solid var(--color-indigo-500);
+  outline-offset: 2px;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  padding: 0.3125rem 0.75rem;
+  border: 1px solid var(--hero-eyebrow-border);
+  border-radius: 9999px;
+  background: var(--hero-eyebrow-bg);
+  color: var(--hero-eyebrow-fg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hero-eyebrow-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 9999px;
+  background-color: var(--hero-accent);
 }
 
 .hero-title {
   color: var(--hero-title);
-  font-size: clamp(1.625rem, 1.05rem + 2.3vw, 2.5rem);
+  font-size: clamp(1.75rem, 1.15rem + 2.2vw, 2.5rem);
   font-weight: 700;
   line-height: 1.12;
   letter-spacing: -0.028em;
@@ -126,7 +193,7 @@
   max-width: 46ch;
   color: var(--hero-subtitle);
   font-size: 0.9375rem;
-  font-weight: 500;
+  font-weight: 450;
   line-height: 1.5;
   text-wrap: balance;
 }
@@ -138,34 +205,42 @@
    frame's outer edge keeps the column's width, flush with the chips below;
    the focus halo fills the channel between frame and dock. */
 .hero-composer {
-  --hero-bezel-gap: 6px;
+  --hero-bezel-gap: 5px;
+  --composer-key-size: 38px;
+  --composer-key-radius: 10px;
   padding: var(--hero-bezel-gap);
-  border-radius: calc(1.375rem + var(--hero-bezel-gap));
+  border-radius: calc(1.25rem + var(--hero-bezel-gap));
   border: 1px solid var(--hero-bezel-edge);
   background: var(--hero-bezel-bg);
   box-shadow: var(--hero-bezel-shadow);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .hero-landing {
-  --hero-bezel-edge: rgb(255 255 255 / 0.09);
-  --hero-bezel-bg: linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02));
+  --hero-bezel-edge: rgb(255 255 255 / 0.1);
+  --hero-bezel-bg: linear-gradient(180deg, rgb(255 255 255 / 0.05) 0%, rgb(255 255 255 / 0.015) 100%);
   --hero-bezel-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.06),
-    0 28px 56px -24px rgb(0 0 0 / 0.9);
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 2px 6px rgb(0 0 0 / 0.45),
+    0 28px 60px -24px rgb(0 0 0 / 0.92);
+}
+
+.hero-landing.dark .hero-composer:has(.prompt-input-dock:focus-within) {
+  border-color: rgb(235 97 80 / 0.28);
 }
 
 .hero-landing:not(.dark) {
-  --hero-bezel-edge: rgb(15 23 42 / 0.1);
-  --hero-bezel-bg: linear-gradient(180deg, rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.32));
+  --hero-bezel-edge: rgb(15 23 42 / 0.11);
+  --hero-bezel-bg: linear-gradient(180deg, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.42));
   --hero-bezel-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.8),
-    0 1px 2px rgb(15 23 42 / 0.05),
-    0 24px 48px -24px rgb(15 23 42 / 0.28);
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 1px 2px rgb(15 23 42 / 0.06),
+    0 24px 48px -22px rgb(15 23 42 / 0.24);
 }
 
 @media (max-width: 639px) {
   .hero-composer {
-    --hero-bezel-gap: 5px;
+    --hero-bezel-gap: 4px;
   }
 }
 
@@ -175,48 +250,93 @@
    (prompt-input.css, `:is(html.dark, .force-dark) .prompt-input-dock`),
    which otherwise wins on specificity. Light has its own block below. */
 .hero-landing.dark .hero-composer .prompt-input-dock {
-  border-color: rgb(255 255 255 / 0.2);
-  border-radius: 1.375rem;
-  background: #262626;
+  border-color: rgb(255 255 255 / 0.14);
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, #1d1e24 0%, #17181c 100%);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow:
     0 1px 2px rgb(0 0 0 / 0.5),
     0 6px 16px -8px rgb(0 0 0 / 0.6),
-    inset 0 1px 0 rgb(255 255 255 / 0.06);
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
 }
 
 /* Typing lights the rim in the icon's coral -- the same colour as the
    stage's bloom, so focus reads as the composer catching that light. It is
    the hero's one accent moment; nothing else on the stage uses the coral. */
 .hero-landing.dark .hero-composer .prompt-input-dock:focus-within {
-  border-color: rgb(235 97 80 / 0.6);
+  border-color: rgb(235 97 80 / 0.62);
   box-shadow:
-    0 0 0 4px rgb(235 97 80 / 0.14),
-    0 18px 60px -28px rgb(235 97 80 / 0.45),
+    0 0 0 4px rgb(235 97 80 / 0.12),
+    0 18px 60px -28px rgb(235 97 80 / 0.42),
     0 1px 2px rgb(0 0 0 / 0.5),
     0 6px 16px -8px rgb(0 0 0 / 0.6),
-    inset 0 1px 0 rgb(255 255 255 / 0.08);
+    inset 0 1px 0 rgb(255 255 255 / 0.1);
+}
+
+.hero-composer .prompt-input-footer {
+  border-top: 1px solid rgb(15 23 42 / 0.07);
+  padding-top: 0.5rem;
+}
+
+.hero-landing.dark .hero-composer .prompt-input-footer {
+  border-top-color: rgb(255 255 255 / 0.07);
 }
 
 /* The mode key sits one step clearer than the dock so it reads as a control. */
 .hero-landing.dark .hero-composer .chat-mode-reel {
-  border-color: rgb(255 255 255 / 0.2);
-  background: rgb(255 255 255 / 0.1);
+  border-color: rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.07);
 }
 
 .hero-landing.dark .hero-composer .chat-mode-reel:hover {
-  border-color: rgb(255 255 255 / 0.32);
-  background: rgb(255 255 255 / 0.14);
+  border-color: rgb(255 255 255 / 0.28);
+  background: rgb(255 255 255 / 0.12);
 }
 
 /* Room to write: a taller field at reading size (16px also stops iOS from
    zooming the page on focus). */
 .hero-composer .prompt-input-field {
   min-height: 5.25rem;
-  padding: 1.125rem 1.25rem 0.5rem;
+  padding: 1.125rem 1.25rem 0.625rem;
   font-size: 1rem;
   line-height: 1.55;
+}
+
+.hero-kbd-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  margin-top: 0.25rem;
+  color: var(--hero-kbd-fg);
+  font-size: 0.71875rem;
+  font-weight: 500;
+}
+
+.hero-kbd-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid var(--hero-kbd-border);
+  border-radius: 0.3125rem;
+  background: var(--hero-kbd-bg);
+  font-family: var(--font-control);
+  font-size: 0.65625rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.hero-kbd-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .hero-kbd-hint { display: none; }
 }
 
 /* ===== Side rail ===== */
@@ -705,23 +825,27 @@
 /* ===== Light theme ===== */
 
 .hero-landing:not(.dark) {
-  /* A cool slate rather than near-white, as on the picker, so the white
-     surfaces and dark text have something to stand against. */
-  --hero-ground: #d3dae6;
+  /* Cool slate matching StudioChoice, so moving between picker and composer
+     feels like one continuous studio. */
+  --hero-ground: #dde3ed;
   --hero-title: #0b1220;
-  --hero-subtitle: rgb(11 18 32 / 0.66);
-  --hero-stage-edge: rgb(15 23 42 / 0.14);
+  --hero-subtitle: rgb(11 18 32 / 0.68);
+  --hero-stage-edge: rgb(15 23 42 / 0.12);
   --hero-stage-divider: rgb(15 23 42 / 0.07);
-  --hero-drift: rgb(125 211 252 / 0.3);
-  /* The picker's mesh (sky, cyan, peach, mint -- no purple, per the brand)
-     pushed out to the corners and turned well down, so the middle of the
-     stage is a calm slate field the white composer stands clear of. */
+  --hero-drift: rgb(217 71 47 / 0.06);
+  --hero-accent: #d9472f;
+  --hero-eyebrow-bg: rgb(255 255 255 / 0.72);
+  --hero-eyebrow-border: rgb(15 23 42 / 0.1);
+  --hero-eyebrow-fg: rgb(11 18 32 / 0.78);
+  --hero-back-bg: rgb(255 255 255 / 0.72);
+  --hero-back-bg-hover: #ffffff;
+  --hero-back-border: rgb(15 23 42 / 0.12);
+  --hero-back-fg: rgb(11 18 32 / 0.7);
+  --hero-back-fg-hover: #0b1220;
   --hero-stage-bg:
-    radial-gradient(46% 50% at 4% 0%, rgb(56 189 248 / 0.44), transparent 72%),
-    radial-gradient(42% 46% at 98% 0%, rgb(34 211 238 / 0.3), transparent 72%),
-    radial-gradient(46% 48% at 98% 102%, rgb(251 168 90 / 0.4), transparent 74%),
-    radial-gradient(44% 46% at 2% 102%, rgb(52 211 153 / 0.3), transparent 74%),
-    #e1e7f0;
+    radial-gradient(46% 40% at 92% 104%, rgb(217 71 47 / 0.1), transparent 70%),
+    radial-gradient(50% 35% at 15% -5%, rgb(255 255 255 / 0.65), transparent 70%),
+    #e7ecf3;
   --hero-rail-fg: rgb(11 18 32 / 0.76);
   --hero-rail-fg-strong: #0b1220;
   --hero-rail-hover: rgb(15 23 42 / 0.08);
@@ -733,20 +857,25 @@
   --hero-rail-float-shadow:
     1px 0 0 rgb(15 23 42 / 0.1),
     20px 0 40px -18px rgb(15 23 42 / 0.35);
-  --hero-chip-bg: rgb(255 255 255 / 0.7);
+  --hero-chip-bg: rgb(255 255 255 / 0.78);
   --hero-chip-bg-hover: #ffffff;
-  --hero-chip-border: rgb(15 23 42 / 0.12);
-  --hero-chip-border-hover: rgb(15 23 42 / 0.28);
+  --hero-chip-border: rgb(15 23 42 / 0.11);
+  --hero-chip-border-hover: rgb(217 71 47 / 0.35);
+  --hero-chip-highlight: #ffffff;
   --hero-chip-fg: rgb(11 18 32 / 0.82);
   --hero-chip-fg-hover: #0b1220;
+  --hero-kbd-fg: rgb(11 18 32 / 0.5);
+  --hero-kbd-bg: rgb(255 255 255 / 0.7);
+  --hero-kbd-border: rgb(15 23 42 / 0.14);
   --hero-arrow-bg: #ffffff;
   --hero-arrow-shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 6px 14px -6px rgb(15 23 42 / 0.3);
 }
 
 /* Composer: a solid white card with the picker's layered shadow (a tight
-   contact shadow plus a long soft one), and a soft blue halo while typing. */
+   contact shadow plus a long soft one), and a soft coral halo while typing. */
 .hero-landing:not(.dark) .hero-composer .prompt-input-dock {
   border: 1px solid rgb(15 23 42 / 0.12);
+  border-radius: 1.25rem;
   background: #ffffff;
   box-shadow:
     0 1px 2px rgb(15 23 42 / 0.06),
@@ -754,11 +883,11 @@
 }
 
 .hero-landing:not(.dark) .hero-composer .prompt-input-dock:focus-within {
-  border-color: rgb(15 23 42 / 0.34);
+  border-color: rgb(217 71 47 / 0.52);
   box-shadow:
-    0 0 0 4px rgb(15 23 42 / 0.06),
+    0 0 0 4px rgb(217 71 47 / 0.1),
     0 1px 2px rgb(15 23 42 / 0.06),
-    0 8px 18px -12px rgb(15 23 42 / 0.26);
+    0 10px 24px -12px rgb(15 23 42 / 0.26);
 }
 
 /* The rail's primary key is a white card, like the picker's. */

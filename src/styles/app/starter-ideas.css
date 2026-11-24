@@ -53,24 +53,39 @@
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='indigo'] { color: #81afda; background: rgba(57, 135, 208, 0.2); }
 :is(html.dark, .force-dark) .starter-card-tile[data-hue='fuchsia'] { color: #f9a8d4; background: rgba(236, 72, 153, 0.18); }
 
-/* Chip variant (first-build hero). Quiet pills that sit straight on the stage,
-   flush with the composer's edges; colours come from the hero's theme
-   variables (hero-landing.css). */
+/* Chip variant (first-build hero). Refined glass pills that sit straight on
+   the stage, flush with the composer's edges; colours come from the hero's
+   theme variables (hero-landing.css). */
+.starter-strip-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.starter-strip-label {
+  padding-left: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hero-kbd-fg, rgb(255 255 255 / 0.45));
+}
+
 .starter-chip {
   border: 1px solid var(--hero-chip-border);
   background: var(--hero-chip-bg);
   color: var(--hero-chip-fg);
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  box-shadow: inset 0 1px 0 var(--hero-chip-highlight, transparent);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Chip icons are a bare coloured glyph: the tile palette's hue, without its
-   disc. `.hero-landing` lifts this over the dark tile rules above
-   (`:is(html.dark, .force-dark) .starter-card-tile[data-hue]`). */
+/* Chip icons keep a soft tinted badge so they read as structured starters. */
 .hero-landing .starter-chip .starter-card-tile[data-hue] {
-  background: none;
+  opacity: 0.92;
 }
 
 .starter-chip:hover {
+  transform: translateY(-1px);
   border-color: var(--hero-chip-border-hover);
   background: var(--hero-chip-bg-hover);
   color: var(--hero-chip-fg-hover, var(--hero-chip-fg));
@@ -78,6 +93,16 @@
 
 .starter-chip:active {
   transform: translateY(0.5px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starter-chip {
+    transition: none;
+  }
+  .starter-chip:hover,
+  .starter-chip:active {
+    transform: none;
+  }
 }
 
 .starter-chip:focus-visible,

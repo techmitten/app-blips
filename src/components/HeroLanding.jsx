@@ -1,32 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
 import '../styles/app/hero-landing.css';
 import '../styles/app/starter-ideas.css';
-import { TriangleAlert, RotateCcw, X } from 'lucide-react';
+import { ArrowLeft, TriangleAlert, RotateCcw, X } from 'lucide-react';
 import HeroSidebar from './HeroSidebar';
 import PromptInput from './PromptInput';
 import StarterIdeas from './StarterIdeas';
-import { loadHeroRailCollapsed, saveHeroRailCollapsed } from '../lib/config';
-
-// Hover intent for the side rail: a short wait before it opens, so sweeping
-// the pointer past it on the way to the window edge doesn't flash it open,
-// and a longer grace before it closes, so a brief overshoot doesn't either.
-const RAIL_OPEN_DELAY_MS = 120;
-const RAIL_CLOSE_DELAY_MS = 240;
+import useHeroRail from '../hooks/useHeroRail';
 
 const COPY = {
   ask: {
+    eyebrow: 'Ask AI',
     title: 'Ask AI any question.',
     subtitle: 'Ask about your app, or anything else.',
   },
   website: {
+    eyebrow: 'Website Studio',
     title: 'What website should we build?',
     subtitle: 'Describe your site, then click to edit it.',
   },
   game: {
+    eyebrow: 'Game Studio',
     title: 'What game should we build?',
     subtitle: 'Describe the game, then play it right here.',
   },
   app: {
+    eyebrow: 'App Studio',
     title: 'What should we build?',
     subtitle: 'Describe your app in plain words, then try it right here.',
   },
@@ -73,47 +70,7 @@ export default function HeroLanding({
   isResuming = false,
   ...sidebarProps
 }) {
-  // Pinned keeps the rail open and gives it room in the layout; otherwise it
-  // stays an icon strip and peeks open over the stage on hover or keyboard
-  // focus, so the workspace never reflows underneath the pointer.
-  const [railPinned, setRailPinned] = useState(() => !loadHeroRailCollapsed());
-  const [railHovered, setRailHovered] = useState(false);
-  const [railFocused, setRailFocused] = useState(false);
-  const hoverTimerRef = useRef(null);
-  const railPeeking = !railPinned && (railHovered || railFocused);
-  const railCollapsed = !railPinned && !railPeeking;
-  const toggleRailPinned = () => {
-    setRailPinned((prev) => {
-      saveHeroRailCollapsed(prev);
-      return !prev;
-    });
-  };
-  const handleRailMouseEnter = () => {
-    clearTimeout(hoverTimerRef.current);
-    if (railHovered) return;
-    hoverTimerRef.current = setTimeout(() => setRailHovered(true), RAIL_OPEN_DELAY_MS);
-  };
-  const handleRailMouseLeave = () => {
-    clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => setRailHovered(false), RAIL_CLOSE_DELAY_MS);
-  };
-  // Keyboard users get the labels too: tabbing into the rail opens it, and
-  // leaving it (or Escape) closes it. A mouse click focuses without
-  // :focus-visible, so clicking a key doesn't count as a keyboard peek.
-  const handleRailFocus = (event) => {
-    if (event.target.matches?.(':focus-visible')) setRailFocused(true);
-  };
-  const handleRailBlur = (event) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) setRailFocused(false);
-  };
-  const handleRailKeyDown = (event) => {
-    if (event.key === 'Escape' && railPeeking && !event.defaultPrevented) {
-      clearTimeout(hoverTimerRef.current);
-      setRailFocused(false);
-      setRailHovered(false);
-    }
-  };
-  useEffect(() => () => clearTimeout(hoverTimerRef.current), []);
+  const rail = useHeroRail();
 
   const copy = COPY[chatMode === 'ask' ? 'ask' : COPY[studioMode] ? studioMode : 'app'];
   const workspaceActive = Boolean(workspace);
@@ -121,15 +78,7 @@ export default function HeroLanding({
   return (
     <div className={`hero-landing${theme === 'light' ? '' : ' dark force-dark'}${workspaceActive ? ' hero-landing-workspace' : ''} flex-1 min-h-0 min-w-0 flex flex-col lg:flex-row`}>
       <HeroSidebar
-        collapsed={railCollapsed}
-        pinned={railPinned}
-        onToggleCollapsed={toggleRailPinned}
-        onMouseEnter={handleRailMouseEnter}
-        onMouseLeave={handleRailMouseLeave}
-        onFocus={handleRailFocus}
-        onBlur={handleRailBlur}
-        onKeyDown={handleRailKeyDown}
-        peeking={railPeeking}
+        {...rail}
         workspaceActive={workspaceActive}
         resolvedTheme={theme}
         {...sidebarProps}
@@ -142,9 +91,25 @@ export default function HeroLanding({
           </div>
         ) : (
         <main className="hero-stage hero-stage-first flex-1 min-w-0 overflow-y-auto chat-scrollbar animate-fade-in">
+          {!isResuming && sidebarProps.onNewApp && (
+            <button
+              type="button"
+              onClick={sidebarProps.onNewApp}
+              className="hero-back-btn"
+              aria-label="Back to studio picker"
+              title="Switch studio"
+            >
+              <ArrowLeft size={14} aria-hidden="true" />
+              <span>Studios</span>
+            </button>
+          )}
           {!isResuming && (
             <div className="hero-column mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center gap-4 px-4 sm:px-6">
-              <div className="mb-4 flex flex-col items-center gap-2.5 text-center animate-stagger-1">
+              <div className="mb-3 flex flex-col items-center gap-2.5 text-center animate-stagger-1">
+                <p className="hero-eyebrow">
+                  <span className="hero-eyebrow-dot" aria-hidden="true" />
+                  <span>{copy.eyebrow}</span>
+                </p>
                 <h1 className="hero-title">{copy.title}</h1>
                 <p className="hero-subtitle">{copy.subtitle}</p>
               </div>
@@ -226,6 +191,12 @@ export default function HeroLanding({
                   onPick={(starter) => onPickStarter(starter.prompt)}
                 />
               </div>
+
+              <p className="hero-kbd-hint animate-stagger-3" aria-hidden="true">
+                <span>Press <kbd>Enter</kbd> to {chatMode === 'ask' ? 'send' : 'build'}</span>
+                <span className="hero-kbd-sep" />
+                <span><kbd>Shift</kbd> + <kbd>Enter</kbd> for new line</span>
+              </p>
             </div>
           )}
         </main>
