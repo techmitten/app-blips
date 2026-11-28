@@ -156,8 +156,8 @@ try {
     await assertTapTargets(page, width, 'Settings ' + width);
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await openNavigation(page, width, 'Apps');
-    await assertFits(page.locator('.modal-card'), viewport, 'Saved apps');
-    await assertNoOverflow(page, 'Saved apps ' + width);
+    await assertFits(page.locator('.modal-card'), viewport, 'Saved projects');
+    await assertNoOverflow(page, 'Saved projects ' + width);
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     // Help is no longer a modal -- it is an external docs link that opens in a
     // new tab, so assert it is present and reachable rather than clicking it.

@@ -25,23 +25,26 @@ const SCALE = 2;
 const settle = (page, ms = 600) => page.waitForTimeout(ms);
 const frame = (page) => page.frameLocator('.preview-canvas iframe:not(.pointer-events-none)').first();
 
-async function openPage(browser, { projectId = '', viewport = VIEWPORT } = {}) {
+// `railOpen` pins the side rail open so its labels show.
+async function openPage(browser, { projectId = '', viewport = VIEWPORT, railOpen = false } = {}) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: SCALE, reducedMotion: 'reduce' });
   const page = await context.newPage();
   page.on('pageerror', (error) => console.warn('  page error:', error.message));
-  await page.addInitScript(([projects, current]) => {
+  await page.addInitScript(([projects, current, pinRail]) => {
     if (window !== window.top || sessionStorage.getItem('docs-seeded')) return;
     sessionStorage.setItem('docs-seeded', '1');
     localStorage.clear();
     localStorage.setItem('orion-theme', 'dark');
     localStorage.setItem('appblips-tour-v1', 'dismissed');
     localStorage.setItem('appblips-tour-v2', 'dismissed');
+    localStorage.setItem('appblips-tour-home-v1', 'dismissed');
+    if (pinRail) localStorage.setItem('orion-hero-rail-collapsed', 'false');
     localStorage.setItem('orion-legal-agreement', JSON.stringify({ terms: '2026-11-17', privacy: '2026-11-17', agreedAt: new Date().toISOString() }));
     localStorage.setItem('orion-profile', JSON.stringify({ name: 'Sam', avatar: 'rocket' }));
     localStorage.setItem('appblips-web-provider', JSON.stringify({ enabled: false, onboardingComplete: true }));
     localStorage.setItem('orion-projects', JSON.stringify(projects));
     if (current) localStorage.setItem('orion-current-project-id', current);
-  }, [seedProjects(), projectId]);
+  }, [seedProjects(), projectId, railOpen]);
   await page.goto(url, { waitUntil: 'networkidle' });
   await settle(page, 1200);
   return page;
@@ -78,13 +81,13 @@ async function around(page, locators, pad = 16) {
 
 const shots = {
   async 'start-screen'(browser) {
-    const page = await openPage(browser);
+    const page = await openPage(browser, { railOpen: true });
     await save(page, 'start-screen');
     return page;
   },
 
   async 'new-app-prompt'(browser) {
-    const page = await openPage(browser);
+    const page = await openPage(browser, { railOpen: true });
     await page.locator('#prompt').waitFor();
     await page.locator('#prompt').fill('A tip calculator. I enter the bill, pick a tip percentage and the number of people, and it shows the tip and the total per person.');
     await settle(page);

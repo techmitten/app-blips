@@ -10,7 +10,7 @@ import { logError, logWarn } from '../lib/errorLog';
 const RELOAD_DELAY_MS = 1200;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-// Settings → Data: back up / import saved apps as a
+// Settings → Data: back up / import saved projects as a
 // JSON file (lib/projectBackup.js) and, in the desktop app, the projects
 // folder on disk. Imports and folder changes reload the app so every hook
 // starts from the new data instead of patching live state.
@@ -33,7 +33,7 @@ export default function DataSettings() {
       ? ` ${plural(importedSites, 'imported site')} ${importedSites === 1 ? 'is' : 'are'} not included: open ${importedSites === 1 ? 'it' : 'each one'} and use Export to download it as a .zip.`
       : '';
     if (!rows.length) {
-      setStatus({ kind: 'error', text: `There are no saved apps to export.${sitesNote}` });
+      setStatus({ kind: 'error', text: `There are no saved projects to export.${sitesNote}` });
       return;
     }
     const backup = buildBackup(rows, loadPreviewStorage);
@@ -56,7 +56,7 @@ export default function DataSettings() {
       const result = mergeBackup(readProjectRows(), projects);
       const skippedNote = skipped ? ` ${plural(skipped, 'damaged entry')} skipped.` : '';
       if (!result.added && !result.updated) {
-        setStatus({ kind: 'ok', text: `Nothing to import: your saved apps are already up to date.${skippedNote}` });
+        setStatus({ kind: 'ok', text: `Nothing to import: your saved projects are already up to date.${skippedNote}` });
         return;
       }
       writeProjectRows(result.rows);
@@ -69,7 +69,7 @@ export default function DataSettings() {
       const full = err?.name === 'QuotaExceededError';
       setStatus({
         kind: 'error',
-        text: full ? 'Browser storage is full. Delete some apps or use the desktop app.' : err?.message || 'Import failed.',
+        text: full ? 'Browser storage is full. Delete some projects or use the desktop app.' : err?.message || 'Import failed.',
       });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -132,8 +132,8 @@ export default function DataSettings() {
       )}
       <SettingRow
         id="set-export"
-        title="Export all apps"
-        description="Download every saved app, its version history and its saved app data as one backup file."
+        title="Export all projects"
+        description="Download every saved project, its version history and the data it has saved as one backup file."
       >
         <button type="button" onClick={exportAll} className={SECONDARY_BUTTON}>
           <Download size={14} aria-hidden="true" /> Export
@@ -141,9 +141,9 @@ export default function DataSettings() {
       </SettingRow>
       <SettingRow
         id="set-import"
-        title="Import apps"
+        title="Import projects"
         details={statusLine}
-        description={`Add apps from a backup file${isDesktop ? ', such as one exported from AppBlips in your browser' : ''}. An app you already have is replaced only if the backup's copy is newer.`}
+        description={`Add projects from a backup file${isDesktop ? ', such as one exported from AppBlips in your browser' : ''}. A project you already have is replaced only if the backup's copy is newer.`}
       >
         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={status?.kind === 'busy'} className={SECONDARY_BUTTON}>
           <Upload size={14} aria-hidden="true" /> Import…

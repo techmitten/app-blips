@@ -337,7 +337,7 @@ function StoragePanel({ formRef, onSubmit }) {
     { icon: HardDrive, title: 'Kept in the app', text: 'Your projects are stored inside AppBlips on this device, not as files on your computer, and not on AppBlips’ servers.' },
     { icon: Trash2, title: 'Clearing browser data deletes them', text: 'Clearing your cache, cookies, or site data, using a private window, or switching browsers or devices will remove your projects.' },
     { icon: Globe, title: 'Published sites stay online', text: 'Anything you publish is hosted online, so clearing your browser won’t take it down.' },
-    { icon: Download, title: 'Keep a backup', text: 'Use Settings → Data → Export all apps to save a backup file you can import later.' },
+    { icon: Download, title: 'Keep a backup', text: 'Use Settings → Data → Export all projects to save a backup file you can import later.' },
   ];
   return (
     <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>

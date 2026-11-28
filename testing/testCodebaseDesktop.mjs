@@ -69,7 +69,7 @@ try {
   assert.deepEqual(errors, []);
 
   // Restart: a fresh launch opens on the home page; reopening the site
-  // from Saved apps rehydrates its files from blobs. (The route is saved
+  // from Saved projects rehydrates its files from blobs. (The route is saved
   // with the next save, not on every click, so it opens on the home page.)
   await app.close();
   app = await launch();

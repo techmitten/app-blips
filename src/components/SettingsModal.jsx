@@ -215,7 +215,7 @@ export default function SettingsModal({
     const ok = await onDeleteAllProjects();
     setIsDeletingAll(false);
     setConfirmDeleteAll(false);
-    if (!ok) setDeleteAllError('Some apps could not be deleted. Try again.');
+    if (!ok) setDeleteAllError('Some projects could not be deleted. Try again.');
   };
 
   const handleResetAppConfirm = async () => {
@@ -394,8 +394,8 @@ export default function SettingsModal({
               )}
               <SettingRow
                 id="set-delete-all"
-                title="Delete all saved apps"
-                description={deleteAllError || 'Permanently remove every saved app with its version history. This cannot be undone.'}
+                title="Delete all saved projects"
+                description={deleteAllError || 'Permanently remove every saved project with its version history. This cannot be undone.'}
               >
                 <button
                   type="button"
@@ -486,8 +486,8 @@ export default function SettingsModal({
       )}
       {confirmDeleteAll && (
         <ConfirmModal
-          title="Delete all saved apps?"
-          subtitle={projectCount ? `${projectCount} saved ${projectCount === 1 ? 'app' : 'apps'} will be removed.` : undefined}
+          title="Delete all saved projects?"
+          subtitle={projectCount ? `${projectCount} saved ${projectCount === 1 ? 'project' : 'projects'} will be removed.` : undefined}
           onClose={() => { if (!isDeletingAll) setConfirmDeleteAll(false); }}
           onConfirm={handleDeleteAll}
           confirmLabel="Delete all"
@@ -498,7 +498,7 @@ export default function SettingsModal({
           <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
             <TriangleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
             <span>
-              Every saved app and its version history will be permanently deleted. This cannot be undone.
+              Every saved project and its version history will be permanently deleted. This cannot be undone.
             </span>
           </div>
         </ConfirmModal>
@@ -517,7 +517,7 @@ export default function SettingsModal({
           <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-slate-600 leading-relaxed flex items-start gap-3">
             <TriangleAlert size={18} className="text-red-500 shrink-0 mt-0.5" />
             <span>
-              All apps, history, and settings will be permanently removed, and you’ll be signed out of every connected service. The app will restart. This cannot be undone.
+              All projects, history, and settings will be permanently removed, and you’ll be signed out of every connected service. The app will restart. This cannot be undone.
             </span>
           </div>
         </ConfirmModal>

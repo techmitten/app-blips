@@ -349,7 +349,7 @@ export default function useProjects({ workspace }) {
     }
   };
 
-  // Wipes every saved app. Reads the store fresh rather than trusting the
+  // Wipes every saved project. Reads the store fresh rather than trusting the
   // possibly-stale list state. Continues past individual failures; returns true
   // only if all were removed.
   const deleteAllProjects = async () => {

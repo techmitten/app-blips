@@ -31,7 +31,7 @@ const STUDIOS = [
 ];
 const SAVED_OPEN_KEY = 'appblips-rail-saved-open';
 
-// Whether the desktop rail's Saved apps list is shown. Open unless the user
+// Whether the desktop rail's Saved projects list is shown. Open unless the user
 // has folded it away.
 const loadSavedOpen = () => {
   try {
@@ -126,9 +126,9 @@ export default function HeroSidebar({
 }) {
   const recentProjects = recents.slice(0, MAX_RECENTS);
 
-  // Desktop: with the rail open, Saved apps folds the saved list in and out
+  // Desktop: with the rail open, Saved projects folds the saved list in and out
   // right here; collapsed to icons (or with nothing saved) it opens the
-  // Saved apps window as before.
+  // Saved projects window as before.
   const [savedOpen, setSavedOpen] = useState(loadSavedOpen);
   const savedInline = !collapsed && recents.length > 0;
   const savedListShown = savedInline && savedOpen;
@@ -164,7 +164,7 @@ export default function HeroSidebar({
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [menuOpen]);
-  // Closes first so a modal (Settings, Saved apps) doesn't open over the panel.
+  // Closes first so a modal (Settings, Saved projects) doesn't open over the panel.
   const fromMenu = (fn) => () => { setMenuOpen(false); fn?.(); };
   const themeTip = resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
   const ThemeIcon = resolvedTheme === 'dark' ? Sun : Moon;
@@ -325,7 +325,7 @@ export default function HeroSidebar({
               })}
               <li>
                 <button type="button" onClick={onOpenApps} className="hero-rail-recent hero-rail-manage">
-                  <span className="truncate">Manage saved apps</span>
+                  <span className="truncate">Manage saved projects</span>
                 </button>
               </li>
             </ul>
