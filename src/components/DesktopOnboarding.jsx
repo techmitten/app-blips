@@ -632,6 +632,20 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     }
   };
 
+  // Leave without a provider; setup is marked done so it doesn't reopen, and
+  // Settings → AI can add one later.
+  const skipAi = async () => {
+    if (busy) return;
+    setStatus({ kind: 'busy', text: 'Skipping…' });
+    try {
+      await providerApi.set({ onboardingComplete: true });
+      onComplete();
+    } catch (error) {
+      logError('Could not skip the AI setup', error);
+      setStatus({ kind: 'error', text: ipcErrorMessage(error) || 'Could not skip the AI setup.' });
+    }
+  };
+
   const isWelcome = step === 'welcome';
   const isTerms = step === 'terms';
   const isName = step === 'name';
@@ -801,6 +815,11 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
           </div>
           <div className="onboarding-actions">
             {isLast && status?.kind === 'error' && <span className="onboarding-error" role="alert"><CircleAlert size={15} /> {status.text}</span>}
+            {isLast && (
+              <button type="button" className="onboarding-skip" onClick={skipAi} disabled={busy}>
+                Skip for now
+              </button>
+            )}
             {!isLast ? (
               <button type="button" className="onboarding-next" onClick={next}>
                 {isWelcome ? 'Get started' : isTerms ? 'I agree' : isStorage ? 'I understand' : 'Continue'} <ArrowRight size={18} />
