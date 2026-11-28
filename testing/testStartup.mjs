@@ -40,7 +40,7 @@ try {
       await expect(page.getByRole('heading', { name: 'What should we build?' })).toBeVisible();
     }
 
-    await page.getByRole('button', { name: 'Saved apps', exact: true }).click();
+    await page.getByRole('button', { name: 'Saved projects', exact: true }).click();
     await page.getByRole('button', { name: /^Saved startup project/ }).click();
     await expect(page.locator('.hero-stage-workspace')).toBeVisible();
     await expect(page.locator('#prompt')).toBeVisible();

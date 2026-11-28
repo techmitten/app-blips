@@ -14,6 +14,8 @@ import DiscordIcon from './DiscordIcon';
 import FeedbackModal from './FeedbackModal';
 import FreeAccountControl from './FreeAccountControl';
 import ChatModeToggle from './ChatModeToggle';
+import ProjectRowMenu from './ProjectRowMenu';
+import { RenameProjectModal, DeleteProjectModal } from './ProjectActionModals';
 
 const MAX_RECENTS = 5;
 const PRIVACY_URL = 'https://www.appblips.com/privacy';
@@ -101,6 +103,8 @@ export default function HeroSidebar({
   recents = [],
   currentProjectId = null,
   onLoadProject,
+  onRenameProject,
+  onDeleteProject,
   onOpenSettings,
   onOpenExtensions,
   freeAccount = null,
@@ -138,6 +142,13 @@ export default function HeroSidebar({
       return !open;
     });
   };
+
+  // A saved project's ⋯ menu, and the Rename or Delete dialog it opens.
+  const [rowMenuId, setRowMenuId] = useState(null);
+  // The rows hide when the rail folds to icons; don't leave a menu floating.
+  if (!savedListShown && rowMenuId !== null) setRowMenuId(null);
+  const [projectAction, setProjectAction] = useState(null); // { kind: 'rename' | 'delete', project }
+  const rowActions = Boolean(onRenameProject && onDeleteProject);
 
   // On the home page the studio you are in is the current one.
   const currentStudio = workspaceActive || whatsNewOpen ? null : studioMode;
@@ -264,7 +275,7 @@ export default function HeroSidebar({
         <span className="hero-rail-sep" role="separator" />
         <RailItem
           icon={FolderOpen}
-          label="Saved apps"
+          label="Saved projects"
           tip="My saved projects"
           tipKey={SHORTCUT_HINTS.apps}
           tour="apps"
@@ -286,20 +297,29 @@ export default function HeroSidebar({
             inert={!savedListShown}
             aria-hidden={!savedListShown}
           >
-            <ul className="hero-rail-saved-inner chat-scrollbar flex flex-col gap-0.5 min-h-0" aria-label="Saved apps">
+            <ul className="hero-rail-saved-inner chat-scrollbar flex flex-col gap-0.5 min-h-0" aria-label="Saved projects">
               {recents.map((project) => {
                 const current = project.id === currentProjectId;
                 return (
-                  <li key={project.id}>
+                  <li key={project.id} className={`hero-rail-recent-row${rowMenuId === project.id ? ' is-menu-open' : ''}`}>
                     <button
                       type="button"
                       onClick={() => onLoadProject?.(project)}
-                      className={`hero-rail-recent${current ? ' is-current' : ''}`}
+                      className={`hero-rail-recent${current ? ' is-current' : ''}${rowActions ? ' has-more' : ''}`}
                       aria-current={current ? 'true' : undefined}
                       title={project.name}
                     >
                       <span className="truncate">{project.name}</span>
                     </button>
+                    {rowActions && (
+                      <ProjectRowMenu
+                        project={project}
+                        open={rowMenuId === project.id}
+                        onOpenChange={(open) => setRowMenuId(open ? project.id : null)}
+                        onRename={() => setProjectAction({ kind: 'rename', project })}
+                        onDelete={() => setProjectAction({ kind: 'delete', project })}
+                      />
+                    )}
                   </li>
                 );
               })}
@@ -495,6 +515,24 @@ export default function HeroSidebar({
         </div>
       </aside>
     </div>
+    {projectAction?.kind === 'rename' && createPortal(
+      <RenameProjectModal
+        project={projectAction.project}
+        projects={recents}
+        onRename={onRenameProject}
+        onClose={() => setProjectAction(null)}
+      />,
+      document.body,
+    )}
+    {projectAction?.kind === 'delete' && createPortal(
+      <DeleteProjectModal
+        project={projectAction.project}
+        isCurrent={projectAction.project.id === currentProjectId}
+        onDelete={onDeleteProject}
+        onClose={() => setProjectAction(null)}
+      />,
+      document.body,
+    )}
     {feedbackOpen && createPortal(
       <FeedbackModal onClose={() => setFeedbackOpen(false)} />,
       document.body,

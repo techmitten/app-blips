@@ -44,7 +44,10 @@ export default function useHeroRail() {
     onFocus: (event) => {
       if (event.target.matches?.(':focus-visible')) setFocused(true);
     },
+    // A rail popover (a saved project's ⋯ menu) is portaled out of the rail
+    // but still counts as inside it.
     onBlur: (event) => {
+      if (event.relatedTarget?.closest?.('[data-hero-rail-popover]')) return;
       if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
     },
     onKeyDown: (event) => {

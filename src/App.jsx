@@ -3259,6 +3259,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         recents={myProjects}
         currentProjectId={currentProjectId}
         onLoadProject={loadProject}
+        onRenameProject={renameProject}
+        onDeleteProject={handleDeleteProject}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenExtensions={() => { setSettingsInitialTab('connectors'); setIsSettingsOpen(true); }}
         freeAccount={freeAccount}

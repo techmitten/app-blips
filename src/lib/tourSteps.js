@@ -69,7 +69,7 @@ export function buildHomeTourSteps({ wideScreen }) {
         icon: 'finish',
         target: ['apps'],
         title: 'Your work, saved',
-        body: `Everything saves automatically. Saved apps (${SHORTCUT_HINTS.apps}) reopens, renames or deletes your projects.`,
+        body: `Everything saves automatically. Saved projects (${SHORTCUT_HINTS.apps}) reopens, renames or deletes your projects.`,
         tips: [
           'Settings and Extensions are at the bottom of this menu, with Help, What’s New and this tour.',
           'Once you have a build, a second tour walks through the workspace.',

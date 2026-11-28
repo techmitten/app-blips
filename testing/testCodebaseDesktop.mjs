@@ -74,7 +74,7 @@ try {
   await app.close();
   app = await launch();
   page = await app.firstWindow();
-  await page.getByRole('button', { name: 'Saved apps' }).click({ timeout: 20000 });
+  await page.getByRole('button', { name: 'Saved projects' }).click({ timeout: 20000 });
   await page.getByText('Acme Bakery').first().click();
   const frame2 = page.frameLocator('iframe[data-appblips-browser]');
   page.on('console', (m) => { if (m.type() === 'error') console.log('restart console error:', m.text().slice(0, 300)); });
