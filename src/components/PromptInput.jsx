@@ -330,8 +330,6 @@ export default function PromptInput({
                 className="hidden"
               />
               )}
-              {/* Free AI in the browser version passes no attach handlers
-                  (App.jsx useFreeAiInUse): no paperclip, camera or paste. */}
               {(showAttach || showScreenshot || showWebSearch) && (
               <div className="prompt-input-mode">
                 {showAttach && (

@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import { Sun, Moon, Monitor, X, Palette, LayoutGrid, Sparkles, Trash2, ShieldAlert, TriangleAlert, HardDrive, Plug, Wrench, Lightbulb, RotateCcw, Info } from 'lucide-react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
-import DeleteAccountModal from './DeleteAccountModal';
 import ConnectorsSettings from './ConnectorsSettings';
 import SkillsSettings from './SkillsSettings';
 import DataSettings from './DataSettings';
@@ -49,8 +48,6 @@ const PROVIDER_NAMES = { anthropic: 'Anthropic', openai: 'OpenAI', gemini: 'Gemi
 // App). The saved choice isn't overwritten when it isn't offered: the
 // nearest offered level is shown and used until the user picks one.
 function ReasoningSetting({ value, onChange, reasoning }) {
-  // The server sets Free AI's level (APPBLIPS_REASONING_EFFORT).
-  if (reasoning.fixed) return null;
   const { levels, defaultLevel, note, providerId, model } = reasoning;
   const source = providerId ? `${PROVIDER_NAMES[providerId] || providerId} · ${model}` : null;
   const shown = nearestLevel(value, levels);
@@ -153,7 +150,6 @@ export default function SettingsModal({
   initialTab = null,
   seoProject = null,
   galleryProject = null,
-  freeAccount = null,
 }) {
   const tabs = TABS;
   const [tab, setTab] = useState(() => (tabs.some((t) => t.id === initialTab) ? initialTab : loadTab(tabs)));
@@ -207,7 +203,6 @@ export default function SettingsModal({
 
   const [confirmResetApp, setConfirmResetApp] = useState(false);
   const [isResettingApp, setIsResettingApp] = useState(false);
-  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
 
   const handleDeleteAll = async () => {
     setIsDeletingAll(true);
@@ -362,36 +357,6 @@ export default function SettingsModal({
 
           {tab === 'danger' && (
             <>
-              {freeAccount?.state?.required && freeAccount?.state?.signedIn && (
-                <SettingRow
-                  id="set-delete-account"
-                  title="Delete your account"
-                  description={
-                    <>
-                      Signed in as <strong className="font-semibold text-slate-700 break-all">{freeAccount.state.email || freeAccount.state.displayName || freeAccount.state.name}</strong>. Permanently delete your sign-in account, or manage it in the{' '}
-                      <button
-                        type="button"
-                        onClick={() => freeAccount.openDashboard().catch(() => {})}
-                        disabled={freeAccount.busy}
-                        className="inline font-semibold text-indigo-600 dark:text-indigo-400 underline underline-offset-2 hover:no-underline disabled:opacity-50"
-                      >
-                        Account dashboard
-                      </button>.
-                    </>
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDeleteAccount(true)}
-                    disabled={freeAccount.busy}
-                    aria-labelledby="set-delete-account"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                  >
-                    <Trash2 size={14} aria-hidden="true" />
-                    Delete account
-                  </button>
-                </SettingRow>
-              )}
               <SettingRow
                 id="set-delete-all"
                 title="Delete all saved projects"
@@ -521,13 +486,6 @@ export default function SettingsModal({
             </span>
           </div>
         </ConfirmModal>
-      )}
-      {confirmDeleteAccount && freeAccount && (
-        <DeleteAccountModal
-          accountLabel={freeAccount.state?.email || freeAccount.state?.displayName || freeAccount.state?.name || ''}
-          onDelete={freeAccount.deleteAccount}
-          onClose={() => setConfirmDeleteAccount(false)}
-        />
       )}
     </Modal>
   );

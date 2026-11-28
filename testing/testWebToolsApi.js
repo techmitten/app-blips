@@ -1,13 +1,10 @@
-// DeepSeek web search for the AI (electron/server/webToolsApi.js) against a
-// stubbed DeepSeek: which key pays, what reaches the page, what is counted
-// against the Free option. No network. Run: node --test testing/testWebToolsApi.js
+// Web search for the AI (electron/server/webToolsApi.js) against stubbed
+// providers: which key pays and what reaches the page. No network.
+// Run: node --test testing/testWebToolsApi.js
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { handleWebToolsApi, webSearchProvider, SEARCH_FEE_TOKENS } from '../electron/server/webToolsApi.js';
-
-const WEB_CALL_TOKENS = SEARCH_FEE_TOKENS.deepseek;
+import { handleWebToolsApi, webSearchProvider } from '../electron/server/webToolsApi.js';
 import { withSavedProvider } from '../electron/server/savedProvider.js';
-import { createFreeLimits } from '../electron/server/freeLimits.js';
 
 const ORIGIN = 'http://localhost:5175';
 const OWN_KEY = 'sk-own-0123456789';
@@ -44,32 +41,25 @@ const RESULTS = { results: [
   { title: 'Long', url: 'http://long.example/page', snippet: 'y'.repeat(5000) },
 ] };
 
-test('the provider that pays: the user\'s own, else the environment provider on its own endpoint', async () => {
-  const key = async (env, payload) => {
-    const { provider, own } = await webSearchProvider(env, payload);
-    return { key: provider?.apiKey || '', id: provider?.id || '', own };
+test('the provider that pays is the user\'s own, on its own endpoint; the environment never pays', () => {
+  const key = (payload) => {
+    const provider = webSearchProvider(payload);
+    return { key: provider?.apiKey || '', id: provider?.id || '' };
   };
-  assert.deepEqual(await key(ENV, { user_provider: OWN }), { key: OWN_KEY, id: 'deepseek', own: true });
-  assert.deepEqual(await key(ENV, {}), { key: ENV_KEY, id: 'deepseek', own: false });
-  assert.deepEqual(await key({}, {}), { key: '', id: '', own: false });
-  // Another provider chosen in Settings → AI searches with its own key, never the host's.
-  assert.deepEqual(await key(ENV, { user_provider: { id: 'openai', model: 'gpt-5', apiKey: 'sk-proj-x' } }), { key: 'sk-proj-x', id: 'openai', own: true });
+  assert.deepEqual(key({ user_provider: OWN }), { key: OWN_KEY, id: 'deepseek' });
+  assert.deepEqual(key({}), { key: '', id: '' });
+  assert.deepEqual(key({ user_provider: { id: 'openai', model: 'gpt-5', apiKey: 'sk-proj-x' } }), { key: 'sk-proj-x', id: 'openai' });
   // A saved provider whose key is missing.
-  assert.equal((await key(ENV, { user_provider: { id: 'deepseek', model: 'deepseek-chat', apiKey: '' } })).key, '');
-  // The environment provider behind another endpoint gets nothing; another
-  // provider on its own endpoint does.
-  assert.equal((await key({ ...ENV, OPENAI_BASE_URL: 'https://proxy.example/v1' }, {})).key, '');
-  assert.equal((await key({ OPENAI_LLM_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-proj-x', OPENAI_LLM_MODEL: 'gpt-5' }, {})).id, 'openai');
+  assert.equal(key({ user_provider: { id: 'deepseek', model: 'deepseek-chat', apiKey: '' } }).key, '');
 });
 
-test('status says whether search is offered and who pays, without calling DeepSeek', async () => {
+test('status says whether search is offered, without calling DeepSeek', async () => {
   const stub = deepseek(jsonResponse({}));
-  assert.deepEqual((await call('/api/web/status', { user_provider: OWN }, {}, stub)).body, { available: true, paidBy: 'own', provider: 'deepseek', fetch: true, searches: 5 });
-  assert.deepEqual((await call('/api/web/status', {}, ENV, stub)).body, { available: true, paidBy: 'free', provider: 'deepseek', fetch: true, searches: 5 });
-  assert.deepEqual((await call('/api/web/status', { user_provider: { id: 'gemini', model: 'gemini-3-pro', apiKey: 'AIza-x' } }, {}, stub)).body, { available: true, paidBy: 'own', provider: 'gemini', fetch: false, searches: 3 });
-  assert.deepEqual((await call('/api/web/status', {}, {}, stub)).body, { available: false, paidBy: '', provider: '', fetch: false, searches: 0 });
-  // An environment provider with no model named is offered without looking one up.
-  assert.equal((await call('/api/web/status', {}, { OPENAI_LLM_PROVIDER: 'openai', OPENAI_API_KEY: 'sk-proj-x' }, stub)).body.provider, 'openai');
+  assert.deepEqual((await call('/api/web/status', { user_provider: OWN }, {}, stub)).body, { available: true, provider: 'deepseek', fetch: true, searches: 5 });
+  assert.deepEqual((await call('/api/web/status', { user_provider: { id: 'gemini', model: 'gemini-3-pro', apiKey: 'AIza-x' } }, {}, stub)).body, { available: true, provider: 'gemini', fetch: false, searches: 3 });
+  assert.deepEqual((await call('/api/web/status', {}, {}, stub)).body, { available: false, provider: '', fetch: false, searches: 0 });
+  // Environment variables never offer search.
+  assert.deepEqual((await call('/api/web/status', {}, ENV, stub)).body, { available: false, provider: '', fetch: false, searches: 0 });
   assert.equal(stub.calls.length, 0);
 });
 
@@ -86,8 +76,9 @@ test('a search goes to DeepSeek with the paying key and comes back cleaned', asy
   assert.equal(body.results[1].content.length, 800);
   assert.equal(JSON.stringify(body).includes(OWN_KEY), false);
 
-  await call('/api/web/search', { query: 'x' }, ENV, stub);
-  assert.equal(stub.calls[1].key, `Bearer ${ENV_KEY}`);
+  // Without a provider of the user's own, the environment's key is never used.
+  assert.equal((await call('/api/web/search', { query: 'x' }, ENV, stub)).status, 409);
+  assert.equal(stub.calls.length, 1);
 });
 
 test('a page is read as Markdown and long pages are cut short', async () => {
@@ -128,33 +119,9 @@ test('DeepSeek errors become plain messages, and a bad key or empty balance stop
   assert.equal((await own(429)).status, 503);
   assert.equal((await own(500)).body.stop, undefined);
   assert.equal((await own(404, '/api/web/fetch', { url: 'https://gone.example/' })).status, 422);
-  // The host's key: nothing the visitor can fix, and no detail leaks.
-  const hosts = await call('/api/web/search', { query: 'x' }, ENV, deepseek(() => jsonResponse({ error: { message: 'secret detail' } }, 401)));
-  assert.equal(hosts.status, 503);
-  assert.equal(hosts.body.stop, true);
-  assert.equal(JSON.stringify(hosts.body).includes('secret'), false);
   // DeepSeek unreachable.
   const down = await call('/api/web/search', { query: 'x', user_provider: OWN }, {}, { fetch: async () => { throw new TypeError('fetch failed'); } });
   assert.equal(down.status, 502);
-});
-
-test('the Free option counts billed calls against the visitor, the user\'s own key never', async () => {
-  const freeLimits = createFreeLimits({ APPBLIPS_FREE_TOKENS_PER_IP_PER_DAY: String(WEB_CALL_TOKENS * 2) }, { rates: { messagesPerMinute: 0, messageGapSeconds: 0 } });
-  const found = deepseek(() => jsonResponse(RESULTS));
-  const empty = deepseek(() => jsonResponse({ results: [] }));
-  const free = (stub) => call('/api/web/search', { query: 'x' }, ENV, { ...stub, freeLimits, visitor: 'v1' });
-  // An empty search isn't billed by DeepSeek, so it uses no allowance.
-  assert.equal((await free(empty)).status, 200);
-  assert.equal((await free(found)).status, 200);
-  assert.equal((await free(found)).status, 200);
-  const refused = await free(found);
-  assert.equal(refused.status, 429);
-  assert.equal(refused.body.source, 'free-limit');
-  assert.equal(refused.body.stop, true);
-  assert.equal(found.calls.length, 2);
-  // Another visitor, and the same visitor with their own key, still search.
-  assert.equal((await call('/api/web/search', { query: 'x' }, ENV, { ...found, freeLimits, visitor: 'v2' })).status, 200);
-  assert.equal((await call('/api/web/search', { query: 'x', user_provider: OWN }, ENV, { ...found, freeLimits, visitor: 'v1' })).status, 200);
 });
 
 test('the saved key is attached the way /api/chat does it', async () => {
@@ -165,7 +132,7 @@ test('the saved key is attached the way /api/chat does it', async () => {
   assert.equal(stub.calls[0].key, `Bearer ${OWN_KEY}`);
   // Desktop: the page sends nothing, the saved provider is the active one.
   const desktop = await withSavedProvider(request('/api/web/status', {}), { keyFor: () => '', active: () => OWN });
-  assert.equal((await (await handleWebToolsApi(desktop, {}, stub)).json()).paidBy, 'own');
+  assert.equal((await (await handleWebToolsApi(desktop, {}, stub)).json()).provider, 'deepseek');
   const other = await withSavedProvider(request('/api/web/status', {}), { keyFor: () => '', active: () => ({ id: 'openai', model: 'gpt-5', apiKey: 'sk-proj-x' }) });
   // Another saved provider is used, never the host's DeepSeek.
   assert.equal((await (await handleWebToolsApi(other, ENV, stub)).json()).provider, 'openai');
@@ -260,25 +227,4 @@ test('a model without search stops the prompt with a hint, and pages are DeepSee
   assert.equal(claudeKey.body.stop, true);
   const page = await call('/api/web/fetch', { url: 'https://bluedoor.example/', ...user('openai', 'gpt-5.5') }, {}, deepseek(jsonResponse({})));
   assert.equal(page.status, 409);
-});
-
-test('on the Free option a provider search counts its tokens plus its search fee', async () => {
-  const ended = [];
-  const freeLimits = { begin: () => ({ end: (tokens) => ended.push(tokens) }) };
-  const env = { OPENAI_LLM_PROVIDER: 'gemini', OPENAI_API_KEY: 'AIza-host', OPENAI_LLM_MODEL: 'gemini-3-pro' };
-  const stub = deepseek(() => jsonResponse({ candidates: [{ content: { parts: [{ text: 'x' }] }, groundingMetadata: { webSearchQueries: ['q'] } }], usageMetadata: { totalTokenCount: 800 } }));
-  assert.equal((await call('/api/web/search', { query: 'q' }, env, { ...stub, freeLimits, visitor: 'v' })).status, 200);
-  assert.equal(ended[0], 800 + 20_000);
-});
-
-test('freeSearch: false offers no search on Free AI but keeps the user\'s own key', async () => {
-  const stub = deepseek(() => jsonResponse(RESULTS));
-  const options = { ...stub, freeSearch: false };
-  assert.deepEqual((await call('/api/web/status', {}, ENV, options)).body, { available: false, paidBy: '', provider: '', fetch: false, searches: 0 });
-  const refused = await call('/api/web/search', { query: 'blue door café' }, ENV, options);
-  assert.equal(refused.status, 409);
-  assert.equal(refused.body.stop, true);
-  assert.equal(stub.calls.length, 0);
-  assert.equal((await call('/api/web/status', { user_provider: OWN }, ENV, options)).body.paidBy, 'own');
-  assert.equal((await call('/api/web/search', { query: 'blue door café', user_provider: OWN }, ENV, options)).status, 200);
 });

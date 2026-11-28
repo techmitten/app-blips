@@ -1,6 +1,5 @@
 /* Shared colours and chrome for What's New (WhatsNew.jsx, shown over the
-   studio stage as .studio-choice), the side rail's slide-out menu and the
-   account control (FreeAccountControl.jsx).
+   studio stage as .studio-choice) and the side rail's slide-out menu.
 
    It follows the app theme. Every colour is a --sc-* variable: the dark
    values are the landing page's, and :root:not(.dark) swaps in a light mirror

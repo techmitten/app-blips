@@ -6,13 +6,12 @@
 // primitives only, like chatProxy.js. The desktop app answers the same
 // questions over IPC instead (electron/main.js).
 //
-//   GET    /api/provider          -> { id, hasKey, envConfigured, envProvider?, freeSignIn?, maxOutputTokensFixed?, reasoningEffortFixed? }
+//   GET    /api/provider          -> { id, hasKey, … }
 //   PUT    /api/provider          -> save { id, model, apiKey, enabled }
 //   DELETE /api/provider          -> forget the key
 //   POST   /api/provider/models   -> [{ id, label }] for { id, apiKey? }
 import { isForeignOrigin } from './chatProxy.js';
-import { resolveUserProvider, envProviderStatus, fixedMaxOutputTokens, fixedReasoningEffort } from './providers.js';
-import { freeSignInStatus } from './freeSignInConfig.js';
+import { resolveUserProvider } from './providers.js';
 import { listProviderModels } from './providerModels.js';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -40,24 +39,7 @@ export async function handleProviderApi(request, env, keys) {
   };
 
   if (path === '/api/provider') {
-    // envConfigured: the host's environment variables (OPENAI_API_KEY…)
-    // already provide AI, so the page needn't ask for a key.
-    // freeSignIn: Free AI needs a Clerk sign-in here (freeAuth.js).
-    // maxOutputTokensFixed: the host sets the output limit for Free AI
-    // (APPBLIPS_MAX_OUTPUT_TOKENS), so Settings → AI doesn't offer one
-    // while Free is in use.
-    // reasoningEffortFixed: Free AI's reasoning level
-    // (APPBLIPS_REASONING_EFFORT); the page uses it and hides its own choice
-    // while Free is in use.
-    if (request.method === 'GET') {
-      return json({
-        ...keys.describe(),
-        ...envProviderStatus(env),
-        ...freeSignInStatus(env),
-        ...(fixedMaxOutputTokens(env) ? { maxOutputTokensFixed: true } : {}),
-        ...(fixedReasoningEffort(env) ? { reasoningEffortFixed: fixedReasoningEffort(env) } : {}),
-      });
-    }
+    if (request.method === 'GET') return json(keys.describe());
     if (request.method === 'DELETE') {
       await keys.clear();
       return json(keys.describe());

@@ -6,15 +6,12 @@ import ExternalLinkGuard from './components/ExternalLinkGuard.jsx'
 import { initProjectStore, isDesktop } from './lib/desktop'
 import { installBrowserKeyStorage } from './lib/browserKeys'
 import { beginAppSession } from './lib/config'
-import { takePromptForSignIn } from './lib/signInHandoff'
 import { installGlobalErrorLogging, logError, reactRootErrorOptions } from './lib/errorLog'
 
 installGlobalErrorLogging()
-const signInHandoff = takePromptForSignIn()
-const coldStart = beginAppSession({ returningFromSignIn: Boolean(signInHandoff) })
+const coldStart = beginAppSession()
 
 const isAndroid = window.Capacitor?.getPlatform?.() === 'android'
-const isAdminUsageRoute = !isDesktop && !isAndroid && /^\/admin\/usage\/?$/.test(window.location.pathname)
 
 // The Android app has no server, so it answers /api/* in the page
 // (lib/android.js); loaded only there, before anything can call /api.
@@ -26,24 +23,13 @@ const startAndroidApi = () => (isAndroid
 // (lib/browserKeys.js). The desktop and Android apps keep their own.
 if (!isDesktop && !isAndroid) installBrowserKeyStorage()
 
-if (isAdminUsageRoute) {
-  import('./components/AdminUsageDashboard.jsx').then(({ default: AdminUsageDashboard }) => {
-    createRoot(document.getElementById('root'), reactRootErrorOptions).render(
-      <StrictMode>
-        <AdminUsageDashboard />
-        <ExternalLinkGuard />
-      </StrictMode>,
-    )
-  }).catch((err) => logError('Could not load the admin usage dashboard', err))
-} else {
-  // Saved projects are loaded (from disk in the desktop app, IndexedDB in the
-  // browser) before the first render, so the synchronous storage helpers see them.
-  Promise.all([initProjectStore(), startAndroidApi()]).then(() => {
-    createRoot(document.getElementById('root'), reactRootErrorOptions).render(
-      <StrictMode>
-        <App coldStart={coldStart} signInHandoff={signInHandoff} />
-        <ExternalLinkGuard />
-      </StrictMode>,
-    )
-  }).catch((err) => logError('Could not load saved projects; the app did not start', err))
-}
+// Saved projects are loaded (from disk in the desktop app, IndexedDB in the
+// browser) before the first render, so the synchronous storage helpers see them.
+Promise.all([initProjectStore(), startAndroidApi()]).then(() => {
+  createRoot(document.getElementById('root'), reactRootErrorOptions).render(
+    <StrictMode>
+      <App coldStart={coldStart} />
+      <ExternalLinkGuard />
+    </StrictMode>,
+  )
+}).catch((err) => logError('Could not load saved projects; the app did not start', err))

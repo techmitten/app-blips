@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
-// A "Test connection" button sends a real request (to a model, which on Free
-// is at AppBlips' expense, or to the user's script), so a finished test locks
+// A "Test connection" button sends a real request (to a model, or to the
+// user's script), so a finished test locks
 // the button for a short while. The time is kept outside the component, per
 // kind of test, so closing and reopening Settings doesn't reset it.
 export const TEST_COOLDOWN_MS = 10_000;

@@ -24,7 +24,6 @@ export async function withSavedProvider(request, { keyFor, active = () => null }
     }
   }
   const origin = request.headers.get('origin');
-  const authorization = request.headers.get('authorization');
   // The per-message ID keys prompt caching (providers.js applyCacheSettings).
   const messageId = request.headers.get('x-appblips-message');
   return new Request(request.url, {
@@ -34,7 +33,6 @@ export async function withSavedProvider(request, { keyFor, active = () => null }
     headers: {
       'content-type': 'application/json',
       ...(origin ? { origin } : {}),
-      ...(authorization ? { authorization } : {}),
       ...(messageId ? { 'x-appblips-message': messageId } : {}),
     },
     body: body ? JSON.stringify(body) : text,

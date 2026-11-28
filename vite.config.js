@@ -1,9 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { readFileSync } from 'node:fs'
-import { createPublicKey } from 'node:crypto'
 import { handleChatProxy } from './electron/server/chatProxy.js'
-import { describeConfig, formatConfigSummary } from './electron/server/configSummary.js'
 import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js'
 import { createBrowserKeys } from './electron/server/browserKeys.js'
 import { handleProviderApi } from './electron/server/providerApi.js'
@@ -17,39 +15,9 @@ import { handleSeoScanApi } from './electron/server/seoScanApi.js'
 import { resolveAddresses } from './electron/server/dnsLookup.js'
 import { withSavedProvider } from './electron/server/savedProvider.js'
 import { hostAllowed } from './electron/server/hosts.js'
-import { checkFreeSignIn } from './electron/server/freeAuth.js'
-import { freeSignInConfig, withDotenvPemFallback } from './electron/server/freeSignInConfig.js'
 import { licensePlugin } from './scripts/licenses.js'
 
-const loadAppEnv = (mode) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  try {
-    return withDotenvPemFallback(env, readFileSync('.env', 'utf8'))
-  } catch {
-    return env
-  }
-}
-
-const logRejectedSignIn = (reason) => console.warn('[free-auth] token verification failed:', reason)
-
-async function warnIfClerkJwtKeyMismatched(env) {
-  const cfg = freeSignInConfig(env)
-  if (!cfg?.jwtKey) return
-  try {
-    const rawDomain = Buffer.from(cfg.publishableKey.replace(/^pk_(test|live)_/, ''), 'base64').toString('utf8')
-    const domain = rawDomain.replace(/\$$/, '')
-    if (!domain.includes('.')) return
-    const jwk = createPublicKey(cfg.jwtKey).export({ format: 'jwk' })
-    const res = await fetch(`https://${domain}/.well-known/jwks.json`, { signal: AbortSignal.timeout(2500) })
-    if (!res.ok) return
-    const { keys } = await res.json()
-    if (Array.isArray(keys) && !keys.some((k) => k.n === jwk.n)) {
-      console.warn(`[free-auth] CLERK_JWT_KEY in .env does not match ${domain}. Copy the JWT public key (or matching secret key) from that Clerk instance.`)
-    }
-  } catch {
-    // Offline or non-standard PEM: skip startup check.
-  }
-}
+const loadAppEnv = (mode) => loadEnv(mode, process.cwd(), '')
 
 // Vite's connect server does not catch rejections from async middleware; on
 // modern Node that kills the whole dev server, so the proxy goes through this
@@ -77,29 +45,13 @@ function guarded(handler) {
   }
 }
 
-// Prints which AI provider/mode is active (and what is still missing) once the
-// dev server is up, so a misconfigured .env is obvious before the first request.
-function configSummaryPlugin(mode) {
-  return {
-    name: 'appblips-config-summary',
-    configureServer(server) {
-      server.httpServer?.once('listening', () => {
-        // Same env the middleware below reads: .env plus the process environment.
-        const env = loadAppEnv(mode)
-        console.log('\n' + formatConfigSummary(describeConfig(env, { isDev: true })) + '\n')
-        warnIfClerkJwtKeyMismatched(env)
-      })
-    },
-  }
-}
-
 // Runs the desktop app's LLM proxy handler (electron/server/chatProxy.js) as
 // dev-server middleware, so the renderer can be developed in a browser with
 // hot-reload. This is for working on AppBlips itself; to run a copy in a
-// browser, use server.js (npm start, or Docker). Reads the OPENAI_* LLM
-// variables from a local .env with no prefix filter: these never reach the
-// client bundle since they aren't VITE_-prefixed and are only read here, in
-// Node config code.
+// browser, use server.js (npm start, or Docker). Reads a local .env with no
+// prefix filter (UNSPLASH_ACCESS_KEY, …): these never reach the client bundle
+// since they aren't VITE_-prefixed and are only read here, in Node config
+// code.
 function llmProxyDevMiddleware(mode) {
   return {
     name: 'appblips-llm-proxy-dev-middleware',
@@ -108,7 +60,7 @@ function llmProxyDevMiddleware(mode) {
       // Saved keys come from the browser with each request, as in server.js
       // (browserKeys.js). These routes run before Vite's own host check, so
       // even when the server is put on the network (`npm run dev -- --host`)
-      // the .env provider is used only from this computer (or a host in
+      // saved keys are used only from this computer (or a host in
       // APPBLIPS_ALLOWED_HOSTS), never by another device or a DNS-rebinding page.
       const withKeys = createBrowserKeys()
       server.middlewares.use('/api/chat', guarded(async (req, res) => {
@@ -118,15 +70,15 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         // A DNS-rebinding page sends a matching Host and Origin, so the Host
-        // allow-list decides, as in server.js: neither the saved key nor the
-        // .env provider is spent for another name.
+        // allow-list decides, as in server.js: the saved key is never spent
+        // for another name.
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
           res.end('AI requests are only answered for this computer. To allow this address, add it to APPBLIPS_ALLOWED_HOSTS.')
           return
         }
         const incoming = await toChatRequest(req, res)
-        const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env, { onReject: logRejectedSignIn }), freeImages: false }))
+        const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), env))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       server.middlewares.use('/api/provider', guarded(async (req, res) => {
@@ -183,7 +135,7 @@ function llmProxyDevMiddleware(mode) {
         const response = await withKeys('tavily', request, (keys) => handleTavilyApi(request, env, keys))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
-      // DeepSeek web search for the AI, paid by the same key as /api/chat.
+      // Web search for the AI, paid by the same key as /api/chat.
       server.middlewares.use('/api/web', guarded(async (req, res) => {
         if (!hostAllowed(req.headers.host || '', env)) {
           res.statusCode = 403
@@ -191,7 +143,7 @@ function llmProxyDevMiddleware(mode) {
           return
         }
         const request = await toFetchRequest(req, res)
-        const response = await withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env, { checkSignIn: (r) => checkFreeSignIn(r, env, { onReject: logRejectedSignIn }), freeSearch: false }))
+        const response = await withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), env))
         sendWebResponse(res, response, {}, '[dev-proxy]')
       }))
       // The built-in photo library, with the .env's Unsplash key.
@@ -219,31 +171,6 @@ function llmProxyDevMiddleware(mode) {
   }
 }
 
-// Packages only Clerk uses (the Free AI sign-in, which src/lib/freeSignIn.js
-// loads with import() when a Free AI prompt is sent): Clerk's dependencies,
-// minus anything the app's own dependencies also need (React, for one). They
-// stay out of the eager vendor chunks, so visitors who never use Free AI never
-// load them.
-const packageJson = (name) => {
-  try { return JSON.parse(readFileSync(new URL(`./node_modules/${name}/package.json`, import.meta.url), 'utf8')) } catch { return null }
-}
-const dependencyClosure = (names) => {
-  const seen = new Set()
-  const stack = [...names]
-  while (stack.length) {
-    const name = stack.pop()
-    if (seen.has(name)) continue
-    seen.add(name)
-    const pkg = packageJson(name)
-    if (pkg) stack.push(...Object.keys(pkg.dependencies || {}), ...Object.keys(pkg.peerDependencies || {}))
-  }
-  return seen
-}
-const CLERK_ENTRIES = ['@clerk/clerk-js', '@clerk/ui']
-const appDependencies = Object.keys(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).dependencies || {})
-  .filter((name) => !name.startsWith('@clerk/'))
-const sharedWithApp = dependencyClosure(appDependencies)
-const CLERK_ONLY = new Set([...dependencyClosure(CLERK_ENTRIES)].filter((name) => !sharedWithApp.has(name)))
 // The package a module belongs to: the last node_modules/<name> in its path.
 const packageOf = (id) => {
   const match = id.replace(/\\/g, '/').match(/.*\/node_modules\/((?:@[^/]+\/)?[^/]+)/)
@@ -262,7 +189,7 @@ export default defineConfig(({ mode }) => ({
     __APPBLIPS_VERSION__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   },
   plugins: [
-    react(), configSummaryPlugin(mode), llmProxyDevMiddleware(mode),
+    react(), llmProxyDevMiddleware(mode),
     licensePlugin('app', { collected: appLicenseModules }),
   ],
   // The voice-input worker imports transformers.js, which splits into chunks;
@@ -273,14 +200,11 @@ export default defineConfig(({ mode }) => ({
   },
   // Pre-bundle dynamically imported dependencies upfront so Vite does not
   // re-optimize mid-session and invalidate browserHash for already-loaded
-  // split chunks (e.g. @clerk/ui's lazy UserProfile / Modal chunks, which
-  // otherwise 504 with "Outdated Optimize Dep").
+  // split chunks (which otherwise 504 with "Outdated Optimize Dep").
   // Pre-bundling onnxruntime-web moves it into .vite/deps, away from the .wasm
   // file it loads relative to itself, so keep @huggingface/transformers excluded.
   optimizeDeps: {
     include: [
-      '@clerk/clerk-js',
-      '@clerk/ui',
       'motion/react',
       'acorn',
       'acorn-jsx',
@@ -328,11 +252,6 @@ export default defineConfig(({ mode }) => ({
           // first needs it (vendor_android), which every page then preloads.
           if (id.includes('vite/preload-helper')) return 'vendor';
           if (id.includes('node_modules')) {
-            // Left to the bundler, which keeps code reached only through
-            // import() in on-demand chunks. Naming a chunk for them pulled
-            // react-dom in with them, and the main bundle with it. Before the
-            // name rules below ('react' would catch @emotion/react).
-            if (CLERK_ONLY.has(packageOf(id))) return undefined
             // Only StudioChoice (lazy-loaded) uses motion/framer-motion, and
             // only preview/export/generation use acorn/sucrase; keep them out
             // of the eager vendor chunk so initial page load skips them.

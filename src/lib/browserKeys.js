@@ -66,9 +66,9 @@ const sessionId = () => {
 };
 
 // Slots whose keys never leave this browser: their requests are answered
-// inside the page (browserDirect.js), straight to the provider. Requests on
-// them that aren't the user's own (Free AI) still go to the server, without
-// any key.
+// inside the page (browserDirect.js), straight to the provider. Chat and web
+// search requests without a provider of the user's own still go to the
+// server (which says to choose one), without any key.
 const DIRECT_SLOTS = new Set(['provider', 'tavily', 'pixabay']);
 let directApi = null;
 
@@ -93,7 +93,6 @@ export function installBrowserKeyStorage() {
       respond: m.respond,
       handle: m.createDirectApi({
         fetchImpl: originalFetch,
-        fetchServer: originalFetch,
         read: (slot) => read(STORAGE_PREFIX + slot),
         write: (slot, value) => write(STORAGE_PREFIX + slot, value),
       }),
@@ -112,13 +111,10 @@ export function installBrowserKeyStorage() {
       const request = new Request(input instanceof Request ? input : url, init);
       const path = url.pathname.replace(/\/+$/, '');
       if (slot === 'provider' && path === '/api/provider' && request.method === 'GET') {
-        const response = await originalFetch(request);
-        let settings = {};
-        try { settings = await response.json(); } catch { /* not JSON */ }
-        return new Response(
-          JSON.stringify(response.ok ? { ...settings, ...describeStoredKey('provider') } : settings),
-          { status: response.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } },
-        );
+        return new Response(JSON.stringify(describeStoredKey('provider')), {
+          status: 200,
+          headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+        });
       }
       if (slot === 'provider' && (path === '/api/chat' || path.startsWith('/api/web'))) {
         const isOwn = request.method === 'POST' && await request.clone().text().then((text) => {
@@ -137,7 +133,7 @@ export function installBrowserKeyStorage() {
       const { respond, handle } = await loadDirectApi();
       const response = await respond(handle, slot, request);
       if (response) return response;
-      // Not the user's own provider (Free): the server answers, with no key.
+      // No provider of the user's own: the server answers, with no key.
       const headers = new Headers(request.headers);
       headers.delete(KEY_HEADER);
       headers.set(SESSION_HEADER, sessionId());

@@ -6,7 +6,7 @@ import { providerWebAvailability, refreshProviderWeb, subscribeProviderWeb } fro
 // Whether web search is offered for the AI provider in use
 // (lib/providerWeb.js), asked when the app starts and again whenever the
 // provider changes (Settings → AI, onboarding, Reset).
-// -> { available, paidBy, provider, fetch, searches, extensionOn }, where
+// -> { available, provider, fetch, searches, extensionOn }, where
 // `extensionOn` is that provider's web search tool in Settings → Tools. The globe under the chat box shows when both are true.
 export default function useProviderWeb() {
   useEffect(() => {

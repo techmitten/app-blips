@@ -622,7 +622,7 @@
   .desktop-onboarding-setup::after { animation: none; }
 }
 
-/* The Free AI slide (FreeAiPanel): three points, icon beside each. */
+/* Point lists (welcome, terms, storage slides): icon beside each point. */
 .onboarding-free-list { display: flex; flex-direction: column; gap: 1.25rem; margin: 0; padding: 0; list-style: none; }
 .onboarding-free-list li { display: flex; align-items: flex-start; gap: 14px; }
 .onboarding-free-list li > span:last-child { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -828,7 +828,7 @@
 :root:not(.dark) .onboarding-model-option:has(input:focus-visible) { outline-color: #0b1220; }
 :root:not(.dark) .onboarding-folder button:focus-visible { outline-color: #0b1220; }
 
-/* Free AI slide. */
+/* Point lists. */
 :root:not(.dark) .onboarding-free-list strong { color: #0b1220; }
 :root:not(.dark) .onboarding-free-list li > span:last-child > span { color: #3a4356; }
 :root:not(.dark) .onboarding-free-list li > span:last-child > span a { color: #1d4ed8; }

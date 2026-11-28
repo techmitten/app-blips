@@ -271,16 +271,6 @@ export const webProviderStore = {
         enabled: false,
         ...info,
         hasKey: Boolean(info.id && server.id === info.id && server.hasKey),
-        // The server's environment variables (OPENAI_API_KEY…) provide AI when
-        // nothing is saved here, so onboarding doesn't ask for a key.
-        envConfigured: server.envConfigured === true,
-        ...(server.envProvider ? { envProvider: server.envProvider } : {}),
-        // Free AI needs a Google or GitHub sign-in on this server (freeSignIn.js).
-        ...(server.freeSignIn ? { freeSignIn: server.freeSignIn } : {}),
-        // The host sets the output limit (APPBLIPS_MAX_OUTPUT_TOKENS).
-        ...(server.maxOutputTokensFixed ? { maxOutputTokensFixed: true } : {}),
-        // The host sets Free AI's reasoning level (APPBLIPS_REASONING_EFFORT).
-        ...(server.reasoningEffortFixed ? { reasoningEffortFixed: server.reasoningEffortFixed } : {}),
       };
     })().finally(() => { inFlightProviderGet = null; });
     return inFlightProviderGet;
@@ -288,10 +278,8 @@ export const webProviderStore = {
   async set(info) {
     const previous = readWebProvider();
     // "Skip" in onboarding: remember it without saving a provider.
-    // With enabled: false (the Free option) the saved provider is also
-    // switched off, keeping its key for later.
     if (info.onboardingComplete === true && info.id === undefined) {
-      writeWebProvider({ enabled: false, ...previous, ...(info.enabled === false ? { enabled: false } : {}), onboardingComplete: true });
+      writeWebProvider({ enabled: false, ...previous, onboardingComplete: true });
       return this.get();
     }
     await moveLegacyKey();
@@ -317,12 +305,6 @@ export const webProviderStore = {
 
 const providerStore = bridge?.provider || webProviderStore;
 
-// The Free choice in onboarding and Settings → AI: offered when the host's
-// environment variables (OPENAI_API_KEY…) supply AI, so nobody needs a key of
-// their own. Choosing it switches the saved provider off (enabled: false),
-// which sends requests to that environment provider.
-export const FREE_PROVIDER_ID = 'free';
-export const FREE_PROVIDER_LABEL = 'Free (no key needed)';
 const providerListeners = new Set();
 const notifyProviderChange = (result) => {
   for (const listener of providerListeners) listener();
@@ -342,4 +324,3 @@ export const providerApi = {
   clear: (options) => providerStore.clear(options).then(notifyProviderChange),
   listModels: (input) => providerStore.listModels(input),
 };
-export const chooseFreeProvider = () => providerApi.set({ enabled: false, onboardingComplete: true });

@@ -55,10 +55,7 @@ function OutputTokenLimit({ askMode = false, title, description }) {
 
 // `provider`: the saved AI settings (provider.get() result), null until read.
 export default function OutputTokenSettings({ provider }) {
-  // A host that sets the limit itself (APPBLIPS_MAX_OUTPUT_TOKENS) does so
-  // for Free AI only, so these fields are hidden while Free is in use and
-  // shown with the user's own provider.
-  if (!provider || (provider.maxOutputTokensFixed === true && !provider.enabled)) return null;
+  if (!provider) return null;
   return (
     <>
       <OutputTokenLimit title="Output tokens: building" description={`Maximum tokens per response when building, including thinking. Leave empty for the default of ${DEFAULT_BUILD_MAX_TOKENS.toLocaleString('en-US')}.`} />

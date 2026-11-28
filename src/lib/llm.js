@@ -1,6 +1,5 @@
 import { applySurgicalEdits, listSections, viewCode, sanitizeHtmlResponse, extractLeadingReply, extractUserNotes, invalidArgumentsError } from './edits';
 import { messageHeaders } from './messageId';
-import { freeSignInHeaders } from './freeSignIn';
 import { isDesktop, webProviderStore } from './desktop';
 import { loadAskClarifyingQuestions, loadOutputTokenLimit, loadPromptSuggestions } from './config';
 import { describeProjectForSuggestions, describeBuildLimits, recentRequests, parseSuggestions, MAX_SUGGESTIONS } from './promptSuggestions';
@@ -385,7 +384,6 @@ const GENERATION_ID = /^gen-[0-9A-Za-z-]{1,124}$/;
 // The final counts of an OpenRouter request that was stopped part-way, from
 // its generation stats (chatProxy.js `usage_lookup`, with the same saved key
 // as the request). Resolves to usage in the chat-completions shape, or null.
-// The browser version without a key of its own is on Free AI: nothing to ask.
 const lookupGenerationUsage = async (id, provider) => {
   if (!isDesktop && !provider) return null;
   const response = await fetch('/api/chat', {
@@ -448,7 +446,6 @@ export const requestModelText = async ({
   reasoningEffort = null,
   retryCount = 0,
   signal = null,
-  forceTemperatureZero = false,
   askMode = false,
   // { id, model, apiKey } to use instead of the saved Settings → AI provider
   // (the settings "Test connection" button); undefined = read the saved one.
@@ -482,9 +479,6 @@ export const requestModelText = async ({
     if (reasoningEffort !== null) bodyObj.reasoning_effort = reasoningEffort;
     if (tools) bodyObj.tools = tools;
     if (tool_choice) bodyObj.tool_choice = tool_choice;
-    // Asks the proxy to pin temperature to 0.0 for deterministic edits and
-    // fixes regardless of OPENAI_LLM_TEMPERATURE. It doesn't affect usage.
-    if (forceTemperatureZero) bodyObj.auto_fix = true;
     // The device's optional output limits apply to all calls, including code
     // reviews, repairs, and codebase builds. Empty settings use provider defaults.
     const maxTokens = loadOutputTokenLimit(askMode);
@@ -497,8 +491,6 @@ export const requestModelText = async ({
     // through the page: the desktop main process or the browser version's
     // server attaches it (withSavedProvider).
     if (!isDesktop) provider = webProviderStore.forRequest(provider);
-    // No provider of the user's own: Free AI, which may need a sign-in.
-    if (!isDesktop && !provider) Object.assign(headers, await freeSignInHeaders());
     usageTracker = trackRequest(bodyObj);
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -507,32 +499,23 @@ export const requestModelText = async ({
       signal
     });
     if (response.status === 401) {
-      // Free AI without a sign-in (server freeAuth.js) says so itself.
-      const errData = await response.json().catch(() => null);
-      const signIn = errData?.source === 'free-sign-in' && typeof errData.error === 'string';
-      const err = new Error(signIn ? errData.error : 'The AI provider rejected the request. Check the provider and key in Settings → AI.');
+      const err = new Error('The AI provider rejected the request. Check the provider and key in Settings → AI.');
       err.isNonRetryable = true;
-      if (signIn) err.needsFreeSignIn = true;
       throw err;
     }
 
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
       // The proxy marks a 429 that came from the AI provider itself (low
-      // balance, busy model, ...) and passes its reason along; only this
-      // app's own limiter is "you're sending requests too quickly".
+      // balance, busy model, ...) and passes its reason along.
       const errData = await response.json().catch(() => null);
       const fromProvider = errData?.source === 'provider' && typeof errData.error === 'string';
-      // The Free option's limits (server freeLimits.js) say what to do next.
-      const freeLimit = errData?.source === 'free-limit' && typeof errData.error === 'string';
-      const err = new Error(fromProvider || freeLimit
+      const err = new Error(fromProvider
         ? errData.error
         : retryAfter
           ? `You're sending requests too quickly. Please try again in about ${retryAfter}s.`
           : "You're sending requests too quickly. Please slow down and try again shortly.");
       err.isRateLimit = true;
-      // Waiting a few seconds won't lift a daily or hourly allowance.
-      if (freeLimit) err.isNonRetryable = true;
       throw err;
     }
     if (!response.ok) {
@@ -728,7 +711,7 @@ export const requestModelText = async ({
         signal?.addEventListener('abort', abort, { once: true });
       });
       return requestModelText({
-        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, forceTemperatureZero, askMode, userProvider
+        messages, onChunk, tools, tool_choice, reasoningEffort, retryCount: retryCount + 1, signal, askMode, userProvider
       });
     }
     const failure = new Error(err.message || 'Failed to generate app.');
@@ -1330,7 +1313,6 @@ const generateAppCodeCore = async (
         messages,
         onChunk,
         signal,
-        forceTemperatureZero: isAutoFix,
         reasoningEffort: buildEffort
       });
 
@@ -1372,7 +1354,6 @@ const generateAppCodeCore = async (
           tools: REFINEMENT_TOOLS,
           tool_choice: 'required',
           signal,
-          forceTemperatureZero: true,
           reasoningEffort: buildEffort
         });
         repairMessages.push(assistantTurn(repairMessage));
@@ -1518,7 +1499,6 @@ const generateAppCodeCore = async (
       tools: currentTools,
       tool_choice: turn === 1 ? 'required' : 'auto',
       signal,
-      forceTemperatureZero: true,
       reasoningEffort: buildEffort
     });
 

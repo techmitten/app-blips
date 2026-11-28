@@ -38,7 +38,6 @@ try {
   await build.fill('24000');
   await ask.fill('12000');
   assert.equal((await request()).max_tokens, 24000);
-  assert.equal((await request({ forceTemperatureZero: true })).max_tokens, 24000);
   assert.equal((await request({ askMode: true })).max_tokens, 12000);
 
   await build.fill('0');

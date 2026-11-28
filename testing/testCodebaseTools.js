@@ -219,9 +219,10 @@ test('reasoning-enabled environment import passes DeepSeek tool constraints and 
   ]);
   const modelFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
-    if (url === '/api/chat') return handleChatProxy(new Request('http://localhost/api/chat', options), {
-      OPENAI_API_KEY: 'test-key', OPENAI_LLM_MODEL: 'deepseek-v4-pro', APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000',
-    });
+    if (url === '/api/chat') {
+      const sent = { ...JSON.parse(options.body), user_provider: { id: 'deepseek', model: 'deepseek-v4-pro', apiKey: 'test-key' } };
+      return handleChatProxy(new Request('http://localhost/api/chat', { ...options, body: JSON.stringify(sent) }), {});
+    }
     const body = JSON.parse(options.body);
     if (body.tools) {
       assert.deepEqual(body.thinking, { type: 'enabled' });

@@ -1,6 +1,6 @@
-import { ArrowLeft, ArrowUpRight, FolderUp, Gauge, KeyRound, LayoutTemplate, LogIn, Megaphone, MousePointerClick, PanelLeft, Sparkles, Users } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, FolderUp, Gauge, KeyRound, LayoutTemplate, Megaphone, MousePointerClick, PanelLeft, Sparkles, Users } from 'lucide-react';
 import '../styles/app/whats-new.css';
-import { DISCORD_URL, DOCS_URL, GITHUB_URL, WEB_APP_URL } from '../lib/constants';
+import { DISCORD_URL, DOCS_URL, GITHUB_URL } from '../lib/constants';
 
 // Keep announcements here so new entries can be added without changing the layout.
 // A card has one link (href + label) or several (links: [{ href, label }]).
@@ -48,18 +48,6 @@ const UPDATES = [
     highlights: ['A studio for every idea', 'Live previews as you build', 'Your code, yours to keep'],
     href: `${GITHUB_URL}/releases`,
     label: 'Explore release notes',
-  },
-  {
-    id: 'sign-in',
-    category: 'Accounts',
-    Icon: LogIn,
-    title: 'Sign in for Free AI.',
-    description: 'Free AI in the browser version now asks you to sign in with Google or GitHub, so usage limits are counted per person instead of shared by everyone. Your account menu sits in the header, and you can delete your account at any time in Settings → Danger Zone.',
-    highlights: ['One click with Google or GitHub', 'AppBlips never sees your password', 'No sign-in needed with your own API key'],
-    links: [
-      { href: WEB_APP_URL, label: 'Open web.appblips.com' },
-      { href: `${DOCS_URL}ai-providers#free-ai`, label: 'How Free AI works' },
-    ],
   },
   {
     id: 'import',

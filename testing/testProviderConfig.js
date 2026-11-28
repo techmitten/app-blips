@@ -1,108 +1,20 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  applyProviderSettings, resolveProvider, resolveUserProvider,
+  applyProviderSettings, resolveUserProvider,
   USER_PROVIDER_IDS, USER_PROVIDER_OPTIONS,
 } from '../electron/server/providers.js';
-import { describeConfig, formatConfigSummary } from '../electron/server/configSummary.js';
-import { envProviderStatus } from '../electron/server/providers.js';
-import { chooseModel } from '../electron/server/defaultModel.js';
 import { handleChatProxy } from '../electron/server/chatProxy.js';
 
-const builderEnv = { OPENAI_API_KEY: 'ds-key', OPENAI_LLM_MODEL: 'deepseek-v4-pro' };
-const quiet = { quiet: true };
+// --- No provider ------------------------------------------------------------
 
-// --- Builder provider ---------------------------------------------------------
-
-test('the builder uses the DeepSeek key, endpoint and model', () => {
-  const app = resolveProvider(builderEnv, 'APPBLIPS_LLM', quiet);
-  assert.equal(app.id, 'deepseek');
-  assert.equal(app.apiKey, 'ds-key');
-  assert.equal(app.baseUrl, 'https://api.deepseek.com');
-  assert.equal(app.model, 'deepseek-v4-pro');
-  assert.equal(app.reasoningParam, 'reasoning_effort');
-  assert.deepEqual(app.missing, []);
-});
-
-test('no provider key is a configuration error', () => {
-  assert.match(resolveProvider({}, 'APPBLIPS_LLM', quiet).error, /No AI provider is configured/);
-});
-
-test('a missing model is picked automatically on a preset endpoint', () => {
-  const app = resolveProvider({ OPENAI_API_KEY: 'k' }, 'APPBLIPS_LLM', quiet);
-  assert.equal(app.autoModel, true);
-  assert.deepEqual(app.missing, []);
-});
-
-test('a missing model names the model variable on a custom endpoint', () => {
-  const app = resolveProvider({ OPENAI_API_KEY: 'k', OPENAI_BASE_URL: 'https://llm.example/v1' }, 'APPBLIPS_LLM', quiet);
-  assert.deepEqual(app.missing, ['OPENAI_LLM_MODEL']);
-});
-
-test('the key prefix picks the provider when none is named', () => {
-  const idFor = (key, extra = {}) => resolveProvider({ OPENAI_API_KEY: key, ...extra }, 'APPBLIPS_LLM', quiet).id;
-  assert.equal(idFor('sk-proj-x'), 'openai');
-  assert.equal(idFor('sk-svcacct-x'), 'openai');
-  assert.equal(idFor('sk-ant-api03-x'), 'anthropic');
-  assert.equal(idFor('sk-or-v1-x'), 'openrouter');
-  assert.equal(idFor('AIzaSyX'), 'gemini');
-  assert.equal(idFor('xai-abc'), 'xai');
-  assert.equal(idFor('sk-plain'), 'deepseek');
-  // A named provider or a custom endpoint wins over the guess.
-  assert.equal(idFor('sk-proj-x', { OPENAI_LLM_PROVIDER: 'deepseek' }), 'deepseek');
-  assert.equal(idFor('sk-plain', { OPENAI_LLM_PROVIDER: 'openai' }), 'openai');
-  const custom = resolveProvider({ OPENAI_API_KEY: 'sk-proj-x', OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_LLM_MODEL: 'm' }, 'APPBLIPS_LLM', quiet);
-  assert.equal(custom.baseUrl, 'https://llm.example/v1');
-});
-
-test('envProviderStatus tells the page whether the env provides AI, never the key', () => {
-  assert.deepEqual(envProviderStatus({}), { envConfigured: false });
-  assert.deepEqual(envProviderStatus({ OPENAI_API_KEY: 'k', OPENAI_BASE_URL: 'https://llm.example/v1' }), { envConfigured: false });
-  const status = envProviderStatus({ OPENAI_API_KEY: 'sk-proj-secret' });
-  assert.deepEqual(status, { envConfigured: true, envProvider: { id: 'openai', label: 'OpenAI', model: '' } });
-});
-
-test('chooseModel prefers the newest general model of each provider', () => {
-  assert.equal(chooseModel('anthropic', ['claude-haiku-5-5', 'claude-sonnet-4-6', 'claude-sonnet-5-5', 'claude-opus-5-5']), 'claude-sonnet-5-5');
-  assert.equal(chooseModel('gemini', ['models/gemini-2.5-flash', 'models/gemini-2.5-pro', 'models/gemini-3.1-pro']), 'models/gemini-3.1-pro');
-  assert.equal(chooseModel('deepseek', ['deepseek-chat', 'deepseek-v4-flash', 'deepseek-v4-pro']), 'deepseek-v4-pro');
-  assert.equal(chooseModel('xai', ['grok-3-mini', 'grok-4.3-mini', 'grok-4', 'grok-4.3', 'grok-imagine-image']), 'grok-4.3');
-  assert.equal(chooseModel('openai', []), '');
-});
-
-// --- Startup summary --------------------------------------------------------
-
-const summary = (env) => formatConfigSummary(describeConfig(env));
-
-test('summary never contains secret values', () => {
-  const text = summary(builderEnv);
-  assert.ok(!text.includes('ds-key'));
-});
-
-test('an empty configuration warns about the missing provider', () => {
-  const line = describeConfig({}).find((l) => l.label === 'Builder AI');
-  assert.equal(line.level, 'warn');
-  assert.match(line.text, /Settings → AI/);
-});
-
-// --- Config errors: detail for the operator ---------------------------------
-
-const chat = (env) => handleChatProxy(new Request('https://app.example/api/chat', {
-  method: 'POST',
-  body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-}), env);
-
-test('a config error tells the operator what to fix', async () => {
-  const response = await chat({});
-  assert.equal(response.status, 500);
-  const { error } = await response.json();
-  assert.match(error, /isn't set up yet/);
-  assert.match(error, /OPENAI_API_KEY/);
-  assert.match(error, /Settings → AI/);
-});
-
-test('a real mistake (unknown provider) is still an error', () => {
-  assert.equal(describeConfig({ OPENAI_LLM_PROVIDER: 'nope' }).find((l) => l.label === 'Builder AI').level, 'error');
+test('a request without a provider of the user\'s own says to choose one', async () => {
+  const response = await handleChatProxy(new Request('https://app.example/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+  }), { OPENAI_API_KEY: 'sk-proj-ignored' });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /Settings → AI/);
 });
 
 // --- User-supplied provider (Settings → AI) --------------------------------
@@ -111,7 +23,6 @@ test('resolveUserProvider accepts each preset and uses the preset endpoint', () 
   for (const { id, baseUrl } of USER_PROVIDER_OPTIONS) {
     const p = resolveUserProvider({ id, apiKey: 'k', model: 'any/model' });
     assert.equal(p.error, undefined);
-    assert.equal(p.userSupplied, true);
     assert.notEqual(p.baseUrl, 'https://evil.invalid');
     assert.equal(p.baseUrl, baseUrl);
   }
@@ -205,7 +116,7 @@ test('user-selected DeepSeek uses its official API and thinking settings', async
   });
   const response = await handleChatProxy(new Request('http://localhost/api/chat', {
     method: 'POST', body: JSON.stringify({ user_provider: { id: 'deepseek', apiKey: 'ds-user-key', model: 'deepseek-test' }, messages: [{ role: 'user', content: 'hi' }], reasoning_effort: 'high' }),
-  }), builderEnv);
+  }), {});
   assert.equal(response.status, 200);
 });
 
@@ -258,11 +169,11 @@ test('user-selected OpenAI sends its key and model to the official endpoint', as
   });
   const response = await handleChatProxy(new Request('http://localhost/api/chat', {
     method: 'POST', body: JSON.stringify({ user_provider: { id: 'openai', apiKey: 'openai-user-key', model: 'gpt-5-mini' }, messages: [{ role: 'user', content: 'hi' }], reasoning_effort: 'high', max_tokens: 4096 }),
-  }), { ...builderEnv, OPENAI_LLM_MAX_TOKENS: '4096' });
+  }), {});
   assert.equal(response.status, 200);
 });
 
-test('uncensored OpenRouter models are refused, typed in or from .env', async () => {
+test('uncensored OpenRouter models are refused', async () => {
   const { resolveUserProvider: resolve, isOpenRouter, isUncensoredModel } = await import('../electron/server/providers.js');
   assert.match(resolve({ id: 'openrouter', apiKey: 'k', model: 'cognitivecomputations/dolphin-mistral-24b-venice-edition' }).error, /Uncensored/);
   assert.match(resolve({ id: 'openrouter', apiKey: 'k', model: 'x/model-ABLITERATED' }).error, /Uncensored/);

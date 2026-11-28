@@ -1,6 +1,5 @@
-// LLM providers the proxies can talk to. The server-configured provider stays
-// DeepSeek; users can choose OpenRouter, Anthropic, OpenAI, Gemini, xAI or DeepSeek through Settings.
-// Environment variables follow the OPENAI_LLM_* standard names.
+// LLM providers the proxies can talk to. Users choose Anthropic, OpenAI,
+// Gemini, xAI, DeepSeek or OpenRouter in Settings → AI.
 
 const PROVIDERS = {
   deepseek: {
@@ -40,12 +39,11 @@ const PROVIDERS = {
   },
 };
 
-import { staticReasoningLevels, nearestLevel, EFFORT_SCALE } from './reasoning.js';
+import { staticReasoningLevels, nearestLevel } from './reasoning.js';
 
 const PRESET_DEFAULTS = { forcedToolChoice: true, streamUsage: true };
 
-// The plain APPBLIPS_LLM_* variables: any OpenAI-compatible endpoint.
-export const DEFAULT_PROVIDER = 'deepseek';
+const OFF_EFFORTS = new Set([false, 'none', 'off', 'disabled', '']);
 
 // Output limit for building, editing, repairs and reviews when Settings → AI
 // has none. Without one, providers apply their own default, which can be a
@@ -56,142 +54,6 @@ export const DEFAULT_PROVIDER = 'deepseek';
 // default, except on Anthropic, which requires a limit.
 export const DEFAULT_BUILD_MAX_TOKENS = 64000;
 
-// APPBLIPS_MAX_OUTPUT_TOKENS: an operator-set output limit for every chat
-// request on this server (the hosted web version). When set, the limit in
-// Settings → AI is ignored and hidden. 0 means not set; blank or unreadable
-// values count as not set.
-export const fixedMaxOutputTokens = (env) => {
-  const value = Number(String(env?.APPBLIPS_MAX_OUTPUT_TOKENS ?? '').replace(/[,_\s]/g, ''));
-  return Number.isSafeInteger(value) && value > 0 ? value : 0;
-};
-export const PROVIDER_IDS = ['deepseek'];
-
-const OFF_EFFORTS = new Set([false, 'none', 'off', 'disabled', '']);
-
-// APPBLIPS_REASONING_EFFORT: an operator-set reasoning level for Free AI (the
-// server's own provider): one of EFFORT_SCALE, or off. When set, the
-// Reasoning choice in Settings → AI is hidden while Free is in use. Blank or
-// unreadable values count as not set ('').
-export const fixedReasoningEffort = (env) => {
-  const value = String(env?.APPBLIPS_REASONING_EFFORT ?? '').trim().toLowerCase();
-  if (value === 'off') return 'none';
-  return EFFORT_SCALE.includes(value) ? value : '';
-};
-
-// The level a Free AI request runs with. Chat-only calls ask for Off and keep
-// it (they never reason); calls that ask for any level get the server's.
-export const freeReasoningEffort = (env, requested) => {
-  const fixed = fixedReasoningEffort(env);
-  if (!fixed || requested == null || OFF_EFFORTS.has(requested)) return requested;
-  return fixed;
-};
-
-const read = (env, name) => String(env?.[name] ?? '').trim();
-const warned = new Set();
-
-// The generic LLM variables. Every provider here but Anthropic speaks the
-// OpenAI-compatible API, so they follow the OpenAI SDK's own names (OPENAI_API_KEY,
-// OPENAI_BASE_URL).
-export const LLM_ENV = {
-  PROVIDER: 'OPENAI_LLM_PROVIDER',
-  API_KEY: 'OPENAI_API_KEY',
-  BASE_URL: 'OPENAI_BASE_URL',
-  MODEL: 'OPENAI_LLM_MODEL',
-  // Optional per-role models on the same provider (chatProxy.js routeModel).
-  VISION_MODEL: 'OPENAI_LLM_VISION_MODEL',
-  TEMPERATURE: 'OPENAI_LLM_TEMPERATURE',
-};
-export const llmEnv = (env, name) => {
-  return read(env, LLM_ENV[name]);
-};
-
-// Variable-name scope for a provider id: APPBLIPS_ZAI, APPBLIPS_ZAI_CODING.
-// Hyphens in ids become underscores, since they aren't valid in env names.
-export const providerVarScope = (id, prefix = 'APPBLIPS_LLM') =>
-  `${prefix.replace(/_LLM$/, '')}_${id.toUpperCase().replace(/-/g, '_')}`;
-
-// Variable names for one provider's block. prefix: 'APPBLIPS_LLM'.
-const varNames = (id, prefix) => {
-  const generic = prefix === 'APPBLIPS_LLM'
-    ? { apiKey: LLM_ENV.API_KEY, model: LLM_ENV.MODEL, baseUrl: LLM_ENV.BASE_URL }
-    : { apiKey: `${prefix}_API_KEY`, model: `${prefix}_MODEL`, baseUrl: `${prefix}_BASE_URL` };
-  if (id === DEFAULT_PROVIDER) return { own: generic, fallback: generic };
-  const scope = providerVarScope(id, prefix);
-  return {
-    own: { apiKey: `${scope}_API_KEY`, model: `${scope}_MODEL`, baseUrl: `${scope}_BASE_URL` },
-    fallback: generic,
-  };
-};
-
-// Picks the active provider for `prefix` and returns its settings:
-//   { id, apiKey, model, baseUrl, reasoningParam, forcedToolChoice, streamUsage,
-//     missing }   -- `missing` lists the variables still to be filled in
-// or { error } when nothing usable is configured, so callers can report it
-// ({ error, unconfigured: true } when no provider key is set at all).
-// `alsoConfigured` lists other providers whose keys are set but were passed
-// over. The ambiguity is logged once per prefix; `quiet` means the caller
-// reports it itself (the startup summary), so the log is skipped.
-export const resolveProvider = (env, prefix, { quiet = false } = {}) => {
-  // The builder's generic variables go through llmEnv (new name, then the
-  // pre-rename one); any other prefix is read as-is.
-  const builder = prefix === 'APPBLIPS_LLM';
-  const generic = (field) => builder ? llmEnv(env, field) : read(env, `${prefix}_${field}`);
-  const fieldKey = { apiKey: 'API_KEY', model: 'MODEL', baseUrl: 'BASE_URL' };
-  const providerVar = builder ? LLM_ENV.PROVIDER : `${prefix}_PROVIDER`;
-  const requested = generic('PROVIDER').toLowerCase();
-  let id = requested;
-  let alsoConfigured = [];
-  if (requested && !PROVIDERS[requested]) {
-    return { error: `Unknown ${providerVar} "${requested}". Use one of: ${Object.keys(PROVIDERS).join(', ')}.` };
-  }
-  // With no provider named and no endpoint of its own, the builder's key
-  // says whose it is: an OpenAI, Anthropic, Gemini or OpenRouter key set on
-  // its own goes to that provider instead of DeepSeek.
-  if (!id && builder && !generic('BASE_URL')) id = providerForKey(generic('API_KEY'));
-  if (!id) {
-    const configured = PROVIDER_IDS.filter((candidate) => (candidate === DEFAULT_PROVIDER
-      ? generic('API_KEY')
-      : read(env, varNames(candidate, prefix).own.apiKey)));
-    if (!configured.length) {
-      const example = varNames('deepseek', prefix).own.apiKey;
-      return { unconfigured: true, error: `No AI provider is configured. In your .env, fill in the API key for ONE provider (for example ${example}) and set ${varNames(DEFAULT_PROVIDER, prefix).own.model}, then restart.` };
-    }
-    id = configured[0];
-    alsoConfigured = configured.slice(1);
-    if (alsoConfigured.length && !warned.has(prefix)) {
-      warned.add(prefix);
-      if (!quiet) console.warn(`[llm] Several providers have an API key set (${configured.join(', ')}); using ${id}. Set ${providerVar} to choose.`);
-    }
-  }
-
-  const names = varNames(id, prefix);
-  // The openai-compatible block's "own" names are the generic ones, so its
-  // own read is skipped and the generic (with the legacy fallback) answers.
-  const pick = (field) => (id === DEFAULT_PROVIDER ? '' : read(env, names.own[field])) || generic(fieldKey[field]);
-  const preset = PROVIDERS[id];
-  const baseUrl = pick('baseUrl') || preset.baseUrl;
-  const model = pick('model');
-  const provider = {
-    id,
-    ...PRESET_DEFAULTS,
-    ...preset,
-    apiKey: pick('apiKey'),
-    model,
-    // On a provider's own endpoint an empty model is chosen for the user
-    // (defaultModel.js); a custom endpoint still needs one named.
-    autoModel: !model && baseUrl === preset.baseUrl,
-    baseUrl,
-    reasoningParam: preset.reasoningParam,
-    alsoConfigured,
-    // Where to point the user: the provider's own key variable, but the shared
-    // model / base URL lines.
-    vars: { apiKey: names.own.apiKey, model: names.fallback.model, baseUrl: names.fallback.baseUrl },
-  };
-  provider.missing = missingVars(provider);
-  return provider;
-};
-
-// User-selected providers are separate from the server-owned environment provider.
 // The first entry is the default in onboarding and Settings.
 export const USER_PROVIDER_IDS = ['anthropic', 'openai', 'gemini', 'xai', 'deepseek', 'openrouter'];
 export const USER_PROVIDER_OPTIONS = USER_PROVIDER_IDS.map((id) => ({
@@ -209,7 +71,7 @@ export const providerLabel = (id) => PROVIDERS[id]?.label || id;
 // other models and words like "uncensored" in passing.
 const UNCENSORED_MODEL = /uncensor|venice|abliterat/i;
 export const isUncensoredModel = (...names) => names.some((name) => typeof name === 'string' && UNCENSORED_MODEL.test(name));
-// OpenRouter as a preset, or as the endpoint behind the .env provider.
+// OpenRouter as a preset, or any provider pointed at its endpoint.
 export const isOpenRouter = (provider) => {
   if (provider?.id === 'openrouter') return true;
   try { return /(^|\.)openrouter\.ai$/i.test(new URL(provider?.baseUrl).hostname); } catch { return false; }
@@ -220,8 +82,8 @@ const MAX_USER_KEY_LENGTH = 512;
 const MAX_USER_MODEL_LENGTH = 200;
 
 // Builds a provider from user-supplied settings (the request's
-// `user_provider` field). Same shape as resolveProvider, or { error }. The
-// environment endpoint is deliberately not applied to user settings.
+// `user_provider` field): { id, apiKey, model, baseUrl, reasoningParam,
+// forcedToolChoice, streamUsage }, or { error }.
 export const resolveUserProvider = (input) => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return { error: 'Invalid provider settings.' };
   const id = typeof input.id === 'string' ? input.id.trim().toLowerCase() : '';
@@ -248,45 +110,8 @@ export const resolveUserProvider = (input) => {
     model,
     baseUrl: preset.baseUrl,
     reasoningParam: preset.reasoningParam,
-    alsoConfigured: [],
-    missing: [],
-    userSupplied: true,
   };
 };
-
-// Whose key this is, from the prefix each provider gives its keys, or ''
-// when it can't tell (DeepSeek's and older OpenAI keys are both plain sk-).
-export const providerForKey = (key) => {
-  if (/^sk-ant-/.test(key)) return 'anthropic';
-  if (/^sk-or-/.test(key)) return 'openrouter';
-  if (/^AIza/.test(key)) return 'gemini';
-  if (/^xai-/.test(key)) return 'xai';
-  if (/^sk-(?:proj|svcacct|admin)-/.test(key)) return 'openai';
-  return '';
-};
-
-// What the page may learn about the environment provider: whether it can
-// answer /api/chat without Settings → AI, and which provider and model it
-// uses. Never the key.
-// APPBLIPS_FREE_AI=off turns Free AI off: the page hides it (below) and the
-// server refuses requests that rely on the server's own provider
-// (chatProxy.js, webToolsApi.js). Visitors with their own key are unaffected.
-export const freeAiOff = (env) => /^off$/i.test(String(env?.APPBLIPS_FREE_AI ?? '').trim());
-export const FREE_AI_OFF_ERROR = 'Free AI is turned off on this server. Add your own API key in Settings → AI.';
-
-export const envProviderStatus = (env) => {
-  if (freeAiOff(env)) return { envConfigured: false };
-  const provider = resolveProvider(env, 'APPBLIPS_LLM', { quiet: true });
-  if (provider.error || provider.missing.length) return { envConfigured: false };
-  return { envConfigured: true, envProvider: { id: provider.id, label: provider.label, model: provider.model } };
-};
-
-// The variables still to be filled in for `provider`.
-const missingVars = (provider) => [
-  !provider.apiKey && provider.vars.apiKey,
-  !provider.model && !provider.autoModel && provider.vars.model,
-  !provider.baseUrl && provider.vars.baseUrl,
-].filter(Boolean);
 
 // Prompt caching. Every provider caches a request start it has seen before;
 // they differ in what they need to be told.

@@ -57,7 +57,7 @@ const providerSearchConnector = ({ id, provider, providerName, name, engine, pri
     enableDescription: `Adds the web search globe to the chat box while ${providerName} is your AI provider. Search starts on (the globe is red); click the globe to turn it off for your prompts. Switch this tool off to remove the globe and turn search off completely.`,
   },
   about: {
-    what: `${engine} lets the AI look things up on the web while it builds${pageReads ? ' and read whole pages' : ''}, using your ${providerName} key. It works only while ${providerName} is your AI provider in Settings → AI (or the host’s Free option runs on ${providerName}).`,
+    what: `${engine} lets the AI look things up on the web while it builds${pageReads ? ' and read whole pages' : ''}, using your ${providerName} key. It works only while ${providerName} is your AI provider in Settings → AI.`,
     steps: [
       `Choose ${providerName} in Settings → AI. AppBlips detects it and switches this tool on, and its card says “In use”. While you use another provider, it shows as Off.`,
       'Being in use adds the globe button to the chat box. Web search starts on, and the globe is red while it is.',

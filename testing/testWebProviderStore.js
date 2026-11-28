@@ -152,12 +152,3 @@ test('one shared server never hands a key to another browser', async (t) => {
   assert.match((await response.json()).error, /key is empty/);
   assert.equal(auth, null);
 });
-
-test('the page learns Free AI\'s fixed reasoning level from the server', async () => {
-  const read = async (env) => (await handleProviderApi(new Request(ORIGIN + '/api/provider', { headers: { origin: ORIGIN } }), env, memoryKeys())).json();
-  assert.equal((await read({ APPBLIPS_REASONING_EFFORT: 'Off' })).reasoningEffortFixed, 'none');
-  assert.equal((await read({ APPBLIPS_REASONING_EFFORT: 'xhigh' })).reasoningEffortFixed, 'xhigh');
-  for (const value of [undefined, '', 'turbo']) {
-    assert.equal('reasoningEffortFixed' in await read({ APPBLIPS_REASONING_EFFORT: value }), false);
-  }
-});

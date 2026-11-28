@@ -244,19 +244,15 @@ export const START_FRESH_KEY = 'orion-start-fresh';
 // Session storage survives renderer reloads but ends when the app window
 // closes. Read this before mounting React so StrictMode cannot consume the
 // first-launch flag twice.
-// `returningFromSignIn`: the page is coming back from a Free AI sign-in that
-// left the page (signInHandoff.js). It carries on from where the user was,
-// like a reload, even when the browser opened it as a new session.
-export const beginAppSession = ({ returningFromSignIn = false } = {}) => {
+export const beginAppSession = () => {
   const key = 'orion-app-session-started';
   try {
     const storage = safeStorage('session');
-    const coldStart = !returningFromSignIn && storage?.getItem(key) !== 'true';
+    const coldStart = storage?.getItem(key) !== 'true';
     storage?.setItem(key, 'true');
     if (coldStart) markStartFresh();
     return coldStart;
   } catch {
-    if (returningFromSignIn) return false;
     markStartFresh();
     return true;
   }

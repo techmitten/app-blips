@@ -27,8 +27,6 @@ try {
     { headers: { 'content-type': 'text/event-stream' } },
   );
   globalThis.fetch = async (url, init) => {
-    // The Free AI sign-in check (src/lib/freeSignIn.js): no sign-in here.
-    if (url === '/api/provider') return Response.json({});
     const next = responses.shift();
     assert.ok(next, 'unexpected API request');
     return next(url, init);
@@ -206,7 +204,7 @@ try {
 
   // The lookup itself (generationUsage.js): own OpenRouter keys only, and it
   // waits out the moment before a generation is listed.
-  const orResolved = { id: 'openrouter', userSupplied: true, apiKey: 'sk-or-test', baseUrl: 'https://openrouter.ai/api/v1' };
+  const orResolved = { id: 'openrouter', apiKey: 'sk-or-test', baseUrl: 'https://openrouter.ai/api/v1' };
   const generation = { native_tokens_prompt: 3000, native_tokens_completion: 700, native_tokens_reasoning: 500, native_tokens_cached: 1000, tokens_prompt: 2900, tokens_completion: 690 };
   const calls = [];
   const found = await lookupGenerationUsage('gen-abc123', orResolved, {
@@ -222,7 +220,6 @@ try {
   const neverListed = await lookupGenerationUsage('gen-abc123', orResolved, { delays: [0], fetchImpl: async () => new Response('', { status: 404 }) });
   assert.deepEqual(await neverListed.json(), { usage: null });
   assert.equal((await lookupGenerationUsage('gen-abc123', { ...orResolved, id: 'openai' })).status, 400);
-  assert.equal((await lookupGenerationUsage('gen-abc123', { ...orResolved, userSupplied: false })).status, 400);
   assert.equal((await lookupGenerationUsage('../../keys', orResolved)).status, 400);
   // Reasoning is a floor on the output, and normalized counts stand in when
   // the native ones are missing.

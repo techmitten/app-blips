@@ -112,7 +112,7 @@ test('the session is Tavily when connected and nothing otherwise', () => {
 // ---- Web search through the AI provider (the globe) ----
 
 const fetchCall = (args) => ({ id: 'c2', type: 'function', function: { name: 'web_fetch', arguments: typeof args === 'string' ? args : JSON.stringify(args) } });
-const OFFERED = { available: true, paidBy: 'own', enabled: true, fetch: true, searches: 5 };
+const OFFERED = { available: true, enabled: true, fetch: true, searches: 5 };
 const tavilyOff = { tavily: { enabled: false, key: '', keyHint: '' } };
 const tavilyOn = { tavily: { enabled: true, key: '', keyHint: '0e1f' } };
 

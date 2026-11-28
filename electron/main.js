@@ -17,8 +17,6 @@ import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleChatProxy } from './server/chatProxy.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './server/staticFiles.js';
-import { describeConfig, formatConfigSummary } from './server/configSummary.js';
-import { envProviderStatus } from './server/providers.js';
 import { createProjectStore, isValidProjectId, writeFileAtomic, PROJECT_FILE } from './projectStore.js';
 import { HASH_RE, mimeTypeFor } from '../src/lib/codebase/paths.js';
 import { createProviderStore } from './providerStore.js';
@@ -113,10 +111,10 @@ async function writeSettings(patch) {
 // ---- Server handlers --------------------------------------------------------
 // The one /api/chat handler answers in-process. The desktop app is single-user,
 // so the provider saved in Settings → AI travels with each request (see
-// withSavedProvider); the env is read for a terminal-launched fallback provider.
+// withSavedProvider).
 // /api/surge/* (Publish) uses the Surge token from surgeStore.js the same way,
 // /api/pollinations/* the Pollinations key, /api/pixabay/* the Pixabay key and
-// /api/tavily/* the Tavily key. /api/web/* (DeepSeek web search) uses the
+// /api/tavily/* the Tavily key. /api/web/* (web search) uses the
 // same provider as /api/chat.
 
 const withSecurityHeaders = (response) => {
@@ -283,7 +281,7 @@ function registerIpc() {
   handle('desktop:blobs:get', (id, hashes) => projectStore.getBlobs(id, hashes));
   handle('desktop:blobs:missing', (id, hashes) => projectStore.missingBlobs(id, hashes));
 
-  handle('desktop:provider:get', () => ({ ...providerStore.describe(), ...envProviderStatus(process.env) }));
+  handle('desktop:provider:get', () => providerStore.describe());
   handle('desktop:provider:set', (patch) => providerStore.set(patch));
   handle('desktop:provider:clear', (options) => providerStore.clear({ resetOnboarding: options?.resetOnboarding === true }));
   handle('desktop:provider:models', (input) => providerStore.listModels(input));
@@ -609,7 +607,6 @@ app.whenReady().then(() => {
   ));
 
   console.log(`AppBlips desktop ${app.getVersion()} — projects in ${projectStore.root}`);
-  console.log(`\n${formatConfigSummary(describeConfig(process.env))}\n`);
   createWindow();
 });
 

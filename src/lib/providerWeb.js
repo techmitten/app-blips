@@ -1,7 +1,6 @@
 // Web search through the AI provider in use, page side of /api/web
 // (electron/server/webToolsApi.js). While the AI runs on a provider's own API
-// (the user's key in Settings → AI, or the host's Free option), the build
-// agent can get web_search (and web_fetch on DeepSeek), answered with that
+// (the user's key in Settings → AI), the build agent can get web_search (and web_fetch on DeepSeek), answered with that
 // provider's own search and paid for by the same key (webSearch.js
 // startWebSearch). The same fetch works in every host: the desktop app
 // answers it in-process, server.js and the Vite dev server over HTTP,
@@ -20,7 +19,6 @@ import { isDesktop, webProviderStore } from './desktop.js';
 import { loadWebSearch } from './config.js';
 import { providerSearchEnabled } from './connectors.js';
 import { messageHeaders } from './messageId.js';
-import { freeSignInHeaders } from './freeSignIn.js';
 import { recordUsage } from './tokenUsage.js';
 
 // The browser version names the provider in use (without its key), as it does
@@ -33,13 +31,10 @@ const withProvider = (body) => {
 async function call(path, body, { signal = null } = {}) {
   let response;
   const sent = withProvider(body);
-  // Paid by Free AI (no provider of the user's own): it may need a sign-in.
-  // The status check spends nothing and never needs one, so it doesn't load Clerk.
-  const signIn = !isDesktop && !sent.user_provider && !path.endsWith('/status') ? await freeSignInHeaders() : {};
   try {
     response = await fetch(path, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...messageHeaders(), ...signIn },
+      headers: { 'content-type': 'application/json', ...messageHeaders() },
       body: JSON.stringify(sent),
       signal,
     });
@@ -61,7 +56,7 @@ async function call(path, body, { signal = null } = {}) {
   }
 }
 
-const NONE = { available: false, paidBy: '', provider: '', fetch: false, searches: 0 };
+const NONE = { available: false, provider: '', fetch: false, searches: 0 };
 let status = NONE;
 
 const listeners = new Set();
@@ -82,7 +77,6 @@ export async function refreshProviderWeb() {
     if (answer?.available === true) {
       next = {
         available: true,
-        paidBy: typeof answer.paidBy === 'string' ? answer.paidBy : '',
         provider: typeof answer.provider === 'string' ? answer.provider : '',
         fetch: answer.fetch === true,
         searches: Number.isInteger(answer.searches) && answer.searches > 0 ? Math.min(answer.searches, 10) : 3,
@@ -96,8 +90,7 @@ export async function refreshProviderWeb() {
   return status;
 }
 
-// The last answer, { available, paidBy: 'own' | 'free' | '', provider,
-// fetch, searches }; a stable
+// The last answer, { available, provider, fetch, searches }; a stable
 // object between answers, for useSyncExternalStore.
 export const providerWebAvailability = () => status;
 

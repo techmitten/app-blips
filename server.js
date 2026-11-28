@@ -2,8 +2,7 @@
 // client (dist/) and answers POST /api/chat with the same handler the desktop
 // app uses. Started by `npm start` (from source) and by the Docker image.
 //
-// Single-user like the desktop app: /api/chat has no sign-in and spends the
-// configured key, so this listens on 127.0.0.1 unless HOST says otherwise
+// Single-user like the desktop app: /api/chat has no sign-in, so this listens on 127.0.0.1 unless HOST says otherwise
 // (the Docker image listens on 0.0.0.0 inside the container, and
 // docker-compose.yml publishes it on 127.0.0.1 only). Projects and the
 // Settings → AI provider choice live in the browser's own storage, as in
@@ -15,15 +14,14 @@
 // Only Node built-ins plus electron/server, so the Docker image ships it as
 // one bundled file (scripts/build-server.js) with no node_modules.
 import { createServer } from 'node:http';
-import { createReadStream, existsSync, readFileSync } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleChatProxy } from './electron/server/chatProxy.js';
-import { describeConfig, formatConfigSummary } from './electron/server/configSummary.js';
 import { toChatRequest, toFetchRequest, sendWebResponse } from './electron/server/nodeHttp.js';
 import { createBrowserKeys, removeLegacyKeyFiles } from './electron/server/browserKeys.js';
-import { createFreeLimits, freeLimitsEnabled, clientIp, visitorKey } from './electron/server/freeLimits.js';
+import { clientIp, visitorKey } from './electron/server/visitor.js';
 import { handleProviderApi } from './electron/server/providerApi.js';
 import { handleSurgeApi } from './electron/server/surgeApi.js';
 import { handlePollinationsApi } from './electron/server/pollinationsApi.js';
@@ -34,9 +32,6 @@ import { createUnsplashApi } from './electron/server/unsplashApi.js';
 import { handleSeoScanApi } from './electron/server/seoScanApi.js';
 import { withSavedProvider } from './electron/server/savedProvider.js';
 import { hostAllowed } from './electron/server/hosts.js';
-import { checkFreeSignIn } from './electron/server/freeAuth.js';
-import { withDotenvPemFallback } from './electron/server/freeSignInConfig.js';
-import { handleClerkWebhook } from './electron/server/clerkWebhook.js';
 import { SECURITY_HEADERS, MIME_TYPES } from './electron/server/staticFiles.js';
 import { resolveAddresses } from './electron/server/dnsLookup.js';
 
@@ -44,10 +39,6 @@ import { resolveAddresses } from './electron/server/dnsLookup.js';
 // settings as real environment variables instead; those win over the file.
 try {
   process.loadEnvFile();
-  const repaired = withDotenvPemFallback(process.env, readFileSync('.env', 'utf8'));
-  if (repaired.CLERK_JWT_KEY && repaired.CLERK_JWT_KEY !== process.env.CLERK_JWT_KEY) {
-    process.env.CLERK_JWT_KEY = repaired.CLERK_JWT_KEY;
-  }
 } catch (err) {
   // No .env is normal: environment only.
   if (err.code !== 'ENOENT') console.warn('[server] could not read .env:', err);
@@ -60,13 +51,6 @@ const HOST = process.env.HOST || '127.0.0.1';
 const withKeys = createBrowserKeys();
 // The built-in photo library, with this server's Unsplash key (unsplashApi.js).
 const handleUnsplashApi = createUnsplashApi();
-// Limits on the Free option (the .env provider) for a server many people can
-// reach; APPBLIPS_FREE_LIMITS=off turns them off (freeLimits.js).
-const freeLimits = freeLimitsEnabled(process.env) ? createFreeLimits(process.env) : null;
-// With Clerk keys set, Free AI needs a Google or GitHub sign-in (freeAuth.js).
-const checkSignIn = (request) => checkFreeSignIn(request, process.env, {
-  onReject: (reason) => console.warn('[free-auth] token verification failed:', reason),
-});
 removeLegacyKeyFiles();
 
 const sendText = (res, status, text, headers = {}) => {
@@ -148,11 +132,7 @@ const server = createServer((req, res) => {
     }
     const handle = async () => {
       const incoming = await toChatRequest(req, res);
-      const ip = clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress);
-      // For checking how a hosting platform forwards addresses; off by default.
-      if (process.env.APPBLIPS_DEBUG_CLIENT_IP) console.log(`[free-limits] x-forwarded-for="${req.headers['x-forwarded-for'] || ''}" peer=${req.socket.remoteAddress} -> ${ip}`);
-      const visitor = visitorKey(ip);
-      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env, { freeLimits, visitor, clientIp: ip, messageId: String(req.headers['x-appblips-message'] || ''), checkSignIn, freeImages: false }));
+      const response = await withKeys('provider', incoming, async (keys) => handleChatProxy(await withSavedProvider(incoming, keys), process.env));
       sendWebResponse(res, response, SECURITY_HEADERS, '[server]');
     };
     handle().catch(fail);
@@ -199,14 +179,10 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // DeepSeek web search for the AI, paid by the same key as /api/chat: the
-  // visitor's own DeepSeek key, or the Free option's (then counted against
-  // the visitor's free allowance).
+  // Web search for the AI, paid by the visitor's own key, as for /api/chat.
   if (req.url.startsWith('/api/web/')) {
-    const ip = clientIp(req.headers['x-forwarded-for'], req.socket.remoteAddress);
-    const visitor = visitorKey(ip);
     toFetchRequest(req, res)
-      .then((request) => withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), process.env, { freeLimits, visitor, clientIp: ip, messageId: String(req.headers['x-appblips-message'] || ''), checkSignIn, freeSearch: false })))
+      .then((request) => withKeys('provider', request, async (keys) => handleWebToolsApi(await withSavedProvider(request, keys), process.env)))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
@@ -224,14 +200,6 @@ const server = createServer((req, res) => {
   if (req.url === '/api/seo/scan') {
     toFetchRequest(req, res)
       .then((request) => handleSeoScanApi(request, process.env, { lookup: resolveAddresses }))
-      .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
-      .catch(fail);
-    return;
-  }
-
-  if (req.url === '/api/webhooks/clerk') {
-    toFetchRequest(req, res)
-      .then((request) => handleClerkWebhook(request, process.env))
       .then((response) => sendWebResponse(res, response, SECURITY_HEADERS, '[server]'))
       .catch(fail);
     return;
@@ -262,6 +230,5 @@ server.listen(PORT, HOST, () => {
   // Inside Docker, HOST is 0.0.0.0 but the address to open is the published
   // one; localhost is right for the default compose file.
   const shown = HOST === '0.0.0.0' || HOST === '::' || HOST === '127.0.0.1' ? 'localhost' : HOST;
-  console.log(`\n${formatConfigSummary(describeConfig(process.env))}\n`);
   console.log(`AppBlips is running. Open http://${shown}:${process.env.APPBLIPS_PUBLIC_PORT || PORT} in your browser.`);
 });

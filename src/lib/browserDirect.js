@@ -1,14 +1,14 @@
 // The browser version's own-key requests, answered inside the page so the
 // user's keys go straight from this browser to the service they belong to and
 // never reach AppBlips' server. Loaded on first use by browserKeys.js, so the
-// desktop app, Android and visitors who only use Free never fetch this chunk.
+// desktop app and Android never fetch this chunk.
 //
 // The handlers are the same Fetch-only ones server.js, electron/main.js and
 // android.js use (one implementation, no drift); here they run with the page's
 // own fetch. Every AI provider preset, Tavily and Pixabay answer CORS for any
-// origin. What still goes to AppBlips' server: the Free option (the server's
-// own key and limits), the server's settings (GET /api/provider), and Surge
-// and Pollinations, whose APIs don't allow browser requests.
+// origin. What still goes to AppBlips' server: Surge and Pollinations, whose
+// APIs don't allow browser requests, and chat or web search requests without
+// a provider (the server says to choose one).
 //
 // Keys stay where browserKeys.js has always kept them (localStorage, the same
 // encoding the server used), so keys saved by earlier versions keep working.
@@ -58,8 +58,7 @@ const createLocalStore = (read, write) => ({
   async clear() { write(null); },
 });
 
-// True when a JSON body names the user's own provider (`user_provider`),
-// which is how chat and web search requests say "not Free".
+// True when a JSON body names the user's own provider (`user_provider`).
 const usesOwnProvider = (text) => {
   try {
     const body = JSON.parse(text);
@@ -75,10 +74,9 @@ const usesOwnProvider = (text) => {
 const pageFetch = (fetchImpl) => (input, init = {}) => fetchImpl(input, init.redirect === 'manual' ? { ...init, redirect: 'follow' } : init);
 
 // -> handle(slot, request) returning a Response, or null when the request
-// should go to AppBlips' server as before (Free, Surge, Pollinations…).
-// `fetchServer` is the page's original fetch, for the server's own settings;
+// should go to AppBlips' server as before (Surge, Pollinations…).
 // `read(slot)` / `write(slot, value)` are browserKeys.js's storage.
-export function createDirectApi({ fetchImpl, fetchServer, read, write }) {
+export function createDirectApi({ fetchImpl, read, write }) {
   const stores = new Map();
   const storeFor = (slot) => {
     if (!stores.has(slot)) stores.set(slot, createLocalStore(() => read(slot), (value) => write(slot, value)));
@@ -94,24 +92,12 @@ export function createDirectApi({ fetchImpl, fetchServer, read, write }) {
     if (slot !== 'provider') return null;
 
     const keys = storeFor('provider');
-    if (path === '/api/provider') {
-      if (request.method !== 'GET') return handleProviderApi(request, {}, keys);
-      // The server's settings (Free, sign-in, output limit) with this
-      // browser's key status in place of the server's empty one.
-      const response = await fetchServer(request);
-      let settings = {};
-      try { settings = await response.json(); } catch { /* not JSON */ }
-      if (!response.ok) return json(settings, response.status);
-      return json({ ...settings, ...keys.describe() });
-    }
-    if (path.startsWith('/api/provider/')) return handleProviderApi(request, {}, keys);
+    if (path === '/api/provider' || path.startsWith('/api/provider/')) return handleProviderApi(request, {}, keys);
 
     // Chat and web search: only the user's own provider runs here.
     if (request.method !== 'POST') return null;
     const text = await request.clone().text();
     if (!usesOwnProvider(text)) return null;
-    // The server's own settings (APPBLIPS_MAX_OUTPUT_TOKENS…) are for Free AI
-    // only, so own-key requests run with none.
     if (path === '/api/chat') return handleChatProxy(await withSavedProvider(request, keys), {});
     if (path.startsWith('/api/web')) return handleWebToolsApi(await withSavedProvider(request, keys), {}, { fetch: direct });
     return null;

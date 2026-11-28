@@ -39,7 +39,7 @@ export const usageFromGeneration = (data) => {
 };
 
 export async function lookupGenerationUsage(id, provider, { fetchImpl = globalThis.fetch, delays = RETRY_DELAYS_MS, signal } = {}) {
-  if (!provider?.userSupplied || provider.id !== 'openrouter') {
+  if (provider?.id !== 'openrouter') {
     return json({ error: 'Token counts can only be looked up for your own OpenRouter key.' }, 400);
   }
   if (typeof id !== 'string' || !GENERATION_ID.test(id)) return json({ error: 'Invalid generation ID.' }, 400);

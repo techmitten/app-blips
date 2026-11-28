@@ -1,7 +1,6 @@
 // One id per chat message the user sends. Every request that message causes
-// (the AI's turns, tool calls, automatic repairs) carries it in a header, so
-// the Free option's limiter (electron/server/freeLimits.js) counts the message
-// once instead of counting what the AI does with it.
+// (the AI's turns, tool calls, automatic repairs) carries it in a header,
+// which keys prompt caching (electron/server/providers.js).
 const HEADER = 'x-appblips-message';
 let current = '';
 

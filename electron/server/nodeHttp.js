@@ -62,15 +62,6 @@ const browserKeyHeaders = (req) => {
   return out;
 };
 
-const WEBHOOK_HEADERS = ['svix-id', 'svix-timestamp', 'svix-signature'];
-const webhookHeaders = (req) => {
-  const out = {};
-  for (const name of WEBHOOK_HEADERS) {
-    if (typeof req.headers[name] === 'string') out[name] = req.headers[name];
-  }
-  return out;
-};
-
 export async function toChatRequest(req, res = null) {
   const body = await readBody(req, MAX_CHAT_BODY_BYTES);
   const protocol = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
@@ -79,7 +70,6 @@ export async function toChatRequest(req, res = null) {
     headers: {
       'content-type': 'application/json',
       ...(req.headers.origin ? { origin: req.headers.origin } : {}),
-      ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
       ...browserKeyHeaders(req),
     },
     body,
@@ -98,10 +88,7 @@ export async function toFetchRequest(req, res = null) {
     headers: {
       ...(req.headers['content-type'] ? { 'content-type': req.headers['content-type'] } : {}),
       ...(req.headers.origin ? { origin: req.headers.origin } : {}),
-      // The Free option's sign-in (freeAuth.js), for /api/web/*.
-      ...(req.headers.authorization ? { authorization: req.headers.authorization } : {}),
       ...browserKeyHeaders(req),
-      ...webhookHeaders(req),
     },
     ...(hasBody ? { body } : {}),
     signal: clientSignal(res),

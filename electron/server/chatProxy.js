@@ -5,21 +5,15 @@
 // Anthropic is the exception to the plain fetch: anthropic.js calls it through
 // the official SDK and hands back an OpenAI-shaped Response.
 //
-// The point of this proxy: the real base URL / API key / model / tuning knobs
-// live only in server-side env vars (OPENAI_*, no VITE_ prefix), so they never
-// reach the client bundle. The renderer only ever talks to this app's own
-// origin at POST /api/chat.
-//
-// Single-user hosts (the desktop app, Android, a local server.js) attach the
-// provider saved in Settings → AI themselves (withSavedProvider); the renderer
-// may also send its own `user_provider`. Anything else uses the env provider.
+// The renderer only ever talks to this app's own origin at POST /api/chat.
+// Every request runs on the user's own provider from Settings → AI: the host
+// attaches the saved one (withSavedProvider), or the renderer sends its own
+// `user_provider`. There is no server-side provider.
 
 import { lookupGenerationUsage } from './generationUsage.js';
-import { freeAiOff, FREE_AI_OFF_ERROR, resolveProvider, resolveUserProvider, applyProviderSettings, providerLabel, llmEnv, isOpenRouter, isUncensoredModel, UNCENSORED_ERROR, DEFAULT_BUILD_MAX_TOKENS, fixedMaxOutputTokens, freeReasoningEffort } from './providers.js';
+import { resolveUserProvider, applyProviderSettings, providerLabel, DEFAULT_BUILD_MAX_TOKENS } from './providers.js';
 import { relayUpstream } from './relay.js';
 import { callAnthropic } from './anthropic.js';
-import { defaultModel } from './defaultModel.js';
-import { meterResponse } from './freeLimits.js';
 
 export const DEFAULT_TEMPERATURE = 0;
 
@@ -34,43 +28,12 @@ const badRequest = (error, status = 400) => new Response(JSON.stringify({ error 
   headers: { 'content-type': 'application/json' },
 });
 
-// Misconfiguration is the operator's problem, and the operator is also the
-// user of a single-user install, so they get the exact fix.
-const configError = (env, detail) => new Response(
-  JSON.stringify({ error: `AppBlips isn't set up yet. ${detail} Or set your own provider in Settings → AI.` }),
-  { status: 500, headers: { 'content-type': 'application/json' } },
-);
-
-// The provider for this request: the user's own (Settings → AI) when the
-// client sent one, otherwise the env provider. Returns { provider } or
+// The user's own provider (Settings → AI). Returns { provider } or
 // { response } (an error to send back).
-const pickProvider = async (env, payload) => {
-  if (payload?.user_provider != null) {
-    const provider = resolveUserProvider(payload.user_provider);
-    if (provider.error) return { response: badRequest(`Your AI provider settings are incomplete: ${provider.error}`) };
-    return { provider };
-  }
-  if (freeAiOff(env)) {
-    return { response: new Response(JSON.stringify({ error: FREE_AI_OFF_ERROR }), { status: 403, headers: { 'content-type': 'application/json' } }) };
-  }
-  const provider = resolveProvider(env, 'APPBLIPS_LLM');
-  if (provider.error) return { response: configError(env, provider.error) };
-  if (provider.missing.length) {
-    return {
-      response: configError(
-        env,
-        `Missing configuration: ${provider.missing.join(', ')}. Add ${provider.missing.length > 1 ? 'them' : 'it'} to your .env (or your host's environment variables) and restart.`,
-      ),
-    };
-  }
-  if (provider.autoModel) {
-    try {
-      provider.model = await defaultModel(provider);
-    } catch (err) {
-      return { response: configError(env, err.message) };
-    }
-  }
-  if (isOpenRouter(provider) && isUncensoredModel(provider.model)) return { response: configError(env, UNCENSORED_ERROR) };
+const pickProvider = (payload) => {
+  if (payload?.user_provider == null) return { response: badRequest('Choose an AI provider and add your API key in Settings → AI.') };
+  const provider = resolveUserProvider(payload.user_provider);
+  if (provider.error) return { response: badRequest(`Your AI provider settings are incomplete: ${provider.error}`) };
   return { provider };
 };
 
@@ -139,32 +102,12 @@ export const smallerOutputLimit = (detail, current) => {
 // names Settings → AI, not passed through as the provider's 401.
 const rejectedUserKey = (provider) => badRequest(`${providerLabel(provider.id)} rejected the API key in Settings → AI.`);
 
-const hasImageContent = (messages) => Array.isArray(messages) && messages.some(
-  (m) => Array.isArray(m?.content) && m.content.some((part) => part?.type === 'image_url'),
-);
-
-// The configured model, or a role-specific one: OPENAI_LLM_VISION_MODEL for
-// requests carrying an image. Never applied to the user's own provider, whose
-// model is theirs to choose.
-const routeModel = (env, provider, payload) => {
-  if (provider.userSupplied) return provider.model;
-  if (hasImageContent(payload.messages)) return llmEnv(env, 'VISION_MODEL') || provider.model;
-  return provider.model;
-};
-
 // How long the provider has to start answering (headers, not the whole
 // reply, which streams for minutes). Without it a provider that never
 // answers holds the request open for good.
 export const UPSTREAM_CONNECT_MS = 120_000;
 
-// `freeLimits` (freeLimits.js) limits requests answered with the env
-// provider (the Free option) per `visitor`; server.js passes both.
-// `checkSignIn(request)` (freeAuth.js checkFreeSignIn), when given, must
-// accept a Free request first: { user } or { refused }; a signed-in user is
-// then counted as themselves instead of by address. `freeImages: false`
-// refuses Free requests that carry an image (the browser hosts: Free AI there
-// takes no attachments or screenshots). The desktop app passes none of these.
-export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS, freeLimits = null, visitor = '', clientIp = '', messageId = '', checkSignIn = null, freeImages = true } = {}) {
+export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREAM_CONNECT_MS } = {}) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -184,106 +127,40 @@ export async function handleChatProxy(request, env, { connectTimeoutMs = UPSTREA
   }
 
   // Settings → AI may supply an output limit. Without one, builds get
-  // DEFAULT_BUILD_MAX_TOKENS and Ask uses the provider's default. A server
-  // that sets APPBLIPS_MAX_OUTPUT_TOKENS decides instead for requests on its
-  // own provider (Free AI), and whatever the page sent is ignored. Requests
-  // with the user's own provider (`user_provider`, as in pickProvider) keep
-  // the user's limit.
-  const fixedLimit = payload?.user_provider != null ? 0 : fixedMaxOutputTokens(env);
-  const maxTokens = fixedLimit || payload?.max_tokens;
-  if (!fixedLimit && maxTokens != null && (!Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
+  // DEFAULT_BUILD_MAX_TOKENS and Ask uses the provider's default.
+  const maxTokens = payload?.max_tokens;
+  if (maxTokens != null && (!Number.isSafeInteger(maxTokens) || maxTokens <= 0)) {
     return badRequest('The output token limit must be a positive whole number. Change it in Settings → AI.');
   }
 
-  // Likewise APPBLIPS_REASONING_EFFORT sets Free AI's reasoning level; own-key
-  // requests keep the user's.
-  if (payload && typeof payload === 'object' && payload.user_provider == null) {
-    payload.reasoning_effort = freeReasoningEffort(env, payload.reasoning_effort);
-  }
-
-  const picked = await pickProvider(env, payload);
+  const picked = pickProvider(payload);
   if (picked.response) return picked.response;
   const { provider } = picked;
 
   // The final counts of an OpenRouter request stopped part-way, for the
-  // token counter (generationUsage.js). Not a chat request: no model call,
-  // and Free AI's limits don't apply (own keys only).
+  // token counter (generationUsage.js). Not a chat request: no model call.
   if (payload && typeof payload === 'object' && 'usage_lookup' in payload) {
     return lookupGenerationUsage(payload.usage_lookup, provider, { signal: request.signal });
   }
 
-  if (!freeImages && !provider.userSupplied && hasImageContent(payload.messages)) {
-    return badRequest('Free AI can’t read images. Add your own API key in Settings → AI to attach images or screenshots.');
-  }
-
-  // The Free option: signed in, if the server asks for it, then counted per
-  // visitor (and its output capped, if set).
-  if (checkSignIn && !provider.userSupplied) {
-    const signedIn = await checkSignIn(request);
-    if (signedIn.refused) {
-      return new Response(JSON.stringify({ error: signedIn.refused, source: 'free-sign-in', stop: true }), {
-        status: 401,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    if (signedIn.user) visitor = `user:${signedIn.user}`;
-  }
-  let ticket = null;
-  if (freeLimits && !provider.userSupplied) {
-    // Synchronous in server.js; a promise in the Cloudflare Worker.
-    const started = await freeLimits.begin(visitor, messageId, clientIp || (visitor && !visitor.startsWith('user:') ? visitor : ''));
-    if (started.refused) {
-      const { error, retryAfter } = started.refused;
-      return new Response(JSON.stringify({ error, source: 'free-limit' }), {
-        status: 429,
-        headers: { 'content-type': 'application/json', ...(retryAfter ? { 'Retry-After': String(retryAfter) } : {}) },
-      });
-    }
-    ticket = started;
-  }
-  try {
-    const response = await forward(request, env, payload, provider, maxTokens, connectTimeoutMs, ticket ? freeLimits.limits.maxOutputTokens : 0);
-    if (!ticket) return response;
-    // An error (or a cancelled request) is passed on as it is and counts
-    // toward the hourly limit only.
-    if (!response.ok) {
-      ticket.end(0);
-      return response;
-    }
-    const sentChars = JSON.stringify(payload.messages ?? '').length + JSON.stringify(payload.tools ?? '').length;
-    return meterResponse(response, { sentChars, done: (tokens) => ticket.end(tokens) });
-  } catch (err) {
-    ticket?.end(0);
-    throw err;
-  }
+  return forward(request, payload, provider, maxTokens, connectTimeoutMs);
 }
 
 // Sends the request to `provider` and returns its answer, or an error.
-async function forward(request, env, payload, provider, maxTokens, connectTimeoutMs, outputCap) {
+async function forward(request, payload, provider, maxTokens, connectTimeoutMs) {
   const url = toChatCompletionsUrl(provider.baseUrl);
   const apiKey = provider.apiKey;
-  const model = routeModel(env, provider, payload);
+  const { model } = provider;
 
-  const { messages, tools, tool_choice, stream, reasoning_effort, auto_fix } = payload;
+  const { messages, tools, tool_choice, stream, reasoning_effort } = payload;
 
-  // 0.0 everywhere (desktop, browser, Docker, Android) unless
-  // OPENAI_LLM_TEMPERATURE sets another; reasoning models, which reject a
-  // temperature, have it removed (providers.js).
-  let temperature = DEFAULT_TEMPERATURE;
-  if (auto_fix === true) {
-    // Error auto-fix requests (runtime or syntax) must be deterministic, so
-    // pin temperature to 0.0 regardless of OPENAI_LLM_TEMPERATURE.
-    temperature = 0;
-  } else if (llmEnv(env, 'TEMPERATURE') !== '') {
-    const parsedTemperature = parseFloat(llmEnv(env, 'TEMPERATURE'));
-    if (!isNaN(parsedTemperature)) temperature = parsedTemperature;
-  }
-
+  // 0.0 everywhere (desktop, browser, Docker, Android); reasoning models,
+  // which reject a temperature, have it removed (providers.js).
   const bodyObj = {
     model,
     stream: !!stream,
     messages,
-    temperature,
+    temperature: DEFAULT_TEMPERATURE,
   };
 
   if (bodyObj.stream) {
@@ -295,8 +172,6 @@ async function forward(request, env, payload, provider, maxTokens, connectTimeou
   const defaultLimit = maxTokens == null && (payload.ask !== true || provider.id === 'anthropic');
   if (maxTokens != null) bodyObj.max_tokens = maxTokens;
   else if (defaultLimit) bodyObj.max_tokens = DEFAULT_BUILD_MAX_TOKENS;
-  // The Free option's optional per-request cap (freeLimits.js) wins over both.
-  if (outputCap) bodyObj.max_tokens = Math.min(bodyObj.max_tokens ?? outputCap, outputCap);
 
   if (tools) bodyObj.tools = tools;
   if (tool_choice) bodyObj.tool_choice = tool_choice;
@@ -359,9 +234,7 @@ async function forward(request, env, payload, provider, maxTokens, connectTimeou
     // to the provider, and some providers (OpenAI) send their error replies
     // without CORS headers, so a rejected key or a lack of credit looks like
     // a network failure here.
-    const error = provider.userSupplied
-      ? `Couldn't reach ${providerLabel(provider.id)}. Check your internet connection, then check your API key and credit in Settings → AI.`
-      : `Failed to reach LLM endpoint: ${err.message}`;
+    const error = `Couldn't reach ${providerLabel(provider.id)}. Check your internet connection, then check your API key and credit in Settings → AI.`;
     return new Response(JSON.stringify({ error }), {
       status: 502,
       headers: { 'content-type': 'application/json' },
@@ -371,14 +244,14 @@ async function forward(request, env, payload, provider, maxTokens, connectTimeou
   // Anthropic errors are logged in anthropic.js, with the reason.
   if (!upstream.ok && provider.id !== 'anthropic') console.warn(`[proxy] ${provider.id} (${model}) answered HTTP ${upstream.status}`);
 
-  if (provider.userSupplied && (upstream.status === 401 || upstream.status === 403)) {
+  if (upstream.status === 401 || upstream.status === 403) {
     upstream.body?.cancel().catch(() => {});
     return rejectedUserKey(provider);
   }
 
   // A provider's own 429 (low balance, a per-account concurrency cap, an
   // overloaded model) passes through with the provider's reason, marked as
-  // such, rather than looking like this proxy's own limit.
+  // such.
   if (upstream.status === 429) {
     const detail = await upstreamErrorMessage(upstream);
     const retryAfter = upstream.headers.get('retry-after');

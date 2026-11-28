@@ -216,7 +216,6 @@ async function runCodebaseEdit({
       tools: availableTools,
       tool_choice: turn === 1 || requireEdit ? 'required' : 'auto',
       signal,
-      forceTemperatureZero: true,
       reasoningEffort,
     });
     diagnostics.info('Model turn received', {

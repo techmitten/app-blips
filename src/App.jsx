@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { startUserMessage } from './lib/messageId';
-import { ensureFreeSignIn, openFreeSignIn } from './lib/freeSignIn';
-import { savePromptForSignIn, clearPromptForSignIn } from './lib/signInHandoff';
 import { flushSync } from 'react-dom';
 import './App.css';
 import { isDesktop, providerApi, clearBrowserProjectStore } from './lib/desktop';
@@ -65,8 +63,6 @@ import { loadShowCodeView, SHOW_CODE_VIEW_KEY, loadAskClarifyingQuestions, ASK_C
 
 import useTheme from './hooks/useTheme';
 import useProviderWeb from './hooks/useProviderWeb';
-import useFreeAiInUse from './hooks/useFreeAiInUse';
-import { useFreeSignIn } from './hooks/useFreeSignIn';
 import { refreshPhotoLibrary } from './lib/unsplash';
 import useVisualViewport from './hooks/useVisualViewport';
 import useChatFont from './hooks/useChatFont';
@@ -98,9 +94,8 @@ import { confirmExternal } from './lib/externalLinks';
 // composes everything else from hooks (src/hooks) and components
 // (src/components). See CLAUDE.md for the module map.
 
-export default function App({ coldStart = false, signInHandoff = null }) {
+export default function App({ coldStart = false }) {
   useVisualViewport();
-  const freeAccount = useFreeSignIn();
   // --- Layout / chrome state ---
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' or 'code'
   const [showCodeView, setShowCodeView] = useState(loadShowCodeView);
@@ -154,8 +149,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   useEffect(() => {
     let cancelled = false;
     providerApi.get().then((info) => {
-      // With AI from the host's environment variables onboarding still runs
-      // once, to explain the Free option it adds to the provider list.
       const ready = info.enabled && info.id && info.model && info.hasKey;
       if (!cancelled) setDesktopOnboarding(!ready && !info.onboardingComplete ? { loading: false, info } : null);
     }).catch((err) => {
@@ -207,11 +200,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // a project resume or an adopted pending job can fill it, and otherwise the
   // home page opens in the App studio (see the pending-job effect). The other
   // studios are reached from the side rail, which asks before discarding work.
-  // Coming back from a Free AI sign-in that left the page (signInHandoff.js)
-  // reopens the studio the prompt was typed in.
-  const [studioMode, setStudioMode] = useState(() => (
-    signInHandoff?.studioMode && signInHandoff.studioMode !== 'codebase' ? normalizeStudioMode(signInHandoff.studioMode) : null
-  ));
+  const [studioMode, setStudioMode] = useState(null);
   const studioModeRef = useRef(null);
   studioModeRef.current = studioMode;
   // Imported React + Vite projects (studioMode 'codebase', lib/codebase/):
@@ -310,18 +299,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     setTimeout(resolve, PREVIEW_SHUTTER_MS);
   }), []);
   const [attachmentError, setAttachmentError] = useState(null);
-  // Free AI in the browser version takes no images: the chat box offers no
-  // attach or screenshot buttons, and an image picked before switching to
-  // Free is dropped (chatProxy.js refuses them too).
-  const freeAi = useFreeAiInUse();
-  const [attachmentFreeAi, setAttachmentFreeAi] = useState(freeAi);
-  if (attachmentFreeAi !== freeAi) {
-    setAttachmentFreeAi(freeAi);
-    if (freeAi) {
-      setAttachment(null);
-      setAttachmentError(null);
-    }
-  }
   // Mirrors `attachment` for the duration of one in-flight request, purely so
   // the pending/"sending..." chat bubble can show the thumbnail -- see the
   // attachmentForRequest capture in handleGenerate.
@@ -447,7 +424,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // doesn't tidy up the state of the run that replaced it.
   const generationRunRef = useRef(0);
   const isGeneratingRef = useRef(false);
-  const signInCheckRef = useRef(false);
   const isAutoFixingRef = useRef(false);
   const isEvaluatingNewCodeRef = useRef(false);
   const pendingRuntimeErrorRef = useRef(null);
@@ -1764,28 +1740,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     e?.preventDefault();
     const currentPrompt = typeof overridePrompt === 'string' ? overridePrompt : prompt;
     if (!currentPrompt.trim()) return;
-    // Free AI on a server that asks for a sign-in: sign in first; the prompt
-    // stays in the box to send again.
     if (!isAutoFix) {
-      if (signInCheckRef.current) return;
-      signInCheckRef.current = true;
-      try {
-        if (!(await ensureFreeSignIn())) {
-          // In case the sign-in leaves the page, keep the prompt for the next load.
-          savePromptForSignIn({ prompt: currentPrompt, studioMode: studioModeRef.current, projectId: currentProjectId });
-          return;
-        }
-        clearPromptForSignIn();
-      } catch (err) {
-        setError(err.message);
-        return;
-      } finally {
-        signInCheckRef.current = false;
-      }
-    }
-
-    if (!isAutoFix) {
-      // Every request this prompt causes counts as this one message on the Free option.
+      // Every request this prompt causes shares one message id (prompt caching).
       startUserMessage();
       cancelPendingReload();
       runtimeErrorRetriesRef.current = 0;
@@ -2186,8 +2142,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
       logError(isAutoFix ? 'Auto-fix failed' : 'Generation failed', err);
       setError(isAutoFix ? AUTO_FIX_FAILURE : err.message);
       if (!isAutoFix) setPrompt(currentPrompt); // Restore the user's request, never internal diagnostics
-      // The Free AI sign-in ended (or was never made): offer it again.
-      if (err.needsFreeSignIn) openFreeSignIn().catch((signInErr) => logError('Could not open the Free AI sign-in', signInErr));
       // Clear the pending job on a hard error — user can see the error message
       // and re-submit themselves; stale job records would be confusing.
       clearPendingJob();
@@ -2843,25 +2797,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
     markStartFresh();
   };
 
-  // Back from a Free AI sign-in that left the page: put the unsent prompt back
-  // in the box, in a fresh workspace of its studio (a saved project resumes
-  // through useProjects instead).
-  useEffect(() => {
-    if (!signInHandoff) return;
-    if (!signInHandoff.projectId && studioModeRef.current) {
-      resetCurrentWorkspace(studioModeRef.current);
-      setPreviewMode(STUDIO_MODES[studioModeRef.current]?.defaultPreviewMode || 'mobile');
-    }
-    setPrompt(signInHandoff.prompt);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Signed in without leaving the page: the saved prompt isn't needed.
-  const freeSignedIn = Boolean(freeAccount.state?.signedIn);
-  useEffect(() => {
-    if (freeSignedIn) clearPromptForSignIn();
-  }, [freeSignedIn]);
-
   // Deleting the currently-open project also clears the workspace.
   const handleDeleteProject = async (project) => {
     const wasCurrent = currentProjectId === project.id;
@@ -3069,7 +3004,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         projectCount={myProjects.length}
         seoProject={seoProject}
         galleryProject={galleryProject}
-        freeAccount={freeAccount}
       />
     </Suspense>
   );
@@ -3240,8 +3174,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         attachment={attachment}
         attachmentError={attachmentError}
         isCapturingScreenshot={isCapturingScreenshot}
-        onAttachScreenshot={freeAi ? undefined : handleAttachScreenshot}
-        onAttachFile={freeAi ? undefined : handleAttachFile}
+        onAttachScreenshot={handleAttachScreenshot}
+        onAttachFile={handleAttachFile}
         onRemoveAttachment={handleRemoveAttachment}
         webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
         webSearchProvider={providerWeb.provider}
@@ -3263,7 +3197,6 @@ export default function App({ coldStart = false, signInHandoff = null }) {
         onDeleteProject={handleDeleteProject}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenExtensions={() => { setSettingsInitialTab('connectors'); setIsSettingsOpen(true); }}
-        freeAccount={freeAccount}
         isResuming={isResumingProject}
         versionsCount={versions.length}
         isHistoryOpen={isHistoryOpen}
@@ -3335,8 +3268,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
                 attachment={attachment}
                 attachmentError={attachmentError}
                 isCapturingScreenshot={isCapturingScreenshot}
-                onAttachScreenshot={freeAi ? undefined : handleAttachScreenshot}
-                onAttachFile={freeAi ? undefined : handleAttachFile}
+                onAttachScreenshot={handleAttachScreenshot}
+                onAttachFile={handleAttachFile}
                 onRemoveAttachment={handleRemoveAttachment}
                 webSearchAvailable={providerWeb.available && providerWeb.extensionOn}
                 webSearchProvider={providerWeb.provider}

@@ -1,7 +1,7 @@
 // src/lib/browserKeys.js + browserDirect.js: in the browser version, own-key
 // requests (AI provider, Tavily, Pixabay) are answered inside the page and go
-// straight to the provider, so the key never reaches AppBlips' server. Free
-// requests, Surge and Pollinations still go to the server. Runs in node with
+// straight to the provider, so the key never reaches AppBlips' server. Chats
+// without a provider, Surge and Pollinations still go to the server. Runs in node with
 // a stand-in window and an in-memory localStorage.
 import assert from 'node:assert/strict';
 import { test, beforeEach } from 'node:test';
@@ -17,8 +17,6 @@ globalThis.window = globalThis;
 globalThis.location = new URL('https://app.example/');
 
 const ORIGIN = 'https://app.example';
-const SERVER_SETTINGS = { id: '', hasKey: false, envConfigured: true };
-let serverSettings = SERVER_SETTINGS;
 // Every request the page's own fetch makes: to AppBlips' server (same origin)
 // or straight to a provider.
 let seen = [];
@@ -27,7 +25,6 @@ globalThis.fetch = async (input, init) => {
   const request = new Request(input instanceof Request ? input : new URL(String(input), location.href).href, init);
   const body = request.method === 'GET' ? '' : await request.clone().text();
   seen.push({ url: request.url, method: request.method, headers: request.headers, body });
-  if (request.url === `${ORIGIN}/api/provider`) return Response.json(serverSettings);
   if (request.url.startsWith(ORIGIN)) return Response.json({ answeredBy: 'server' });
   return providerReply(request, body);
 };
@@ -44,7 +41,6 @@ const sentKeyToServer = () => toServer().some((r) => r.headers.has(KEY_HEADER) |
 beforeEach(() => {
   stored.clear();
   seen = [];
-  serverSettings = SERVER_SETTINGS;
   providerReply = () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
 });
 
@@ -64,7 +60,7 @@ test('an own-key chat goes straight to the provider with the saved key, never to
   assert.equal(sentKeyToServer(), false);
 });
 
-test('a Free chat (no user_provider) goes to the server without any key', async () => {
+test('a chat without a provider (no user_provider) goes to the server without any key', async () => {
   saveProviderKey('openai', OPENAI_KEY);
   const response = await fetch('/api/chat', {
     method: 'POST',
@@ -76,10 +72,8 @@ test('a Free chat (no user_provider) goes to the server without any key', async 
   assert.equal(sentKeyToServer(), false);
 });
 
-test('own-key chats keep the user\'s output limit when the host fixes Free AI\'s', async () => {
+test('own-key chats keep the user\'s output limit', async () => {
   saveProviderKey('openai', OPENAI_KEY);
-  serverSettings = { ...SERVER_SETTINGS, maxOutputTokensFixed: true };
-  await fetch('/api/provider');
   await fetch('/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -89,13 +83,11 @@ test('own-key chats keep the user\'s output limit when the host fixes Free AI\'s
   assert.equal(sent.max_completion_tokens ?? sent.max_tokens, 1234);
 });
 
-test('GET /api/provider merges the server settings with this browser\'s key status', async () => {
+test('GET /api/provider is answered in the page with this browser\'s key status', async () => {
   saveProviderKey('openai', OPENAI_KEY);
   const info = await (await fetch('/api/provider')).json();
-  assert.equal(info.envConfigured, true);
-  assert.equal(info.id, 'openai');
-  assert.equal(info.hasKey, true);
-  assert.equal(sentKeyToServer(), false);
+  assert.deepEqual(info, { id: 'openai', hasKey: true });
+  assert.equal(toServer().length, 0);
 });
 
 test('saving and clearing a key stays in this browser, in the encoding older versions used', async () => {

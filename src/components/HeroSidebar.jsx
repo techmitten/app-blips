@@ -12,7 +12,6 @@ import { isDesktop, desktopBridge } from '../lib/desktop';
 import { safeStorage } from '../lib/config';
 import DiscordIcon from './DiscordIcon';
 import FeedbackModal from './FeedbackModal';
-import FreeAccountControl from './FreeAccountControl';
 import ChatModeToggle from './ChatModeToggle';
 import ProjectRowMenu from './ProjectRowMenu';
 import { RenameProjectModal, DeleteProjectModal } from './ProjectActionModals';
@@ -107,7 +106,6 @@ export default function HeroSidebar({
   onDeleteProject,
   onOpenSettings,
   onOpenExtensions,
-  freeAccount = null,
   workspaceActive = false,
   versionsCount = 0,
   isHistoryOpen = false,
@@ -370,7 +368,6 @@ export default function HeroSidebar({
             )}
           </>
         )}
-        <FreeAccountControl account={freeAccount} variant="rail" collapsed={collapsed} />
         {/* Community and legal links, only while the rail shows labels. */}
         <div className={`hero-rail-links${collapsed ? ' is-collapsed' : ''}`} inert={collapsed} aria-hidden={collapsed}>
           <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" aria-label="AppBlips on GitHub" title="AppBlips on GitHub">
@@ -399,13 +396,6 @@ export default function HeroSidebar({
           </button>
         </div>
         <div className="studio-menu-list">
-          {freeAccount?.state?.required && (
-            <>
-              <p className="studio-menu-heading">Account</p>
-              <FreeAccountControl account={freeAccount} variant="studio-menu" onBeforeAction={() => setMenuOpen(false)} />
-              <div className="studio-menu-sep" role="separator" />
-            </>
-          )}
           <p className="studio-menu-heading">New project</p>
           {STUDIOS.map(({ key, Icon, menuLabel }) => (
             <button

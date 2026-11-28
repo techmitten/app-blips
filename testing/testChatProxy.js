@@ -2,12 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { handleChatProxy, smallerOutputLimit } from '../electron/server/chatProxy.js';
 
-const env = {
-  OPENAI_BASE_URL: 'https://llm.example/v1',
-  OPENAI_API_KEY: 'test-key',
-  OPENAI_LLM_MODEL: 'test-model',
-  APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000',
-};
+const env = {};
+// Every request runs on the user's own provider (Settings → AI).
+const own = { id: 'deepseek', apiKey: 'test-key', model: 'test-model' };
 const editTool = {
   type: 'function',
   function: {
@@ -19,7 +16,7 @@ const namedChoice = { type: 'function', function: { name: 'apply_surgical_edits'
 
 async function captureRequest(t, payload, settings = {}) {
   const mergedEnv = { ...env, ...settings };
-  const expectedUrl = `${mergedEnv.OPENAI_BASE_URL.replace(/\/+$/, '')}/chat/completions`;
+  const expectedUrl = 'https://api.deepseek.com/chat/completions';
   let upstreamBody;
   const responseBody = 'data: {"choices":[{"delta":{"content":"Done"}}]}\n\ndata: [DONE]\n\n';
   t.mock.method(globalThis, 'fetch', async (url, options) => {
@@ -29,7 +26,7 @@ async function captureRequest(t, payload, settings = {}) {
   });
   const response = await handleChatProxy(new Request('https://app.example/api/chat', {
     method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'Change the background' }], ...payload }),
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'Change the background' }], user_provider: own, ...payload }),
   }), mergedEnv);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('content-type'), 'text/event-stream');
@@ -84,34 +81,7 @@ test('streaming requests ask for usage', async (t) => {
   assert.deepEqual(body.stream_options, { include_usage: true });
 });
 
-test('DeepSeek is the default endpoint when no base URL is set', async (t) => {
-  let calledUrl;
-  t.mock.method(globalThis, 'fetch', async (url) => {
-    calledUrl = url;
-    return new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
-  });
-  const response = await handleChatProxy(new Request('https://app.example/api/chat', {
-    method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], stream: true }),
-  }), { ...env, OPENAI_BASE_URL: '', OPENAI_LLM_PROVIDER: 'deepseek' });
-  assert.equal(response.status, 200);
-  assert.equal(calledUrl, 'https://api.deepseek.com/chat/completions');
-});
-
-for (const removed of ['nope', 'zai']) {
-  test(`provider "${removed}" is a configuration error`, async () => {
-    const response = await handleChatProxy(new Request('https://app.example/api/chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-    }), { ...env, OPENAI_LLM_PROVIDER: removed });
-    assert.equal(response.status, 500);
-    assert.match((await response.json()).error, new RegExp(`Unknown OPENAI_LLM_PROVIDER "${removed}"`));
-  });
-}
-
-// --- Key-driven provider selection ----------------------------------------
-
-const noLlmEnv = { APPBLIPS_CHAT_RATE_LIMIT_MAX: '1000' };
+const noLlmEnv = {};
 
 async function runWith(t, settings, payload = {}) {
   let upstream;
@@ -121,117 +91,20 @@ async function runWith(t, settings, payload = {}) {
   });
   const response = await handleChatProxy(new Request('https://app.example/api/chat', {
     method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], ...payload }),
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: own, ...payload }),
   }), { ...noLlmEnv, ...settings });
   return { response, upstream };
 }
 
-test('a provider becomes active once its API key is filled in', async (t) => {
-  const { response, upstream } = await runWith(t, {
-    OPENAI_API_KEY: 'or-key',
-    OPENAI_LLM_MODEL: 'anthropic/claude-sonnet-5',
-  }, { reasoning_effort: 'low' });
-  assert.equal(response.status, 200);
-  assert.equal(upstream.url, 'https://api.deepseek.com/chat/completions');
-  assert.equal(upstream.headers.Authorization, 'Bearer or-key');
-  assert.equal(upstream.body.model, 'anthropic/claude-sonnet-5');
-  assert.deepEqual(upstream.body.thinking, { type: 'enabled' });
-  assert.equal(upstream.body.reasoning_effort, 'low');
-});
-
-// The production setup: the key lives in OPENAI_API_KEY.
-test('OPENAI_API_KEY configures DeepSeek', async (t) => {
-  const { response, upstream } = await runWith(t, {
-    OPENAI_LLM_PROVIDER: 'deepseek',
-    OPENAI_API_KEY: 'or-env-key',
-    OPENAI_LLM_MODEL: 'deepseek-v4-flash',
-  });
-  assert.equal(response.status, 200);
-  assert.equal(upstream.url, 'https://api.deepseek.com/chat/completions');
-  assert.equal(upstream.headers.Authorization, 'Bearer or-env-key');
-  assert.equal(upstream.body.model, 'deepseek-v4-flash');
-  assert.deepEqual(upstream.body.thinking, { type: 'disabled' });
-  assert.equal(upstream.body.reasoning_effort, undefined);
-});
-
-test('the plain OPENAI_* variables work as the generic provider', async (t) => {
-  const { upstream } = await runWith(t, {
-    OPENAI_BASE_URL: 'https://llm.example/v1',
-    OPENAI_API_KEY: 'k',
-    OPENAI_LLM_MODEL: 'm',
-  });
-  assert.equal(upstream.url, 'https://llm.example/v1/chat/completions');
-  assert.equal(upstream.body.model, 'm');
-});
-
-test('APPBLIPS_MAX_OUTPUT_TOKENS sets the server provider\'s limit and ignores the page\'s', async (t) => {
-  const settings = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', APPBLIPS_MAX_OUTPUT_TOKENS: '48,000' };
-  for (const ask of [false, true]) {
-    for (const max_tokens of [undefined, null, 12000, 'junk', -5]) {
-      const { response, upstream } = await runWith(t, settings, { ask, max_tokens });
-      assert.equal(response.status, 200);
-      assert.equal(upstream.body.max_tokens, 48000);
-    }
-  }
-  // Unreadable values count as not set: the page's limit applies again.
-  for (const value of ['', '0', 'abc', '-1']) {
-    const { upstream } = await runWith(t, { ...settings, APPBLIPS_MAX_OUTPUT_TOKENS: value }, { max_tokens: 12000 });
-    assert.equal(upstream.body.max_tokens, 12000);
-  }
-});
-
-test('APPBLIPS_MAX_OUTPUT_TOKENS leaves own-key requests to the user\'s limit', async (t) => {
-  const settings = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', APPBLIPS_MAX_OUTPUT_TOKENS: '48000' };
-  const user_provider = { id: 'deepseek', apiKey: 'u', model: 'deepseek-chat' };
-  const custom = await runWith(t, settings, { user_provider, max_tokens: 12000 });
-  assert.equal(custom.upstream.body.max_tokens, 12000);
-  const fallback = await runWith(t, settings, { user_provider });
-  assert.equal(fallback.upstream.body.max_tokens, 64000);
-  const invalid = await runWith(t, settings, { user_provider, max_tokens: 'junk' });
-  assert.equal(invalid.response.status, 400);
-});
-
-test('APPBLIPS_REASONING_EFFORT sets the server provider\'s level for reasoning requests', async (t) => {
-  const settings = { OPENAI_API_KEY: 'or-key', OPENAI_LLM_MODEL: 'deepseek-v4-flash', APPBLIPS_REASONING_EFFORT: ' High ' };
-  for (const reasoning_effort of ['low', 'medium', 'max']) {
-    const { upstream } = await runWith(t, settings, { reasoning_effort });
-    assert.equal(upstream.body.reasoning_effort, 'high');
-  }
-  // Chat-only calls ask for Off and keep it.
-  for (const reasoning_effort of [undefined, 'none']) {
-    const { upstream } = await runWith(t, settings, { reasoning_effort });
-    assert.equal(upstream.body.reasoning_effort, undefined);
-    assert.deepEqual(upstream.body.thinking, { type: 'disabled' });
-  }
-  // off turns reasoning off for every request.
-  const off = await runWith(t, { ...settings, APPBLIPS_REASONING_EFFORT: 'off' }, { reasoning_effort: 'high' });
-  assert.deepEqual(off.upstream.body.thinking, { type: 'disabled' });
-  // Unreadable values count as not set: the page's level applies again.
-  for (const value of ['', 'turbo']) {
-    const { upstream } = await runWith(t, { ...settings, APPBLIPS_REASONING_EFFORT: value }, { reasoning_effort: 'low' });
-    assert.equal(upstream.body.reasoning_effort, 'low');
-  }
-});
-
-test('APPBLIPS_REASONING_EFFORT leaves own-key requests to the user\'s level', async (t) => {
-  const settings = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', APPBLIPS_REASONING_EFFORT: 'high' };
-  const user_provider = { id: 'deepseek', apiKey: 'u', model: 'deepseek-v4-flash' };
-  const { upstream } = await runWith(t, settings, { user_provider, reasoning_effort: 'low' });
-  assert.equal(upstream.body.reasoning_effort, 'low');
-});
-
-test('output limits come from Settings requests and ignore environment caps', async (t) => {
-  const base = { OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm' };
-  const settings = { ...base, OPENAI_LLM_MAX_TOKENS: '1', OPENAI_LLM_ASK_MAX_TOKENS: '2000', OPENAI_LLM_TEMPERATURE: '0.5' };
+test('output limits come from Settings requests', async (t) => {
   for (const ask of [false, true]) {
     // Builds default to 64K; Ask keeps the provider's own default.
     const expected = ask ? undefined : 64000;
-    const defaultLimit = await runWith(t, settings, { ask });
+    const defaultLimit = await runWith(t, {}, { ask });
     assert.equal(defaultLimit.upstream.body.max_tokens, expected);
-    assert.equal(defaultLimit.upstream.body.temperature, 0.5);
-    const custom = await runWith(t, settings, { ask, max_tokens: 12000 });
+    const custom = await runWith(t, {}, { ask, max_tokens: 12000 });
     assert.equal(custom.upstream.body.max_tokens, 12000);
-    const reset = await runWith(t, settings, { ask, max_tokens: null });
+    const reset = await runWith(t, {}, { ask, max_tokens: null });
     assert.equal(reset.upstream.body.max_tokens, expected);
   }
 });
@@ -241,7 +114,7 @@ test('providers get the 64K build default; Ask does not', async (t) => {
     const field = id === 'openai' ? 'max_completion_tokens' : 'max_tokens';
     for (const ask of [false, true]) {
       const payload = { ask, user_provider: { id, apiKey: 'test-key', model: 'test-model' } };
-      const defaultLimit = await runWith(t, { OPENAI_LLM_MAX_TOKENS: '1', OPENAI_LLM_ASK_MAX_TOKENS: '1' }, payload);
+      const defaultLimit = await runWith(t, {}, payload);
       assert.equal(defaultLimit.response.status, 200);
       assert.equal(defaultLimit.upstream.body[field], ask ? undefined : 64000);
       const custom = await runWith(t, {}, { ...payload, max_tokens: 12345 });
@@ -306,67 +179,11 @@ test('invalid output limits are rejected before contacting a provider', async (t
   }
 });
 
-test('the plain variables are a fallback for a named provider', async (t) => {
-  const { upstream } = await runWith(t, {
-    OPENAI_LLM_PROVIDER: 'deepseek',
-    OPENAI_API_KEY: 'k',
-    OPENAI_LLM_MODEL: 'm',
-  });
-  assert.equal(upstream.url, 'https://api.deepseek.com/chat/completions');
-  assert.equal(upstream.headers.Authorization, 'Bearer k');
-});
-
-test('no filled-in provider is a clear configuration error', async (t) => {
-  const { response } = await runWith(t, { OPENAI_API_KEY: '', OPENAI_LLM_MODEL: 'gpt-x' });
-  assert.equal(response.status, 500);
-  assert.match((await response.json()).error, /No AI provider is configured/);
-});
-
-test('a custom endpoint with a key but no model names the missing variable', async (t) => {
-  const { response } = await runWith(t, { OPENAI_API_KEY: 'k', OPENAI_BASE_URL: 'https://llm.example/v1' });
-  assert.equal(response.status, 500);
-  assert.match((await response.json()).error, /OPENAI_LLM_MODEL/);
-});
-
-// Hosting setups often set only OPENAI_API_KEY.
-test('an OpenAI key on its own goes to OpenAI with its newest model', async (t) => {
-  const calls = [];
-  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
-    calls.push({ url: String(url), headers: options.headers, body: options.body ? JSON.parse(options.body) : null });
-    if (String(url).endsWith('/models')) {
-      return Response.json({ data: [{ id: 'gpt-4o' }, { id: 'gpt-5.5-mini' }, { id: 'gpt-5.5' }, { id: 'gpt-5' }, { id: 'gpt-6-2026-03-01' }] });
-    }
-    return new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } });
-  });
-  const send = () => handleChatProxy(new Request('https://app.example/api/chat', {
-    method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-  }), { ...noLlmEnv, OPENAI_API_KEY: 'sk-proj-abc' });
-  assert.equal((await send()).status, 200);
-  assert.equal(calls[0].url, 'https://api.openai.com/v1/models');
-  assert.equal(calls[1].url, 'https://api.openai.com/v1/chat/completions');
-  assert.equal(calls[1].headers.Authorization, 'Bearer sk-proj-abc');
-  assert.equal(calls[1].body.model, 'gpt-5.5');
-  // The choice is remembered: no second model lookup.
-  assert.equal((await send()).status, 200);
-  assert.equal(calls.length, 3);
-});
-
-test('a failed model lookup asks for OPENAI_LLM_MODEL', async (t) => {
-  t.mock.method(globalThis, 'fetch', async () => new Response('{}', { status: 401 }));
-  const response = await handleChatProxy(new Request('https://app.example/api/chat', {
-    method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-  }), { ...noLlmEnv, OPENAI_API_KEY: 'sk-proj-rejected' });
-  assert.equal(response.status, 500);
-  assert.match((await response.json()).error, /rejected the API key.*OPENAI_LLM_MODEL/);
-});
-
 // --- User-supplied provider (Settings → AI) --------------------------------
 
 const userProvider = { id: 'openrouter', apiKey: 'user-key', model: '~anthropic/claude-sonnet-latest' };
 
-test('a user provider works with no provider in the env', async (t) => {
+test('a user provider is sent to its preset endpoint', async (t) => {
   const { response, upstream } = await runWith(t, {}, { user_provider: userProvider, reasoning_effort: 'low' });
   assert.equal(response.status, 200);
   assert.equal(upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
@@ -377,15 +194,12 @@ test('a user provider works with no provider in the env', async (t) => {
   assert.equal(Object.hasOwn(upstream.body, 'user_provider'), false);
 });
 
-test('a user provider wins over the env provider; without one the env is used', async (t) => {
+test('without a user provider the request is refused, whatever the env says', async (t) => {
   const envProvider = { OPENAI_API_KEY: 'env-key', OPENAI_LLM_MODEL: 'env-model', OPENAI_BASE_URL: 'https://llm.example/v1' };
-  const withUser = await runWith(t, envProvider, { user_provider: userProvider });
-  assert.equal(withUser.upstream.url, 'https://openrouter.ai/api/v1/chat/completions');
-  assert.equal(withUser.upstream.headers.Authorization, 'Bearer user-key');
-  t.mock.restoreAll();
-  const withoutUser = await runWith(t, envProvider);
-  assert.equal(withoutUser.upstream.url, 'https://llm.example/v1/chat/completions');
-  assert.equal(withoutUser.upstream.headers.Authorization, 'Bearer env-key');
+  const { response, upstream } = await runWith(t, envProvider, { user_provider: undefined });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /Settings → AI/);
+  assert.equal(upstream, undefined);
 });
 
 test('incomplete user provider settings are a 400, not a config error', async (t) => {
@@ -415,7 +229,7 @@ test('self-hosted refuses browser requests from other origins before calling the
   const send = (origin, settings = {}, url = 'http://localhost:5175/api/chat') => handleChatProxy(new Request(url, {
     method: 'POST',
     headers: { 'content-type': 'text/plain', ...(origin ? { origin } : {}) },
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: own }),
   }), { ...env, ...settings });
 
   for (const origin of ['https://evil.example', 'null', 'http://localhost:5176', 'https://localhost:5175']) {
@@ -430,7 +244,7 @@ test('self-hosted accepts its own origin, listed origins, the desktop scheme and
   const send = (origin, settings = {}, url = 'http://localhost:5175/api/chat') => handleChatProxy(new Request(url, {
     method: 'POST',
     headers: origin ? { origin } : {},
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: own }),
   }), { ...env, ...settings });
 
   assert.equal((await send('http://localhost:5175')).status, 200);
@@ -448,7 +262,7 @@ test('provider 429 reaches self-hosted users with the provider reason', async (t
   ));
   const response = await handleChatProxy(new Request('http://localhost:5175/api/chat', {
     method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: own }),
   }), env);
   assert.equal(response.status, 429);
   assert.equal(response.headers.get('retry-after'), '30');
@@ -463,8 +277,8 @@ test('builder requests are not rate limited', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } }));
   const send = (settings) => handleChatProxy(new Request('http://localhost:5175/api/chat', {
     method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
-  }), { ...env, APPBLIPS_CHAT_RATE_LIMIT_MAX: '2', ...settings });
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: own }),
+  }), { ...env, ...settings });
   for (let i = 0; i < 5; i++) assert.equal((await send({})).status, 200, `request ${i + 1}`);
 });
 
@@ -477,10 +291,10 @@ test('a provider that never answers is given up on; a cancelled client cancels t
     upstreamSignal = options.signal;
     options.signal.addEventListener('abort', () => reject(options.signal.reason));
   }));
-  const body = JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] });
+  const body = JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: own });
   const slow = await handleChatProxy(new Request('https://app.example/api/chat', { method: 'POST', body }), env, { connectTimeoutMs: 20 });
   assert.equal(slow.status, 502);
-  assert.match((await slow.json()).error, /did not answer within/);
+  assert.match((await slow.json()).error, /Couldn't reach DeepSeek/);
 
   const client = new AbortController();
   const pending = handleChatProxy(new Request('https://app.example/api/chat', { method: 'POST', body, signal: client.signal }), env);
@@ -504,7 +318,7 @@ test('only the headers the app reads are relayed from the provider', async (t) =
   }));
   const response = await handleChatProxy(new Request('https://app.example/api/chat', {
     method: 'POST',
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], user_provider: own }),
   }), env);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('content-type'), 'text/event-stream');
@@ -513,28 +327,8 @@ test('only the headers the app reads are relayed from the provider', async (t) =
   for (const name of ['set-cookie', 'access-control-allow-origin', 'content-encoding']) assert.equal(response.headers.get(name), null, name);
 });
 
-test('temperature defaults to 0.0; OPENAI_LLM_TEMPERATURE changes it', async (t) => {
-  const plain = await runWith(t, { OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', OPENAI_BASE_URL: 'https://llm.example/v1' });
-  assert.equal(plain.upstream.body.temperature, 0);
-  t.mock.restoreAll();
-  const set = await runWith(t, { OPENAI_API_KEY: 'k', OPENAI_LLM_MODEL: 'm', OPENAI_BASE_URL: 'https://llm.example/v1', OPENAI_LLM_TEMPERATURE: '0.7' });
-  assert.equal(set.upstream.body.temperature, 0.7);
-  t.mock.restoreAll();
-  const user = await runWith(t, {}, { user_provider: { id: 'openrouter', apiKey: 'u', model: 'x' } });
-  assert.equal(user.upstream.body.temperature, 0);
+test('temperature is 0.0', async (t) => {
+  const { upstream } = await runWith(t, {}, { user_provider: { id: 'openrouter', apiKey: 'u', model: 'x' } });
+  assert.equal(upstream.body.temperature, 0);
 });
 
-test('freeImages: false refuses an image on Free AI but not with the user\'s own key', async (t) => {
-  const upstream = t.mock.method(globalThis, 'fetch', async () => new Response('data: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } }));
-  const messages = [{ role: 'user', content: [{ type: 'text', text: 'Match this' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } }] }];
-  const send = (extra) => handleChatProxy(new Request('https://app.example/api/chat', {
-    method: 'POST',
-    body: JSON.stringify({ messages, ...extra }),
-  }), env, { freeImages: false });
-  const refused = await send({});
-  assert.equal(refused.status, 400);
-  assert.match((await refused.json()).error, /Free AI can’t read images/);
-  assert.equal(upstream.mock.callCount(), 0);
-  const own = await send({ user_provider: { id: 'openai', model: 'gpt-5', apiKey: 'sk-own' } });
-  assert.equal(own.status, 200);
-});

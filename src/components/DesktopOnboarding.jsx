@@ -3,9 +3,9 @@ import '../styles/app/desktop-onboarding.css';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Download, Eye, EyeOff,
-  FileText, FolderOpen, Gift, Globe, HardDrive, Info, KeyRound, Laptop, Loader2, MonitorSmartphone, Moon, Plug, Settings, ShieldCheck, Sparkles, Sun, Trash2, UserRound, X, Zap,
+  FileText, FolderOpen, Globe, HardDrive, Info, KeyRound, Laptop, Loader2, MonitorSmartphone, Moon, Plug, ShieldCheck, Sparkles, Sun, Trash2, UserRound, X,
 } from 'lucide-react';
-import { desktopBridge, ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
+import { desktopBridge, ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
 import { AVATAR_IDS, AVATAR_LABELS, MAX_NAME_LENGTH, cleanName, loadProfile, saveProfile } from '../lib/profile';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
@@ -96,7 +96,7 @@ function ProviderSelect({ options, value, onChange, invalid }) {
 
   return (
     <span ref={wrapRef} className="onboarding-select-wrap">
-      {selected?.id === FREE_PROVIDER_ID ? <Gift size={18} /> : <ProviderGlyph id={selected?.id} />}
+      <ProviderGlyph id={selected?.id} />
       <button
         ref={buttonRef}
         type="button"
@@ -127,7 +127,7 @@ function ProviderSelect({ options, value, onChange, invalid }) {
               onMouseMove={() => { if (index !== active) setActive(index); }}
               onClick={() => choose(option)}
             >
-              {option.id === FREE_PROVIDER_ID ? <Gift size={18} /> : <ProviderGlyph id={option.id} />}
+              <ProviderGlyph id={option.id} />
               <span className="model-combobox-text"><span className="model-combobox-label">{option.label}{option.id === 'anthropic' && <span className="onboarding-provider-recommended"> (recommended)</span>}</span></span>
               {option.id === value && <Check size={14} className="model-combobox-check" />}
             </li>
@@ -173,8 +173,7 @@ function NeedKeyModal({ providerLabel, onClose }) {
 function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId, model, setModel, apiKey, setApiKey, showKey, setShowKey, weakEncryption, errors }) {
   // `provider` is null until one is picked; the empty id and key keep the
   // model list from loading for no provider.
-  const isFree = provider?.id === FREE_PROVIDER_ID;
-  const modelList = useProviderModels({ id: provider && !isFree ? provider.id : '', apiKey: provider && !isFree ? apiKey : '' });
+  const modelList = useProviderModels({ id: provider ? provider.id : '', apiKey: provider ? apiKey : '' });
   const [needKey, setNeedKey] = useState(false);
   // The result belongs to the provider, key and model it was run with, so
   // editing any of them hides it rather than leaving a stale "Connected".
@@ -228,12 +227,6 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
       <SetupField title="Provider" error={errors.provider}>
         <ProviderSelect options={providerOptions} value={provider?.id || ''} onChange={setProviderId} invalid={Boolean(errors.provider)} />
       </SetupField>
-
-      {isFree ? (
-        <p className="onboarding-key-help">
-          No API key or model to choose: this copy of AppBlips already has AI set up. You can switch to your own key any time in Settings → AI.
-        </p>
-      ) : (<>
 
       <SetupField title="API key" error={errors.key}>
         <span className="onboarding-key-input">
@@ -292,39 +285,7 @@ function SetupForm({ formRef, onSubmit, providerOptions, provider, setProviderId
           {testShown ? testShown.text : 'Optional: test your connection before you start.'}
         </p>
       </div>
-      </>)}
       {needKey && <NeedKeyModal providerLabel={provider?.label} onClose={closeNeedKey} />}
-    </form>
-  );
-}
-
-// Shown only when the host's environment variables supply AI: what the Free
-// choice on the next slide is, before the provider list offers it.
-// `needsSignIn`: the browser version asks for a Google or GitHub sign-in
-// before Free AI requests (lib/freeSignIn.js); the desktop app never does.
-function FreeAiPanel({ formRef, onSubmit, needsSignIn }) {
-  const points = [
-    needsSignIn
-      ? { icon: Zap, title: 'No API key needed', text: 'Sign in with your Google or GitHub account the first time you use it. There is no key to find or paste in.' }
-      : { icon: Zap, title: 'No key, no account', text: 'Start building right away. There is nothing to sign up for or paste in.' },
-    { icon: Cpu, title: 'Runs on various models', text: (
-      <>
-        For a limited time, AppBlips provides a free AI option. By using the free tier, you agree to our{' '}
-        <a href="https://www.appblips.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
-      </>
-    ) },
-    { icon: Settings, title: 'Your own key, any time', text: 'Prefer another provider or model? Pick it on the next step, or later in Settings → AI.' },
-  ];
-  return (
-    <form ref={formRef} className="desktop-onboarding-setup" noValidate onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
-      <ul className="onboarding-free-list">
-        {points.map(({ icon: Icon, title, text }) => (
-          <li key={title}>
-            <span className="onboarding-free-icon"><Icon size={18} /></span>
-            <span><strong>{title}</strong><span>{text}</span></span>
-          </li>
-        ))}
-      </ul>
     </form>
   );
 }
@@ -514,7 +475,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   // changes so unrelated re-renders don't restart the animation.
   const [slide, setSlide] = useState({ step, rank: termsOnly ? 1 : 0, dir: 'forward' });
   if (slide.step !== step) {
-    const rank = { welcome: 0, terms: 1, name: 2, avatar: 3, storage: 4, free: 5, ai: 6 }[step];
+    const rank = { welcome: 0, terms: 1, name: 2, avatar: 3, storage: 4, ai: 5 }[step];
     setSlide({ step, rank, dir: rank < slide.rank ? 'back' : 'forward' });
   }
   const [profile] = useState(loadProfile);
@@ -533,16 +494,9 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   };
   const onComplete = leave(finishSetup);
   const onExit = exitSetup ? leave(exitSetup) : null;
-  // The host's environment variables supply AI: Free leads the list, and is
-  // the starting choice unless the user already saved a provider of their own.
-  // The server reports envConfigured: false when APPBLIPS_FREE_AI=off.
-  const hasFree = providerInfo?.envConfigured === true;
-  const providerOptions = hasFree ? [{ id: FREE_PROVIDER_ID, label: FREE_PROVIDER_LABEL, models: [] }, ...USER_PROVIDER_OPTIONS] : USER_PROVIDER_OPTIONS;
-  const [providerId, setProviderId] = useState(
-    hasFree && !(providerInfo?.enabled && providerInfo?.id) ? FREE_PROVIDER_ID : providerInfo?.id || '',
-  );
+  const providerOptions = USER_PROVIDER_OPTIONS;
+  const [providerId, setProviderId] = useState(providerInfo?.id || '');
   const provider = providerOptions.find((option) => option.id === providerId) || null;
-  const isFree = providerId === FREE_PROVIDER_ID;
   const changeProvider = (id) => { setProviderId(id); setModel(''); setApiKey(''); };
   const [model, setModel] = useState(
     (provider && providerInfo?.id === provider.id && providerInfo?.model) || provider?.models[0]?.id || '',
@@ -594,17 +548,16 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     keepProfile();
     setStep('avatar');
   };
-  // After the avatar: browser storage (web only), Free explainer, and the AI form.
+  // After the avatar: browser storage (web only), then the AI form.
   const hasStorage = !isDesktop;
-  const afterStorage = hasFree ? 'free' : 'ai';
   const continueAfterAvatar = () => {
     keepProfile();
-    setStep(hasStorage ? 'storage' : afterStorage);
+    setStep(hasStorage ? 'storage' : 'ai');
   };
 
   const needsProvider = !provider;
-  const needsKey = !isFree && !apiKey.trim();
-  const needsModel = !isFree && !model.trim();
+  const needsKey = !apiKey.trim();
+  const needsModel = !model.trim();
   const errors = attempted ? {
     provider: needsProvider ? 'Choose your AI provider.' : '',
     key: needsKey ? (provider ? `Paste your ${provider.label} API key here.` : 'Paste your API key here.') : '',
@@ -622,8 +575,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
     }
     setStatus({ kind: 'busy', text: 'Saving your AI setup…' });
     try {
-      if (isFree) await chooseFreeProvider();
-      else await providerApi.set({ enabled: true, id: provider.id, model: model.trim(), apiKey: apiKey.trim() });
+      await providerApi.set({ enabled: true, id: provider.id, model: model.trim(), apiKey: apiKey.trim() });
       setStatus({ kind: 'ok', text: 'You’re ready.' });
       window.setTimeout(onComplete, 350);
     } catch (error) {
@@ -651,12 +603,11 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
   const isName = step === 'name';
   const isAvatar = step === 'avatar';
   const isStorage = step === 'storage';
-  const isFreeStep = step === 'free';
   const isLast = step === 'ai';
-  // The slides in order; storage and Free only appear where they apply.
+  // The slides in order; storage only appears where it applies.
   const steps = termsOnly
     ? ['terms']
-    : ['welcome', 'terms', 'name', 'avatar', ...(hasStorage ? ['storage'] : []), ...(hasFree ? ['free'] : []), 'ai'];
+    : ['welcome', 'terms', 'name', 'avatar', ...(hasStorage ? ['storage'] : []), 'ai'];
   const stepIndex = steps.indexOf(step);
   const back = stepIndex > 0 ? steps[stepIndex - 1] : null;
   const stepCount = steps.length;
@@ -678,9 +629,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
         ? continueToAvatar
         : isAvatar
           ? continueAfterAvatar
-          : isStorage
-            ? () => setStep(afterStorage)
-            : () => setStep('ai');
+          : () => setStep('ai');
 
   return (
     <div className="desktop-onboarding" role="dialog" aria-modal="true" aria-labelledby="desktop-onboarding-title">
@@ -744,10 +693,6 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Your projects live <span className="onboarding-title-accent">in the app.</span>
               </h1>
-            ) : isFreeStep ? (
-              <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
-                AI is included, <span className="onboarding-title-accent">free.</span>
-              </h1>
             ) : (
               <h1 id="desktop-onboarding-title" ref={titleRef} tabIndex={-1}>
                 Choose the AI that <span className="onboarding-title-accent">builds with you.</span>
@@ -767,12 +712,8 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 : 'Pick a fun avatar for your chat messages.'}</p>
             ) : isStorage ? (
               <p>Before you start, here is how saving works in the web version of AppBlips.</p>
-            ) : isFreeStep ? (
-              <p>On the next step it is the <strong>Free</strong> option in the provider list.</p>
             ) : (
-              <p>{hasFree
-                ? 'Keep Free, or connect your own key through Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter. You can change this later in Settings.'
-                : 'Connect through Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter. You can change this later in Settings.'}</p>
+              <p>Connect through Anthropic, OpenAI, Gemini, xAI, DeepSeek, or OpenRouter. You can change this later in Settings.</p>
             )}
             {isLast && (
               <ul className="onboarding-provider-row" aria-label="Supported AI providers">
@@ -800,9 +741,7 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
                 onChooseFolder={chooseFolder}
               />
             ) : isStorage ? (
-              <StoragePanel formRef={formRef} onSubmit={() => setStep(afterStorage)} />
-            ) : isFreeStep ? (
-              <FreeAiPanel formRef={formRef} onSubmit={() => setStep('ai')} needsSignIn={!isDesktop} />
+              <StoragePanel formRef={formRef} onSubmit={() => setStep('ai')} />
             ) : (
               <SetupForm
                 formRef={formRef}

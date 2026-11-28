@@ -1,16 +1,15 @@
 import { ConfirmedLink } from './ExternalLinkConfirm';
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Cpu, Gift, Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'lucide-react';
+import { Check, ChevronDown, Cpu, Eye, EyeOff, Loader2, CircleCheck, CircleAlert, TriangleAlert } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import ModelCombobox from './ModelCombobox';
 import useProviderModels from '../hooks/useProviderModels';
 import useAnchoredList from '../hooks/useAnchoredList';
 import useTestCooldown from '../hooks/useTestCooldown';
-import FreeSignInRow from './FreeSignInRow';
 import { PROVIDER_LOGOS, ONBOARDING_PROVIDER_LOGOS } from './providerLogos';
 import { SettingRow, FIELD_CLASS, SECONDARY_BUTTON } from './SettingControls';
-import { ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
+import { ipcErrorMessage, providerApi, isDesktop } from '../lib/desktop';
 import { requestModelText, CHAT_REASONING_EFFORT } from '../lib/llm';
 import { logError } from '../lib/errorLog';
 import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
@@ -28,7 +27,6 @@ import { USER_PROVIDER_OPTIONS } from '../../electron/server/providers.js';
 // Solid fields so they stand out from the tinted provider panel.
 const INPUT_CLASS = `mt-1.5 ${FIELD_CLASS.replace('bg-transparent', 'bg-surface')}`;
 function ProviderGlyph({ id, logos }) {
-  if (id === FREE_PROVIDER_ID) return <Gift size={18} className="shrink-0" />;
   const Logo = logos[id];
   return Logo ? <span className="inline-flex shrink-0"><Logo size={18} /></span> : <Cpu size={18} className="shrink-0" />;
 }
@@ -129,11 +127,7 @@ function ProviderDropdown({ value, onChange, options }) {
   );
 }
 
-const providerLabel = (id) => (id === FREE_PROVIDER_ID ? FREE_PROVIDER_LABEL : USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id);
-// Free is the choice in effect when the environment supplies AI and no
-// provider of the user's own is switched on. The server reports
-// envConfigured: false when APPBLIPS_FREE_AI=off hides Free AI.
-const usesFree = (info) => Boolean(info?.envConfigured && !info.enabled);
+const providerLabel = (id) => USER_PROVIDER_OPTIONS.find((p) => p.id === id)?.label || id;
 // No provider until one is chosen (as in onboarding), so an unset Settings → AI
 // shows "Select a provider" rather than quietly defaulting to the first.
 const EMPTY_DRAFT = { id: '', model: '', apiKey: '' };
@@ -153,19 +147,17 @@ export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
   const keyInputRef = useRef(null);
   const [status, setStatus] = useState(null); // { kind: 'busy' | 'ok' | 'error', text }
   const testCooldown = useTestCooldown('ai');
-  const isFree = draft.id === FREE_PROVIDER_ID;
   const modelList = useProviderModels({
     ...draft,
-    // No provider (or Free): an empty id and key keep the list from loading for nothing.
-    ...(draft.id && !isFree ? {} : { id: '', apiKey: '' }),
+    // No provider: an empty id and key keep the list from loading for nothing.
+    ...(draft.id ? {} : { id: '', apiKey: '' }),
     hasSavedKey: Boolean(saved?.hasKey && saved.id === draft.id),
   });
 
   useEffect(() => {
     providerApi.get().then((info) => {
       setSaved(info);
-      if (usesFree(info)) setDraft({ id: FREE_PROVIDER_ID, model: '', apiKey: '' });
-      else if (info.id) setDraft({ id: info.id, model: info.model, apiKey: '' });
+      if (info.id) setDraft({ id: info.id, model: info.model, apiKey: '' });
     }).catch((err) => {
       logError('Could not read the AI settings', err);
       setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not read the AI settings.' });
@@ -190,38 +182,22 @@ export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
     // After the dialog unmounts, so focus lands back in the field.
     requestAnimationFrame(() => keyInputRef.current?.focus());
   };
-  const complete = isFree || (draft.id && draft.model.trim() && (draft.apiKey.trim() || keepsSavedKey));
-  const dirty = isFree
-    ? Boolean(saved?.enabled)
-    : !saved?.enabled || saved.id !== draft.id || saved.model !== draft.model.trim() || Boolean(draft.apiKey.trim());
+  const complete = draft.id && draft.model.trim() && (draft.apiKey.trim() || keepsSavedKey);
+  const dirty = !saved?.enabled || saved.id !== draft.id || saved.model !== draft.model.trim() || Boolean(draft.apiKey.trim());
   const active = saved?.enabled && saved.id && saved.model && saved.hasKey;
   // Anything typed that Save hasn't stored yet.
-  const base = usesFree(saved) ? { id: FREE_PROVIDER_ID, model: '' } : saved?.id ? { id: saved.id, model: saved.model } : { id: '', model: '' };
+  const base = saved?.id ? { id: saved.id, model: saved.model } : { id: '', model: '' };
   const unsaved = Boolean(saved) && (draft.id !== base.id || draft.model.trim() !== base.model || Boolean(draft.apiKey.trim()));
 
   const summary = !saved
     ? 'Loading…'
     : active
       ? `Using ${providerLabel(saved.id)} · ${saved.model}.`
-      : saved.envConfigured
-        ? 'Choose a provider with your own key to use it instead.'
-        : 'Not set up yet. Choose a provider and coding model to start building.';
+      : 'Not set up yet. Choose a provider and coding model to start building.';
 
   // Returns whether it saved, for the leave-with-unsaved-changes dialog.
   const onSave = async () => {
     setStatus({ kind: 'busy', text: 'Saving…' });
-    if (isFree) {
-      try {
-        await chooseFreeProvider();
-        setSaved(await providerApi.get());
-        setStatus({ kind: 'ok', text: 'Saved.' });
-        return true;
-      } catch (err) {
-        logError('Could not switch to the Free AI option', err);
-        setStatus({ kind: 'error', text: ipcErrorMessage(err) || 'Could not save.' });
-        return false;
-      }
-    }
     try {
       const next = await providerApi.set({
         enabled: true,
@@ -260,12 +236,11 @@ export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
         // some models to switch thinking off, which always-thinking models
         // (e.g. Z.ai glm-5.3-flash) reject, failing a working setup.
         reasoningEffort: CHAT_REASONING_EFFORT,
-        // Free is tested as saved (no provider of the user's own attached).
-        ...(isFree ? {} : { userProvider: { id: draft.id, model: draft.model.trim(), apiKey: draft.apiKey.trim() } }),
+        userProvider: { id: draft.id, model: draft.model.trim(), apiKey: draft.apiKey.trim() },
         retry: false,
         standalone: true,
       });
-      setStatus({ kind: 'ok', text: isFree ? 'Free AI is working.' : `Connected to ${providerLabel(draft.id)}.` });
+      setStatus({ kind: 'ok', text: `Connected to ${providerLabel(draft.id)}.` });
     } catch (err) {
       logError(`AI provider test request failed (${draft.id}, ${draft.model.trim()})`, err);
       setStatus({ kind: 'error', text: err?.message || 'The test request failed.' });
@@ -306,16 +281,9 @@ export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
             <ProviderDropdown
               value={draft.id}
               onChange={(id) => update({ id, model: '', apiKey: '' })}
-              options={[...(saved?.envConfigured ? [{ id: FREE_PROVIDER_ID, label: FREE_PROVIDER_LABEL }] : []), ...USER_PROVIDER_OPTIONS]}
+              options={USER_PROVIDER_OPTIONS}
             />
           </div>
-          {isFree ? (<div className="px-4 py-3.5 space-y-3">
-            <p className="text-xs text-slate-500 leading-snug">
-              No key or model to choose. It may be slower or limited when busy; pick a provider with your own key for more control.
-              {saved?.enabled && ' Saving switches off your own provider; its key stays saved.'}
-            </p>
-            {!isDesktop && saved?.freeSignIn && <FreeSignInRow />}
-          </div>) : (<>
           <div className="px-4 py-3.5 space-y-1.5">
           <label className="block text-sm font-medium text-slate-800">
             {draft.id ? `${providerLabel(draft.id)} API key` : 'API key'}
@@ -387,7 +355,6 @@ export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
             Choose an OpenAI model that supports tool calling through Chat Completions.
           </p>}
           </div>
-          </>)}
           <div className="px-4 py-3.5 flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -400,13 +367,13 @@ export default function DesktopProviderSettings({ guardRef, onSavedChange }) {
             <button
               type="button"
               onClick={onTest}
-              disabled={!complete || busy || (isFree && dirty) || testCooldown.secondsLeft > 0}
+              disabled={!complete || busy || testCooldown.secondsLeft > 0}
               title={testCooldown.secondsLeft ? 'You can test again in a few seconds.' : undefined}
               className={SECONDARY_BUTTON}
             >
               {testCooldown.secondsLeft ? `Test again in ${testCooldown.secondsLeft}s` : 'Test connection'}
             </button>
-            <button type="button" onClick={() => setConfirmClear(true)} disabled={!saved?.id || isFree || busy} className={SECONDARY_BUTTON}>
+            <button type="button" onClick={() => setConfirmClear(true)} disabled={!saved?.id || busy} className={SECONDARY_BUTTON}>
               Clear
             </button>
             {status && (
