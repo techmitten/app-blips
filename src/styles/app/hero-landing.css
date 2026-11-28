@@ -236,6 +236,10 @@
   font-weight: 450;
   line-height: 1.5;
   text-wrap: pretty;
+  /* The title's "W" slants in, so its visible edge reads a little right of
+     where its box starts. Indent the subtitle by that much so the two lines
+     look flush. */
+  padding-left: 0.15rem;
 }
 
 /* ===== Build canvas =====
