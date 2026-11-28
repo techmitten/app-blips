@@ -33,5 +33,5 @@ const build = (mono) => Object.fromEntries(Object.entries(LOGO_FILES).map(([id, 
 
 // For Settings → Tools (light or dark theme).
 export const PROVIDER_LOGOS = build();
-// For the always-dark onboarding: mono marks take the surrounding text colour.
+// For the onboarding (light or dark): mono marks take the surrounding text colour.
 export const ONBOARDING_PROVIDER_LOGOS = build('');

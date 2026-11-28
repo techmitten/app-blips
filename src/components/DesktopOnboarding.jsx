@@ -3,7 +3,7 @@ import '../styles/app/desktop-onboarding.css';
 import { createPortal } from 'react-dom';
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert, CircleCheck, Cpu, Download, Eye, EyeOff,
-  FileText, FolderOpen, Gift, Globe, HardDrive, Info, KeyRound, Laptop, Loader2, MonitorSmartphone, Plug, Settings, ShieldCheck, Sparkles, Trash2, UserRound, X, Zap,
+  FileText, FolderOpen, Gift, Globe, HardDrive, Info, KeyRound, Laptop, Loader2, MonitorSmartphone, Moon, Plug, Settings, ShieldCheck, Sparkles, Sun, Trash2, UserRound, X, Zap,
 } from 'lucide-react';
 import { desktopBridge, ipcErrorMessage, providerApi, isDesktop, chooseFreeProvider, FREE_PROVIDER_ID, FREE_PROVIDER_LABEL } from '../lib/desktop';
 import { logError, logWarn } from '../lib/errorLog';
@@ -142,7 +142,7 @@ function ProviderSelect({ options, value, onChange, invalid }) {
 // Shown when the model list is opened before a provider and key are chosen:
 // the list comes from the provider, so it can't load without them. Portaled to <body> because
 // the setup card's backdrop-filter would otherwise trap a fixed overlay inside
-// it; force-dark keeps it in the page's look even when the app theme is light.
+// it. It follows the app theme, as the page does.
 function NeedKeyModal({ providerLabel, onClose }) {
   // No label = no provider chosen yet.
   const copy = providerLabel
@@ -151,7 +151,7 @@ function NeedKeyModal({ providerLabel, onClose }) {
   return createPortal(
     <Modal
       zIndex={1200}
-      scrimClass="force-dark fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center p-4"
+      scrimClass="fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center p-4"
       cardClass="onboarding-info-modal animate-scale-in"
       cardProps={{
         role: 'alertdialog',
@@ -508,7 +508,7 @@ function AvatarForm({ formRef, onSubmit, avatar, setAvatar, folder, onChooseFold
 // already has a setup, so they may leave without re-entering a key.
 // `termsOnly` shows just the terms slide, to a returning user after the terms
 // or privacy policy change (App.jsx); `onAgree` saves the agreement.
-export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup, termsOnly = false, onAgree }) {
+export default function DesktopOnboarding({ providerInfo, onComplete: finishSetup, onExit: exitSetup, termsOnly = false, onAgree, resolvedTheme, onToggleTheme }) {
   const [step, setStep] = useState(termsOnly ? 'terms' : 'welcome');
   // Slide direction follows the step order; only updated when the step
   // changes so unrelated re-renders don't restart the animation.
@@ -689,9 +689,21 @@ export default function DesktopOnboarding({ providerInfo, onComplete: finishSetu
         <header className="onboarding-topbar">
           <div className="onboarding-brand">
             <img src="/favicon.svg" alt="" aria-hidden="true" width={28} height={28} className="onboarding-brand-icon" />
-            <img src="/appblips-wordmark-dark.svg" alt="AppBlips" width={1203} height={276} />
+            <img src="/appblips-wordmark-dark.svg" alt="AppBlips" width={1203} height={276} className="onboarding-wordmark-dark" />
+            <img src="/appblips-wordmark-light.svg" alt="AppBlips" width={1203} height={276} className="onboarding-wordmark-light" />
           </div>
           <div className="onboarding-topbar-actions">
+            {onToggleTheme && (
+              <button
+                type="button"
+                className="onboarding-theme-toggle"
+                onClick={onToggleTheme}
+                aria-label={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                title={resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              >
+                {resolvedTheme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+              </button>
+            )}
             {onExit ? (
               <button type="button" className="onboarding-exit" onClick={onExit} disabled={status?.kind === 'busy'}>
                 Exit setup <X size={15} />

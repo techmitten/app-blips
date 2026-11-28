@@ -2954,6 +2954,8 @@ export default function App({ coldStart = false, signInHandoff = null }) {
           onComplete={() => setDesktopOnboarding(null)}
           onExit={desktopOnboarding.replay ? () => setDesktopOnboarding(null) : undefined}
           onAgree={agreeToLegal}
+          resolvedTheme={resolvedTheme}
+          onToggleTheme={handleToggleTheme}
         />
       </Suspense>
       <UpdateNotice aboveOverlay />
@@ -2967,7 +2969,7 @@ export default function App({ coldStart = false, signInHandoff = null }) {
   // mid-session don't unmount an open project.
   const legalGate = needsAgreement(legalAgreement, legalDates) && (
     <Suspense fallback={null}>
-      <DesktopOnboarding termsOnly onAgree={agreeToLegal} onComplete={() => {}} />
+      <DesktopOnboarding termsOnly onAgree={agreeToLegal} onComplete={() => {}} resolvedTheme={resolvedTheme} onToggleTheme={handleToggleTheme} />
     </Suspense>
   );
 
