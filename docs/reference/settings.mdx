@@ -41,7 +41,6 @@ The AI service that builds, edits and answers questions for you. See [Choose an 
 
 A few things to know:
 
-- **Free (no key needed)** appears first in the list when the copy of AppBlips you use offers it, as [web.appblips.com](/quickstart-browser) does. It may ask you to sign in with Google or GitHub, and it has usage limits.
 - Once saved, the key box says **Saved (encrypted) — type to replace** in the desktop app, or just **Saved — type to replace** in the browser version and on Linux without a keychain, and the key is never shown again. To change it, click the box and then **Replace key**.
 - **Refresh models** reloads the model list. If it can't load, type the model ID yourself.
 - **Clear** removes the saved provider, model and key.
@@ -55,8 +54,6 @@ A token is a small piece of text, about three-quarters of a word. These two fiel
 
 - **Output tokens: building**: the longest reply when building, editing or fixing. Default: 64,000, enough for a large app. **Use default** clears your value.
 - **Output tokens: Ask**: the longest reply in Ask mode. Default: whatever your provider uses (64,000 on Anthropic, which needs a limit). **Use provider default** clears your value.
-
-If the server sets its own limit for the Free option (`APPBLIPS_MAX_OUTPUT_TOKENS`), these fields are hidden while you use Free. They appear again when you switch to your own provider and key.
 
 ### Reasoning
 
@@ -93,7 +90,7 @@ Tools are built in and need no outside account. Each has an **Enable** switch. S
 
 - **SEO**: helps people find your site on Google. It works per project, so open a project first.
 - **My images** (beta): lets the AI use photos and logos you upload to the open project.
-- **Web search for your provider**: one tool per provider, named **DeepSeek Web Search**, **Claude Web Search**, **OpenAI Web Search**, **Gemini Google Search**, **Grok Web Search** and **OpenRouter Web Search**. The one for the provider you've chosen in **Settings → AI** adds a globe button under the chat box, so the AI can search the web for facts when you build. Each search is billed to your provider key. Switch the tool off to remove the globe. In the browser version, there's no globe with Free AI. If the Tavily extension is connected, it's used for searching instead.
+- **Web search for your provider**: one tool per provider, named **DeepSeek Web Search**, **Claude Web Search**, **OpenAI Web Search**, **Gemini Google Search**, **Grok Web Search** and **OpenRouter Web Search**. The one for the provider you've chosen in **Settings → AI** adds a globe button under the chat box, so the AI can search the web for facts when you build. Each search is billed to your provider key. Switch the tool off to remove the globe. If the Tavily extension is connected, it's used for searching instead.
 
 ## Data
 
@@ -113,6 +110,5 @@ Shows your version and whether you're on the **Desktop app** or **Browser versio
   These actions are permanent.
 </Warning>
 
-- **Delete your account**: only shown when you're signed in to Free AI. Deletes your sign-in account. Apps saved in this browser stay.
 - **Delete all saved projects**: removes every saved project and its history.
 - **Reset app to factory defaults**: click **Factory Reset**, then **Reset App**. Deletes all projects, history, settings and API keys, signs you out of connected services and restarts AppBlips.

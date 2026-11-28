@@ -41,7 +41,7 @@ The server you start from source or with Docker has no sign-in, so it's set up t
 
 ### If you open AppBlips to other devices
 
-You open it up if you change `HOST`, remove `127.0.0.1:` from `docker-compose.yml`, or add names to `APPBLIPS_ALLOWED_HOSTS`. From then on, anyone who can reach it can use it. If you gave the server its own AI provider in `.env`, they can build with that key at your expense.
+You open it up if you change `HOST`, remove `127.0.0.1:` from `docker-compose.yml`, or add names to `APPBLIPS_ALLOWED_HOSTS`. From then on, anyone who can reach it can use it. The server has no AI key of its own, but they can use your Unsplash key if you set one.
 
 <Warning>
   Put your own sign-in in front first, for example a reverse proxy with a password.
@@ -50,10 +50,8 @@ You open it up if you change `HOST`, remove `127.0.0.1:` from `docker-compose.ym
 If you share a server on purpose:
 
 - Everyone's own keys stay in their own browser, so nobody can use anyone else's.
-- The **Free** option, which uses the server's provider, has per-visitor limits. See [Limits on the Free option](/self-hosting/configuration#limits-on-the-free-option).
-- You can require a Google or GitHub [sign-in for the Free option](/self-hosting/configuration#sign-in-for-the-free-option) so limits count each account.
-- You can set the reply length for the Free option with `APPBLIPS_MAX_OUTPUT_TOKENS`. Visitors who use their own key keep their own setting. See the [configuration reference](/self-hosting/configuration).
-- Set a spending limit with your provider. It's the final safeguard.
+- The server has no AI key of its own, so visitors can't spend yours.
+- If you set an Unsplash key, everyone shares its hourly limit. Each visitor can make 30 photo searches an hour. See [Photo library](/self-hosting/configuration#photo-library).
 
 ## Microphone and voice input
 

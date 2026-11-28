@@ -1,7 +1,7 @@
 ---
 title: "Frequently asked questions"
 sidebarTitle: "FAQ"
-description: "Quick answers about AppBlips: what it builds, API keys and the Free option, cost, privacy, exporting and where your projects live."
+description: "Quick answers about AppBlips: what it builds, API keys, cost, privacy, exporting and where your projects live."
 ---
 
 Short answers to the questions people ask most.
@@ -24,11 +24,11 @@ Short answers to the questions people ask most.
   <Accordion title="Is AppBlips free?">
     Yes. AppBlips is free and open source under the [MIT License](https://github.com/techmitten/app-blips/blob/master/LICENSE), including for commercial work.
 
-    The AI is the only part that can cost money. With your own API key, your AI provider bills you for what you use. On [web.appblips.com](/quickstart-browser), the **Free (no key needed)** option lets you build without a key, within limits.
+    The AI is the only part that can cost money. You use your own API key, and your AI provider bills you for what you use. Many providers offer a free tier or starter credit.
   </Accordion>
 
   <Accordion title="Is there a limit on how many apps I can build?">
-    AppBlips sets none. With your own key, only your provider's limits and your budget apply. **Free (no key needed)** has usage limits set by whoever runs it.
+    AppBlips sets none. Only your provider's limits and your budget apply.
   </Accordion>
 
   <Accordion title="What's the difference between the desktop app and the browser version?">
@@ -49,9 +49,7 @@ Short answers to the questions people ask most.
 
 <AccordionGroup>
   <Accordion title="Do I need an API key?">
-    Usually, yes. An API key is a secret code from an AI provider that lets AppBlips use your account there. Paste it into AppBlips once. See [Choose an AI provider](/ai-providers).
-
-    You don't need one if your copy of AppBlips offers **Free (no key needed)**, as [web.appblips.com](/quickstart-browser) does.
+    Yes. An API key is a secret code from an AI provider that lets AppBlips use your account there. Paste it into AppBlips once. See [Choose an AI provider](/ai-providers).
   </Accordion>
 
   <Accordion title="Which AI providers can I use?">
@@ -102,8 +100,7 @@ Short answers to the questions people ask most.
     **Always, or as part of normal use**
 
     - **Your AI provider** (the one in **Settings → AI**): receives your prompts, your project's code and any images you attach, to build your app.
-    - **The AppBlips server** (browser version): the server the page was opened from. For a copy you run yourself, that's your own computer. On web.appblips.com it's AppBlips' server. With your own key, AI requests and Tavily and Pixabay searches go straight from your browser to those services, not through the server. The server handles **Free (no key needed)**, using the AI provider chosen by whoever runs that copy, and passes on Publish (Surge) and Pollinations requests, which those services don't accept from a browser. It doesn't store your projects or keys.
-    - **Free AI sign-in (Clerk):** only if your copy asks you to sign in to use **Free (no key needed)**. Sign-in uses Clerk with your Google or GitHub account.
+    - **The AppBlips server** (browser version): the server the page was opened from. For a copy you run yourself, that's your own computer. On web.appblips.com it's AppBlips' server. AI requests and Tavily and Pixabay searches go straight from your browser to those services, not through the server. The server runs photo library searches (Unsplash) and passes on Publish (Surge) and Pollinations requests, which those services don't accept from a browser. It doesn't store your projects or keys.
     - **GitHub:** to check for new versions at startup and every hour. The AppImage also downloads updates from there. Turn this off in **Settings → Workspace → Check for updates**. The Snap version checks the Snap Store instead, and the Microsoft Store version only checks GitHub for announcements.
     - **AppBlips website (appblips.com):** the app checks the date of the Privacy Policy and Terms of Service so it can ask you to agree again if they change. Links to the policies, Showcase and docs open there.
     - **Google Fonts:** for the fonts AppBlips uses.

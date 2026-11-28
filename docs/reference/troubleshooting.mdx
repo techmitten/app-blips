@@ -73,10 +73,8 @@ Linux doesn't use Smart App Control, so the AppImage and `.deb` aren't blocked t
     AppBlips thinks the request came from another website. This usually happens behind a reverse proxy. Add the exact address you open AppBlips at to `APPBLIPS_CHAT_ALLOWED_ORIGINS` in `.env` and restart. See the [Configuration reference](/self-hosting/configuration#server).
   </Accordion>
 
-  <Accordion title="&quot;AppBlips isn't set up yet&quot;">
+  <Accordion title="&quot;Choose an AI provider and add your API key in Settings → AI.&quot;">
     No AI provider is set up. Open **Settings → AI**, choose a provider, paste your API key, pick a model and click **Save**. See [Choose an AI provider](/ai-providers).
-
-    If you gave the server a provider in `.env`, the rest of the message says what's missing or wrong. Fix it and restart. See the [Configuration reference](/self-hosting/configuration#ai-provider-for-the-server).
   </Accordion>
 
   <Accordion title="npm install or npm start fails">
@@ -108,7 +106,7 @@ Linux doesn't use Smart App Control, so the AppImage and `.deb` aren't blocked t
     The app's code probably has an error. AppBlips fixes most of these by itself. If it stays blank:
 
     1. Send a follow-up, such as `The preview is blank. Fix any JavaScript errors`.
-    2. Click the camera button next to the prompt box to attach a screenshot, so the AI sees what you see. In the browser version, this needs your own API key; Free AI doesn't take images.
+    2. Click the camera button next to the prompt box to attach a screenshot, so the AI sees what you see.
     3. Still blank? Click **Previous version** and try your prompt again with more detail.
 
     <Tip>
@@ -180,10 +178,6 @@ Linux doesn't use Smart App Control, so the AppImage and `.deb` aren't blocked t
     In the browser version this message can also mean the provider turned the request down, because some providers (OpenAI) don't let the browser read their error replies.
   </Accordion>
 
-  <Accordion title="&quot;Failed to reach LLM endpoint&quot;">
-    AppBlips couldn't connect to the AI provider for **Free (no key needed)**. Check that your computer is online and that the provider isn't having an outage. If you run the server yourself, check its provider settings in `.env`.
-  </Accordion>
-
   <Accordion title="The build hangs, or &quot;Stream stalled: no data received for 180s&quot;">
     The provider stopped sending data for 3 minutes.
 
@@ -195,7 +189,7 @@ Linux doesn't use Smart App Control, so the AppImage and `.deb` aren't blocked t
   <Accordion title="The app was cut off or is incomplete">
     Every AI reply has a length limit, and the reply hit it.
 
-    1. Open **Settings → AI**. If **Output tokens: building** has a number in it, click **Use default** to go back to 64,000. If you don't see the field, you're using the Free option and the server sets its limit. Switch to your own provider and key to choose your own.
+    1. Open **Settings → AI**. If **Output tokens: building** has a number in it, click **Use default** to go back to 64,000.
     2. Ask for the rest, for example `Finish the parts that are missing`.
     3. For a very large app, build in steps: the main screen first, then one feature per prompt.
     4. Some models have a low limit of their own. Try another model.
@@ -206,24 +200,6 @@ Linux doesn't use Smart App Control, so the AppImage and `.deb` aren't blocked t
 
     - **No credit left** on your provider account. Many providers report this as a rate limit.
     - **Too many requests** for your provider's limits. Wait a minute and try again.
-  </Accordion>
-
-  <Accordion title="&quot;Sign in with Google or GitHub to use Free AI&quot;, or &quot;The Free AI sign-in couldn't load&quot;">
-    Some copies of AppBlips, such as [web.appblips.com](/quickstart-browser), ask you to sign in before you use **Free (no key needed)**.
-
-    - **To sign in:** open **Settings → AI**, choose **Free (no key needed)** and click **Sign in**. If nothing appears, allow pop-ups for the site.
-    - **If the sign-in won't load:** check your connection and any extension that blocks sign-in pages, then reload the page.
-    - **To skip signing in:** use your own API key in **Settings → AI**.
-  </Accordion>
-
-  <Accordion title="&quot;You've used today's Free AI allowance&quot; or another Free AI limit">
-    **Free (no key needed)** has limits so it stays available for everyone. The message tells you what to do:
-
-    - `You've reached the Free AI limit …`: wait the number of minutes it shows.
-    - `You've used today's Free AI allowance.` or `Free AI has used up today's allowance for everyone.`: it resets at midnight UTC.
-    - `Free AI is still answering your other requests.`: wait for your other builds to finish.
-
-    To keep building now, add your own API key in **Settings → AI**. See [Choose an AI provider](/ai-providers).
   </Accordion>
 
   <Accordion title="&quot;Claude declined this request&quot;">

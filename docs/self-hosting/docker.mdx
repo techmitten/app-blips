@@ -64,13 +64,15 @@ Run these in the AppBlips folder.
   Your browser keeps projects separately for each address, so the new port starts empty. Before you switch, go to **Settings → Data → Export** at the old address. Then use **Settings → Data → Import…** at the new one.
 </Warning>
 
-## Give the server its own AI provider
+## Add the photo library
 
-You can put an AI provider in the same `.env` file. AppBlips then offers a **Free (no key needed)** option that uses it. For example:
+With an Unsplash key in the same `.env` file, the AI uses real, credited photos in websites and apps. For example:
 
 ```bash
-OPENAI_API_KEY=sk-ant-...
+UNSPLASH_ACCESS_KEY=your-access-key
 ```
+
+Everyone still chooses their own AI provider and key in **Settings → AI**.
 
 Run `docker compose up -d` after you change `.env`. The [configuration reference](/self-hosting/configuration) lists every setting.
 
@@ -79,5 +81,5 @@ Run `docker compose up -d` after you change `.env`. The [configuration reference
 `docker-compose.yml` publishes AppBlips on `127.0.0.1`, so only your own computer can open it.
 
 <Warning>
-  Keep the `127.0.0.1:` part. AppBlips has no sign-in, so anyone who can reach it can build with the key you gave the server. See [Security](/self-hosting/security#if-you-open-appblips-to-other-devices).
+  Keep the `127.0.0.1:` part. AppBlips has no sign-in, so anyone who can reach it can use it, including any Unsplash key you set. See [Security](/self-hosting/security#if-you-open-appblips-to-other-devices).
 </Warning>
